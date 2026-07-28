@@ -9,9 +9,24 @@ from datetime import date, datetime, timezone, timedelta
 from flask import Flask, request, jsonify, render_template, Response, session
 import requests
 import uuid
+import bcrypt
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger(__name__)
+
+# ── Password hashing helpers ─────────────────────────────────────────────────
+def hash_password(plain):
+    """Hash a plaintext password with bcrypt for storage."""
+    return bcrypt.hashpw(plain.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+def verify_password(plain, hashed):
+    """Check a plaintext password against a stored bcrypt hash. Never raises."""
+    if not plain or not hashed:
+        return False
+    try:
+        return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
+    except (ValueError, TypeError):
+        return False
 
 # ── Kiosk IP restriction ─────────────────────────────────────────────────────
 KIOSK_PASS = os.environ["KIOSK_ADMIN_PASS"]
@@ -198,14 +213,14 @@ def api_login():
     for field in ["username", "email", "name"]:
         r = requests.get(
             f"{SUPABASE_URL}/rest/v1/app_users"
-            f"?select=name,role,email,phone,username,approved"
+            f"?select=name,role,email,phone,username,approved,password"
             f"&{field}=eq.{requests.utils.quote(username)}"
-            f"&password=eq.{requests.utils.quote(password)}"
             f"&limit=1",
             headers=sb_headers()
         )
-        users = r.json() if r.ok else []
-        if users:
+        candidates = r.json() if r.ok else []
+        if candidates and verify_password(password, candidates[0].get("password", "")):
+            users = candidates
             break
     if not users:
         return jsonify({"error": "Invalid username or password"}), 401
@@ -253,7 +268,7 @@ def api_register():
         "username": username,
         "email": email,
         "phone": phone or None,
-        "password": password,
+        "password": hash_password(password),
         "role": "worker",
         "approved": False,
         "consent_signed": True,
@@ -342,7 +357,7 @@ def forgot_password():
     upd = requests.patch(
         f"{SUPABASE_URL}/rest/v1/app_users?email=eq.{requests.utils.quote(email)}",
         headers={**sb_headers(), "Prefer": "return=representation"},
-        json={"password": temp_pw}
+        json={"password": hash_password(temp_pw)}
     )
     if not upd.ok:
         return jsonify({"error": "Failed to reset password"}), 500
@@ -413,7 +428,7 @@ def admin_reset_password():
     r = requests.patch(
         f"{SUPABASE_URL}/rest/v1/app_users?name=eq.{requests.utils.quote(target_name)}",
         headers={**sb_headers(), "Prefer": "return=representation"},
-        json={"password": new_pw}
+        json={"password": hash_password(new_pw)}
     )
     return jsonify({"ok": r.ok, "error": r.text if not r.ok else None})
 
@@ -4042,12 +4057,12 @@ def contractor_change_password():
     users = r.json() if r.ok else []
     if not users:
         return jsonify({"error":"User not found"}),404
-    if users[0].get("password","") != curr_pw:
+    if not verify_password(curr_pw, users[0].get("password","")):
         return jsonify({"error":"Current password incorrect"}),403
     # Update password
     r2 = requests.patch(
         f"{SUPABASE_URL}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}",
-        json={"password": new_pw},
+        json={"password": hash_password(new_pw)},
         headers={**sb_headers(), "Prefer":"return=representation"}
     )
     return jsonify({"ok": r2.ok})
