@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 
 # ── Kiosk IP restriction ─────────────────────────────────────────────────────
-KIOSK_PASS = os.environ.get("KIOSK_ADMIN_PASS", "MBR2026admin")
+KIOSK_PASS = os.environ["KIOSK_ADMIN_PASS"]
 # KIOSK_IPS supports exact IPs and prefix patterns (e.g. "174.202." matches
 # any IP starting with that prefix). Comma-separated. Set in Render env vars.
 # Using a prefix like "174.202." handles dynamic IPs from the same ISP.
@@ -118,29 +118,29 @@ def send_registration_email(to_email, name, username, role="worker"):
         return  # Not configured — skip silently
     try:
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = "Welcome to MBR Texas Operations"
+        msg["Subject"] = "Welcome to Meridian Structural Group Operations"
         msg["From"]    = SMTP_EMAIL
         msg["To"]      = to_email
         html = f"""
         <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#0f1117;color:#e2e8f0;border-radius:12px;padding:32px;">
-          <div style="background:#1a6bc4;width:48px;height:48px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#fff;margin-bottom:20px;">MBR</div>
+          <div style="background:#1e9484;width:48px;height:48px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#fff;margin-bottom:20px;">MSG</div>
           <h2 style="margin:0 0 8px;">Welcome, {name}!</h2>
-          <p style="color:#94a3b8;margin:0 0 24px;">Your MBR Texas account has been created.</p>
+          <p style="color:#94a3b8;margin:0 0 24px;">Your Meridian Structural Group account has been created.</p>
           <table style="background:#1a2234;border-radius:8px;padding:18px 20px;width:100%;border-collapse:collapse;">
             <tr><td style="color:#64748b;font-size:12px;padding:6px 12px 6px 0;width:90px;">USERNAME</td><td style="color:#e2e8f0;font-weight:700;padding:6px 0;font-size:14px;">{username}</td></tr>
             <tr><td style="color:#64748b;font-size:12px;padding:6px 12px 6px 0;">ROLE</td><td style="color:#e2e8f0;padding:6px 0;font-size:14px;">{role.capitalize()}</td></tr>
             <tr><td style="color:#64748b;font-size:12px;padding:6px 12px 6px 0;">EMAIL</td><td style="color:#e2e8f0;padding:6px 0;font-size:14px;">{to_email}</td></tr>
           </table>
           <p style="margin:20px 0 8px;color:#94a3b8;font-size:13px;">Access the platform at:</p>
-          <a href="https://tdg-tracker.onrender.com/login" style="display:inline-block;background:#1a6bc4;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;">Sign In →</a>
+          <a href="https://bsynch.com/login" style="display:inline-block;background:#1e9484;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;">Sign In →</a>
           <p style="margin-top:24px;color:#475569;font-size:12px;">Keep your password secure. Contact your supervisor if you need assistance.</p>
-          <p style="color:#334155;font-size:11px;margin-top:16px;">MBR Texas · TDG Data Center Operations</p>
+          <p style="color:#334155;font-size:11px;margin-top:16px;">Meridian Structural Group · Project Summit Operations</p>
         </div>
         """
         msg.attach(MIMEText(html, "html"))
         # Also send notification to admin
         admin_msg = MIMEMultipart("alternative")
-        admin_msg["Subject"] = f"New MBR account: {name} ({username})"
+        admin_msg["Subject"] = f"New Bsynch account: {name} ({username})"
         admin_msg["From"]    = SMTP_EMAIL
         admin_msg["To"]      = ADMIN_EMAIL
         admin_html = f"""
@@ -159,7 +159,7 @@ def send_registration_email(to_email, name, username, role="worker"):
         logger.error("[Email] %s", e)
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "mbr-kiosk-2026")
+app.secret_key = os.environ["SECRET_KEY"]
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
@@ -354,17 +354,17 @@ def forgot_password():
             from email.mime.multipart import MIMEMultipart as MM
             from email.mime.text import MIMEText as MT
             msg = MM("alternative")
-            msg["Subject"] = "MBR Texas — Password Reset"
+            msg["Subject"] = "Meridian Structural Group — Password Reset"
             msg["From"] = SMTP_EMAIL
             msg["To"] = email
             html = f"""
             <div style="font-family:Arial,sans-serif;max-width:480px;background:#0f1117;color:#e2e8f0;padding:32px;border-radius:12px;">
-              <div style="background:#1a6bc4;width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;margin-bottom:20px;font-size:16px;">MBR</div>
+              <div style="background:#1e9484;width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;margin-bottom:20px;font-size:16px;">MSG</div>
               <h2 style="margin:0 0 8px;">Password Reset</h2>
               <p style="color:#94a3b8;">Hi {user['name']}, here is your temporary password:</p>
-              <div style="background:#1a2234;border:1px solid #1e2d45;border-radius:8px;padding:16px 20px;margin:20px 0;font-size:24px;font-weight:700;letter-spacing:4px;color:#60a5fa;">{temp_pw}</div>
+              <div style="background:#1a2234;border:1px solid #1e2d45;border-radius:8px;padding:16px 20px;margin:20px 0;font-size:24px;font-weight:700;letter-spacing:4px;color:#5eead4;">{temp_pw}</div>
               <p style="color:#94a3b8;font-size:13px;">Sign in with this password, then change it immediately in your profile.</p>
-              <a href="https://tdg-tracker.onrender.com/login" style="display:inline-block;background:#1a6bc4;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:8px;">Go to Login →</a>
+              <a href="https://bsynch.com/login" style="display:inline-block;background:#1e9484;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:8px;">Go to Login →</a>
             </div>"""
             msg.attach(MT(html,"html"))
             with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as srv:
@@ -471,8 +471,8 @@ def submit_batch():
             "progress_pct": progress,
             "crew":         (entry.get("responsible") or "").strip(),
             "notes":        entry.get("notes", ""),
-            "tdg_number":   entry.get("tdg_number", ""),
-            "mbr_number":   entry.get("mbr_number", ""),
+            "unit_ref_no":   entry.get("unit_ref_no", ""),
+            "internal_job_no":   entry.get("internal_job_no", ""),
             "skid_by":      entry.get("skid_by", ""),
             "skid_ref":     entry.get("skid_ref", ""),
             "workers":      entry.get("workers") or None,
@@ -506,11 +506,11 @@ def unit_progress(position):
             latest[phase] = r["progress_pct"]  # always overwrite → last = most recent
     meta_resp = requests.get(
         f"{SUPABASE_URL}/rest/v1/{TABLE}"
-        f"?select=tdg_number,mbr_number,skid_by,skid_ref,fase,building_no"
+        f"?select=unit_ref_no,internal_job_no,skid_by,skid_ref,fase,building_no"
         f"&position=eq.{position}&order=created_at.desc&limit=100",
         headers=sb_headers()
     )
-    meta = {"tdg_number": "", "mbr_number": "", "skid_by": "", "skid_ref": "", "fase": "", "building_no": ""}
+    meta = {"unit_ref_no": "", "internal_job_no": "", "skid_by": "", "skid_ref": "", "fase": "", "building_no": ""}
     records = meta_resp.json() if meta_resp.ok else []
     # Use the most recent record as authoritative — empty string = explicitly cleared
     # (records ordered desc so first = most recent)
@@ -1472,21 +1472,21 @@ INT_ORDERED = [ap for ap in ORDERED_TRADES
 
 @app.route("/api/urgency-report")
 def urgency_report():
-    # 1. MBR numbers per position
-    mbr_resp = requests.get(f"{SUPABASE_URL}/rest/v1/rpc/get_latest_mbr_numbers", headers=sb_headers())
-    mbr_map = {}
-    for r in (mbr_resp.json() if mbr_resp.ok else []):
-        pos = r.get("position",""); mbr = r.get("mbr_number","")
-        if pos and str(mbr).strip():
-            try: mbr_map[pos] = int(str(mbr).strip())
+    # 1. Internal job numbers per position
+    internal_job_resp = requests.get(f"{SUPABASE_URL}/rest/v1/rpc/get_latest_internal_job_nos", headers=sb_headers())
+    internal_job_map = {}
+    for r in (internal_job_resp.json() if internal_job_resp.ok else []):
+        pos = r.get("position",""); job_no = r.get("internal_job_no","")
+        if pos and str(job_no).strip():
+            try: internal_job_map[pos] = int(str(job_no).strip())
             except (ValueError, TypeError): pass
 
-    if not mbr_map:
+    if not internal_job_map:
         return jsonify([])
 
     # 2. Latest progress per (position, area_phase) — same logic as unit-progress endpoint
-    # Query only positions that have MBR numbers; order asc so last entry wins (most recent)
-    pos_in = ",".join(f'"{p}"' for p in mbr_map.keys())
+    # Query only positions that have internal job numbers; order asc so last entry wins (most recent)
+    pos_in = ",".join(f'"{p}"' for p in internal_job_map.keys())
     prog_resp = requests.get(
         f"{SUPABASE_URL}/rest/v1/{TABLE}"
         f"?select=position,area_phase,progress_pct"
@@ -1503,7 +1503,7 @@ def urgency_report():
             progress[pos][ap] = pct  # last write wins = most recent
 
     # 3. Last 2 log entries per position (for "Last Updated" section)
-    pos_list = ",".join(f'"{p}"' for p in mbr_map.keys())
+    pos_list = ",".join(f'"{p}"' for p in internal_job_map.keys())
     recent_resp = requests.get(
         f"{SUPABASE_URL}/rest/v1/{TABLE}"
         f"?select=position,area_phase,progress_pct,date,period"
@@ -1528,7 +1528,7 @@ def urgency_report():
 
     # 4. Build urgency data per unit
     results = []
-    for pos, mbr_no in sorted(mbr_map.items(), key=lambda x: x[1]):
+    for pos, internal_job_no in sorted(internal_job_map.items(), key=lambda x: x[1]):
         trades = progress.get(pos, {})
         in_progress, not_started = [], []
         for ap in ORDERED_TRADES:
@@ -1551,7 +1551,7 @@ def urgency_report():
             continue
         results.append({
             "position": pos,
-            "mbr_no": mbr_no,
+            "internal_job_no": internal_job_no,
             "sec5_pct": sec5_pct,
             "last_updated": last_updated_map.get(pos, []),
             "in_progress": in_progress,
@@ -1560,20 +1560,20 @@ def urgency_report():
 
     return jsonify(results)
 
-@app.route("/all-mbr-numbers")
-def all_mbr_numbers():
-    """Return latest MBR No per unit position via RPC (DISTINCT ON — no limit truncation)."""
+@app.route("/all-internal-job-nos")
+def all_internal_job_nos():
+    """Return latest Internal Job No per unit position via RPC (DISTINCT ON — no limit truncation)."""
     resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/rpc/get_latest_mbr_numbers",
+        f"{SUPABASE_URL}/rest/v1/rpc/get_latest_internal_job_nos",
         headers=sb_headers()
     )
     records = resp.json() if resp.ok else []
     result = {}
     for r in records:
         pos = r.get("position", "") or ""
-        mbr = r.get("mbr_number") or ""
-        if pos and str(mbr).strip():
-            result[pos] = str(mbr).strip()
+        job_no = r.get("internal_job_no") or ""
+        if pos and str(job_no).strip():
+            result[pos] = str(job_no).strip()
     return jsonify(result)
 
 @app.route("/all-progress")
@@ -1693,10 +1693,10 @@ def notify_leads_attendance(worker_name, att_type, report_date, return_date, rea
         type_labels = {"late": "🕐 Running Late", "absent": "❌ Absent", "vacation": "🏖 Vacation"}
         type_label = type_labels.get(att_type, att_type.upper())
         range_str = f"<br><b>Back to Work On:</b> {return_date}" if return_date else ""
-        subject = f"MBR Texas Attendance — {worker_name} reported {att_type}"
+        subject = f"Meridian Structural Group Attendance — {worker_name} reported {att_type}"
         body_html = f"""
         <div style="font-family:Arial,sans-serif;max-width:480px;padding:20px;">
-          <h2 style="margin:0 0 16px;color:#1e3a5f;">📋 Attendance Report</h2>
+          <h2 style="margin:0 0 16px;color:#19354d;">📋 Attendance Report</h2>
           <table style="width:100%;border-collapse:collapse;font-size:14px;">
             <tr><td style="padding:8px 0;color:#64748b;width:140px;">Type</td>
                 <td style="padding:8px 0;font-weight:700;">{type_label}</td></tr>
@@ -1707,7 +1707,7 @@ def notify_leads_attendance(worker_name, att_type, report_date, return_date, rea
             <tr><td style="padding:8px 0;color:#64748b;">Reason</td>
                 <td style="padding:8px 0;">{reason or "—"}</td></tr>
           </table>
-          <p style="margin-top:20px;font-size:12px;color:#94a3b8;">MBR Texas · TDG Tracker · Auto-notification</p>
+          <p style="margin-top:20px;font-size:12px;color:#94a3b8;">Meridian Structural Group · Bsynch · Auto-notification</p>
         </div>"""
 
         for lead in leads:
@@ -1905,7 +1905,7 @@ _CAT_PREFIX = {
 }
 def gen_sku(category, item_id):
     pfx = _CAT_PREFIX.get(category, (category[:3].upper() if category else 'GEN'))
-    return f"MBR-{pfx}-{str(item_id).zfill(4)}"
+    return f"MSG-{pfx}-{str(item_id).zfill(4)}"
 
 @app.route("/api/inventory", methods=["GET"])
 def get_inventory():
@@ -2102,7 +2102,7 @@ def email_low_stock():
     from datetime import datetime
     now_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
     html = f"""<div style="background:#060c18;padding:24px;font-family:Arial,sans-serif;">
-<h2 style="color:#f87171;margin:0 0 8px;">⚠️ Low Stock Alert — MBR Texas</h2>
+<h2 style="color:#f87171;margin:0 0 8px;">⚠️ Low Stock Alert — Meridian Structural Group</h2>
 <p style="color:#94a3b8;margin:0 0 20px;font-size:13px;">Generated {now_str} &middot; {len(items)} item(s) at or below safe quantity</p>
 <table style="width:100%;border-collapse:collapse;background:#0d1a2d;border-radius:8px;overflow:hidden;">
 <thead><tr>
@@ -2515,11 +2515,11 @@ def inventory_locations_qr_pdf():
     c = rl_canvas.Canvas(buf, pagesize=letter)
     
     # Header
-    c.setFillColorRGB(0.118, 0.227, 0.373)  # #1e3a5f
+    c.setFillColorRGB(0.118, 0.227, 0.373)  # #19354d
     c.rect(0, H-52, W, 52, fill=1, stroke=0)
     c.setFillColorRGB(1,1,1)
     c.setFont("Helvetica-Bold", 16)
-    c.drawString(36, H-34, "MBR Texas — Inventory Location QR Codes")
+    c.drawString(36, H-34, "Meridian Structural Group — Inventory Location QR Codes")
     c.setFont("Helvetica", 9)
     from datetime import datetime
     c.drawString(36, H-47, f"Generated {datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC")
@@ -2545,12 +2545,12 @@ def inventory_locations_qr_pdf():
             c.rect(0, H-52, W, 52, fill=1, stroke=0)
             c.setFillColorRGB(1,1,1)
             c.setFont("Helvetica-Bold", 16)
-            c.drawString(36, H-34, "MBR Texas — Inventory Location QR Codes")
+            c.drawString(36, H-34, "Meridian Structural Group — Inventory Location QR Codes")
             cy = H - 52 - 20
             row = 0
 
         # Generate QR
-        qr_url = f"https://tdg-tracker.onrender.com/inventory?loc={loc}"
+        qr_url = f"https://bsynch.com/inventory?loc={loc}"
         qr_img = qrcode.make(qr_url)
         qr_buf = _io.BytesIO()
         qr_img.save(qr_buf, format='PNG')
@@ -2579,7 +2579,7 @@ def inventory_locations_qr_pdf():
     from flask import send_file
     return send_file(buf, mimetype='application/pdf',
                      as_attachment=True,
-                     download_name='MBR_Inventory_Locations_QR.pdf')
+                     download_name='Bsynch_Inventory_Locations_QR.pdf')
 
 
 @app.route("/api/inventory/sku-backfill", methods=["POST"])
@@ -3147,7 +3147,7 @@ def create_user():
     payload = {"name": name, "role": role,
                "email": data.get("email") or None,
                "phone": data.get("phone") or None,
-               "company": data.get("company") or "MBR Texas"}
+               "company": data.get("company") or "Meridian Structural Group"}
     if data.get("pin"):
         payload["pin"] = str(data["pin"])
     r = requests.post(
@@ -3168,7 +3168,7 @@ def update_user_by_name(name):
     if "email" in data:  payload["email"] = data["email"] or None
     if "phone" in data:  payload["phone"] = data["phone"] or None
     if "led_by"  in data: payload["led_by"]  = data["led_by"] or None
-    if "company" in data: payload["company"] = data["company"] or "MBR Texas"
+    if "company" in data: payload["company"] = data["company"] or "Meridian Structural Group"
     new_name = data.get("new_name", "").strip()
     if new_name:         payload["name"]  = new_name
     if not payload:
@@ -3517,7 +3517,7 @@ def get_contractor_profile():
     u = rows[0]
     return jsonify({"ok": True, "name": u["name"],
                     "pin_set": bool(u.get("pin")),
-                    "contractor_company": u.get("company") or "MBR Texas"})
+                    "contractor_company": u.get("company") or "Meridian Structural Group"})
 
 @app.route("/api/contractor/profile", methods=["PATCH"])
 def update_contractor_profile():
@@ -3668,9 +3668,9 @@ def mark_unit_sent(position):
     from flask import send_file
     data = request.json or {}
     editor     = data.get("editor", "Unknown")
-    tdg_number = data.get("tdg_number", "")
-    mbr_number = data.get("mbr_number", "")
-    mbr_skid   = data.get("mbr_skid", "")
+    unit_ref_no = data.get("unit_ref_no", "")
+    internal_job_no = data.get("internal_job_no", "")
+    skid_ref   = data.get("skid_ref", "")
     fase       = data.get("fase", "")
     building   = data.get("building_no", "")
 
@@ -3720,9 +3720,9 @@ def mark_unit_sent(position):
     }
     sent_payload = {
         "position": position,
-        "tdg_number": tdg_number,
-        "mbr_number": mbr_number,
-        "mbr_skid": mbr_skid,
+        "unit_ref_no": unit_ref_no,
+        "internal_job_no": internal_job_no,
+        "skid_ref": skid_ref,
         "fase": fase,
         "building_no": building,
         "sent_date": _dt_date.today().isoformat(),
@@ -3748,9 +3748,9 @@ def mark_unit_sent(position):
     w = csv.writer(buf)
     w.writerow(["UNIT SENT REPORT"])
     w.writerow(["Position", position])
-    w.writerow(["TDG No", tdg_number])
-    w.writerow(["MBR No", mbr_number])
-    w.writerow(["MBR Skid", mbr_skid])
+    w.writerow(["Summit No", unit_ref_no])
+    w.writerow(["MSG No", internal_job_no])
+    w.writerow(["MSG Skid", skid_ref])
     w.writerow(["Fase", fase])
     w.writerow(["Building", building])
     w.writerow(["Date Sent", _dt_date.today().isoformat()])
@@ -3776,7 +3776,7 @@ def mark_unit_sent(position):
 def get_sent_units():
     r = requests.get(
         f"{SUPABASE_URL}/rest/v1/{SENT_TABLE}"
-        f"?select=id,position,tdg_number,mbr_number,sent_date,sent_by,overall_pct,log_count"
+        f"?select=id,position,unit_ref_no,internal_job_no,sent_date,sent_by,overall_pct,log_count"
         f"&order=sent_date.desc&limit=200",
         headers=sb_headers()
     )
@@ -4207,12 +4207,12 @@ def build_location_pdf(target_date=None):
     c.rect(0, PAGE_H - 64, PAGE_W, 4, fill=1, stroke=0)
     c.setFillColor(white)
     c.setFont("Helvetica-Bold", 16)
-    c.drawString(MARGIN, PAGE_H - 38, "MBR Texas — Location Movement Report")
+    c.drawString(MARGIN, PAGE_H - 38, "Meridian Structural Group — Location Movement Report")
     c.setFont("Helvetica", 10)
     c.drawRightString(PAGE_W - MARGIN, PAGE_H - 38, f"Date: {target_date}")
     c.setFillColor(LGRAY)
     c.setFont("Helvetica", 9)
-    c.drawString(MARGIN, PAGE_H - 54, f"TDG Data Center Project · Katy, TX  ·  Total movements: {len(rows)}")
+    c.drawString(MARGIN, PAGE_H - 54, f"Project Summit · Katy, TX  ·  Total movements: {len(rows)}")
 
     y = PAGE_H - 80
 
@@ -4273,7 +4273,7 @@ def build_location_pdf(target_date=None):
     c.setFillColor(LGRAY)
     c.setFont("Helvetica", 8)
     c.drawCentredString(PAGE_W/2, MARGIN/2,
-        f"Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC  ·  MBR Texas / TDG Data Center")
+        f"Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC  ·  Meridian Structural Group / Project Summit")
 
     c.save()
     buf.seek(0)
@@ -4356,16 +4356,16 @@ def _nightly_report_and_reset():
     if SMTP_EMAIL and SMTP_PASSWORD and ADMIN_EMAIL:
         try:
             msg = MIMEMultipart()
-            msg["Subject"] = f"MBR Texas — Location Report {report_date}"
+            msg["Subject"] = f"Meridian Structural Group — Location Report {report_date}"
             msg["From"]    = SMTP_EMAIL
             msg["To"]      = ADMIN_EMAIL
 
             body_html = f"""
             <div style="font-family:Arial,sans-serif;max-width:520px;background:#0f1117;color:#e2e8f0;padding:28px;border-radius:12px;">
-              <div style="background:#1a6bc4;width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;margin-bottom:16px;font-size:16px;">MBR</div>
+              <div style="background:#1e9484;width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;margin-bottom:16px;font-size:16px;">MSG</div>
               <h2 style="margin:0 0 6px;">Location Report — {report_date}</h2>
               <p style="color:#94a3b8;font-size:14px;margin:0 0 16px;">
-                {row_count} worker movements recorded today on the TDG Data Center project.
+                {row_count} worker movements recorded today on the Project Summit project.
                 The full report is attached as a PDF.
               </p>
               <p style="color:#64748b;font-size:12px;">Worker location table has been cleared for tomorrow.</p>

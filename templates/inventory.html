@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNiIgZmlsbD0iIzFhNmJjNCIvPjx0ZXh0IHg9IjE2IiB5PSIyMyIgZm9udC1mYW1pbHk9IkFyaWFsLHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSI+QjwvdGV4dD48L3N2Zz4=">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNiIgZmlsbD0iIzFlOTQ4NCIvPjx0ZXh0IHg9IjE2IiB5PSIyMyIgZm9udC1mYW1pbHk9IkFyaWFsLHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSI+QjwvdGV4dD48L3N2Zz4=">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Material Management — BSynch</title>
 <style>
-:root{--bg:#f0f4f8;--card:#ffffff;--border:#e2e8f0;--text:#0f172a;--muted:#64748b;--accent:#1a6bc4;--green:#16a34a;--amber:#d97706;--red:#dc2626;}
+:root{--bg:#f0f4f8;--card:#ffffff;--border:#e2e8f0;--text:#0f172a;--muted:#64748b;--accent:#1e9484;--green:#16a34a;--amber:#d97706;--red:#dc2626;}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;padding-bottom:80px;}
-.header{background:#1e3a5f;border-bottom:2px solid #0f2d52;position:sticky;top:0;z-index:100;display:flex;flex-direction:column;box-shadow:0 3px 10px rgba(0,0,0,0.18);}
+.header{background:#19354d;border-bottom:2px solid #0f2d52;position:sticky;top:0;z-index:100;display:flex;flex-direction:column;box-shadow:0 3px 10px rgba(0,0,0,0.18);}
 .header-primary{display:flex;align-items:center;gap:8px;padding:9px 14px;}
 .header-search{padding:0 14px 9px;}
 .hlogo{font-size:14px;font-weight:900;color:var(--accent);white-space:nowrap;}
@@ -58,7 +58,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .ic-cat-edit{display:none;padding:6px 8px 8px;gap:6px;align-items:center;border-top:1px solid #e2e8f0;background:#f8fafc;}
 .editor-active .ic-cat-edit{display:flex;}
 .cat-sel{flex:1;font-size:12px;padding:0 8px;border:1px solid #cbd5e1;border-radius:7px;background:#fff;color:#0f172a;height:34px;}
-.ic-move-btn{height:34px;padding:0 16px;background:#1a6bc4;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px;}
+.ic-move-btn{height:34px;padding:0 16px;background:#1e9484;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px;}
 .ic-move-btn:hover{background:#1558a8;}
 .fab{position:fixed;bottom:76px;right:16px;height:42px;padding:0 18px;background:var(--accent);border:none;border-radius:22px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 18px rgba(26,107,196,.5);z-index:200;display:flex;align-items:center;gap:6px;white-space:nowrap;}
 .fab-add{position:fixed;bottom:128px;right:16px;width:44px;height:44px;background:#22c55e;border:none;border-radius:50%;color:#fff;font-size:20px;cursor:pointer;box-shadow:0 3px 14px rgba(34,197,94,.4);z-index:200;display:none;align-items:center;justify-content:center;}
@@ -78,7 +78,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .aclist{position:absolute;width:100%;background:#fff;border:1.5px solid #3b82f6;border-top:none;border-radius:0 0 10px 10px;max-height:190px;overflow-y:auto;z-index:10;box-shadow:0 6px 16px rgba(0,0,0,.18);}
 .aclist div{padding:10px 13px;font-size:13px;cursor:pointer;color:#1e293b;border-bottom:1px solid #f1f5f9;line-height:1.4;}
 .aclist div:last-child{border-bottom:none;}
-.aclist div:hover{background:#eff6ff;color:#1a6bc4;font-weight:600;}
+.aclist div:hover{background:#eff6ff;color:#1e9484;font-weight:600;}
 .dup-warn{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:9px 11px;font-size:12px;color:var(--amber);margin-top:7px;display:none;}
 .btn-p{width:100%;height:46px;background:var(--accent);border:none;border-radius:10px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;margin-top:5px;}
 .btn-s{width:100%;height:40px;background:transparent;border:1px solid var(--border);border-radius:10px;color:var(--muted);font-size:13px;cursor:pointer;margin-top:8px;}
@@ -101,16 +101,16 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .sb-pend{background:rgba(245,158,11,.15);color:var(--amber);}
 .sb-appr{background:rgba(34,197,94,.15);color:var(--green);}
 .sb-rej{background:rgba(239,68,68,.1);color:var(--red);}
-.sb-deliv{background:rgba(14,165,233,.15);color:#38bdf8;}
+.sb-deliv{background:rgba(14,165,233,.15);color:#34d3b8;}
 .req-bell-btn{position:relative;display:flex;align-items:center;justify-content:center;background:none;border:1px solid var(--border);border-radius:8px;width:36px;height:34px;cursor:pointer;font-size:16px;color:var(--muted);}
 .req-bell-btn.has-pending{border-color:rgba(245,158,11,.4);color:var(--amber);}
 .req-bell-badge{position:absolute;top:-5px;right:-5px;background:#ef4444;color:#fff;font-size:9px;font-weight:800;border-radius:10px;padding:1px 5px;min-width:16px;height:16px;line-height:14px;text-align:center;display:none;}
 .rq-tab-bar{display:flex;border-bottom:1px solid var(--border);margin-bottom:12px;gap:0;}
 .rq-tab{flex:1;height:36px;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;}
 .rq-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
-.sig-wrap{border:2px dashed #1e3a5f;border-radius:10px;background:#f8fafc;overflow:hidden;position:relative;margin-bottom:10px;}
+.sig-wrap{border:2px dashed #19354d;border-radius:10px;background:#f8fafc;overflow:hidden;position:relative;margin-bottom:10px;}
 .sig-canvas{display:block;width:100%;height:160px;cursor:crosshair;touch-action:none;}
-.sig-hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#1e3a5f;font-size:13px;pointer-events:none;white-space:nowrap;}
+.sig-hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#19354d;font-size:13px;pointer-events:none;white-space:nowrap;}
 .toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%);z-index:99999;background:#1a3a6c;border:1px solid var(--accent);color:var(--text);padding:9px 18px;border-radius:10px;font-size:13px;z-index:999;display:none;max-width:88%;text-align:center;}
 .toast.error{background:#3a1a1a;border-color:var(--red);}
 .empty{text-align:center;padding:60px 20px;color:var(--muted);}
@@ -119,7 +119,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .inv-tabs{display:flex;border-bottom:2px solid #e2e8f0;background:#ffffff;padding:0 12px;flex-wrap:wrap;}
 .inv-tab{height:38px;padding:0 18px;background:none;border:none;border-bottom:3px solid transparent;margin-bottom:-2px;color:#64748b;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;}
 .inv-tab.active{color:#f59e0b;border-bottom-color:#f59e0b;}
-.inv-tab:hover{color:#1e3a5f;}
+.inv-tab:hover{color:#19354d;}
 @media(max-width:640px){.inv-tab{font-size:11px;padding:0 10px;height:34px;}}
 /* ── Unit Materials panel ── */
 .um-panel{display:none;padding:14px 14px 80px;}
@@ -194,23 +194,23 @@ body{padding-bottom:60px !important;}
 
 <style id="light-theme">
 /* ============================================
-   MBR TEXAS — LIGHT CORPORATE THEME
+   BSYNCH — LIGHT CORPORATE THEME
    High-contrast for outdoor / sunlight use
    ============================================ */
 :root{
   --bg:#f0f4f8;--card:#ffffff;--border:#cbd5e1;
   --text:#0f172a;--muted:#475569;
-  --accent:#1a6bc4;--green:#15803d;
+  --accent:#1e9484;--green:#15803d;
   --red:#b91c1c;--yellow:#92400e;--purple:#6d28d9;
 }
 html,body{background:#f0f4f8 !important;color:#0f172a !important;}
 
 /* ── Headers: stay dark blue (brand + readable with sunglasses) ── */
 .header,.topbar,header,#app-header{
-  background:#1e3a5f !important;color:#e2e8f0 !important;
+  background:#19354d !important;color:#e2e8f0 !important;
   border-bottom-color:#0f2d52 !important;
 }
-.hlogo{color:#60a5fa !important;}
+.hlogo{color:#5eead4 !important;}
 .back-btn,.topbar a,.header a{color:#93c5fd !important;}
 
 /* ── Gate / auth area ── */
@@ -225,23 +225,23 @@ html,body{background:#f0f4f8 !important;color:#0f172a !important;}
   background:#f1f5f9 !important;border-color:#e2e8f0 !important;color:#0f172a !important;
 }
 .name-btn:hover,.name-btn:active,.user-btn.active,.user-btn:hover{
-  background:#1a6bc4 !important;color:#ffffff !important;border-color:#1a6bc4 !important;
+  background:#1e9484 !important;color:#ffffff !important;border-color:#1e9484 !important;
 }
 
 /* ── PIN pad ── */
 .pin-dot,.dot{background:#e2e8f0 !important;border-color:#cbd5e1 !important;}
-.pin-dot.on,.dot.filled{background:#1a6bc4 !important;border-color:#1a6bc4 !important;}
+.pin-dot.on,.dot.filled{background:#1e9484 !important;border-color:#1e9484 !important;}
 .pk,.numpad button{
   background:#f1f5f9 !important;border-color:#e2e8f0 !important;color:#0f172a !important;
 }
-.pk:active,.numpad button:hover{background:#dbeafe !important;}
+.pk:active,.numpad button:hover{background:#d7f0ea !important;}
 .pin-err,.pinErr,#pinErr{color:#b91c1c !important;}
 
 /* ── Tabs ── */
 .tabs{border-bottom-color:#e2e8f0 !important;}
 .tab-btn{color:#475569 !important;}
 .tab-btn:hover{color:#0f172a !important;}
-.tab-btn.active{color:#1a6bc4 !important;border-bottom-color:#1a6bc4 !important;}
+.tab-btn.active{color:#1e9484 !important;border-bottom-color:#1e9484 !important;}
 .tab-btn.active,.tab-btn:hover{background:none !important;}
 
 /* ── Inputs / selects / textareas ── */
@@ -250,7 +250,7 @@ input,select,textarea,.sm-search{
   color:#0f172a !important;
 }
 input:focus,select:focus,textarea:focus,.sm-search:focus{
-  border-color:#1a6bc4 !important;outline:none;
+  border-color:#1e9484 !important;outline:none;
 }
 input::placeholder,.sm-search::placeholder{color:#94a3b8 !important;}
 
@@ -259,9 +259,9 @@ input::placeholder,.sm-search::placeholder{color:#94a3b8 !important;}
   background:#f1f5f9 !important;border-color:#e2e8f0 !important;color:#1e293b !important;
 }
 .btn-ghost:hover,.tool-btn:hover{background:#e2e8f0 !important;}
-.tool-btn.active{background:#dbeafe !important;border-color:#1a6bc4 !important;color:#1a6bc4 !important;}
-.eb-edit{border-color:#3b82f6 !important;color:#1d4ed8 !important;}
-.eb-edit:hover{background:#dbeafe !important;}
+.tool-btn.active{background:#d7f0ea !important;border-color:#1e9484 !important;color:#1e9484 !important;}
+.eb-edit{border-color:#3b82f6 !important;color:#157567 !important;}
+.eb-edit:hover{background:#d7f0ea !important;}
 .eb-del{border-color:#ef4444 !important;color:#b91c1c !important;}
 .eb-del:hover{background:#fee2e2 !important;}
 
@@ -284,14 +284,14 @@ input::placeholder,.sm-search::placeholder{color:#94a3b8 !important;}
 /* ── Phase banners ── */
 .phase-banner.meeting{background:#ede9fe !important;border-color:#c4b5fd !important;color:#6d28d9 !important;}
 .phase-banner.signin{background:#dcfce7 !important;border-color:#86efac !important;color:#15803d !important;}
-.phase-banner.saved{background:#dbeafe !important;border-color:#93c5fd !important;color:#1d4ed8 !important;}
+.phase-banner.saved{background:#d7f0ea !important;border-color:#93c5fd !important;color:#157567 !important;}
 
 /* ── User pill ── */
 .user-pill{background:#ede9fe !important;border-color:#a78bfa !important;color:#6d28d9 !important;}
 
 /* ── Info bars ── */
-.info-bar{background:#dbeafe !important;border-color:#93c5fd !important;color:#1e40af !important;}
-.info-bar strong{color:#1d4ed8 !important;}
+.info-bar{background:#d7f0ea !important;border-color:#93c5fd !important;color:#1e40af !important;}
+.info-bar strong{color:#157567 !important;}
 
 /* ── Tables ── */
 table{background:transparent !important;}
@@ -304,12 +304,12 @@ tr:hover td{background:#f8fafc !important;}
   background:#ffffff !important;border-color:#e2e8f0 !important;
   box-shadow:0 1px 4px rgba(0,0,0,.06) !important;
 }
-.summary-card .val{color:#1a6bc4 !important;}
+.summary-card .val{color:#1e9484 !important;}
 .summary-card .lbl{color:#475569 !important;}
 
 /* ── Badges ── */
 .badge-admin{background:#ede9fe !important;color:#5b21b6 !important;}
-.badge-lead,.badge-editor{background:#dbeafe !important;color:#1e40af !important;}
+.badge-lead,.badge-editor{background:#d7f0ea !important;color:#1e40af !important;}
 .badge-worker,.badge-active{background:#dcfce7 !important;color:#15803d !important;}
 .badge-inactive{background:#f1f5f9 !important;color:#64748b !important;}
 
@@ -327,9 +327,9 @@ tr:hover td{background:#f8fafc !important;}
 .modal{background:#ffffff !important;box-shadow:0 20px 60px rgba(0,0,0,.18) !important;}
 
 /* ── Global nav stays dark ── */
-.gnav{background:#1e3a5f !important;border-top-color:#0f2d52 !important;}
+.gnav{background:#19354d !important;border-top-color:#0f2d52 !important;}
 .gnav a{color:#94a3b8 !important;}
-.gnav a:hover,.gnav a.gna{color:#60a5fa !important;}
+.gnav a:hover,.gnav a.gna{color:#5eead4 !important;}
 
 /* ── Toast ── */
 #toast{background:#1e293b !important;color:#e2e8f0 !important;}
@@ -340,7 +340,7 @@ tr:hover td{background:#f8fafc !important;}
 ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px;}
 
 /* ── Log out / utility bars ── */
-.log-out-bar,.logout-area{background:#1e3a5f !important;}
+.log-out-bar,.logout-area{background:#19354d !important;}
 
 /* ── SM section ── */
 .sm-item{background:#ffffff !important;border-color:#e2e8f0 !important;}
@@ -348,7 +348,7 @@ tr:hover td{background:#f8fafc !important;}
 
 /* ── Landing page cards ── */
 .card{background:#ffffff !important;border-color:#e2e8f0 !important;}
-.card:hover{border-color:#1a6bc4 !important;box-shadow:0 8px 32px rgba(26,107,196,.12) !important;}
+.card:hover{border-color:#1e9484 !important;box-shadow:0 8px 32px rgba(26,107,196,.12) !important;}
 .card-body p{color:#475569 !important;}
 footer{color:#94a3b8 !important;border-top-color:#e2e8f0 !important;}
 
@@ -403,8 +403,8 @@ footer{color:#94a3b8 !important;border-top-color:#e2e8f0 !important;}
 <body>
 <script>
 (function(){
-  var role = localStorage.getItem('mbrRole') || '';
-  var name = localStorage.getItem('mbrAuth') || '';
+  var role = localStorage.getItem('bsynchRole') || '';
+  var name = localStorage.getItem('bsynchAuth') || '';
   var lvl  = {admin:5,boss:4,inventory:3,dispatcher:3,lead:2,worker:1,contractor:2}[role] || 0;
   if(!name || lvl < 2) { location.href='/home'; }
 })();
@@ -429,8 +429,8 @@ footer{color:#94a3b8 !important;border-top-color:#e2e8f0 !important;}
   <button class="fact-new-btn" id="factNewBtn" style="display:none;"></button>
 </div>
 <script>(function(){
-  var n=localStorage.getItem('mbrAuth')||'';
-  var r=localStorage.getItem('mbrRole')||'';
+  var n=localStorage.getItem('bsynchAuth')||'';
+  var r=localStorage.getItem('bsynchRole')||'';
   var el=document.getElementById('headerUser');
   if(!el||!n)return;
   el.innerHTML=
@@ -438,11 +438,11 @@ footer{color:#94a3b8 !important;border-top-color:#e2e8f0 !important;}
     +'<span id="chip-dot" style="width:8px;height:8px;border-radius:50%;background:#334155;flex-shrink:0;display:inline-block;transition:background .3s;"></span>'
     +'<span class="hdr-name" style="font-size:12px;font-weight:700;color:#94a3b8;white-space:nowrap;">'+n+'</span>'
     +'</div>'
-    +'<button onclick="localStorage.removeItem(\'mbrAuth\');localStorage.removeItem(\'mbrRole\');location.href=\'/login\';" style="padding:4px 10px;background:#1e2d45;border:1px solid #2d3f57;border-radius:7px;color:#94a3b8;font-size:11px;cursor:pointer;white-space:nowrap;flex-shrink:0;">Sign Out</button>';
+    +'<button onclick="localStorage.removeItem(\'bsynchAuth\');localStorage.removeItem(\'bsynchRole\');location.href=\'/login\';" style="padding:4px 10px;background:#1e2d45;border:1px solid #2d3f57;border-radius:7px;color:#94a3b8;font-size:11px;cursor:pointer;white-space:nowrap;flex-shrink:0;">Sign Out</button>';
 })();</script>
 <script>
 (function(){
-  var _a=localStorage.getItem('mbrAuth')||'';
+  var _a=localStorage.getItem('bsynchAuth')||'';
   if(!_a)return;
   function _upd(){
     fetch('/api/contractor/status?name='+encodeURIComponent(_a))
@@ -503,7 +503,7 @@ footer{color:#94a3b8 !important;border-top-color:#e2e8f0 !important;}
       <div class="inv-kpi-lbl" id="kpiValLbl">Stock Value</div>
     </div>
     <div class="inv-kpi" id="kpi-po" style="background:#eff6ff;cursor:pointer;" onclick="switchInvTab('receiving')">
-      <div class="inv-kpi-val" id="kpiPO" style="color:#1d4ed8;">—</div>
+      <div class="inv-kpi-val" id="kpiPO" style="color:#157567;">—</div>
       <div class="inv-kpi-lbl">Open POs ↗</div>
     </div>
   </div>
@@ -575,7 +575,7 @@ footer{color:#94a3b8 !important;border-top-color:#e2e8f0 !important;}
       </div>
       <div style="display:flex;gap:8px;">
         <button id="locSkuBackfillBtn" onclick="skuBackfill()" style="height:34px;padding:0 12px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:8px;color:#818cf8;font-size:12px;cursor:pointer;font-weight:700;">⚡ Generate SKUs</button>
-        <button onclick="window.open('/api/inventory/locations/qr-pdf','_blank')" style="height:34px;padding:0 14px;background:#1a6bc4;border:none;border-radius:8px;color:#fff;font-size:12px;cursor:pointer;font-weight:700;">📄 Export QR PDF</button>
+        <button onclick="window.open('/api/inventory/locations/qr-pdf','_blank')" style="height:34px;padding:0 14px;background:#1e9484;border:none;border-radius:8px;color:#fff;font-size:12px;cursor:pointer;font-weight:700;">📄 Export QR PDF</button>
       </div>
     </div>
     <!-- Location grid -->
@@ -634,7 +634,7 @@ footer{color:#94a3b8 !important;border-top-color:#e2e8f0 !important;}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
       <div>
         <label style="font-size:12px;color:var(--muted);font-weight:600;">Job / Unit</label>
-        <input id="mdJob" type="text" placeholder="e.g. TDG-Unit-05" style="width:100%;margin-top:4px;padding:8px;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--text);font-size:14px;box-sizing:border-box;">
+        <input id="mdJob" type="text" placeholder="e.g. Summit-Unit-05" style="width:100%;margin-top:4px;padding:8px;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--text);font-size:14px;box-sizing:border-box;">
       </div>
       <div>
         <label style="font-size:12px;color:var(--muted);font-weight:600;">Ref # (PO / REQ)</label>
@@ -825,7 +825,7 @@ footer{color:#94a3b8 !important;border-top-color:#e2e8f0 !important;}
     <div style="font-size:15px;font-weight:700;color:var(--text);">📋 Dispatch &amp; Requests</div>
     <div style="display:flex;gap:8px;align-items:center;">
       <button onclick="openReqModal()" style="height:34px;padding:0 14px;font-size:13px;font-weight:700;white-space:nowrap;border:none;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;background:#f97316;color:#fff;">+ Request</button>
-      <button onclick="openRequests()" style="height:34px;padding:0 14px;font-size:13px;font-weight:700;white-space:nowrap;border:none;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;background:#1a6bc4;color:#fff;">📬 Inbox</button>
+      <button onclick="openRequests()" style="height:34px;padding:0 14px;font-size:13px;font-weight:700;white-space:nowrap;border:none;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;background:#1e9484;color:#fff;">📬 Inbox</button>
     </div>
   </div>
   <!-- Compact filter bar -->
@@ -839,7 +839,7 @@ footer{color:#94a3b8 !important;border-top-color:#e2e8f0 !important;}
     </select>
     <select id="qCompany" onchange="runQuery()" style="height:30px;border:1px solid var(--border);border-radius:6px;padding:0 8px;font-size:12px;background:var(--card);color:var(--text);flex:1;min-width:100px;">
       <option value="">All Companies</option>
-      <option value="MBR Texas">BSynch</option>
+      <option value="Meridian Structural Group">Meridian Structural Group</option>
       <option>J&amp;F Sandblasting</option>
       <option>RV Solutions</option>
       <option>C.U.R. Roofing</option>
@@ -871,7 +871,7 @@ footer{color:#94a3b8 !important;border-top-color:#e2e8f0 !important;}
 
   <div style="margin-bottom:12px;">
     <label style="font-size:12px;color:var(--muted);font-weight:600;">Job / Unit *</label>
-    <input id="allocJobName" class="fi" type="text" placeholder="e.g. TDG-Unit-05 / Data Center Bldg 7" style="margin-top:4px;">
+    <input id="allocJobName" class="fi" type="text" placeholder="e.g. Summit-Unit-05 / Data Center Bldg 7" style="margin-top:4px;">
   </div>
 
   <div style="margin-bottom:4px;">
@@ -1061,7 +1061,7 @@ footer{color:#94a3b8 !important;border-top-color:#e2e8f0 !important;}
         <label class="fl" style="font-size:10px;">Company</label>
         <select class="fi" id="qCompany" onchange="runQuery()">
           <option value="">All</option>
-          <option value="MBR Texas">BSynch</option>
+          <option value="Meridian Structural Group">Meridian Structural Group</option>
           <option>J&amp;F Sandblasting</option>
           <option>RV Solutions</option>
           <option>C.U.R</option>
@@ -1071,7 +1071,7 @@ footer{color:#94a3b8 !important;border-top-color:#e2e8f0 !important;}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
       <div class="fg" style="position:relative;">
         <label class="fl" style="font-size:10px;">Job Name</label>
-        <input class="fi" id="qJob" type="text" placeholder="e.g. TDG Bldg 7" autocomplete="off"
+        <input class="fi" id="qJob" type="text" placeholder="e.g. Summit Bldg 7" autocomplete="off"
           oninput="qJobAC(this);runQuery()" list="qJobList">
         <datalist id="qJobList"></datalist>
       </div>
@@ -1097,7 +1097,7 @@ footer{color:#94a3b8 !important;border-top-color:#e2e8f0 !important;}
       <button class="btn-p" style="flex:1;height:36px;font-size:12px;" onclick="runQuery()">🔍 Search</button>
       <button class="btn-s" style="height:36px;padding:0 14px;font-size:12px;" onclick="clearQuery()">Clear</button>
       <button onclick="exportQueryCSV()" style="height:36px;padding:0 12px;background:#f8fafc;
-        border:1px solid var(--border);border-radius:8px;color:#38bdf8;font-size:12px;font-weight:700;cursor:pointer;">
+        border:1px solid var(--border);border-radius:8px;color:#34d3b8;font-size:12px;font-weight:700;cursor:pointer;">
         ⬇ CSV</button>
     </div>
   </div>
@@ -1250,7 +1250,7 @@ footer{color:#94a3b8 !important;border-top-color:#e2e8f0 !important;}
   <div class="mhandle"></div>
   <div id="ddContent" style="padding-bottom:8px;"></div>
   <div style="display:flex;gap:8px;margin-top:10px;">
-    <button onclick="printDispDetail()" style="flex:1;height:36px;font-size:13px;font-weight:600;border:none;border-radius:8px;background:#1a6bc4;color:#fff;cursor:pointer;">🖨 Print Receipt</button>
+    <button onclick="printDispDetail()" style="flex:1;height:36px;font-size:13px;font-weight:600;border:none;border-radius:8px;background:#1e9484;color:#fff;cursor:pointer;">🖨 Print Receipt</button>
     <button onclick="closeModal('dispDetailModal')" style="height:36px;padding:0 16px;font-size:13px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;color:#475569;cursor:pointer;">Close</button>
   </div>
 </div></div>
@@ -1272,13 +1272,13 @@ footer{color:#94a3b8 !important;border-top-color:#e2e8f0 !important;}
     <div class="fg"><label class="fl">Contractor Company</label>
       <select class="fi" id="exCompany">
         <option value="">All</option>
-        <option value="MBR Texas">BSynch</option>
+        <option value="Meridian Structural Group">Meridian Structural Group</option>
         <option>J&amp;F Sandblasting</option>
         <option>RV Solutions</option>
         <option>C.U.R</option>
       </select></div>
     <div class="fg"><label class="fl">Job Name</label>
-      <input class="fi" id="exJob" type="text" placeholder="e.g. TDG Bldg 7"></div>
+      <input class="fi" id="exJob" type="text" placeholder="e.g. Summit Bldg 7"></div>
     <div class="fg"><label class="fl">Material</label>
       <input class="fi" id="exMat" type="text" placeholder="contains..."></div>
     <div class="fg"><label class="fl">Date From</label>
@@ -1331,7 +1331,7 @@ var _dirty={};
 var CURRENT_INBOX_TAB='pending';
 var _sigReqId=null;
 var _sigCtx=null,_sigCanvas=null,_sigDrawing=false;
-var _ROLE=localStorage.getItem('mbrRole')||'worker';
+var _ROLE=localStorage.getItem('bsynchRole')||'worker';
 
 function fmtDate(s){
   if(!s)return '';
@@ -1376,8 +1376,8 @@ if(_LVL>=3){
 
 // ── My Profile ──────────────────────────────────────────────────────────────
 function openProfile(){
-  var n=localStorage.getItem('mbrAuth')||'';
-  var r=localStorage.getItem('mbrRole')||'';
+  var n=localStorage.getItem('bsynchAuth')||'';
+  var r=localStorage.getItem('bsynchRole')||'';
   document.getElementById('profName').value=n;
   document.getElementById('profRole').value=r;
   document.getElementById('profCompany').value='';
@@ -1391,7 +1391,7 @@ function openProfile(){
   openModal('profileModal');
 }
 function saveProfile(){
-  var n=localStorage.getItem('mbrAuth')||'';
+  var n=localStorage.getItem('bsynchAuth')||'';
   var co=document.getElementById('profCompany').value.trim();
   var msg=document.getElementById('profMsg');
   if(!n){msg.style.color='#f87171';msg.textContent='Not logged in.';return;}
@@ -1546,15 +1546,15 @@ function renderLocations(){
         '<div style="font-size:10px;color:var(--muted);">'+itemCount+' item'+(itemCount!==1?'s':'')+'</div>'+
       '</div>'+
       '<div style="border-top:1px solid var(--border);padding-top:8px;">'+itemListHtml+'</div>'+
-      (loc?'<button onclick="filterByLoc(\''+loc+'\');" style="margin-top:4px;padding:5px;background:rgba(14,165,233,.1);border:1px solid rgba(14,165,233,.2);border-radius:6px;color:#38bdf8;font-size:10px;cursor:pointer;font-weight:700;">View Items</button>':'');
+      (loc?'<button onclick="filterByLoc(\''+loc+'\');" style="margin-top:4px;padding:5px;background:rgba(14,165,233,.1);border:1px solid rgba(14,165,233,.2);border-radius:6px;color:#34d3b8;font-size:10px;cursor:pointer;font-weight:700;">View Items</button>':'');
     g.appendChild(card);
     // Render QR
     if(loc&&typeof QRCode!=='undefined'){
-      var qrUrl='https://tdg-tracker.onrender.com/inventory?loc='+encodeURIComponent(loc);
+      var qrUrl='https://bsynch.com/inventory?loc='+encodeURIComponent(loc);
       try{
         new QRCode(document.getElementById(qrId),{
           text:qrUrl,width:112,height:112,
-          colorDark:'#1e3a5f',colorLight:'#ffffff',
+          colorDark:'#19354d',colorLight:'#ffffff',
           correctLevel:QRCode.CorrectLevel.M
         });
       }catch(e){}
@@ -1602,7 +1602,7 @@ function openReqModal(btn){
   }
   document.getElementById('dupWarn').style.display='none';
   document.getElementById('acList').style.display='none';
-  var loggedName=localStorage.getItem('mbrAuth')||'',loggedRole=localStorage.getItem('mbrRole')||'';
+  var loggedName=localStorage.getItem('bsynchAuth')||'',loggedRole=localStorage.getItem('bsynchRole')||'';
   document.getElementById('rqName').value=loggedName;
   var isContractor=(loggedRole==='contractor');
   document.getElementById('rqCompanyFg').style.display=isContractor?'':'none';
@@ -1677,7 +1677,7 @@ function doMatAC(inp,idx){
     var d=document.createElement('div');
     d.style.cssText='padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #e2e8f0;color:#0f172a;background:#fff;';
     d.textContent=(it.name||'')+(it.qty_on_hand!=null?' ('+it.qty_on_hand+' '+(it.unit||'EA')+')':'');
-    d.onmouseover=function(){this.style.background='#eff6ff';this.style.color='#1d4ed8';};
+    d.onmouseover=function(){this.style.background='#eff6ff';this.style.color='#157567';};
     d.onmouseout=function(){this.style.background='#fff';this.style.color='#0f172a';};
     d.onmousedown=function(e){e.preventDefault();inp.value=it.name||'';
       var hidEl=document.querySelector('.mat-id[data-idx="'+idx+'"]');if(hidEl)hidEl.value=it.id||'';
@@ -1703,8 +1703,8 @@ function getMatLines(){
 }
 
 function submitReq(){
-  var name=localStorage.getItem('mbrAuth')||'';
-  var role=localStorage.getItem('mbrRole')||'';
+  var name=localStorage.getItem('bsynchAuth')||'';
+  var role=localStorage.getItem('bsynchRole')||'';
   var job=(document.getElementById('rqJob')||{value:''}).value.trim();
   var company=(document.getElementById('rqCompany')||{value:''}).value.trim();
   var notes=(document.getElementById('rqNotes')||{value:''}).value.trim();
@@ -1783,7 +1783,7 @@ function procPIN(){
     .then(function(r){return r.json();}).then(function(d){
       if(d.ok){
         var body='BSynch Inventory%0A%0APIN Set For: '+encodeURIComponent(curPinUser)+'%0APIN: '+pinBuf+'%0ADate: '+new Date().toLocaleDateString();
-        window.open('mailto:dshidalgop@gmail.com?subject='+encodeURIComponent('MBR PIN – '+curPinUser)+'&body='+body,'_blank');
+        window.open('mailto:dshidalgop@gmail.com?subject='+encodeURIComponent('MSG PIN – '+curPinUser)+'&body='+body,'_blank');
         edUser=curPinUser;sessionStorage.setItem('edUser',edUser);activateEd();goS3();inlineReqs();
       }else{document.getElementById('pinErr').textContent='Error saving PIN';}
     }).catch(function(){document.getElementById('pinErr').textContent='Error saving PIN';});
@@ -1895,7 +1895,7 @@ function renderReqCard(req){
     +'<span class="sbadge '+cls+'" style="flex-shrink:0;margin-left:8px;">'+req.status+'</span>'
     +'</div>';
   el.innerHTML=bodyHtml;
-  var approver=edUser||(_LVL>=3?localStorage.getItem('mbrAuth'):'');
+  var approver=edUser||(_LVL>=3?localStorage.getItem('bsynchAuth'):'');
   if(req.status==='Pending'&&approver){
     var btnA=document.createElement('button');btnA.className='btn-appr';btnA.textContent='✓ Approve';
     btnA.onclick=function(){appReq(req.id,btnA);};
@@ -1905,7 +1905,7 @@ function renderReqCard(req){
     el.appendChild(acts);
   } else if(req.status==='Approved'){
     var btnD=document.createElement('button');
-    btnD.style.cssText='width:100%;height:38px;background:rgba(14,165,233,.15);border:1.5px solid rgba(14,165,233,.4);border-radius:8px;color:#38bdf8;font-size:12px;font-weight:800;cursor:pointer;margin-top:8px;';
+    btnD.style.cssText='width:100%;height:38px;background:rgba(14,165,233,.15);border:1.5px solid rgba(14,165,233,.4);border-radius:8px;color:#34d3b8;font-size:12px;font-weight:800;cursor:pointer;margin-top:8px;';
     btnD.textContent='📦 Signature Required';
     btnD.onclick=function(){deliverReq(req);};
     el.appendChild(btnD);
@@ -1957,7 +1957,7 @@ function deliverReq(req){
       parts.push('<div style="font-size:12px;">Qty: <strong>'+m.qty_needed+'</strong>'+(m.building?' &middot; Unit: <strong>'+safeHtml(m.building)+'</strong>':'')+' </div>');
     });
     if(req.job_name)parts.push('<div style="font-size:12px;margin-top:4px;">🏗 Job: <strong>'+safeHtml(req.job_name)+'</strong></div>');
-    parts.push('<div style="font-size:12px;margin-top:4px;">👤 Requested by: <strong>'+safeHtml(req.requester_name||'')+'</strong>'+(req.contractor_company?' &middot; <span style="color:#38bdf8;">'+safeHtml(req.contractor_company)+'</span>':'')+' </div>');
+    parts.push('<div style="font-size:12px;margin-top:4px;">👤 Requested by: <strong>'+safeHtml(req.requester_name||'')+'</strong>'+(req.contractor_company?' &middot; <span style="color:#34d3b8;">'+safeHtml(req.contractor_company)+'</span>':'')+' </div>');
     var infoEl=document.getElementById('sigReqInfo');if(infoEl)infoEl.innerHTML=parts.join('');
     var pf=document.getElementById('sigPickupBy');if(pf)pf.value='';
     clearSig();
@@ -2027,7 +2027,7 @@ function lsRender(){
   var chipStyle='display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;';
   var html='<table style="width:100%;border-collapse:collapse;font-size:12px;">'
     +'<thead><tr>'
-    +'<th style="'+TH+'width:28px;text-align:center;"><input type="checkbox" id="lsAllChk" checked onchange="lsToggleAll()" style="width:14px;height:14px;cursor:pointer;accent-color:#1a6bc4;"></th>'
+    +'<th style="'+TH+'width:28px;text-align:center;"><input type="checkbox" id="lsAllChk" checked onchange="lsToggleAll()" style="width:14px;height:14px;cursor:pointer;accent-color:#1e9484;"></th>'
     +'<th style="text-align:left;'+TH+'">ITEM</th>'
     +'<th style="text-align:center;'+TH+'">ON HAND</th>'
     +'<th style="text-align:center;'+TH+'">SAFE QTY</th>'
@@ -2055,7 +2055,7 @@ function lsRender(){
     var isChecked=checked[it.id]!==undefined?checked[it.id]:true;
     html+='<tr>'
       +'<td style="padding:8px;border-bottom:1px solid var(--border);text-align:center;vertical-align:middle;">'
-      +'<input type="checkbox" class="ls-chk" data-idx="'+realIdx+'" '+(isChecked?'checked':'')+' onchange="lsUpdateSelCount()" style="width:15px;height:15px;cursor:pointer;accent-color:#1a6bc4;"></td>'
+      +'<input type="checkbox" class="ls-chk" data-idx="'+realIdx+'" '+(isChecked?'checked':'')+' onchange="lsUpdateSelCount()" style="width:15px;height:15px;cursor:pointer;accent-color:#1e9484;"></td>'
       +'<td style="padding:8px;border-bottom:1px solid var(--border);"><div style="font-weight:700;color:#0f172a;">'+safeHtml(it.name||'')+'</div>'
       +'<div style="color:var(--muted);font-size:10px;">'+safeHtml(it.category||'')+'</div></td>'
       +'<td style="padding:8px;text-align:center;border-bottom:1px solid var(--border);"><span style="color:#f87171;font-weight:800;">'+q+'</span>'+badge+'</td>'
@@ -2248,7 +2248,7 @@ function submitNewPO(e){
     var cost  = parseFloat(document.querySelector('.po-item-cost[data-idx="'+idx+'"]').value)||0;
     items.push({item_id:iid, item_name:inv?inv.name:iid, category:inv?inv.category:'', unit:inv?inv.unit:'EA', qty_expected:qty, qty_received:null, unit_cost:cost||null});
   });
-  var user = localStorage.getItem('mbrAuth')||'';
+  var user = localStorage.getItem('bsynchAuth')||'';
   var poErrEl=document.getElementById('poFormErr');
   if(poErrEl){poErrEl.style.display='none';poErrEl.textContent='';}
   var isEdit = !!_editPoId;
@@ -2380,7 +2380,7 @@ function submitReceivePO(){
       return {item_id:it.item_id, qty_received:inp?parseFloat(inp.value)||0:(it.qty_received||0)};
     });
     var disc=(document.getElementById('rcvDiscNotes').value||'').trim();
-    var user=localStorage.getItem('mbrAuth')||'Dispatcher';
+    var user=localStorage.getItem('bsynchAuth')||'Dispatcher';
     return fetch('/api/po/'+_currentPoId+'/receive',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({items:rcvItems,photos:_rcvPhotos,discrepancy_notes:disc,received_by:user})});
   }).then(function(r){return r.json();}).then(function(d){
@@ -2432,7 +2432,7 @@ function saveNewItem(){
     location_code:(document.getElementById('niLoc').value||'').trim()||null,
     notes:(document.getElementById('niNotes').value||'').trim()||null,
     editor:edUser,
-    created_by:localStorage.getItem('mbrAuth')||edUser
+    created_by:localStorage.getItem('bsynchAuth')||edUser
   };
   fetch('/api/inventory',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
   .then(function(r){return r.json();}).then(function(d){
@@ -2498,7 +2498,7 @@ function showXlsxPreview(rows){
   _xlsxParsed.forEach(function(r){
     var isUpd=!!_nm2[(r.name||'').toLowerCase().trim()];
     if(isUpd)updCt++;else newCt++;
-    var badge=isUpd?'<span style="font-size:9px;background:#dbeafe;color:#1d4ed8;border-radius:4px;padding:1px 5px;font-weight:700;margin-left:4px;">UPDATE</span>':'<span style="font-size:9px;background:#dcfce7;color:#15803d;border-radius:4px;padding:1px 5px;font-weight:700;margin-left:4px;">NEW</span>';
+    var badge=isUpd?'<span style="font-size:9px;background:#d7f0ea;color:#157567;border-radius:4px;padding:1px 5px;font-weight:700;margin-left:4px;">UPDATE</span>':'<span style="font-size:9px;background:#dcfce7;color:#15803d;border-radius:4px;padding:1px 5px;font-weight:700;margin-left:4px;">NEW</span>';
     html+='<tr style="border-bottom:1px solid var(--border);"><td style="padding:6px;">'+esc(r.name)+badge+'</td><td style="padding:6px;text-align:center;">'+esc(r.category)+'</td><td style="padding:6px;text-align:center;">'+esc(r.unit)+'</td><td style="padding:6px;text-align:center;">'+r.qty_on_hand+'</td><td style="padding:6px;text-align:center;">'+(r.safe_qty||'')+'</td><td style="padding:6px;text-align:center;">'+(r.location_code||'')+'</td></tr>';
   });
   html+='</tbody></table>';
@@ -2513,7 +2513,7 @@ function confirmXlsxImport(){
   var btn=document.getElementById('xlsxConfirmBtn');
   btn.textContent='Importing...';btn.disabled=true;
   var done=0,errs=0;
-  var editor=edUser,createdBy=localStorage.getItem('mbrAuth')||edUser;
+  var editor=edUser,createdBy=localStorage.getItem('bsynchAuth')||edUser;
   function next(i){
     if(i>=_xlsxParsed.length){
       btn.disabled=false;
@@ -2599,7 +2599,7 @@ function showPoOcrStatus(msg,type){
   el.textContent=msg;
   el.style.display=msg?'block':'none';
   el.style.background=type==='ok'?'rgba(34,197,94,.12)':type==='error'?'rgba(248,113,113,.12)':'rgba(59,130,246,.1)';
-  el.style.color=type==='ok'?'#16a34a':type==='error'?'#dc2626':'#1d4ed8';
+  el.style.color=type==='ok'?'#16a34a':type==='error'?'#dc2626':'#157567';
 }
 function autofillPO(text){
   var lines=text.split(/\n/).map(function(l){return l.trim();}).filter(Boolean);
@@ -2967,7 +2967,7 @@ function submitAllocatePO(){
     if(errEl){errEl.textContent='⚠ Enter at least one quantity > 0';errEl.style.display='block';}
     return;
   }
-  var user=localStorage.getItem('mbrAuth')||'Dispatcher';
+  var user=localStorage.getItem('bsynchAuth')||'Dispatcher';
   fetch('/api/po/'+_currentAllocPoId+'/allocate',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({job_name:jobName,items:items,notes:notes||null,allocated_by:user})
   }).then(function(r){return r.json();}).then(function(d){
@@ -3383,7 +3383,7 @@ function initSigCanvas(){
   _sigCanvas=document.getElementById('sigCanvas');if(!_sigCanvas)return;
   _sigCtx=_sigCanvas.getContext('2d');var rect=_sigCanvas.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
   _sigCanvas.width=rect.width*dpr;_sigCanvas.height=rect.height*dpr;
-  _sigCtx.scale(dpr,dpr);_sigCtx.strokeStyle='#38bdf8';_sigCtx.lineWidth=2.5;_sigCtx.lineCap='round';_sigCtx.lineJoin='round';
+  _sigCtx.scale(dpr,dpr);_sigCtx.strokeStyle='#34d3b8';_sigCtx.lineWidth=2.5;_sigCtx.lineCap='round';_sigCtx.lineJoin='round';
   function pos(e){var r=_sigCanvas.getBoundingClientRect(),t=e.touches?e.touches[0]:e;return{x:t.clientX-r.left,y:t.clientY-r.top};}
   _sigCanvas.onmousedown=_sigCanvas.ontouchstart=function(e){e.preventDefault();_sigDrawing=true;var p=pos(e);_sigCtx.beginPath();_sigCtx.moveTo(p.x,p.y);var h=document.getElementById('sigHint');if(h)h.style.display='none';};
   _sigCanvas.onmousemove=_sigCanvas.ontouchmove=function(e){e.preventDefault();if(!_sigDrawing)return;var p=pos(e);_sigCtx.lineTo(p.x,p.y);_sigCtx.stroke();};
@@ -3428,7 +3428,7 @@ function submitDelivery(){
   var pickupBy=(document.getElementById('sigPickupBy')||{value:''}).value.trim();
   if(!pickupBy){toast('Enter who is picking up','error');return;}
   if(_sigCanvas){var px=_sigCtx.getImageData(0,0,_sigCanvas.width,_sigCanvas.height).data,signed=false;for(var i=3;i<px.length;i+=4){if(px[i]>0){signed=true;break;}}if(!signed){toast('Please sign before confirming','error');return;}}
-  var by=localStorage.getItem('mbrAuth')||'',sig=_sigCanvas?_sigCanvas.toDataURL('image/png'):'';
+  var by=localStorage.getItem('bsynchAuth')||'',sig=_sigCanvas?_sigCanvas.toDataURL('image/png'):'';
   fetch('/api/material-requests/'+_sigReqId+'/deliver',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({delivered_by:by,signature_data:sig,pickup_by:pickupBy})})
   .then(function(r){return r.json();}).then(function(d){if(d.ok){toast('Delivered! Inventory updated.');document.getElementById('sigModal').style.display='none';loadInboxCount();loadInv();setTimeout(loadLowStock,1500);openInbox('all');}else toast(d.error||'Error','error');}).catch(function(){toast('Error','error');});
 }
@@ -3457,13 +3457,13 @@ function inlineReqs(){
 function openRequests(){closeModal('authModal');openInbox('pending');}
 
 function appReq(id,btn){
-  fetch('/api/material-requests/'+id+'/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({approved_by:edUser||localStorage.getItem('mbrAuth')||'',status:'Approved'})})
+  fetch('/api/material-requests/'+id+'/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({approved_by:edUser||localStorage.getItem('bsynchAuth')||'',status:'Approved'})})
   .then(function(r){return r.json();}).then(function(d){
     if(d.ok){toast('Request approved');btn.closest('.req-card').remove();loadInboxCount();}
   });
 }
 function rejReq(id,btn){
-  fetch('/api/material-requests/'+id+'/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({approved_by:edUser||localStorage.getItem('mbrAuth')||'',status:'Rejected'})})
+  fetch('/api/material-requests/'+id+'/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({approved_by:edUser||localStorage.getItem('bsynchAuth')||'',status:'Rejected'})})
   .then(function(r){return r.json();}).then(function(d){
     if(d.ok){toast('Request rejected');btn.closest('.req-card').remove();loadInboxCount();}
   });
@@ -3519,7 +3519,7 @@ function saveAll(){
     var locEl=document.getElementById('loc-'+id);
     if(!qEl){next(i+1);return;}
     var ucEl=document.getElementById('uc-'+id);
-    var payload={qty_on_hand:parseFloat(qEl.value)||0,editor:edUser,updated_by:localStorage.getItem('mbrAuth')||edUser};
+    var payload={qty_on_hand:parseFloat(qEl.value)||0,editor:edUser,updated_by:localStorage.getItem('bsynchAuth')||edUser};
     if(sqEl)payload.safe_qty=parseInt(sqEl.value)||0;
     if(locEl)payload.location_code=(locEl.value||'').trim().toUpperCase()||null;
     if(ucEl&&ucEl.value!=='')payload.unit_cost=parseFloat(ucEl.value)||0;
@@ -3535,7 +3535,7 @@ function saveQty(id){
   var sqEl=document.getElementById('sq-'+id);
   var sqv=sqEl?parseInt(sqEl.value)||0:undefined;
   var locEl=document.getElementById('loc-'+id);
-  var payload={qty_on_hand:v,editor:edUser,updated_by:localStorage.getItem('mbrAuth')||edUser};
+  var payload={qty_on_hand:v,editor:edUser,updated_by:localStorage.getItem('bsynchAuth')||edUser};
   if(sqEl)payload.safe_qty=sqv;
   if(locEl)payload.location_code=(locEl.value||'').trim().toUpperCase()||null;
   var _sqSaved=sqv;var _vSaved=v;
@@ -3558,7 +3558,7 @@ function saveCat(id){
   var sel=document.getElementById('cat-'+id);
   if(!sel)return;
   var v=sel.value;
-  fetch('/api/inventory/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({category:v,editor:edUser,updated_by:localStorage.getItem('mbrAuth')||edUser})})
+  fetch('/api/inventory/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({category:v,editor:edUser,updated_by:localStorage.getItem('bsynchAuth')||edUser})})
   .then(function(r){return r.json();}).then(function(d){
     if(d.ok){toast('Moved to '+v+'! ✓');loadInv();}else toast(d.error||'Error','error');
   });
@@ -3566,14 +3566,14 @@ function saveCat(id){
 function delItem(id,name){
   if(!edUser){toast('Editor access required','error');return;}
   if(!confirm('Delete "'+name+'"?'))return;
-  fetch('/api/inventory/'+id,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({editor:edUser,updated_by:localStorage.getItem('mbrAuth')||edUser})})
+  fetch('/api/inventory/'+id,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({editor:edUser,updated_by:localStorage.getItem('bsynchAuth')||edUser})})
   .then(function(r){return r.json();}).then(function(d){if(d.ok){toast('Deleted');loadInv();}else toast(d.error||'Error','error');});
 }
 function doAddItem(){
   if(!edUser){toast('Editor access required','error');return;}
   var n=document.getElementById('nName').value.trim();
   if(!n){toast('Item name required','error');return;}
-  fetch('/api/inventory',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,category:document.getElementById('nCat').value,unit:document.getElementById('nUnit').value,qty_on_hand:parseFloat(document.getElementById('nQty').value)||0,notes:document.getElementById('nNotes').value.trim(),editor:edUser,created_by:localStorage.getItem('mbrAuth')||edUser})})
+  fetch('/api/inventory',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,category:document.getElementById('nCat').value,unit:document.getElementById('nUnit').value,qty_on_hand:parseFloat(document.getElementById('nQty').value)||0,notes:document.getElementById('nNotes').value.trim(),editor:edUser,created_by:localStorage.getItem('bsynchAuth')||edUser})})
   .then(function(r){return r.json();}).then(function(d){if(d.ok){toast('Added!');closeModal('addModal');loadInv();}else toast(d.error||'Error','error');});
 }
 
@@ -3592,7 +3592,7 @@ function downloadTpl(type){
     materials:'name,category,qty,unit,safe_qty,location_code,sku,unit_cost\nSteel Angle,Metal,100,EA,20,A-01,SKU-001,12.50',
     suppliers:'name,category,contact,phone,email,notes\nABC Steel,Metal,John Smith,281-555-0101,john@abcsteel.com,preferred vendor',
     purchase_orders:'po_number,supplier,so_number,expected_date,notes,item_name,qty_expected,unit_cost\nPO-2026-001,ABC Steel,SO-100,2026-07-20,Urgent,Steel Angle,50,12.50',
-    dispatch:'item_name,qty,unit,job_name,company,notes,requested_by\nSteel Angle,10,EA,TDG-Unit-05,BSynch,Needed ASAP,Daniel H'
+    dispatch:'item_name,qty,unit,job_name,company,notes,requested_by\nSteel Angle,10,EA,Summit-Unit-05,BSynch,Needed ASAP,Daniel H'
   };
   var csv=headers[type]||'';
   if(!csv)return;
@@ -3976,7 +3976,7 @@ document.addEventListener('DOMContentLoaded',function(){
         proveedor:((document.getElementById('factProveedor')||{}).value||'').trim(),
         monto:((document.getElementById('factMonto')||{}).value||'').trim(),
         specs:((document.getElementById('factSpecs')||{}).value||'').trim(),
-        uploader:localStorage.getItem('mbrAuth')||edUser||'Unknown'
+        uploader:localStorage.getItem('bsynchAuth')||edUser||'Unknown'
       };
       fetch('/api/facturas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
       .then(function(r){return r.json();}).then(function(d){
@@ -4238,6 +4238,6 @@ async function deleteMaterial(id){
 
 <script>
 (function(){var p=location.pathname;document.querySelectorAll('.gnav-link').forEach(function(a){var h=a.getAttribute('href');if(h==='/'?p===h:p===h||p.startsWith(h))a.classList.add('gna');});})();
-(function(){var r=localStorage.getItem('mbrRole')||'worker';var lv={admin:5,boss:4,inventory:3,lead:2,worker:1}[r]||1;var rules={'/log':2,'/dashboard':4,'/inventory':2,'/issues-log':2,'/settings':4};document.querySelectorAll('.gnav-link').forEach(function(a){var h=a.getAttribute('href');if(rules[h]&&lv<rules[h]){a.href='/home';a.style.opacity='0.45';}});})();</script>
+(function(){var r=localStorage.getItem('bsynchRole')||'worker';var lv={admin:5,boss:4,inventory:3,lead:2,worker:1}[r]||1;var rules={'/log':2,'/dashboard':4,'/inventory':2,'/issues-log':2,'/settings':4};document.querySelectorAll('.gnav-link').forEach(function(a){var h=a.getAttribute('href');if(rules[h]&&lv<rules[h]){a.href='/home';a.style.opacity='0.45';}});})();</script>
 </body>
-</html>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+</html>

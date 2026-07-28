@@ -1,16 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNiIgZmlsbD0iIzFhNmJjNCIvPjx0ZXh0IHg9IjE2IiB5PSIyMyIgZm9udC1mYW1pbHk9IkFyaWFsLHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSI+QjwvdGV4dD48L3N2Zz4=">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNiIgZmlsbD0iIzFlOTQ4NCIvPjx0ZXh0IHg9IjE2IiB5PSIyMyIgZm9udC1mYW1pbHk9IkFyaWFsLHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSI+QjwvdGV4dD48L3N2Zz4=">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TDG Operations — BSynch</title>
+<title>Project Summit — BSynch</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
   body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; display: flex; flex-direction: column; }
   header { padding: 20px 32px; display: flex; align-items: center; gap: 14px; border-bottom: 1px solid #1e2533; }
-  .logo-badge { width: 42px; height: 42px; background: linear-gradient(135deg, #1a6bc4, #4f8ef7); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; color: #fff; letter-spacing: .5px; flex-shrink: 0; }
+  .logo-badge { width: 42px; height: 42px; background: linear-gradient(135deg, #1e9484, #4f8ef7); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; color: #fff; letter-spacing: .5px; flex-shrink: 0; }
   .header-text h1 { font-size: 17px; font-weight: 700; }
   .header-text p { font-size: 12px; color: #94a3b8; margin-top: 1px; }
   main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 24px; }
@@ -38,7 +38,7 @@
   @media (max-width: 600px) { .hero h2 { font-size: 22px; } .cards { gap: 14px; } .card { padding: 22px 18px 18px; max-width: 100%; } }
   @media (max-width: 520px) {
     .hdr-name { display: none !important; }
-    #mbr-status-bar { padding: 0 10px; gap: 5px; }
+    #bsynch-status-bar { padding: 0 10px; gap: 5px; }
     .hdr-left-text { display: none !important; }
   }
 </style>
@@ -51,30 +51,30 @@
 .gnav-sub{display:block;font-size:8px;color:#94a3b8;line-height:1;margin-top:1px;white-space:nowrap;}
 body{padding-bottom:60px !important;}
 #chip-label{display:none!important;}
-#mbr-checkin-chip{padding:4px!important;gap:0!important;}
+#bsynch-checkin-chip{padding:4px!important;gap:0!important;}
 .chip-dot,#chip-dot{width:10px!important;height:10px!important;}
 </style>
 <!-- LIGHT-THEME -->
 
 <style id="light-theme">
 /* ============================================
-   MBR TEXAS — LIGHT CORPORATE THEME
+   BSYNCH — LIGHT CORPORATE THEME
    High-contrast for outdoor / sunlight use
    ============================================ */
 :root{
   --bg:#f0f4f8;--card:#ffffff;--border:#cbd5e1;
   --text:#0f172a;--muted:#475569;
-  --accent:#1a6bc4;--green:#15803d;
+  --accent:#1e9484;--green:#15803d;
   --red:#b91c1c;--yellow:#92400e;--purple:#6d28d9;
 }
 html,body{background:#f0f4f8 !important;color:#0f172a !important;}
 
 /* ── Headers: stay dark blue (brand + readable with sunglasses) ── */
 .header,.topbar,header,#app-header{
-  background:#1e3a5f !important;color:#e2e8f0 !important;
+  background:#19354d !important;color:#e2e8f0 !important;
   border-bottom-color:#0f2d52 !important;
 }
-.hlogo{color:#60a5fa !important;}
+.hlogo{color:#5eead4 !important;}
 .back-btn,.topbar a,.header a{color:#93c5fd !important;}
 
 /* ── Gate / auth area ── */
@@ -89,23 +89,23 @@ html,body{background:#f0f4f8 !important;color:#0f172a !important;}
   background:#f1f5f9 !important;border-color:#e2e8f0 !important;color:#0f172a !important;
 }
 .name-btn:hover,.name-btn:active,.user-btn.active,.user-btn:hover{
-  background:#1a6bc4 !important;color:#ffffff !important;border-color:#1a6bc4 !important;
+  background:#1e9484 !important;color:#ffffff !important;border-color:#1e9484 !important;
 }
 
 /* ── PIN pad ── */
 .pin-dot,.dot{background:#e2e8f0 !important;border-color:#cbd5e1 !important;}
-.pin-dot.on,.dot.filled{background:#1a6bc4 !important;border-color:#1a6bc4 !important;}
+.pin-dot.on,.dot.filled{background:#1e9484 !important;border-color:#1e9484 !important;}
 .pk,.numpad button{
   background:#f1f5f9 !important;border-color:#e2e8f0 !important;color:#0f172a !important;
 }
-.pk:active,.numpad button:hover{background:#dbeafe !important;}
+.pk:active,.numpad button:hover{background:#d7f0ea !important;}
 .pin-err,.pinErr,#pinErr{color:#b91c1c !important;}
 
 /* ── Tabs ── */
 .tabs{border-bottom-color:#e2e8f0 !important;}
 .tab-btn{color:#475569 !important;}
 .tab-btn:hover{color:#0f172a !important;}
-.tab-btn.active{color:#1a6bc4 !important;border-bottom-color:#1a6bc4 !important;}
+.tab-btn.active{color:#1e9484 !important;border-bottom-color:#1e9484 !important;}
 .tab-btn.active,.tab-btn:hover{background:none !important;}
 
 /* ── Inputs / selects / textareas ── */
@@ -114,7 +114,7 @@ input,select,textarea,.sm-search{
   color:#0f172a !important;
 }
 input:focus,select:focus,textarea:focus,.sm-search:focus{
-  border-color:#1a6bc4 !important;outline:none;
+  border-color:#1e9484 !important;outline:none;
 }
 input::placeholder,.sm-search::placeholder{color:#94a3b8 !important;}
 
@@ -123,9 +123,9 @@ input::placeholder,.sm-search::placeholder{color:#94a3b8 !important;}
   background:#f1f5f9 !important;border-color:#e2e8f0 !important;color:#1e293b !important;
 }
 .btn-ghost:hover,.tool-btn:hover{background:#e2e8f0 !important;}
-.tool-btn.active{background:#dbeafe !important;border-color:#1a6bc4 !important;color:#1a6bc4 !important;}
-.eb-edit{border-color:#3b82f6 !important;color:#1d4ed8 !important;}
-.eb-edit:hover{background:#dbeafe !important;}
+.tool-btn.active{background:#d7f0ea !important;border-color:#1e9484 !important;color:#1e9484 !important;}
+.eb-edit{border-color:#3b82f6 !important;color:#157567 !important;}
+.eb-edit:hover{background:#d7f0ea !important;}
 .eb-del{border-color:#ef4444 !important;color:#b91c1c !important;}
 .eb-del:hover{background:#fee2e2 !important;}
 
@@ -148,14 +148,14 @@ input::placeholder,.sm-search::placeholder{color:#94a3b8 !important;}
 /* ── Phase banners ── */
 .phase-banner.meeting{background:#ede9fe !important;border-color:#c4b5fd !important;color:#6d28d9 !important;}
 .phase-banner.signin{background:#dcfce7 !important;border-color:#86efac !important;color:#15803d !important;}
-.phase-banner.saved{background:#dbeafe !important;border-color:#93c5fd !important;color:#1d4ed8 !important;}
+.phase-banner.saved{background:#d7f0ea !important;border-color:#93c5fd !important;color:#157567 !important;}
 
 /* ── User pill ── */
 .user-pill{background:#ede9fe !important;border-color:#a78bfa !important;color:#6d28d9 !important;}
 
 /* ── Info bars ── */
-.info-bar{background:#dbeafe !important;border-color:#93c5fd !important;color:#1e40af !important;}
-.info-bar strong{color:#1d4ed8 !important;}
+.info-bar{background:#d7f0ea !important;border-color:#93c5fd !important;color:#1e40af !important;}
+.info-bar strong{color:#157567 !important;}
 
 /* ── Tables ── */
 table{background:transparent !important;}
@@ -168,12 +168,12 @@ tr:hover td{background:#f8fafc !important;}
   background:#ffffff !important;border-color:#e2e8f0 !important;
   box-shadow:0 1px 4px rgba(0,0,0,.06) !important;
 }
-.summary-card .val{color:#1a6bc4 !important;}
+.summary-card .val{color:#1e9484 !important;}
 .summary-card .lbl{color:#475569 !important;}
 
 /* ── Badges ── */
 .badge-admin{background:#ede9fe !important;color:#5b21b6 !important;}
-.badge-lead,.badge-editor{background:#dbeafe !important;color:#1e40af !important;}
+.badge-lead,.badge-editor{background:#d7f0ea !important;color:#1e40af !important;}
 .badge-worker,.badge-active{background:#dcfce7 !important;color:#15803d !important;}
 .badge-inactive{background:#f1f5f9 !important;color:#64748b !important;}
 
@@ -191,9 +191,9 @@ tr:hover td{background:#f8fafc !important;}
 .modal{background:#ffffff !important;box-shadow:0 20px 60px rgba(0,0,0,.18) !important;}
 
 /* ── Global nav stays dark ── */
-.gnav{background:#1e3a5f !important;border-top-color:#0f2d52 !important;}
+.gnav{background:#19354d !important;border-top-color:#0f2d52 !important;}
 .gnav a{color:#94a3b8 !important;}
-.gnav a:hover,.gnav a.gna{color:#60a5fa !important;}
+.gnav a:hover,.gnav a.gna{color:#5eead4 !important;}
 
 /* ── Toast ── */
 #toast{background:#1e293b !important;color:#e2e8f0 !important;}
@@ -204,7 +204,7 @@ tr:hover td{background:#f8fafc !important;}
 ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px;}
 
 /* ── Log out / utility bars ── */
-.log-out-bar,.logout-area{background:#1e3a5f !important;}
+.log-out-bar,.logout-area{background:#19354d !important;}
 
 /* ── SM section ── */
 .sm-item{background:#ffffff !important;border-color:#e2e8f0 !important;}
@@ -212,7 +212,7 @@ tr:hover td{background:#f8fafc !important;}
 
 /* ── Landing page cards ── */
 .card{background:#ffffff !important;border-color:#e2e8f0 !important;}
-.card:hover{border-color:#1a6bc4 !important;box-shadow:0 8px 32px rgba(26,107,196,.12) !important;}
+.card:hover{border-color:#1e9484 !important;box-shadow:0 8px 32px rgba(26,107,196,.12) !important;}
 .card-body p{color:#475569 !important;}
 footer{color:#94a3b8 !important;border-top-color:#e2e8f0 !important;}
 
@@ -232,18 +232,18 @@ footer{color:#94a3b8 !important;border-top-color:#e2e8f0 !important;}
 <body>
 
 <style>
-#mbr-status-bar{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 20px;background:#1e3a5f;border-bottom:1px solid rgba(255,255,255,0.1);height:56px;}
-#mbr-checkin-chip{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;cursor:default;transition:.3s;}
+#bsynch-status-bar{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 20px;background:#19354d;border-bottom:1px solid rgba(255,255,255,0.1);height:56px;}
+#bsynch-checkin-chip{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;cursor:default;transition:.3s;}
 .chip-in{background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3);}
 .chip-out{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.45);border:1px solid rgba(255,255,255,0.1);}
 .chip-dot{width:6px;height:6px;border-radius:50%;}
 .dot-in{background:#22c55e;}
 .dot-out{background:rgba(255,255,255,0.25);}
-#mbr-bell-btn{position:relative;background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.5);font-size:18px;padding:2px 4px;transition:.2s;}
-#mbr-bell-btn:hover{color:#fff;}
-#mbr-bell-badge{position:absolute;top:-2px;right:-2px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:999px;display:none;align-items:center;justify-content:center;padding:0 3px;}
-#mbr-notif-panel{position:fixed;top:48px;right:0;width:340px;max-height:460px;overflow-y:auto;background:#0f1e35;border:1px solid rgba(255,255,255,0.12);border-top:2px solid #1a6bc4;border-radius:0 0 0 14px;z-index:499;display:none;box-shadow:0 12px 40px rgba(0,0,0,0.5);}
-#mbr-notif-panel .np-header{padding:10px 14px;font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;justify-content:space-between;align-items:center;}
+#bsynch-bell-btn{position:relative;background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.5);font-size:18px;padding:2px 4px;transition:.2s;}
+#bsynch-bell-btn:hover{color:#fff;}
+#bsynch-bell-badge{position:absolute;top:-2px;right:-2px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:999px;display:none;align-items:center;justify-content:center;padding:0 3px;}
+#bsynch-notif-panel{position:fixed;top:48px;right:0;width:340px;max-height:460px;overflow-y:auto;background:#0f1e35;border:1px solid rgba(255,255,255,0.12);border-top:2px solid #1e9484;border-radius:0 0 0 14px;z-index:499;display:none;box-shadow:0 12px 40px rgba(0,0,0,0.5);}
+#bsynch-notif-panel .np-header{padding:10px 14px;font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;justify-content:space-between;align-items:center;}
 .np-item{padding:13px 15px;border-bottom:1px solid rgba(255,255,255,0.06);cursor:default;transition:.15s;display:flex;gap:10px;align-items:flex-start;}
 .np-item:hover{background:rgba(255,255,255,0.03);}
 .np-item.unread{border-left:3px solid #0ea5e9;background:rgba(14,165,233,0.05);}
@@ -256,32 +256,32 @@ footer{color:#94a3b8 !important;border-top-color:#e2e8f0 !important;}
 .np-meta{display:flex;align-items:center;gap:8px;}
 .np-time{font-size:10px;color:rgba(255,255,255,0.3);}
 .np-empty{padding:28px 16px;text-align:center;font-size:12px;color:rgba(255,255,255,0.3);}
-.np-read-btn{padding:3px 10px;font-size:10px;font-weight:700;background:rgba(14,165,233,0.15);border:1px solid rgba(14,165,233,0.35);border-radius:4px;color:#38bdf8;cursor:pointer;white-space:nowrap;letter-spacing:.02em;}
+.np-read-btn{padding:3px 10px;font-size:10px;font-weight:700;background:rgba(14,165,233,0.15);border:1px solid rgba(14,165,233,0.35);border-radius:4px;color:#34d3b8;cursor:pointer;white-space:nowrap;letter-spacing:.02em;}
 .np-read-btn:hover{background:rgba(14,165,233,0.3);}
 body{padding-top:56px!important;}
 </style>
-<div id="mbr-status-bar">
+<div id="bsynch-status-bar">
   <!-- Left: logo + branding -->
   <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">
-    <div style="width:36px;height:36px;background:#1a6bc4;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;flex-shrink:0;">B</div>
+    <div style="width:36px;height:36px;background:#1e9484;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;flex-shrink:0;">B</div>
     <div class="hdr-left-text" style="min-width:0;">
-      <div style="font-size:14px;font-weight:700;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">BSynch — TDG Operations</div>
-      <div style="font-size:10px;color:#64748b;white-space:nowrap;">TDG Powerhouses Project</div>
+      <div style="font-size:14px;font-weight:700;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">BSynch — Project Summit</div>
+      <div style="font-size:10px;color:#64748b;white-space:nowrap;">Project Summit</div>
     </div>
   </div>
   <!-- Right: status + user + bell -->
   <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-    <div id="mbr-loc-chip" style="font-size:11px;font-weight:600;color:#7a9cc4;padding:2px 8px;display:none;">📍 <span id="loc-chip-text"></span></div>
-    <div id="mbr-checkin-chip" class="chip-out">
+    <div id="bsynch-loc-chip" style="font-size:11px;font-weight:600;color:#7a9cc4;padding:2px 8px;display:none;">📍 <span id="loc-chip-text"></span></div>
+    <div id="bsynch-checkin-chip" class="chip-out">
       <span class="chip-dot dot-out" id="chip-dot"></span>
       <span id="chip-label">Not Checked In</span>
     </div>
     <span id="role-badge" class="hdr-name" style="font-size:12px;color:#64748b;"></span>
     <button id="logout-btn" class="hdr-signout" style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);color:#94a3b8;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
-    <button id="mbr-bell-btn" onclick="toggleNotifPanel()" title="Notifications" style="position:relative;background:none;border:none;cursor:pointer;font-size:16px;padding:4px;color:#94a3b8;line-height:1;">🔔<div id="mbr-bell-badge"></div></button>
+    <button id="bsynch-bell-btn" onclick="toggleNotifPanel()" title="Notifications" style="position:relative;background:none;border:none;cursor:pointer;font-size:16px;padding:4px;color:#94a3b8;line-height:1;">🔔<div id="bsynch-bell-badge"></div></button>
   </div>
 </div>
-<div id="mbr-notif-panel">
+<div id="bsynch-notif-panel">
   <div class="np-header">
     <span>Notifications</span>
     <span id="np-mark-all" onclick="markAllRead()" style="cursor:pointer;color:#0ea5e9;font-size:10px;text-transform:none;letter-spacing:0;">Mark all read</span>
@@ -290,14 +290,14 @@ body{padding-top:56px!important;}
 </div>
 <script>
 (function(){
-  var auth = localStorage.getItem('mbrAuth')||'';
+  var auth = localStorage.getItem('bsynchAuth')||'';
   if(!auth) return;
   // Check-in status
   function refreshCheckInStatus(){
     fetch('/api/contractor/status?name='+encodeURIComponent(auth))
       .then(function(r){return r.json();})
       .then(function(d){
-        var chip=document.getElementById('mbr-checkin-chip');
+        var chip=document.getElementById('bsynch-checkin-chip');
         var dot=document.getElementById('chip-dot');
         var lbl=document.getElementById('chip-label');
         if(!chip||!dot||!lbl) return;
@@ -317,9 +317,9 @@ body{padding-top:56px!important;}
   setInterval(refreshCheckInStatus, 60000);
 
   // Location chip
-  var unit = localStorage.getItem('mbrUnit');
+  var unit = localStorage.getItem('bsynchUnit');
   if(unit){
-    var lc = document.getElementById('mbr-loc-chip');
+    var lc = document.getElementById('bsynch-loc-chip');
     var lt = document.getElementById('loc-chip-text');
     if(lc && lt){ lt.textContent = 'Unit ' + unit; lc.style.display = 'block'; }
   }
@@ -331,22 +331,22 @@ body{padding-top:56px!important;}
 var _notifPanel = false;
 function toggleNotifPanel(){
   _notifPanel = !_notifPanel;
-  document.getElementById('mbr-notif-panel').style.display = _notifPanel ? 'block' : 'none';
+  document.getElementById('bsynch-notif-panel').style.display = _notifPanel ? 'block' : 'none';
   if(_notifPanel) loadNotifications();
 }
 document.addEventListener('click',function(e){
-  if(!e.target.closest('#mbr-bell-btn') && !e.target.closest('#mbr-notif-panel')){
-    document.getElementById('mbr-notif-panel').style.display='none';
+  if(!e.target.closest('#bsynch-bell-btn') && !e.target.closest('#bsynch-notif-panel')){
+    document.getElementById('bsynch-notif-panel').style.display='none';
     _notifPanel=false;
   }
 });
 function loadNotifications(){
-  var auth = localStorage.getItem('mbrAuth')||'';
+  var auth = localStorage.getItem('bsynchAuth')||'';
   fetch('/api/notifications?name='+encodeURIComponent(auth))
     .then(function(r){return r.json();})
     .then(function(d){
       var list = document.getElementById('np-list');
-      var badge = document.getElementById('mbr-bell-badge');
+      var badge = document.getElementById('bsynch-bell-badge');
       if(!d.ok||!d.notifications) return;
       var notifs = d.notifications;
       var unread = notifs.filter(function(n){return !n.read;}).length;
@@ -370,14 +370,14 @@ function loadNotifications(){
     }).catch(function(){});
 }
 function markRead(id){
-  var auth = localStorage.getItem('mbrAuth')||'';
+  var auth = localStorage.getItem('bsynchAuth')||'';
   fetch('/api/notifications/'+id+'/read',{method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({name:auth})})
     .then(function(){loadNotifications();});
 }
 function markAllRead(){
-  var auth = localStorage.getItem('mbrAuth')||'';
+  var auth = localStorage.getItem('bsynchAuth')||'';
   var items = document.querySelectorAll('.np-item.unread');
   var ids = [];
   items.forEach(function(el){
@@ -406,8 +406,8 @@ function timeAgo(iso){
 
 <script>
 (function(){
-  var auth = localStorage.getItem('mbrAuth');
-  var role = localStorage.getItem('mbrRole') || 'worker';
+  var auth = localStorage.getItem('bsynchAuth');
+  var role = localStorage.getItem('bsynchRole') || 'worker';
   if (!auth) { location.replace('/login'); return; }
   // Role-based card visibility
   var roleLevel = {admin:5, boss:4, inventory:3, dispatcher:3, lead:2, worker:1, contractor:2};
@@ -418,14 +418,14 @@ function timeAgo(iso){
     try {
       var r = await fetch('/api/session-version');
       var d = await r.json();
-      var sv = localStorage.getItem('mbr_sv');
+      var sv = localStorage.getItem('bsynch_sv');
       if(!sv){
-        localStorage.setItem('mbr_sv', d.version);
+        localStorage.setItem('bsynch_sv', d.version);
       } else if(sv !== d.version){
-        localStorage.removeItem('mbrAuth');
-        localStorage.removeItem('mbrRole');
-        localStorage.removeItem('mbr_sv');
-        localStorage.removeItem('mbrPinRequired');
+        localStorage.removeItem('bsynchAuth');
+        localStorage.removeItem('bsynchRole');
+        localStorage.removeItem('bsynch_sv');
+        localStorage.removeItem('bsynchPinRequired');
         location.href = '/login';
       }
     } catch(e){}
@@ -475,8 +475,8 @@ function timeAgo(iso){
     var logoutBtn = document.getElementById('logout-btn');
     if (logoutBtn) {
       logoutBtn.onclick = function() {
-        localStorage.removeItem('mbrAuth');
-        localStorage.removeItem('mbrRole');
+        localStorage.removeItem('bsynchAuth');
+        localStorage.removeItem('bsynchRole');
         location.href = '/login';
       };
     }
@@ -596,14 +596,14 @@ function timeAgo(iso){
   </div>
 </main>
 
-<footer>BSynch · TDG Powerhouses Project · All data live from Supabase</footer>
+<footer>BSynch · Project Summit · All data live from Supabase</footer>
 
 <!-- GNAV -->
 
 <nav class="gnav" id="gnav"></nav>
 <script>
 (function(){
-  var role = localStorage.getItem('mbrRole') || 'worker';
+  var role = localStorage.getItem('bsynchRole') || 'worker';
   var lvl  = {admin:5,boss:4,inventory:3,lead:2,worker:1}[role] || 1;
   var all = [
     {h:'/home',  icon:'🏠', label:'Home'},
@@ -632,13 +632,13 @@ function timeAgo(iso){
 <script>
 /* DOMContentLoaded check-in chip — same pattern that works on settings/inventory/dashboard */
 (function(){
-  var _a=localStorage.getItem('mbrAuth')||'';
+  var _a=localStorage.getItem('bsynchAuth')||'';
   if(!_a)return;
   function _upd(){
     fetch('/api/contractor/status?name='+encodeURIComponent(_a))
       .then(function(r){return r.json();})
       .then(function(d){
-        var bc=document.getElementById('mbr-checkin-chip');
+        var bc=document.getElementById('bsynch-checkin-chip');
         var bd=document.getElementById('chip-dot');
         var bl=document.getElementById('chip-label');
         if(!bc||!bd||!bl)return;

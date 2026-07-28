@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNiIgZmlsbD0iIzFhNmJjNCIvPjx0ZXh0IHg9IjE2IiB5PSIyMyIgZm9udC1mYW1pbHk9IkFyaWFsLHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSI+QjwvdGV4dD48L3N2Zz4=">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNiIgZmlsbD0iIzFlOTQ4NCIvPjx0ZXh0IHg9IjE2IiB5PSIyMyIgZm9udC1mYW1pbHk9IkFyaWFsLHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSI+QjwvdGV4dD48L3N2Zz4=">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Settings — BSynch</title>
 <style>
-:root{--bg:#f0f4f8;--card:#ffffff;--border:#e2e8f0;--text:#f0f4f8;--muted:#64748b;--accent:#1a6bc4;--green:#16a34a;--amber:#d97706;--red:#dc2626;}
+:root{--bg:#f0f4f8;--card:#ffffff;--border:#e2e8f0;--text:#f0f4f8;--muted:#64748b;--accent:#1e9484;--green:#16a34a;--amber:#d97706;--red:#dc2626;}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:#f0f4f8;color:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;padding-bottom:60px;}
-.topbar{background:#1e3a5f;padding:12px 24px;display:flex;align-items:center;gap:12px;}
+.topbar{background:#19354d;padding:12px 24px;display:flex;align-items:center;gap:12px;}
 .topbar h1{font-size:18px;font-weight:600;}
 .topbar a{color:var(--muted);text-decoration:none;font-size:13px;}
 /* GATE */
@@ -42,9 +42,9 @@ body{background:#f0f4f8;color:#0f172a;font-family:-apple-system,BlinkMacSystemFo
 /* CARDS */
 .section-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:24px;}
 .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:8px;}
-.section-header h3{font-size:16px;font-weight:600;color:#1e3a5f;}
-.info-bar{background:#1e3a5f;border:1px solid #2563eb44;border-radius:8px;padding:10px 16px;font-size:12px;color:#93c5fd;margin-bottom:18px;line-height:1.7;}
-.info-bar strong{color:#60a5fa;}
+.section-header h3{font-size:16px;font-weight:600;color:#19354d;}
+.info-bar{background:#19354d;border:1px solid #2563eb44;border-radius:8px;padding:10px 16px;font-size:12px;color:#93c5fd;margin-bottom:18px;line-height:1.7;}
+.info-bar strong{color:#5eead4;}
 table{width:100%;border-collapse:collapse;}
 th{text-align:left;font-size:11px;font-weight:600;color:var(--muted);padding:8px 12px;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.5px;}
 td{padding:10px 12px;font-size:14px;border-bottom:1px solid #ffffff;}
@@ -52,9 +52,9 @@ tr:last-child td{border-bottom:none;}
 tr:hover td{background:#ffffff06;}
 /* BADGES */
 .badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:600;}
-.badge-admin{background:#1a6bc422;color:#a78bfa;}.badge-boss{background:#f59e0b22;color:#fbbf24;}.badge-inv{background:#fb923c22;color:#fb923c;}
-.badge-lead{background:#0369a122;color:#38bdf8;}
-.badge-editor{background:#0369a122;color:#38bdf8;}
+.badge-admin{background:#1e948422;color:#a78bfa;}.badge-boss{background:#f59e0b22;color:#fbbf24;}.badge-inv{background:#fb923c22;color:#fb923c;}
+.badge-lead{background:#0369a122;color:#34d3b8;}
+.badge-editor{background:#0369a122;color:#34d3b8;}
 .badge-worker{background:#06402622;color:#4ade80;}
 .badge-inactive{background:#37415122;color:var(--muted);}
 .badge-active{background:#06402622;color:#4ade80;}
@@ -66,8 +66,8 @@ tr:hover td{background:#ffffff06;}
 .btn-ghost:hover{background:#475569;}
 .btn-danger{background:#7f1d1d33;color:var(--red);border:1px solid #7f1d1d55;}
 .btn-danger:hover{background:#7f1d1d66;}
-.btn-secondary{background:#1e3a5f44;color:#60a5fa;border:1px solid #1e3a5f88;}
-.btn-secondary:hover{background:#1e3a5f77;}
+.btn-secondary{background:#19354d44;color:#5eead4;border:1px solid #19354d88;}
+.btn-secondary:hover{background:#19354d77;}
 .btn-sm{padding:4px 10px;font-size:12px;}
 /* MODAL */
 .modal-overlay{display:none;position:fixed;inset:0;background:#00000088;z-index:200;align-items:center;justify-content:center;}
@@ -93,7 +93,7 @@ tr:hover td{background:#ffffff06;}
 .toggle-cell.locked{cursor:not-allowed;opacity:.6;}
 .role-matrix th.boss-h{color:#f59e0b;}
 .role-matrix th.admin-h{color:#a78bfa;}
-.role-matrix th.lead-h{color:#38bdf8;}
+.role-matrix th.lead-h{color:#34d3b8;}
 .role-matrix th.worker-h{color:#4ade80;}
 .role-matrix th.inv-h{color:#fb923c;}
 .matrix-footer{display:flex;justify-content:space-between;align-items:center;margin-top:16px;flex-wrap:wrap;gap:8px;}
@@ -124,23 +124,23 @@ body{padding-bottom:60px !important;}
 
 <style id="light-theme">
 /* ============================================
-   MBR TEXAS — LIGHT CORPORATE THEME
+   BSYNCH — LIGHT CORPORATE THEME
    High-contrast for outdoor / sunlight use
    ============================================ */
 :root{
   --bg:#f0f4f8;--card:#ffffff;--border:#cbd5e1;
   --text:#f0f4f8;--muted:#475569;
-  --accent:#1a6bc4;--green:#15803d;
+  --accent:#1e9484;--green:#15803d;
   --red:#b91c1c;--yellow:#92400e;--purple:#6d28d9;
 }
 html,body{background:#f0f4f8 !important;color:#f0f4f8 !important;}
 
 /* ── Headers: stay dark blue (brand + readable with sunglasses) ── */
 .header,.topbar,header,#app-header{
-  background:#1e3a5f !important;color:#e2e8f0 !important;
+  background:#19354d !important;color:#e2e8f0 !important;
   border-bottom-color:#0f2d52 !important;
 }
-.hlogo{color:#60a5fa !important;}
+.hlogo{color:#5eead4 !important;}
 .back-btn,.topbar a,.header a{color:#93c5fd !important;}
 
 /* ── Gate / auth area ── */
@@ -155,23 +155,23 @@ html,body{background:#f0f4f8 !important;color:#f0f4f8 !important;}
   background:#f1f5f9 !important;border-color:#0f172a !important;color:#f0f4f8 !important;
 }
 .name-btn:hover,.name-btn:active,.user-btn.active,.user-btn:hover{
-  background:#1a6bc4 !important;color:#ffffff !important;border-color:#1a6bc4 !important;
+  background:#1e9484 !important;color:#ffffff !important;border-color:#1e9484 !important;
 }
 
 /* ── PIN pad ── */
 .pin-dot,.dot{background:#e2e8f0 !important;border-color:#cbd5e1 !important;}
-.pin-dot.on,.dot.filled{background:#1a6bc4 !important;border-color:#1a6bc4 !important;}
+.pin-dot.on,.dot.filled{background:#1e9484 !important;border-color:#1e9484 !important;}
 .pk,.numpad button{
   background:#f1f5f9 !important;border-color:#0f172a !important;color:#f0f4f8 !important;
 }
-.pk:active,.numpad button:hover{background:#dbeafe !important;}
+.pk:active,.numpad button:hover{background:#d7f0ea !important;}
 .pin-err,.pinErr,#pinErr{color:#b91c1c !important;}
 
 /* ── Tabs ── */
 .tabs{border-bottom-color:#0f172a !important;}
 .tab-btn{color:#475569 !important;}
 .tab-btn:hover{color:#f0f4f8 !important;}
-.tab-btn.active{color:#1a6bc4 !important;border-bottom-color:#1a6bc4 !important;}
+.tab-btn.active{color:#1e9484 !important;border-bottom-color:#1e9484 !important;}
 .tab-btn.active,.tab-btn:hover{background:none !important;}
 
 /* ── Inputs / selects / textareas ── */
@@ -180,7 +180,7 @@ input,select,textarea,.sm-search{
   color:#f0f4f8 !important;
 }
 input:focus,select:focus,textarea:focus,.sm-search:focus{
-  border-color:#1a6bc4 !important;outline:none;
+  border-color:#1e9484 !important;outline:none;
 }
 input::placeholder,.sm-search::placeholder{color:#64748b !important;}
 
@@ -189,9 +189,9 @@ input::placeholder,.sm-search::placeholder{color:#64748b !important;}
   background:#f1f5f9 !important;border-color:#0f172a !important;color:#ffffff !important;
 }
 .btn-ghost:hover,.tool-btn:hover{background:#e2e8f0 !important;}
-.tool-btn.active{background:#dbeafe !important;border-color:#1a6bc4 !important;color:#1a6bc4 !important;}
-.eb-edit{border-color:#1a6bc4 !important;color:#1d4ed8 !important;}
-.eb-edit:hover{background:#dbeafe !important;}
+.tool-btn.active{background:#d7f0ea !important;border-color:#1e9484 !important;color:#1e9484 !important;}
+.eb-edit{border-color:#1e9484 !important;color:#157567 !important;}
+.eb-edit:hover{background:#d7f0ea !important;}
 .eb-del{border-color:#ef4444 !important;color:#b91c1c !important;}
 .eb-del:hover{background:#fee2e2 !important;}
 
@@ -214,14 +214,14 @@ input::placeholder,.sm-search::placeholder{color:#64748b !important;}
 /* ── Phase banners ── */
 .phase-banner.meeting{background:#ede9fe !important;border-color:#c4b5fd !important;color:#6d28d9 !important;}
 .phase-banner.signin{background:#dcfce7 !important;border-color:#86efac !important;color:#15803d !important;}
-.phase-banner.saved{background:#dbeafe !important;border-color:#93c5fd !important;color:#1d4ed8 !important;}
+.phase-banner.saved{background:#d7f0ea !important;border-color:#93c5fd !important;color:#157567 !important;}
 
 /* ── User pill ── */
 .user-pill{background:#ede9fe !important;border-color:#a78bfa !important;color:#6d28d9 !important;}
 
 /* ── Info bars ── */
-.info-bar{background:#dbeafe !important;border-color:#93c5fd !important;color:#1e40af !important;}
-.info-bar strong{color:#1d4ed8 !important;}
+.info-bar{background:#d7f0ea !important;border-color:#93c5fd !important;color:#1e40af !important;}
+.info-bar strong{color:#157567 !important;}
 
 /* ── Tables ── */
 table{background:transparent !important;}
@@ -234,12 +234,12 @@ tr:hover td{background:#f0f4f8 !important;}
   background:#ffffff !important;border-color:#0f172a !important;
   box-shadow:0 1px 4px rgba(0,0,0,.06) !important;
 }
-.summary-card .val{color:#1a6bc4 !important;}
+.summary-card .val{color:#1e9484 !important;}
 .summary-card .lbl{color:#475569 !important;}
 
 /* ── Badges ── */
 .badge-admin{background:#ede9fe !important;color:#5b21b6 !important;}
-.badge-lead,.badge-editor{background:#dbeafe !important;color:#1e40af !important;}
+.badge-lead,.badge-editor{background:#d7f0ea !important;color:#1e40af !important;}
 .badge-worker,.badge-active{background:#dcfce7 !important;color:#15803d !important;}
 .badge-inactive{background:#f1f5f9 !important;color:#64748b !important;}
 
@@ -259,9 +259,9 @@ tr:hover td{background:#f0f4f8 !important;}
 .modal{background:#ffffff !important;box-shadow:0 20px 60px rgba(0,0,0,.18) !important;}
 
 /* ── Global nav stays dark ── */
-.gnav{background:#1e3a5f !important;border-top-color:#0f2d52 !important;}
+.gnav{background:#19354d !important;border-top-color:#0f2d52 !important;}
 .gnav a{color:#94a3b8 !important;}
-.gnav a:hover,.gnav a.gna{color:#60a5fa !important;}
+.gnav a:hover,.gnav a.gna{color:#5eead4 !important;}
 
 /* ── Toast ── */
 #toast{background:#ffffff !important;color:#0f172a !important;}
@@ -272,7 +272,7 @@ tr:hover td{background:#f0f4f8 !important;}
 ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px;}
 
 /* ── Log out / utility bars ── */
-.log-out-bar,.logout-area{background:#1e3a5f !important;}
+.log-out-bar,.logout-area{background:#19354d !important;}
 
 /* ── SM section ── */
 .sm-item{background:#ffffff !important;border-color:#0f172a !important;}
@@ -280,7 +280,7 @@ tr:hover td{background:#f0f4f8 !important;}
 
 /* ── Landing page cards ── */
 .card{background:#ffffff !important;border-color:#0f172a !important;}
-.card:hover{border-color:#1a6bc4 !important;box-shadow:0 8px 32px rgba(26,107,196,.12) !important;}
+.card:hover{border-color:#1e9484 !important;box-shadow:0 8px 32px rgba(26,107,196,.12) !important;}
 .card-body p{color:#475569 !important;}
 footer{color:#64748b !important;border-top-color:#0f172a !important;}
 
@@ -301,18 +301,18 @@ footer{color:#64748b !important;border-top-color:#0f172a !important;}
 <body>
 
 <style>
-#mbr-status-bar{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 14px;background:#1e3a5f;border-bottom:1px solid rgba(255,255,255,0.1);height:48px;}
-#mbr-checkin-chip{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;cursor:default;transition:.3s;}
+#bsynch-status-bar{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 14px;background:#19354d;border-bottom:1px solid rgba(255,255,255,0.1);height:48px;}
+#bsynch-checkin-chip{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;cursor:default;transition:.3s;}
 .chip-in{background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3);}
 .chip-out{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.45);border:1px solid rgba(255,255,255,0.1);}
 .chip-dot{width:6px;height:6px;border-radius:50%;}
 .dot-in{background:#22c55e;}
 .dot-out{background:rgba(255,255,255,0.25);}
-#mbr-bell-btn{position:relative;background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.5);font-size:18px;padding:2px 4px;transition:.2s;}
-#mbr-bell-btn:hover{color:#fff;}
-#mbr-bell-badge{position:absolute;top:-2px;right:-2px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:999px;display:none;align-items:center;justify-content:center;padding:0 3px;}
-#mbr-notif-panel{position:fixed;top:48px;right:0;width:340px;max-height:460px;overflow-y:auto;background:#0f1e35;border:1px solid rgba(255,255,255,0.12);border-top:2px solid #1a6bc4;border-radius:0 0 0 14px;z-index:499;display:none;box-shadow:0 12px 40px rgba(0,0,0,0.5);}
-#mbr-notif-panel .np-header{padding:10px 14px;font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;justify-content:space-between;align-items:center;}
+#bsynch-bell-btn{position:relative;background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.5);font-size:18px;padding:2px 4px;transition:.2s;}
+#bsynch-bell-btn:hover{color:#fff;}
+#bsynch-bell-badge{position:absolute;top:-2px;right:-2px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:999px;display:none;align-items:center;justify-content:center;padding:0 3px;}
+#bsynch-notif-panel{position:fixed;top:48px;right:0;width:340px;max-height:460px;overflow-y:auto;background:#0f1e35;border:1px solid rgba(255,255,255,0.12);border-top:2px solid #1e9484;border-radius:0 0 0 14px;z-index:499;display:none;box-shadow:0 12px 40px rgba(0,0,0,0.5);}
+#bsynch-notif-panel .np-header{padding:10px 14px;font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;justify-content:space-between;align-items:center;}
 .np-item{padding:13px 15px;border-bottom:1px solid rgba(255,255,255,0.06);cursor:default;transition:.15s;display:flex;gap:10px;align-items:flex-start;}
 .np-item:hover{background:rgba(255,255,255,0.03);}
 .np-item.unread{border-left:3px solid #0ea5e9;background:rgba(14,165,233,0.05);}
@@ -325,7 +325,7 @@ footer{color:#64748b !important;border-top-color:#0f172a !important;}
 .np-meta{display:flex;align-items:center;gap:8px;}
 .np-time{font-size:10px;color:rgba(255,255,255,0.3);}
 .np-empty{padding:28px 16px;text-align:center;font-size:12px;color:rgba(255,255,255,0.3);}
-.np-read-btn{padding:3px 10px;font-size:10px;font-weight:700;background:rgba(14,165,233,0.15);border:1px solid rgba(14,165,233,0.35);border-radius:4px;color:#38bdf8;cursor:pointer;white-space:nowrap;letter-spacing:.02em;}
+.np-read-btn{padding:3px 10px;font-size:10px;font-weight:700;background:rgba(14,165,233,0.15);border:1px solid rgba(14,165,233,0.35);border-radius:4px;color:#34d3b8;cursor:pointer;white-space:nowrap;letter-spacing:.02em;}
 .np-read-btn:hover{background:rgba(14,165,233,0.3);}
 body{padding-top:48px!important;}
 
@@ -347,13 +347,13 @@ body{padding-top:48px!important;}
 }
 @media (max-width: 520px) {
   .hdr-name { display: none !important; }
-  #mbr-status-bar { padding: 0 10px; gap: 5px; }
+  #bsynch-status-bar { padding: 0 10px; gap: 5px; }
 }
 #chip-label{display:none!important;}
-#mbr-checkin-chip{padding:4px!important;gap:0!important;}
+#bsynch-checkin-chip{padding:4px!important;gap:0!important;}
 .chip-dot,#chip-dot{width:10px!important;height:10px!important;}
 </style>
-<div id="mbr-status-bar">
+<div id="bsynch-status-bar">
   <!-- Left: navigation -->
   <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
     <a href="/" style="color:#93c5fd;text-decoration:none;font-size:13px;white-space:nowrap;">← Home</a>
@@ -362,16 +362,16 @@ body{padding-top:48px!important;}
   </div>
   <!-- Right: status + user + bell -->
   <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-    <div id="mbr-loc-chip" style="font-size:11px;font-weight:600;color:#64748b;padding:2px 8px;display:none;">📍 <span id="loc-chip-text"></span></div>
-    <div id="mbr-checkin-chip" class="chip-out">
+    <div id="bsynch-loc-chip" style="font-size:11px;font-weight:600;color:#64748b;padding:2px 8px;display:none;">📍 <span id="loc-chip-text"></span></div>
+    <div id="bsynch-checkin-chip" class="chip-out">
       <span class="chip-dot dot-out" id="chip-dot"></span>
       <span id="chip-label">Not Checked In</span>
     </div>
     <div id="headerUser" style="display:flex;align-items:center;gap:6px;"></div>
-    <button id="mbr-bell-btn" onclick="toggleNotifPanel()" title="Notifications" style="position:relative;background:none;border:none;cursor:pointer;font-size:16px;padding:4px;color:#64748b;line-height:1;">🔔<div id="mbr-bell-badge"></div></button>
+    <button id="bsynch-bell-btn" onclick="toggleNotifPanel()" title="Notifications" style="position:relative;background:none;border:none;cursor:pointer;font-size:16px;padding:4px;color:#64748b;line-height:1;">🔔<div id="bsynch-bell-badge"></div></button>
   </div>
 </div>
-<div id="mbr-notif-panel">
+<div id="bsynch-notif-panel">
   <div class="np-header">
     <span>Notifications</span>
     <span id="np-mark-all" onclick="markAllRead()" style="cursor:pointer;color:#0ea5e9;font-size:10px;text-transform:none;letter-spacing:0;">Mark all read</span>
@@ -380,23 +380,23 @@ body{padding-top:48px!important;}
 </div>
 <script>
 (function(){
-  var auth = localStorage.getItem('mbrAuth')||'';
+  var auth = localStorage.getItem('bsynchAuth')||'';
   if(!auth) return;
   // Check-in status
   function refreshCheckInStatus(){
     fetch('/api/contractor/status?name='+encodeURIComponent(auth))
       .then(function(r){return r.json();})
       .then(function(d){
-        var chip=document.getElementById('mbr-checkin-chip');
+        var chip=document.getElementById('bsynch-checkin-chip');
         var dot=document.getElementById('chip-dot');
         var lbl=document.getElementById('chip-label');
         if(!chip||!dot||!lbl) return;
         if(d.checked_in){
-          chip.className='mbr-checkin-chip chip-in';
+          chip.className='bsynch-checkin-chip chip-in';
           dot.className='chip-dot dot-in';
           lbl.textContent=d.since?'Checked In · '+d.since:'Checked In';
         } else {
-          chip.className='mbr-checkin-chip chip-out';
+          chip.className='bsynch-checkin-chip chip-out';
           dot.className='chip-dot dot-out';
           lbl.textContent='Not Checked In';
         }
@@ -407,9 +407,9 @@ body{padding-top:48px!important;}
   setInterval(refreshCheckInStatus, 60000);
 
   // Location chip
-  var unit = localStorage.getItem('mbrUnit');
+  var unit = localStorage.getItem('bsynchUnit');
   if(unit){
-    var lc = document.getElementById('mbr-loc-chip');
+    var lc = document.getElementById('bsynch-loc-chip');
     var lt = document.getElementById('loc-chip-text');
     if(lc && lt){ lt.textContent = 'Unit ' + unit; lc.style.display = 'block'; }
   }
@@ -421,22 +421,22 @@ body{padding-top:48px!important;}
 var _notifPanel = false;
 function toggleNotifPanel(){
   _notifPanel = !_notifPanel;
-  document.getElementById('mbr-notif-panel').style.display = _notifPanel ? 'block' : 'none';
+  document.getElementById('bsynch-notif-panel').style.display = _notifPanel ? 'block' : 'none';
   if(_notifPanel) loadNotifications();
 }
 document.addEventListener('click',function(e){
-  if(!e.target.closest('#mbr-bell-btn') && !e.target.closest('#mbr-notif-panel')){
-    document.getElementById('mbr-notif-panel').style.display='none';
+  if(!e.target.closest('#bsynch-bell-btn') && !e.target.closest('#bsynch-notif-panel')){
+    document.getElementById('bsynch-notif-panel').style.display='none';
     _notifPanel=false;
   }
 });
 function loadNotifications(){
-  var auth = localStorage.getItem('mbrAuth')||'';
+  var auth = localStorage.getItem('bsynchAuth')||'';
   fetch('/api/notifications?name='+encodeURIComponent(auth))
     .then(function(r){return r.json();})
     .then(function(d){
       var list = document.getElementById('np-list');
-      var badge = document.getElementById('mbr-bell-badge');
+      var badge = document.getElementById('bsynch-bell-badge');
       if(!d.ok||!d.notifications) return;
       var notifs = d.notifications;
       var unread = notifs.filter(function(n){return !n.read;}).length;
@@ -460,14 +460,14 @@ function loadNotifications(){
     }).catch(function(){});
 }
 function markRead(id){
-  var auth = localStorage.getItem('mbrAuth')||'';
+  var auth = localStorage.getItem('bsynchAuth')||'';
   fetch('/api/notifications/'+id+'/read',{method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({name:auth})})
     .then(function(){loadNotifications();});
 }
 function markAllRead(){
-  var auth = localStorage.getItem('mbrAuth')||'';
+  var auth = localStorage.getItem('bsynchAuth')||'';
   var items = document.querySelectorAll('.np-item.unread');
   var ids = [];
   items.forEach(function(el){
@@ -495,13 +495,13 @@ function timeAgo(iso){
 </script>
 
 
-<script>(function(){var n=localStorage.getItem('mbrAuth')||'';var r=localStorage.getItem('mbrRole')||'';var el=document.getElementById('headerUser');if(!el||!n)return;var cap=r?r.charAt(0).toUpperCase()+r.slice(1):'';el.innerHTML='<span class="hdr-name" style="font-size:12px;font-weight:700;color:#64748b;">'+n+(cap?' &middot; '+cap:'')+'</span>+'<button class="hdr-signout" onclick="localStorage.removeItem(\'mbrAuth\');localStorage.removeItem(\'mbrRole\');location.href=\'/login\';" style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);color:#64748b;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>';})();</script>
+<script>(function(){var n=localStorage.getItem('bsynchAuth')||'';var r=localStorage.getItem('bsynchRole')||'';var el=document.getElementById('headerUser');if(!el||!n)return;var cap=r?r.charAt(0).toUpperCase()+r.slice(1):'';el.innerHTML='<span class="hdr-name" style="font-size:12px;font-weight:700;color:#64748b;">'+n+(cap?' &middot; '+cap:'')+'</span>+'<button class="hdr-signout" onclick="localStorage.removeItem(\'bsynchAuth\');localStorage.removeItem(\'bsynchRole\');location.href=\'/login\';" style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);color:#64748b;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>';})();</script>
 
 <script>
 /* Profile name/avatar — DOMContentLoaded ensures elements exist even inside hidden tabs */
 (function(){
-  var n=localStorage.getItem('mbrAuth')||'';
-  var r=localStorage.getItem('mbrRole')||'';
+  var n=localStorage.getItem('bsynchAuth')||'';
+  var r=localStorage.getItem('bsynchRole')||'';
   if(!n)return;
   var ini=n.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase()||n.charAt(0).toUpperCase();
   function setProfile(){
@@ -699,17 +699,17 @@ function timeAgo(iso){
       </div>
       <div style="display:flex;flex-direction:column;gap:10px;">
         <div>
-          <label style="font-size:11px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Primary Recipient</label>
+          <label style="font-size:11px;font-weight:700;color:#19354d;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Primary Recipient</label>
           <input id="opsAlertEmail" type="email" placeholder="e.g. manager@company.com"
             style="width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface,#fff);color:var(--text);font-size:13px;box-sizing:border-box;">
         </div>
         <div>
-          <label style="font-size:11px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">CC (optional — comma separated)</label>
+          <label style="font-size:11px;font-weight:700;color:#19354d;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">CC (optional — comma separated)</label>
           <input id="opsAlertCC" type="text" placeholder="e.g. ops@company.com, boss@company.com"
             style="width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface,#fff);color:var(--text);font-size:13px;box-sizing:border-box;">
         </div>
         <div style="display:flex;align-items:center;gap:10px;margin-top:2px;">
-          <button onclick="saveOpsSettings()" style="padding:9px 22px;background:#1a6bc4;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">💾 Save</button>
+          <button onclick="saveOpsSettings()" style="padding:9px 22px;background:#1e9484;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">💾 Save</button>
           <span id="opsAlertStatus" style="font-size:12px;color:var(--muted);"></span>
         </div>
       </div>
@@ -727,9 +727,9 @@ function timeAgo(iso){
           style="padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface,#fff);color:var(--text);font-size:13px;resize:vertical;font-family:inherit;"></textarea>
         <!-- Target checkboxes -->
         <div style="background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:12px 14px;">
-          <div style="font-size:11px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Send To</div>
+          <div style="font-size:11px;font-weight:700;color:#19354d;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Send To</div>
           <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
-            <label id="lbl-everyone" onclick="notifToggleEveryone(event)" style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;border:1.5px solid #1a6bc4;background:#eff6ff;cursor:pointer;font-size:12px;font-weight:700;color:#1d4ed8;user-select:none;">
+            <label id="lbl-everyone" onclick="notifToggleEveryone(event)" style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;border:1.5px solid #1e9484;background:#eff6ff;cursor:pointer;font-size:12px;font-weight:700;color:#157567;user-select:none;">
               <input type="checkbox" id="nt-everyone" style="display:none;" checked> 🌐 Everyone
             </label>
             <label id="lbl-admin" onclick="notifToggleGroup(event,'nt-admin')" style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;border:1.5px solid #e2e8f0;background:#f8fafc;cursor:pointer;font-size:12px;font-weight:600;color:#475569;user-select:none;">
@@ -745,7 +745,7 @@ function timeAgo(iso){
               <input type="checkbox" id="nt-worker" style="display:none;"> 🧰 Workers
             </label>
           </div>
-          <button onclick="sendNotification()" style="width:100%;padding:10px 0;background:#1a6bc4;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Send 🔔</button>
+          <button onclick="sendNotification()" style="width:100%;padding:10px 0;background:#1e9484;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Send 🔔</button>
         </div>
         <div id="notif-status" style="font-size:12px;display:none;"></div>
       </div>
@@ -788,7 +788,7 @@ function timeAgo(iso){
       <div id="editNotifStatus" style="font-size:12px;min-height:18px;margin-bottom:10px;text-align:center;"></div>
       <div style="display:flex;gap:10px;">
         <button onclick="document.getElementById('editNotifModal').style.display='none'" style="flex:1;padding:10px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;cursor:pointer;color:#475569;font-weight:600;">Cancel</button>
-        <button onclick="saveEditNotif()" style="flex:1;padding:10px;background:#1a6bc4;border:none;border-radius:8px;font-size:13px;font-weight:700;color:#fff;cursor:pointer;">Save Changes</button>
+        <button onclick="saveEditNotif()" style="flex:1;padding:10px;background:#1e9484;border:none;border-radius:8px;font-size:13px;font-weight:700;color:#fff;cursor:pointer;">Save Changes</button>
       </div>
     </div>
   </div>
@@ -830,7 +830,7 @@ function timeAgo(iso){
     <!-- Worker info card -->
     <div class="section-card" style="max-width:560px;margin-bottom:20px;">
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:18px;">
-        <div id="ca-avatar" style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#1a6bc4,#0ea5e9);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff;flex-shrink:0;">?</div>
+        <div id="ca-avatar" style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#1e9484,#0ea5e9);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff;flex-shrink:0;">?</div>
         <div>
           <div id="ca-display-name" style="font-size:17px;font-weight:700;color:var(--text);">—</div>
           <div id="ca-display-role" style="font-size:12px;color:var(--muted);text-transform:capitalize;margin-top:2px;"></div>
@@ -898,7 +898,7 @@ function timeAgo(iso){
     <div class="field">
       <label>Contractor Company</label>
       <select id="um-company" style="width:100%;">
-        <option value="MBR Texas">BSynch</option>
+        <option value="Meridian Structural Group">Meridian Structural Group</option>
         <option value="J&amp;F Sandblasting">J&amp;F Sandblasting</option>
         <option value="RV Solutions">RV Solutions</option>
         <option value="C.U.R">C.U.R</option>
@@ -1035,7 +1035,7 @@ var DEFAULT_PERMS = {
 var PERMS = JSON.parse(JSON.stringify(DEFAULT_PERMS));
 
 /* ─── STATE ─── */
-var ADMIN_KEY = 'mbrSettingsAdmin';
+var ADMIN_KEY = 'bsynchSettingsAdmin';
 var curAdmin = null, pinBuf = '';
 var ALL_USERS = [], ALL_WORKERS = [], ALL_CONTACTS = [];
 var editUserName = null, editWorkerName = null, editContactId = null;
@@ -1065,11 +1065,11 @@ function verifyAdmin(){
 function showMain(){
   document.getElementById('main').style.display='block';
   document.getElementById('logoutBtn').style.display='';
-  var who=localStorage.getItem('mbrAuth')||localStorage.getItem(ADMIN_KEY)||curAdmin||'';
+  var who=localStorage.getItem('bsynchAuth')||localStorage.getItem(ADMIN_KEY)||curAdmin||'';
   document.getElementById('adminWho').textContent='— '+who;
   loadUsers(); loadWorkers(); loadPerms(); setThisWeek();
 }
-function logout(){localStorage.removeItem('mbrAuth');localStorage.removeItem('mbrRole');location.href='/login';}
+function logout(){localStorage.removeItem('bsynchAuth');localStorage.removeItem('bsynchRole');location.href='/login';}
 
 /* ─── TABS ─── */
 function switchTab(name,btn){
@@ -1134,7 +1134,7 @@ function renderUsers(){
     var em=u.email?'<a href="mailto:'+u.email+'" style="color:var(--accent);font-size:11px">'+esc(u.email)+'</a>':'<em style="color:var(--muted);font-size:11px">no email</em>';
     var ph=u.phone?'<span style="font-size:11px;color:var(--muted)"> · '+esc(u.phone)+'</span>':'';
     return '<tr>'+
-      '<td><strong>'+esc(u.name)+'</strong><br>'+em+ph+(u.led_by?'<br><span style="font-size:10px;color:var(--muted);">Led by: '+esc(u.led_by)+'</span>':'')+'<br><span style="font-size:10px;'+(u.company&&u.company!=='MBR Texas'?'background:rgba(14,165,233,.15);color:#38bdf8;':'background:rgba(100,116,139,.1);color:var(--muted);')+'padding:1px 7px;border-radius:10px;">'+esc(u.company==='MBR Texas'||!u.company?'BSynch':u.company)+'</span></td>'+
+      '<td><strong>'+esc(u.name)+'</strong><br>'+em+ph+(u.led_by?'<br><span style="font-size:10px;color:var(--muted);">Led by: '+esc(u.led_by)+'</span>':'')+'<br><span style="font-size:10px;'+(u.company&&u.company!=='Meridian Structural Group'?'background:rgba(14,165,233,.15);color:#34d3b8;':'background:rgba(100,116,139,.1);color:var(--muted);')+'padding:1px 7px;border-radius:10px;">'+esc(u.company==='Meridian Structural Group'||!u.company?'Meridian Structural Group':u.company)+'</span></td>'+
       '<td><span class="badge '+bc+'">'+(u.role||'—')+'</span></td>'+
 
       (window._bossReadOnly?'<td><em style="color:var(--muted);font-size:11px">view only</em></td>':'<td><button class="btn btn-ghost btn-sm" onclick="openUserModalByName(\''+nk+'\')">'+'Edit</button> '+
@@ -1153,7 +1153,7 @@ function openUserModal(){
   document.getElementById('um-email').value='';
   document.getElementById('um-phone').value='';
   document.getElementById('um-pin').value='';
-  document.getElementById('um-company').value='MBR Texas';
+  document.getElementById('um-company').value='Meridian Structural Group';
   // Populate Led By dropdown (no preselect for new users)
   var leads2 = ALL_USERS.filter(function(x){ return x.role==='lead'; });
   var sel2 = document.getElementById('um-led-by');
@@ -1177,7 +1177,7 @@ function openUserModalByName(nk){
   document.getElementById('um-email').value=u.email||'';
   document.getElementById('um-phone').value=u.phone||'';
   document.getElementById('um-pin').value='';
-  document.getElementById('um-company').value=u.company||'MBR Texas';
+  document.getElementById('um-company').value=u.company||'Meridian Structural Group';
   // Populate Led By dropdown with all leads
   var leads = ALL_USERS.filter(function(x){ return x.role==='lead'; });
   var sel = document.getElementById('um-led-by');
@@ -1199,7 +1199,7 @@ function saveUser(){
   if(!name){showToast('Name required',true);return;}
   var ledBy=document.getElementById('um-led-by').value;
   var company=document.getElementById('um-company').value;
-  var body={role:role,email:email||null,phone:phone||null,led_by:ledBy||null,company:company||'MBR Texas'};if(pin)body.pin=pin;
+  var body={role:role,email:email||null,phone:phone||null,led_by:ledBy||null,company:company||'Meridian Structural Group'};if(pin)body.pin=pin;
   var url=editUserName?'/api/users/by-name/'+encodeURIComponent(editUserName):'/api/users';
   var method=editUserName?'PATCH':'POST';
   if(!editUserName){body.name=name;}
@@ -1480,8 +1480,8 @@ function showToast(msg,err){var t=document.getElementById('toast');t.textContent
 
 /* ─── INIT ─── */
 (function(){
-  var role = localStorage.getItem('mbrRole') || '';
-  var name = localStorage.getItem('mbrAuth') || '';
+  var role = localStorage.getItem('bsynchRole') || '';
+  var name = localStorage.getItem('bsynchAuth') || '';
   if(!name) { location.href = '/login'; return; }
   if(role === 'contractor') { location.href = '/inventory'; return; }
 
@@ -1565,7 +1565,7 @@ function saveOpsSettings(){
   var cc    = (document.getElementById('opsAlertCC')||{}).value||'';
   var st    = document.getElementById('opsAlertStatus');
   if(!email){if(st){st.textContent='Enter a primary email.';st.style.color='#ef4444';}return;}
-  var who = localStorage.getItem('mbrAuth')||'';
+  var who = localStorage.getItem('bsynchAuth')||'';
   if(st){st.textContent='Saving…';st.style.color='var(--muted)';}
   fetch('/api/ops-settings',{
     method:'PUT',
@@ -1603,14 +1603,14 @@ async function loadAllNotifs(){
             +'<div style="font-size:13px;font-weight:700;color:#f0f4f8;margin-bottom:3px;">'+escHtmlN(n.title)+'</div>'
             +(n.body?'<div style="font-size:12px;color:#475569;margin-bottom:6px;line-height:1.5;">'+escHtmlN(n.body)+'</div>':'')
             +'<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">'
-              +'<span style="font-size:10px;font-weight:700;background:#dbeafe;color:#1d4ed8;border-radius:6px;padding:2px 8px;">→ '+tgt+'</span>'
+              +'<span style="font-size:10px;font-weight:700;background:#d7f0ea;color:#157567;border-radius:6px;padding:2px 8px;">→ '+tgt+'</span>'
               +'<span style="font-size:10px;color:#64748b;">'+ago+'</span>'
               +'<span style="font-size:10px;color:#64748b;">by '+escHtmlN(n.created_by||'—')+'</span>'
               +'<span style="font-size:10px;font-weight:700;background:#dcfce7;color:#15803d;border-radius:6px;padding:2px 8px;">'+rc+' read</span>'
             +'</div>'
           +'</div>'
           +'<div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">'
-            +'<button data-idx="'+idx+'" onclick="var n=_allNotifs[this.dataset.idx];openEditNotif(n.id,n.title,n.body||\'\',n.target);" style="padding:5px 10px;font-size:11px;font-weight:700;border:1px solid #1a6bc4;background:#eff6ff;color:#1d4ed8;border-radius:6px;cursor:pointer;">✎ Edit</button>'
+            +'<button data-idx="'+idx+'" onclick="var n=_allNotifs[this.dataset.idx];openEditNotif(n.id,n.title,n.body||\'\',n.target);" style="padding:5px 10px;font-size:11px;font-weight:700;border:1px solid #1e9484;background:#eff6ff;color:#157567;border-radius:6px;cursor:pointer;">✎ Edit</button>'
             +'<button data-nid="'+n.id+'" onclick="deleteNotif(this.dataset.nid);" style="padding:5px 10px;font-size:11px;font-weight:700;border:1px solid #ef4444;background:#fef2f2;color:#b91c1c;border-radius:6px;cursor:pointer;">✕</button>'
           +'</div>'
         +'</div>'
@@ -1677,7 +1677,7 @@ async function deleteNotif(id){
 <nav class="gnav" id="gnav"></nav>
 <script>
 (function(){
-  var role=localStorage.getItem('mbrRole')||'admin';
+  var role=localStorage.getItem('bsynchRole')||'admin';
   var lvl={admin:5,boss:4,inventory:3,lead:2,worker:1}[role]||1;
   var all=[
     {h:'/home',icon:'🏠',label:'Home'},
@@ -1716,7 +1716,7 @@ function saveResetPw() {
   err.style.display = 'none';
   if (!pw || pw.length < 4) { err.textContent = 'Password must be at least 4 characters.'; err.style.display = 'block'; return; }
   if (pw !== pw2)            { err.textContent = 'Passwords do not match.'; err.style.display = 'block'; return; }
-  var _caller = localStorage.getItem('mbrAuth') || '';
+  var _caller = localStorage.getItem('bsynchAuth') || '';
   fetch('/api/reset-password', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
@@ -1780,8 +1780,8 @@ async function savePin(){
 var _caWorkerId = null;
 
 function loadContractorArea(){
-  var name = localStorage.getItem('mbrAuth') || '';
-  var role = localStorage.getItem('mbrRole') || '';
+  var name = localStorage.getItem('bsynchAuth') || '';
+  var role = localStorage.getItem('bsynchRole') || '';
   if(!name) return;
 
   // --- Profile header (synchronous, no fetch needed) ---
@@ -1818,16 +1818,16 @@ async function _caLoadCheckinStatus(name){
         lbl.textContent = 'Not Checked In';
       }
       // Sync status bar chip from same response
-      var barChip=document.getElementById('mbr-checkin-chip');
+      var barChip=document.getElementById('bsynch-checkin-chip');
       var barDot=document.getElementById('chip-dot');
       var barLbl=document.getElementById('chip-label');
       if(barChip&&barDot&&barLbl){
         if(cd.checked_in){
-          barChip.className='mbr-checkin-chip chip-in';
+          barChip.className='bsynch-checkin-chip chip-in';
           barDot.className='chip-dot dot-in';
           barLbl.textContent=cd.since?'Checked In · '+cd.since:'Checked In';
         } else {
-          barChip.className='mbr-checkin-chip chip-out';
+          barChip.className='bsynch-checkin-chip chip-out';
           barDot.className='chip-dot dot-out';
           barLbl.textContent='Not Checked In';
         }
@@ -1839,7 +1839,7 @@ async function _caLoadCheckinStatus(name){
     var chip2=document.getElementById('ca-ci-chip');
     if(lbl2) lbl2.textContent='—';
     if(dot2) dot2.style.background='#64748b';
-    if(chip2){ chip2.style.background='rgba(255,255,255,0.04)'; chip2.style.color='#64748b'; chip2.style.cursor='pointer'; chip2.title='Tap to retry'; chip2.onclick=function(){_caLoadCheckinStatus(localStorage.getItem('mbrAuth')||'');}; }
+    if(chip2){ chip2.style.background='rgba(255,255,255,0.04)'; chip2.style.color='#64748b'; chip2.style.cursor='pointer'; chip2.title='Tap to retry'; chip2.onclick=function(){_caLoadCheckinStatus(localStorage.getItem('bsynchAuth')||'');}; }
   }
 }
 
@@ -1852,11 +1852,11 @@ async function _caLoadPinBadge(name){
     if(pd.ok && !pd.pin_set){
       if(badge){ badge.style.display='inline'; badge.textContent='No PIN'; badge.style.background='#fef2f2'; badge.style.color='#ef4444'; }
       if(banner) banner.style.display='block';
-      if(localStorage) localStorage.setItem('mbrPinRequired','1');
+      if(localStorage) localStorage.setItem('bsynchPinRequired','1');
     } else {
       if(badge){ badge.style.display='inline'; badge.textContent='✓ PIN set'; badge.style.background='#f0fdf4'; badge.style.color='#16a34a'; }
       if(banner) banner.style.display='none';
-      if(localStorage) localStorage.removeItem('mbrPinRequired');
+      if(localStorage) localStorage.removeItem('bsynchPinRequired');
     }
   } catch(e){}
 }
@@ -1873,7 +1873,7 @@ function getWeekStart(offset){
 }
 
 async function loadContractorHours(){
-  var name = localStorage.getItem('mbrAuth') || '';
+  var name = localStorage.getItem('bsynchAuth') || '';
   var ws = getWeekStart(caWeekOffset);
   var we = new Date(ws); we.setDate(we.getDate()+6);
   var weStr = we.toISOString().slice(0,10);
@@ -1951,7 +1951,7 @@ function closeChangePw(){
   var err=document.getElementById('cp-err'); if(err){err.style.display='none';err.textContent='';}
 }
 async function saveChangePw(){
-  var name = localStorage.getItem('mbrAuth')||'';
+  var name = localStorage.getItem('bsynchAuth')||'';
   var curr = (document.getElementById('cp-current')||{}).value||'';
   var nw   = (document.getElementById('cp-new')||{}).value||'';
   var conf = (document.getElementById('cp-confirm')||{}).value||'';
@@ -1975,7 +1975,7 @@ function _ntSetChip(id, on){
   var lbl = _ntLbl(id);
   if(!inp||!lbl) return;
   inp.checked = on;
-  if(on){ lbl.style.borderColor='#1a6bc4';lbl.style.background='#eff6ff';lbl.style.color='#1d4ed8'; }
+  if(on){ lbl.style.borderColor='#1e9484';lbl.style.background='#eff6ff';lbl.style.color='#157567'; }
   else  { lbl.style.borderColor='#e2e8f0';lbl.style.background='#f8fafc';lbl.style.color='#475569'; }
 }
 function notifToggleEveryone(e){
@@ -1985,7 +1985,7 @@ function notifToggleEveryone(e){
   ev.checked = !ev.checked;
   var lev = document.getElementById('lbl-everyone');
   if(ev.checked){
-    lev.style.borderColor='#1a6bc4';lev.style.background='#eff6ff';lev.style.color='#1d4ed8';
+    lev.style.borderColor='#1e9484';lev.style.background='#eff6ff';lev.style.color='#157567';
     _NT_GROUPS.forEach(function(id){_ntSetChip(id,false);});
   } else {
     lev.style.borderColor='#e2e8f0';lev.style.background='#f8fafc';lev.style.color='#475569';
@@ -2006,7 +2006,7 @@ function notifToggleGroup(e, id){
   // If all 4 checked, revert to Everyone
   var allOn = _NT_GROUPS.every(function(gid){ return (document.getElementById(gid)||{}).checked; });
   if(allOn){
-    if(ev){ ev.checked=true; var lev2=document.getElementById('lbl-everyone'); if(lev2){lev2.style.borderColor='#1a6bc4';lev2.style.background='#eff6ff';lev2.style.color='#1d4ed8';} }
+    if(ev){ ev.checked=true; var lev2=document.getElementById('lbl-everyone'); if(lev2){lev2.style.borderColor='#1e9484';lev2.style.background='#eff6ff';lev2.style.color='#157567';} }
     _NT_GROUPS.forEach(function(gid){_ntSetChip(gid,false);});
   }
 }
@@ -2035,7 +2035,7 @@ async function sendNotification(){
   }
   var st     = document.getElementById('notif-status');
   if(!title.trim()){ st.style.display='block';st.style.color='#ef4444';st.textContent='Title is required.';return; }
-  var auth = localStorage.getItem('mbrAuth')||'';
+  var auth = localStorage.getItem('bsynchAuth')||'';
   var r = await fetch('/api/notifications',{method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({title:title.trim(),body:body.trim(),target:target,created_by:auth})});
@@ -2051,12 +2051,12 @@ async function sendNotification(){
 
 async function contractorResetPin(){
   if(!confirm('Reset your PIN? You will need to set a new one.')) return;
-  var name = localStorage.getItem('mbrAuth')||'';
+  var name = localStorage.getItem('bsynchAuth')||'';
   var r = await fetch('/api/contractor/reset-pin',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({name:name})});
   var d = await r.json();
   if(d.ok){
-    localStorage.setItem('mbrPinRequired','1');
+    localStorage.setItem('bsynchPinRequired','1');
     showToast('PIN reset. Please set a new PIN below.');
     loadContractorArea();
     // Failsafe: set name/avatar immediately without waiting for async
@@ -2082,21 +2082,21 @@ switchTab = function(name, btn){
 
 // On page load: update bar chip directly (independent of which tab is active)
 (function(){
-  var _auth = localStorage.getItem('mbrAuth')||'';
+  var _auth = localStorage.getItem('bsynchAuth')||'';
   if(!_auth) return;
   function _updateBarChip(){
     fetch('/api/contractor/status?name='+encodeURIComponent(_auth))
       .then(function(r){return r.json();})
       .then(function(d){
-        var bc=document.getElementById('mbr-checkin-chip');
+        var bc=document.getElementById('bsynch-checkin-chip');
         var bd=document.getElementById('chip-dot');
         var bl=document.getElementById('chip-label');
         if(!bc||!bd||!bl) return;
         if(d.checked_in){
-          bc.className='mbr-checkin-chip chip-in'; bd.className='chip-dot dot-in';
+          bc.className='bsynch-checkin-chip chip-in'; bd.className='chip-dot dot-in';
           bl.textContent=d.since?'Checked In · '+d.since:'Checked In';
         } else {
-          bc.className='mbr-checkin-chip chip-out'; bd.className='chip-dot dot-out';
+          bc.className='bsynch-checkin-chip chip-out'; bd.className='chip-dot dot-out';
           bl.textContent='Not Checked In';
         }
       }).catch(function(){ setTimeout(_updateBarChip, 5000); });
@@ -2110,7 +2110,7 @@ document.addEventListener('DOMContentLoaded', function(){ setTimeout(initRegQr, 
 
 // First-login PIN enforcement: if flag is set, open contractor tab on load
 (function(){
-  if(localStorage.getItem('mbrPinRequired')){
+  if(localStorage.getItem('bsynchPinRequired')){
     document.addEventListener('DOMContentLoaded', function(){
       var btn = document.getElementById('tab-btn-contractor');
       if(btn) btn.click();
@@ -2121,7 +2121,7 @@ document.addEventListener('DOMContentLoaded', function(){ setTimeout(initRegQr, 
 
 // ── Registration QR ──────────────────────────────────────────────
 function initRegQr(){
-  var role = (localStorage.getItem('mbrRole')||'').toLowerCase();
+  var role = (localStorage.getItem('bsynchRole')||'').toLowerCase();
   var lvl = {admin:5,boss:4,inventory:3,lead:2,worker:1}[role]||0;
   if(lvl < 4) return; // boss/admin only
   var card = document.getElementById('regQrCard');
@@ -2153,7 +2153,7 @@ function copyRegUrl(){
 
 // ── Force logout all users ──────────────────────────────────────────────────
 function forceLogoutAll() {
-  var caller = localStorage.getItem('mbrAuth') || '';
+  var caller = localStorage.getItem('bsynchAuth') || '';
   if (!caller) { showToast('Not logged in', true); return; }
   var status = document.getElementById('forceLogoutStatus');
   status.style.display = 'block';

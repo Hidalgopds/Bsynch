@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNiIgZmlsbD0iIzFhNmJjNCIvPjx0ZXh0IHg9IjE2IiB5PSIyMyIgZm9udC1mYW1pbHk9IkFyaWFsLHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSI+QjwvdGV4dD48L3N2Zz4=">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNiIgZmlsbD0iIzFlOTQ4NCIvPjx0ZXh0IHg9IjE2IiB5PSIyMyIgZm9udC1mYW1pbHk9IkFyaWFsLHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSI+QjwvdGV4dD48L3N2Zz4=">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>On-Site Timesheet — BSynch</title>
 <style>
-:root{--bg:#f0f4f8;--card:#ffffff;--border:#e2e8f0;--text:#f0f4f8;--muted:#64748b;--accent:#1a6bc4;--green:#16a34a;--amber:#d97706;--red:#dc2626;}
+:root{--bg:#f0f4f8;--card:#ffffff;--border:#e2e8f0;--text:#f0f4f8;--muted:#64748b;--accent:#1e9484;--green:#16a34a;--amber:#d97706;--red:#dc2626;}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
 .header{background:#060c18;border-bottom:2px solid #e2e8f0;padding:12px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100;}
@@ -47,7 +47,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .phase-banner{border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px;}
 .phase-banner.meeting{background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.3);color:#c084fc;}
 .phase-banner.signin{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#4ade80;}
-.phase-banner.saved{background:rgba(79,142,247,.1);border:1px solid rgba(79,142,247,.3);color:#60a5fa;}
+.phase-banner.saved{background:rgba(79,142,247,.1);border:1px solid rgba(79,142,247,.3);color:#5eead4;}
 .sm-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
 .sm-search{flex:1;min-width:140px;background:#ffffff;border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;padding:7px 12px;outline:none;}
 .sm-search:focus{border-color:var(--accent);}
@@ -65,12 +65,12 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .wc-time{font-size:10px;color:#475569;margin-top:5px;}
 .worker-card.present .wc-time{color:#22c55e;}
 .worker-card.signin-mode{min-height:90px;}
-.worker-card.edit-card{cursor:default;background:#ffffff;border-color:#1e3a5f;padding:10px;}
+.worker-card.edit-card{cursor:default;background:#ffffff;border-color:#19354d;padding:10px;}
 .worker-card.edit-card:active{transform:none;}
 .edit-btns{display:flex;gap:4px;margin-top:8px;justify-content:center;}
 .eb{height:28px;padding:0 8px;border:1px solid var(--border);border-radius:6px;background:#0a1525;color:#64748b;font-size:12px;cursor:pointer;}
 .eb-edit{border-color:#3b82f6;color:#3b82f6;}
-.eb-edit:hover{background:#1e3a5f;}
+.eb-edit:hover{background:#19354d;}
 .eb-del{border-color:#ef4444;color:#ef4444;}
 .eb-del:hover{background:#3b0a0a;}
 .add-row{display:flex;gap:8px;margin-top:4px;}
@@ -79,7 +79,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .add-btn{height:36px;padding:0 14px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;}
 .sm-complete-btn{width:100%;height:46px;background:linear-gradient(135deg,#14532d,#16a34a);border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;margin-top:14px;}
 .sm-complete-btn:hover{opacity:.9;}
-.save-day-btn{width:100%;height:42px;background:linear-gradient(135deg,#1e3a6e,#1d4ed8);border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px;}
+.save-day-btn{width:100%;height:42px;background:linear-gradient(135deg,#1e3a6e,#157567);border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px;}
 .save-day-btn:hover{opacity:.9;}
 .save-day-btn:disabled{opacity:.5;cursor:not-allowed;}
 .sm-reset-btn{width:100%;height:40px;background:transparent;border:1px solid #e2e8f0;border-radius:10px;color:#64748b;font-size:13px;cursor:pointer;margin-top:8px;}
@@ -92,7 +92,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .hist-day-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#0a1525;cursor:pointer;}
 .hd-date{font-size:13px;font-weight:800;color:var(--text);}
 .hd-count{font-size:12px;color:var(--green);font-weight:700;}
-.hd-saved{font-size:10px;background:rgba(79,142,247,.2);color:#60a5fa;border-radius:10px;padding:2px 8px;font-weight:700;}
+.hd-saved{font-size:10px;background:rgba(79,142,247,.2);color:#5eead4;border-radius:10px;padding:2px 8px;font-weight:700;}
 .hist-day-body{padding:10px 14px 14px;}
 .hist-workers{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
 .hist-chip{background:#f8fafc;border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;color:#64748b;display:flex;align-items:center;gap:5px;}
@@ -187,7 +187,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 <style id="gnav-style">
 .gnav{position:fixed;bottom:0;left:0;right:0;height:54px;background:#060c18;border-top:1px solid #1a2535;display:flex;justify-content:space-around;align-items:center;z-index:9999;box-shadow:0 -4px 24px rgba(0,0,0,.5);}
 .gnav a{display:flex;flex-direction:column;align-items:center;gap:1px;text-decoration:none;color:#475569;padding:0 8px;font-size:10px;font-weight:500;transition:.15s;min-width:44px;}
-.gnav a:hover,.gnav a.gna{color:#1a6bc4;}
+.gnav a:hover,.gnav a.gna{color:#1e9484;}
 .gnav a .gi{font-size:19px;line-height:1.2;}
 body{padding-bottom:60px !important;}
 </style>
@@ -195,23 +195,23 @@ body{padding-bottom:60px !important;}
 
 <style id="light-theme">
 /* ============================================
-   MBR TEXAS — LIGHT CORPORATE THEME
+   BSYNCH — LIGHT CORPORATE THEME
    High-contrast for outdoor / sunlight use
    ============================================ */
 :root{
   --bg:#f0f4f8;--card:#ffffff;--border:#cbd5e1;
   --text:#f0f4f8;--muted:#475569;
-  --accent:#1a6bc4;--green:#15803d;
+  --accent:#1e9484;--green:#15803d;
   --red:#b91c1c;--yellow:#92400e;--purple:#6d28d9;
 }
 html,body{background:#f0f4f8 !important;color:#f0f4f8 !important;}
 
 /* ── Headers: stay dark blue (brand + readable with sunglasses) ── */
 .header,.topbar,header,#app-header{
-  background:#1e3a5f !important;color:#e2e8f0 !important;
+  background:#19354d !important;color:#e2e8f0 !important;
   border-bottom-color:#0f2d52 !important;
 }
-.hlogo{color:#60a5fa !important;}
+.hlogo{color:#5eead4 !important;}
 .back-btn,.topbar a,.header a{color:#93c5fd !important;}
 
 /* ── Gate / auth area ── */
@@ -226,23 +226,23 @@ html,body{background:#f0f4f8 !important;color:#f0f4f8 !important;}
   background:#f1f5f9 !important;border-color:#0f172a !important;color:#f0f4f8 !important;
 }
 .name-btn:hover,.name-btn:active,.user-btn.active,.user-btn:hover{
-  background:#1a6bc4 !important;color:#ffffff !important;border-color:#1a6bc4 !important;
+  background:#1e9484 !important;color:#ffffff !important;border-color:#1e9484 !important;
 }
 
 /* ── PIN pad ── */
 .pin-dot,.dot{background:#e2e8f0 !important;border-color:#64748b !important;}
-.pin-dot.on,.dot.filled{background:#1a6bc4 !important;border-color:#1a6bc4 !important;}
+.pin-dot.on,.dot.filled{background:#1e9484 !important;border-color:#1e9484 !important;}
 .pk,.numpad button{
   background:#f1f5f9 !important;border-color:#0f172a !important;color:#f0f4f8 !important;
 }
-.pk:active,.numpad button:hover{background:#dbeafe !important;}
+.pk:active,.numpad button:hover{background:#d7f0ea !important;}
 .pin-err,.pinErr,#pinErr{color:#b91c1c !important;}
 
 /* ── Tabs ── */
 .tabs{border-bottom-color:#0f172a !important;}
 .tab-btn{color:#475569 !important;}
 .tab-btn:hover{color:#f0f4f8 !important;}
-.tab-btn.active{color:#1a6bc4 !important;border-bottom-color:#1a6bc4 !important;}
+.tab-btn.active{color:#1e9484 !important;border-bottom-color:#1e9484 !important;}
 .tab-btn.active,.tab-btn:hover{background:none !important;}
 
 /* ── Inputs / selects / textareas ── */
@@ -251,7 +251,7 @@ input,select,textarea,.sm-search{
   color:#f0f4f8 !important;
 }
 input:focus,select:focus,textarea:focus,.sm-search:focus{
-  border-color:#1a6bc4 !important;outline:none;
+  border-color:#1e9484 !important;outline:none;
 }
 input::placeholder,.sm-search::placeholder{color:#64748b !important;}
 
@@ -260,9 +260,9 @@ input::placeholder,.sm-search::placeholder{color:#64748b !important;}
   background:#f1f5f9 !important;border-color:#0f172a !important;color:#ffffff !important;
 }
 .btn-ghost:hover,.tool-btn:hover{background:#e2e8f0 !important;}
-.tool-btn.active{background:#dbeafe !important;border-color:#1a6bc4 !important;color:#1a6bc4 !important;}
-.eb-edit{border-color:#3b82f6 !important;color:#1d4ed8 !important;}
-.eb-edit:hover{background:#dbeafe !important;}
+.tool-btn.active{background:#d7f0ea !important;border-color:#1e9484 !important;color:#1e9484 !important;}
+.eb-edit{border-color:#3b82f6 !important;color:#157567 !important;}
+.eb-edit:hover{background:#d7f0ea !important;}
 .eb-del{border-color:#ef4444 !important;color:#b91c1c !important;}
 .eb-del:hover{background:#fee2e2 !important;}
 
@@ -285,14 +285,14 @@ input::placeholder,.sm-search::placeholder{color:#64748b !important;}
 /* ── Phase banners ── */
 .phase-banner.meeting{background:#ede9fe !important;border-color:#c4b5fd !important;color:#6d28d9 !important;}
 .phase-banner.signin{background:#dcfce7 !important;border-color:#86efac !important;color:#15803d !important;}
-.phase-banner.saved{background:#dbeafe !important;border-color:#93c5fd !important;color:#1d4ed8 !important;}
+.phase-banner.saved{background:#d7f0ea !important;border-color:#93c5fd !important;color:#157567 !important;}
 
 /* ── User pill ── */
 .user-pill{background:#ede9fe !important;border-color:#a78bfa !important;color:#6d28d9 !important;}
 
 /* ── Info bars ── */
-.info-bar{background:#dbeafe !important;border-color:#93c5fd !important;color:#1e40af !important;}
-.info-bar strong{color:#1d4ed8 !important;}
+.info-bar{background:#d7f0ea !important;border-color:#93c5fd !important;color:#1e40af !important;}
+.info-bar strong{color:#157567 !important;}
 
 /* ── Tables ── */
 table{background:transparent !important;}
@@ -305,12 +305,12 @@ tr:hover td{background:#f8fafc !important;}
   background:#ffffff !important;border-color:#0f172a !important;
   box-shadow:0 1px 4px rgba(0,0,0,.06) !important;
 }
-.summary-card .val{color:#1a6bc4 !important;}
+.summary-card .val{color:#1e9484 !important;}
 .summary-card .lbl{color:#475569 !important;}
 
 /* ── Badges ── */
 .badge-admin{background:#ede9fe !important;color:#5b21b6 !important;}
-.badge-lead,.badge-editor{background:#dbeafe !important;color:#1e40af !important;}
+.badge-lead,.badge-editor{background:#d7f0ea !important;color:#1e40af !important;}
 .badge-worker,.badge-active{background:#dcfce7 !important;color:#15803d !important;}
 .badge-inactive{background:#f1f5f9 !important;color:#64748b !important;}
 
@@ -328,9 +328,9 @@ tr:hover td{background:#f8fafc !important;}
 .modal{background:#ffffff !important;box-shadow:0 20px 60px rgba(0,0,0,.18) !important;}
 
 /* ── Global nav stays dark ── */
-.gnav{background:#1e3a5f !important;border-top-color:#0f2d52 !important;}
+.gnav{background:#19354d !important;border-top-color:#0f2d52 !important;}
 .gnav a{color:#94a3b8 !important;}
-.gnav a:hover,.gnav a.gna{color:#60a5fa !important;}
+.gnav a:hover,.gnav a.gna{color:#5eead4 !important;}
 
 /* ── Toast ── */
 #toast{background:#ffffff !important;color:#0f172a !important;}
@@ -341,7 +341,7 @@ tr:hover td{background:#f8fafc !important;}
 ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px;}
 
 /* ── Log out / utility bars ── */
-.log-out-bar,.logout-area{background:#1e3a5f !important;}
+.log-out-bar,.logout-area{background:#19354d !important;}
 
 /* ── SM section ── */
 .sm-item{background:#ffffff !important;border-color:#0f172a !important;}
@@ -349,7 +349,7 @@ tr:hover td{background:#f8fafc !important;}
 
 /* ── Landing page cards ── */
 .card{background:#ffffff !important;border-color:#0f172a !important;}
-.card:hover{border-color:#1a6bc4 !important;box-shadow:0 8px 32px rgba(26,107,196,.12) !important;}
+.card:hover{border-color:#1e9484 !important;box-shadow:0 8px 32px rgba(26,107,196,.12) !important;}
 .card-body p{color:#475569 !important;}
 footer{color:#64748b !important;border-top-color:#0f172a !important;}
 
@@ -369,24 +369,24 @@ footer{color:#64748b !important;border-top-color:#0f172a !important;}
 <body>
 
 <style>
-#mbr-status-bar{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 14px;background:#1e3a5f;border-bottom:1px solid rgba(255,255,255,0.1);height:48px;}
+#bsynch-status-bar{position:fixed;top:0;left:0;right:0;z-index:500;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 14px;background:#19354d;border-bottom:1px solid rgba(255,255,255,0.1);height:48px;}
 @media(max-width:520px){
   .user-pill{display:none!important;}
 #userPill{display:none!important;} /* always hidden */
-  #mbr-status-bar{padding:0 10px;gap:5px;}
+  #bsynch-status-bar{padding:0 10px;gap:5px;}
   #chip-label{font-size:10px;}
 }
-#mbr-checkin-chip{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;cursor:default;transition:.3s;}
+#bsynch-checkin-chip{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;cursor:default;transition:.3s;}
 .chip-in{background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3);}
 .chip-out{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.45);border:1px solid rgba(255,255,255,0.1);}
 .chip-dot{width:6px;height:6px;border-radius:50%;}
 .dot-in{background:#22c55e;}
 .dot-out{background:rgba(255,255,255,0.25);}
-#mbr-bell-btn{position:relative;background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.5);font-size:18px;padding:2px 4px;transition:.2s;}
-#mbr-bell-btn:hover{color:#fff;}
-#mbr-bell-badge{position:absolute;top:-2px;right:-2px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:999px;display:none;align-items:center;justify-content:center;padding:0 3px;}
-#mbr-notif-panel{position:fixed;top:48px;right:0;width:340px;max-height:460px;overflow-y:auto;background:#0f1e35;border:1px solid rgba(255,255,255,0.12);border-top:2px solid #1a6bc4;border-radius:0 0 0 14px;z-index:499;display:none;box-shadow:0 12px 40px rgba(0,0,0,0.5);}
-#mbr-notif-panel .np-header{padding:10px 14px;font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;justify-content:space-between;align-items:center;}
+#bsynch-bell-btn{position:relative;background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.5);font-size:18px;padding:2px 4px;transition:.2s;}
+#bsynch-bell-btn:hover{color:#fff;}
+#bsynch-bell-badge{position:absolute;top:-2px;right:-2px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:999px;display:none;align-items:center;justify-content:center;padding:0 3px;}
+#bsynch-notif-panel{position:fixed;top:48px;right:0;width:340px;max-height:460px;overflow-y:auto;background:#0f1e35;border:1px solid rgba(255,255,255,0.12);border-top:2px solid #1e9484;border-radius:0 0 0 14px;z-index:499;display:none;box-shadow:0 12px 40px rgba(0,0,0,0.5);}
+#bsynch-notif-panel .np-header{padding:10px 14px;font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;justify-content:space-between;align-items:center;}
 .np-item{padding:13px 15px;border-bottom:1px solid rgba(255,255,255,0.06);cursor:default;transition:.15s;display:flex;gap:10px;align-items:flex-start;}
 .np-item:hover{background:rgba(255,255,255,0.03);}
 .np-item.unread{border-left:3px solid #0ea5e9;background:rgba(14,165,233,0.05);}
@@ -399,14 +399,14 @@ footer{color:#64748b !important;border-top-color:#0f172a !important;}
 .np-meta{display:flex;align-items:center;gap:8px;}
 .np-time{font-size:10px;color:rgba(255,255,255,0.3);}
 .np-empty{padding:28px 16px;text-align:center;font-size:12px;color:rgba(255,255,255,0.3);}
-.np-read-btn{padding:3px 10px;font-size:10px;font-weight:700;background:rgba(14,165,233,0.15);border:1px solid rgba(14,165,233,0.35);border-radius:4px;color:#38bdf8;cursor:pointer;white-space:nowrap;letter-spacing:.02em;}
+.np-read-btn{padding:3px 10px;font-size:10px;font-weight:700;background:rgba(14,165,233,0.15);border:1px solid rgba(14,165,233,0.35);border-radius:4px;color:#34d3b8;cursor:pointer;white-space:nowrap;letter-spacing:.02em;}
 .np-read-btn:hover{background:rgba(14,165,233,0.3);}
 body{padding-top:48px!important;}
 #chip-label{display:none!important;}
-#mbr-checkin-chip{padding:4px!important;gap:0!important;}
+#bsynch-checkin-chip{padding:4px!important;gap:0!important;}
 .chip-dot,#chip-dot{width:10px!important;height:10px!important;}
 </style>
-<div id="mbr-status-bar">
+<div id="bsynch-status-bar">
   <!-- Left: navigation -->
   <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
     <button class="back-btn" onclick="window.location='/'" style="background:none;border:none;cursor:pointer;font-size:18px;color:#93c5fd;padding:0;line-height:1;">◀</button>
@@ -414,17 +414,17 @@ body{padding-top:48px!important;}
   </div>
   <!-- Right: status + user + bell -->
   <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-    <div id="mbr-loc-chip" style="font-size:11px;font-weight:600;color:#64748b;padding:2px 8px;display:none;">📍 <span id="loc-chip-text"></span></div>
-    <div id="mbr-checkin-chip" class="chip-out">
+    <div id="bsynch-loc-chip" style="font-size:11px;font-weight:600;color:#64748b;padding:2px 8px;display:none;">📍 <span id="loc-chip-text"></span></div>
+    <div id="bsynch-checkin-chip" class="chip-out">
       <span class="chip-dot dot-out" id="chip-dot"></span>
       <span id="chip-label" style="display:none;"></span>
     </div>
     <span id="userPill" class="user-pill" style="font-size:12px;"></span>
-    <button id="mbr-bell-btn" onclick="toggleNotifPanel()" title="Notifications" style="position:relative;background:none;border:none;cursor:pointer;font-size:16px;padding:4px;color:#64748b;line-height:1;">🔔<div id="mbr-bell-badge"></div></button>
-    <button onclick="localStorage.removeItem('mbrAuth');localStorage.removeItem('mbrRole');location.href='/login';" style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);color:#64748b;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
+    <button id="bsynch-bell-btn" onclick="toggleNotifPanel()" title="Notifications" style="position:relative;background:none;border:none;cursor:pointer;font-size:16px;padding:4px;color:#64748b;line-height:1;">🔔<div id="bsynch-bell-badge"></div></button>
+    <button onclick="localStorage.removeItem('bsynchAuth');localStorage.removeItem('bsynchRole');location.href='/login';" style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);color:#64748b;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
   </div>
 </div>
-<div id="mbr-notif-panel">
+<div id="bsynch-notif-panel">
   <div class="np-header">
     <span>Notifications</span>
     <span id="np-mark-all" onclick="markAllRead()" style="cursor:pointer;color:#0ea5e9;font-size:10px;text-transform:none;letter-spacing:0;">Mark all read</span>
@@ -433,14 +433,14 @@ body{padding-top:48px!important;}
 </div>
 <script>
 (function(){
-  var auth = localStorage.getItem('mbrAuth')||'';
+  var auth = localStorage.getItem('bsynchAuth')||'';
   if(!auth) return;
   // Check-in status — named function so it can be called after SM tap & auto-refreshes
   window.refreshCheckInStatus = function refreshCheckInStatus(){
     fetch('/api/contractor/status?name='+encodeURIComponent(auth))
       .then(function(r){return r.json();})
       .then(function(d){
-        var chip = document.getElementById('mbr-checkin-chip');
+        var chip = document.getElementById('bsynch-checkin-chip');
         var dot  = document.getElementById('chip-dot');
         var lbl  = document.getElementById('chip-label');
         if(!chip||!dot||!lbl) return;
@@ -459,9 +459,9 @@ body{padding-top:48px!important;}
   setInterval(refreshCheckInStatus, 60000); // auto-refresh every 60s
 
   // Location chip
-  var unit = localStorage.getItem('mbrUnit');
+  var unit = localStorage.getItem('bsynchUnit');
   if(unit){
-    var lc = document.getElementById('mbr-loc-chip');
+    var lc = document.getElementById('bsynch-loc-chip');
     var lt = document.getElementById('loc-chip-text');
     if(lc && lt){ lt.textContent = 'Unit ' + unit; lc.style.display = 'block'; }
   }
@@ -473,22 +473,22 @@ body{padding-top:48px!important;}
 var _notifPanel = false;
 function toggleNotifPanel(){
   _notifPanel = !_notifPanel;
-  document.getElementById('mbr-notif-panel').style.display = _notifPanel ? 'block' : 'none';
+  document.getElementById('bsynch-notif-panel').style.display = _notifPanel ? 'block' : 'none';
   if(_notifPanel) loadNotifications();
 }
 document.addEventListener('click',function(e){
-  if(!e.target.closest('#mbr-bell-btn') && !e.target.closest('#mbr-notif-panel')){
-    document.getElementById('mbr-notif-panel').style.display='none';
+  if(!e.target.closest('#bsynch-bell-btn') && !e.target.closest('#bsynch-notif-panel')){
+    document.getElementById('bsynch-notif-panel').style.display='none';
     _notifPanel=false;
   }
 });
 function loadNotifications(){
-  var auth = localStorage.getItem('mbrAuth')||'';
+  var auth = localStorage.getItem('bsynchAuth')||'';
   fetch('/api/notifications?name='+encodeURIComponent(auth))
     .then(function(r){return r.json();})
     .then(function(d){
       var list = document.getElementById('np-list');
-      var badge = document.getElementById('mbr-bell-badge');
+      var badge = document.getElementById('bsynch-bell-badge');
       if(!d.ok||!d.notifications) return;
       var notifs = d.notifications;
       var unread = notifs.filter(function(n){return !n.read;}).length;
@@ -512,14 +512,14 @@ function loadNotifications(){
     }).catch(function(){});
 }
 function markRead(id){
-  var auth = localStorage.getItem('mbrAuth')||'';
+  var auth = localStorage.getItem('bsynchAuth')||'';
   fetch('/api/notifications/'+id+'/read',{method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({name:auth})})
     .then(function(){loadNotifications();});
 }
 function markAllRead(){
-  var auth = localStorage.getItem('mbrAuth')||'';
+  var auth = localStorage.getItem('bsynchAuth')||'';
   var items = document.querySelectorAll('.np-item.unread');
   var ids = [];
   items.forEach(function(el){
@@ -606,7 +606,7 @@ function timeAgo(iso){
         <button onclick="allCheckIn()" style="padding:6px 14px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">✓ All Check In</button>
         <button onclick="allCheckOut()" style="padding:6px 14px;background:#dc2626;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">✗ All Check Out</button>
         <button onclick="openManualCheckin()" style="padding:6px 14px;background:#d97706;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">⏱ Manual Check-In</button>
-        <span id="smBulkStatus" style="font-size:12px;color:#60a5fa;"></span>
+        <span id="smBulkStatus" style="font-size:12px;color:#5eead4;"></span>
       </div>
 
       <div class="add-row sm-boss-only" style="display:none;">
@@ -678,7 +678,7 @@ function timeAgo(iso){
 
       <!-- Legend -->
       <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
-        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#64748b;font-weight:600;"><div style="width:12px;height:5px;border-radius:3px;background:#1a6bc4;"></div> Horizon 3</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#64748b;font-weight:600;"><div style="width:12px;height:5px;border-radius:3px;background:#1e9484;"></div> Horizon 3</div>
         <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#64748b;font-weight:600;"><div style="width:12px;height:5px;border-radius:3px;background:#2563eb;"></div> Horizon 4</div>
         <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#64748b;font-weight:600;"><div style="width:12px;height:5px;border-radius:3px;background:#16a34a;"></div> Already Arrived</div>
       </div>
@@ -712,7 +712,7 @@ function timeAgo(iso){
 
       <!-- Detail popup -->
       <div id="shipDetailPanel" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:14px;display:none;box-shadow:0 2px 8px rgba(0,0,0,.06);">
-        <div id="shipDetailDate" style="font-size:11px;font-weight:700;color:#1a6bc4;margin-bottom:10px;text-transform:uppercase;letter-spacing:.6px;"></div>
+        <div id="shipDetailDate" style="font-size:11px;font-weight:700;color:#1e9484;margin-bottom:10px;text-transform:uppercase;letter-spacing:.6px;"></div>
         <div id="shipDetailItems"></div>
       </div>
 
@@ -727,19 +727,19 @@ function timeAgo(iso){
 .ship-cell.ship-empty{background:#fafbfc;}
 .ship-cell.ship-has-event{cursor:pointer;}
 .ship-cell.ship-has-event:hover{background:#f0f7ff;}
-.ship-cell.ship-today .ship-dn{background:#1a6bc4;color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-weight:800;}
+.ship-cell.ship-today .ship-dn{background:#1e9484;color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-weight:800;}
 .ship-dn{font-size:10px;color:#64748b;font-weight:600;margin-bottom:2px;width:20px;height:20px;display:flex;align-items:center;justify-content:center;}
 .ship-cell.ship-has-event .ship-dn{color:#0f172a;}
 .ship-pill{font-size:8px;font-weight:700;border-radius:4px;padding:1px 4px;margin-bottom:2px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;}
-.spill-h3{background:#f3e8ff;color:#7e22ce;border-left:2px solid #1a6bc4;}
-.spill-h4{background:#dbeafe;color:#1d4ed8;border-left:2px solid #2563eb;}
+.spill-h3{background:#f3e8ff;color:#7e22ce;border-left:2px solid #1e9484;}
+.spill-h4{background:#d7f0ea;color:#157567;border-left:2px solid #2563eb;}
 .spill-shipped{background:#dcfce7;color:#15803d;border-left:2px solid #16a34a;}
 .ship-seg{position:absolute;bottom:0;height:4px;}
 .ship-seg.sseg-start{left:50%;right:0;}
 .ship-seg.sseg-mid{left:0;right:0;}
 .ship-seg.sseg-end{left:0;right:50%;}
 .ship-seg.sseg-single{left:10%;right:10%;border-radius:2px;}
-.sclr-h3{background:#1a6bc4;}
+.sclr-h3{background:#1e9484;}
 .sclr-h4{background:#2563eb;}
 .sclr-shipped{background:#16a34a;}
 </style>
@@ -840,8 +840,8 @@ function shipOpenDetail(dateStr){
     var k=r.ev.ship+r.ev.project+r.ev.po;
     if(seen[k])return;seen[k]=1;
     var ev=r.ev;
-    var bc=ev.status==='shipped'?'#16a34a':(ev.project==='H3'?'#1a6bc4':'#2563eb');
-    var bdc=ev.status==='shipped'?'background:#dcfce7;color:#15803d':(r.role==='end'?'background:#fef9c3;color:#a16207':'background:#dbeafe;color:#1d4ed8');
+    var bc=ev.status==='shipped'?'#16a34a':(ev.project==='H3'?'#1e9484':'#2563eb');
+    var bdc=ev.status==='shipped'?'background:#dcfce7;color:#15803d':(r.role==='end'?'background:#fef9c3;color:#a16207':'background:#d7f0ea;color:#157567');
     var bdt=ev.status==='shipped'?'Arrived':(r.role==='end'?'Arrives Today':(r.role==='start'?'Departs Today':'In Transit'));
     html+='<div style="background:#f8fafc;border-radius:8px;padding:10px 12px;margin-bottom:8px;border-left:3px solid '+bc+';">'
       +'<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;">'+ev.project+' — PO '+ev.po+'</div>'
@@ -869,11 +869,11 @@ function shipRenderUpcoming(){
   fut.forEach(function(ev){
     var dt=shipPd(ev.date);
     var diff=Math.round((dt.getTime()-t0)/86400000);
-    var bc=ev.status==='shipped'?'background:#dcfce7;color:#15803d':(diff<=7?'background:#fef9c3;color:#a16207':'background:#dbeafe;color:#1d4ed8');
+    var bc=ev.status==='shipped'?'background:#dcfce7;color:#15803d':(diff<=7?'background:#fef9c3;color:#a16207':'background:#d7f0ea;color:#157567');
     var bt=ev.status==='shipped'?'Arrived':(diff===0?'Today':(diff<=7?'This Week':diff+'d'));
-    var pc=ev.project==='H3'?'#1a6bc4':'#2563eb';
+    var pc=ev.project==='H3'?'#1e9484':'#2563eb';
     html+='<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 3px rgba(0,0,0,.04);">'
-      +'<div style="background:#f0f7ff;border-radius:8px;padding:5px 9px;text-align:center;min-width:48px;flex-shrink:0;border:1px solid #dbeafe;">'
+      +'<div style="background:#f0f7ff;border-radius:8px;padding:5px 9px;text-align:center;min-width:48px;flex-shrink:0;border:1px solid #d7f0ea;">'
         +'<div style="font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;">'+SHIP_SMONS[dt.getMonth()]+'</div>'
         +'<div style="font-size:18px;font-weight:800;line-height:1.1;color:'+pc+'">'+dt.getDate()+'</div>'
       +'</div>'
@@ -921,7 +921,7 @@ document.addEventListener('DOMContentLoaded', function(){
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
           <div>
             <div style="font-size:16px;font-weight:800;">📍 Section B — Live Map</div>
-            <div style="font-size:12px;color:#64748b;margin-top:2px;">TDG Yard · Auto-refreshes every 30 seconds</div>
+            <div style="font-size:12px;color:#64748b;margin-top:2px;">Summit Yard · Auto-refreshes every 30 seconds</div>
           </div>
           <div style="display:flex;gap:8px;align-items:center;">
             <button onclick="loadYardMap()" style="padding:6px 14px;background:#1e2d45;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;font-size:12px;cursor:pointer;">↻ Refresh</button>
@@ -978,7 +978,7 @@ document.addEventListener('DOMContentLoaded', function(){
         <textarea id="myteam-att-reason" rows="2" style="width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;background:#ffffff;color:#0f172a;font-size:13px;resize:vertical;margin-bottom:12px;" placeholder="Reason…"></textarea>
         <input type="hidden" id="myteam-att-type" value="late">
         <div style="display:flex;gap:8px;">
-          <button onclick="submitTeamAtt()" style="flex:1;padding:10px;background:#1d4ed8;border:none;border-radius:8px;color:#fff;font-weight:700;cursor:pointer;font-size:14px;">📤 Submit</button>
+          <button onclick="submitTeamAtt()" style="flex:1;padding:10px;background:#157567;border:none;border-radius:8px;color:#fff;font-weight:700;cursor:pointer;font-size:14px;">📤 Submit</button>
           <button onclick="closeTeamAttForm()" style="padding:10px 14px;background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;cursor:pointer;">Cancel</button>
         </div>
         <div id="myteam-att-status" style="margin-top:8px;font-size:12px;text-align:center;"></div>
@@ -1087,7 +1087,7 @@ document.addEventListener('DOMContentLoaded', function(){
             </select>
             <input class="att-input" type="date" id="attFrom" onchange="loadAttendance()" style="width:130px;padding:5px 8px;font-size:12px;" placeholder="From">
             <input class="att-input" type="date" id="attTo" onchange="loadAttendance()" style="width:130px;padding:5px 8px;font-size:12px;" placeholder="To">
-            <button class="tool-btn" onclick="exportAttPDF()" style="height:32px;border-color:#1a6bc4;color:#1a6bc4;">⬇ Export PDF</button>
+            <button class="tool-btn" onclick="exportAttPDF()" style="height:32px;border-color:#1e9484;color:#1e9484;">⬇ Export PDF</button>
           </div>
           <div id="attRecentBody"><div class="att-empty">Loading…</div></div>
         </div>
@@ -1176,10 +1176,10 @@ document.addEventListener('DOMContentLoaded', function(){
     try {
       var r = await fetch('/api/session-version');
       var d = await r.json();
-      var sv = localStorage.getItem('mbr_sv');
-      if(!sv){ localStorage.setItem('mbr_sv', d.version); }
+      var sv = localStorage.getItem('bsynch_sv');
+      if(!sv){ localStorage.setItem('bsynch_sv', d.version); }
       else if(sv !== d.version){
-        ['mbrAuth','mbrRole','mbr_sv','mbrPinRequired'].forEach(function(k){ localStorage.removeItem(k); });
+        ['bsynchAuth','bsynchRole','bsynch_sv','bsynchPinRequired'].forEach(function(k){ localStorage.removeItem(k); });
         location.href = '/login';
       }
     } catch(e){}
@@ -1187,8 +1187,8 @@ document.addEventListener('DOMContentLoaded', function(){
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 var curUser=null,pinBuf='',setNew=false,pin1st='';
-var sv=localStorage.getItem('mbrAuth');
-var sv_role=localStorage.getItem('mbrRole')||'';
+var sv=localStorage.getItem('bsynchAuth');
+var sv_role=localStorage.getItem('bsynchRole')||'';
 if(!sv){location.href='/login';}
 else if(sv_role==='contractor'){location.href='/inventory';}
 else{curUser=sv;}
@@ -1196,10 +1196,10 @@ function selName(n){curUser=n;pinBuf='';setNew=false;pin1st='';document.getEleme
 function goS1(){document.getElementById('gs2').style.display='none';document.getElementById('gs1').style.display='block';pinBuf='';setNew=false;pin1st='';}
 function pk(k){if(k==='C'){if(pinBuf.length>0){pinBuf=pinBuf.slice(0,-1);updDots();}return;}if(pinBuf.length>=4)return;pinBuf+=k;updDots();if(pinBuf.length===4)setTimeout(procPIN,110);}
 function updDots(){for(var i=0;i<4;i++){var d=document.getElementById('pd'+i);if(d)d.className='pin-dot'+(i<pinBuf.length?' on':'');}}
-function procPIN(){if(setNew&&!pin1st){pin1st=pinBuf;pinBuf='';document.getElementById('pinSub').textContent='Confirm your PIN';updDots();return;}if(setNew&&pin1st){if(pinBuf!==pin1st){document.getElementById('pinErr').textContent='PINs do not match.';pinBuf='';pin1st='';updDots();return;}fetch('/api/users/set-pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:curUser,pin:pinBuf})}).then(function(r){return r.json();}).then(function(d){if(d.ok){var body='BSynch Timesheet%0A%0APIN Set For: '+encodeURIComponent(curUser)+'%0APIN: '+pinBuf+'%0ADate: '+new Date().toLocaleDateString();window.open('mailto:dshidalgop@gmail.com?subject='+encodeURIComponent('Timesheet PIN – '+curUser)+'&body='+body,'_blank');localStorage.setItem('mbrAuth',curUser);showMain();}else{document.getElementById('pinErr').textContent='Error saving PIN';}}).catch(function(){document.getElementById('pinErr').textContent='Error.';});return;}fetch('/api/users/verify-pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:curUser,pin:pinBuf})}).then(function(r){return r.json();}).then(function(d){if(d.ok){localStorage.setItem('mbrAuth',curUser);localStorage.setItem('mbrRole',d.role||'worker');showMain();}else{document.getElementById('pinErr').textContent='Incorrect PIN.';pinBuf='';updDots();}}).catch(function(){document.getElementById('pinErr').textContent='Error.';});}
+function procPIN(){if(setNew&&!pin1st){pin1st=pinBuf;pinBuf='';document.getElementById('pinSub').textContent='Confirm your PIN';updDots();return;}if(setNew&&pin1st){if(pinBuf!==pin1st){document.getElementById('pinErr').textContent='PINs do not match.';pinBuf='';pin1st='';updDots();return;}fetch('/api/users/set-pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:curUser,pin:pinBuf})}).then(function(r){return r.json();}).then(function(d){if(d.ok){var body='BSynch Timesheet%0A%0APIN Set For: '+encodeURIComponent(curUser)+'%0APIN: '+pinBuf+'%0ADate: '+new Date().toLocaleDateString();window.open('mailto:dshidalgop@gmail.com?subject='+encodeURIComponent('Timesheet PIN – '+curUser)+'&body='+body,'_blank');localStorage.setItem('bsynchAuth',curUser);showMain();}else{document.getElementById('pinErr').textContent='Error saving PIN';}}).catch(function(){document.getElementById('pinErr').textContent='Error.';});return;}fetch('/api/users/verify-pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:curUser,pin:pinBuf})}).then(function(r){return r.json();}).then(function(d){if(d.ok){localStorage.setItem('bsynchAuth',curUser);localStorage.setItem('bsynchRole',d.role||'worker');showMain();}else{document.getElementById('pinErr').textContent='Incorrect PIN.';pinBuf='';updDots();}}).catch(function(){document.getElementById('pinErr').textContent='Error.';});}
 
 function applyTabVisibility(){
-  var role = localStorage.getItem('mbrRole') || 'worker';
+  var role = localStorage.getItem('bsynchRole') || 'worker';
   var lvl  = {admin:5,boss:4,inventory:3,lead:2,worker:1,contractor:2}[role] || 1;
   // Safety Meeting: boss/admin only (lvl>=4)
   var safBtn  = document.getElementById('tab-btn-safety');
@@ -1251,8 +1251,8 @@ function applyTabVisibility(){
 
 function showMain(){
   showAdminManualBtn();
-  applyTabVisibility();populateAttWorkers();document.getElementById('mainContent').style.display='block';(function(){var el=document.getElementById('userPill');var r=localStorage.getItem('mbrRole')||'';var cap=r?r.charAt(0).toUpperCase()+r.slice(1):'';el.innerHTML='<span style="font-weight:700;">'+curUser+(cap?' &middot; '+cap:'')+'</span>';el.style.display='inline-flex';el.style.gap='10px';el.style.alignItems='center';el.innerHTML+='<button onclick="localStorage.removeItem(\'mbrAuth\');localStorage.removeItem(\'mbrRole\');location.href=\'/login\';" style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);color:#64748b;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>';})();loadSafetyMeeting();if(isSupervisor()) setTimeout(checkTodayAlerts,1200);}
-function doLogout(){localStorage.removeItem('mbrAuth');localStorage.removeItem('mbrRole');curUser=null;location.href='/login';}
+  applyTabVisibility();populateAttWorkers();document.getElementById('mainContent').style.display='block';(function(){var el=document.getElementById('userPill');var r=localStorage.getItem('bsynchRole')||'';var cap=r?r.charAt(0).toUpperCase()+r.slice(1):'';el.innerHTML='<span style="font-weight:700;">'+curUser+(cap?' &middot; '+cap:'')+'</span>';el.style.display='inline-flex';el.style.gap='10px';el.style.alignItems='center';el.innerHTML+='<button onclick="localStorage.removeItem(\'bsynchAuth\');localStorage.removeItem(\'bsynchRole\');location.href=\'/login\';" style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);color:#64748b;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>';})();loadSafetyMeeting();if(isSupervisor()) setTimeout(checkTodayAlerts,1200);}
+function doLogout(){localStorage.removeItem('bsynchAuth');localStorage.removeItem('bsynchRole');curUser=null;location.href='/login';}
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 
@@ -1260,7 +1260,7 @@ var _ymInterval = null;
 function exportLocationPDF(){
   var picker = document.getElementById('ym-date-picker');
   var d = picker && picker.value ? picker.value : new Date().toISOString().slice(0,10);
-  var _adminName = encodeURIComponent(localStorage.getItem('mbrAuth')||''); window.open('/api/reports/location-history?date='+d+'&admin='+_adminName, '_blank');
+  var _adminName = encodeURIComponent(localStorage.getItem('bsynchAuth')||''); window.open('/api/reports/location-history?date='+d+'&admin='+_adminName, '_blank');
 }
 function loadYardMap(){
   var picker = document.getElementById('ym-date-picker');
@@ -1378,7 +1378,7 @@ function deleteWorker(id,name){if(!confirm('Remove "'+name+'" from the crew list
 
 // ── Check-in toggle ───────────────────────────────────────────────────────────
 async function toggleWorker(name){
-  var _role = localStorage.getItem('mbrRole')||'worker';
+  var _role = localStorage.getItem('bsynchRole')||'worker';
   var _lvl = {admin:5,boss:4,inventory:3,lead:2,worker:1}[_role]||1;
   if(_lvl < 4) return;
 if(smPresent[name]){var rec=smPresent[name];if(rec.id){try{await fetch('/api/safety-meeting/'+rec.id,{method:'DELETE'});}catch(e){}}delete smPresent[name];renderWorkerCards();}else{var now=new Date().toISOString();smPresent[name]={id:'',worker_name:name,checked_in_at:now};renderWorkerCards();try{var r=await fetch('/api/safety-meeting',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({worker_name:name,supervisor:curUser||''})});var d=await r.json();if(d.ok){var ar=await fetch('/api/safety-meeting');var att=await ar.json();smPresent={};if(Array.isArray(att))att.forEach(function(rec){smPresent[rec.worker_name]=rec;});renderWorkerCards();if(window.refreshCheckInStatus)window.refreshCheckInStatus();}else{delete smPresent[name];renderWorkerCards();}}catch(e){delete smPresent[name];renderWorkerCards();}}}
@@ -1446,7 +1446,7 @@ function saveDay(){
   var b=document.getElementById('phaseBanner');
   if(smPhase!=='signin'){b.className='phase-banner saved';b.textContent='💾 Day saved — '+pCnt+' workers logged for '+today;}
   document.getElementById('smStatus').textContent='Saved '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-  document.getElementById('smStatus').style.color='#60a5fa';
+  document.getElementById('smStatus').style.color='#5eead4';
 }
 function checkSavedToday(){
   var today=todayISO();
@@ -1538,7 +1538,7 @@ setInterval(function(){if(Object.keys(smPresent).length>0)renderWorkerCards();},
 
 // ── Manual Late Entry (Admin/Boss) ───────────────────────────────────────────
 function showAdminManualBtn(){
-  var role = localStorage.getItem('mbrRole') || '';
+  var role = localStorage.getItem('bsynchRole') || '';
   var btn = document.getElementById('adminManualBtn');
   if(btn && (role==='admin'||role==='boss'||role==='lead')){
     btn.style.display='flex';
@@ -1594,7 +1594,7 @@ async function submitManualAbsent(){
   if(!reason){ st.style.color='#ef4444'; st.textContent='Reason is required.'; return; }
   st.style.color='#64748b'; st.textContent='Submitting…';
   try {
-    var by = localStorage.getItem('mbrAuth') || 'lead';
+    var by = localStorage.getItem('bsynchAuth') || 'lead';
     var r = await fetch('/api/attendance',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({worker_name:name,type:type,reason:reason+' [Manual entry by '+by+']',
         report_date:date,return_date:ret||null})});
@@ -1622,7 +1622,7 @@ async function submitManualLate(){
   if(!reason){ st.style.color='#ef4444'; st.textContent='Reason is required.'; return; }
   st.style.color='#64748b'; st.textContent='Submitting…';
   try {
-    var by = localStorage.getItem('mbrAuth') || 'admin';
+    var by = localStorage.getItem('bsynchAuth') || 'admin';
     var r = await fetch('/api/attendance',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({worker_name:name,type:'late',reason:reason+'  [Manual entry by '+by+']',
         arrival_time:time||null,report_date:date})});
@@ -1647,7 +1647,7 @@ async function qrInit(){
   document.getElementById('qr-active-card').style.display='none';
   document.getElementById('qr-checkin-form').style.display='none';
 
-  var lvl = ({admin:5,boss:4,inventory:3,lead:2,worker:1}[localStorage.getItem('mbrRole')||'worker'])||1;
+  var lvl = ({admin:5,boss:4,inventory:3,lead:2,worker:1}[localStorage.getItem('bsynchRole')||'worker'])||1;
 
   // Show active list section for lead+
   var listSec = document.getElementById('qr-active-list-section');
@@ -1677,7 +1677,7 @@ async function qrInit(){
   }catch(e){}
 
   // Check active check-in for this worker
-  var name = localStorage.getItem('mbrAuth')||'';
+  var name = localStorage.getItem('bsynchAuth')||'';
   if(!name){ document.getElementById('qr-loading').style.display='none'; document.getElementById('qr-checkin-form').style.display='block'; return; }
 
   try{
@@ -1700,7 +1700,7 @@ async function qrInit(){
 }
 
 async function qrCheckIn(){
-  var name = localStorage.getItem('mbrAuth')||'';
+  var name = localStorage.getItem('bsynchAuth')||'';
   var unit = document.getElementById('qr-unit-select').value;
   var err  = document.getElementById('qr-in-err');
   err.style.display='none';
@@ -1716,7 +1716,7 @@ async function qrCheckIn(){
       document.getElementById('qr-active-since').textContent = 'Since ' + _qrFmt(new Date().toISOString());
       document.getElementById('qr-checkin-form').style.display='none';
       document.getElementById('qr-active-card').style.display='block';
-      var lvl = ({admin:5,boss:4,inventory:3,lead:2,worker:1}[localStorage.getItem('mbrRole')||'worker'])||1;
+      var lvl = ({admin:5,boss:4,inventory:3,lead:2,worker:1}[localStorage.getItem('bsynchRole')||'worker'])||1;
       if(lvl>=2) qrLoadActiveList();
     } else { err.textContent = d.error||'Error checking in.'; err.style.display='block'; }
   }catch(e){ err.textContent='Network error.'; err.style.display='block'; }
@@ -1734,7 +1734,7 @@ async function qrCheckOut(){
       document.getElementById('qr-active-card').style.display='none';
       document.getElementById('qr-checkin-form').style.display='block';
       document.getElementById('qr-in-err').style.display='none';
-      var lvl = ({admin:5,boss:4,inventory:3,lead:2,worker:1}[localStorage.getItem('mbrRole')||'worker'])||1;
+      var lvl = ({admin:5,boss:4,inventory:3,lead:2,worker:1}[localStorage.getItem('bsynchRole')||'worker'])||1;
       if(lvl>=2) qrLoadActiveList();
     } else { err.textContent = d.error||'Error checking out.'; err.style.display='block'; }
   }catch(e){ err.textContent='Network error.'; err.style.display='block'; }
@@ -1777,11 +1777,11 @@ async function qrLoadActiveList(){
 </nav>
 <script>
 (function(){var p=location.pathname;document.querySelectorAll('.gnav-link').forEach(function(a){var h=a.getAttribute('href');if(h==='/'?p===h:p===h||p.startsWith(h))a.classList.add('gna');});})();
-(function(){var r=localStorage.getItem('mbrRole')||'worker';var lv={admin:5,boss:4,inventory:3,lead:2,worker:1}[r]||1;var rules={'/log':2,'/dashboard':4,'/inventory':2,'/issues-log':2,'/settings':4};document.querySelectorAll('.gnav-link').forEach(function(a){var h=a.getAttribute('href');if(rules[h]&&lv<rules[h]){a.href='/home';a.style.opacity='0.45';}});})();
+(function(){var r=localStorage.getItem('bsynchRole')||'worker';var lv={admin:5,boss:4,inventory:3,lead:2,worker:1}[r]||1;var rules={'/log':2,'/dashboard':4,'/inventory':2,'/issues-log':2,'/settings':4};document.querySelectorAll('.gnav-link').forEach(function(a){var h=a.getAttribute('href');if(rules[h]&&lv<rules[h]){a.href='/home';a.style.opacity='0.45';}});})();
 
 // ── Tab filter — runs immediately, all DOM ready at this point ──────────────
 (function(){
-  var role=localStorage.getItem('mbrRole')||'worker';
+  var role=localStorage.getItem('bsynchRole')||'worker';
   var lvl={admin:5,boss:4,inventory:3,lead:2,worker:1}[role]||1;
   var sBtn=document.getElementById('tab-btn-safety');
   var qrBtnFb=document.getElementById('tab-btn-qr');
@@ -1801,7 +1801,7 @@ async function qrLoadActiveList(){
 
 // ── Attendance Tab ────────────────────────────────────────────────────────────
 function populateAttWorkers(){
-  var cur = curUser || localStorage.getItem('mbrAuth') || '';
+  var cur = curUser || localStorage.getItem('bsynchAuth') || '';
   ['lateWorker','absWorker'].forEach(function(id){
     var inp = document.getElementById(id);
     if(inp) inp.value = cur;
@@ -1881,11 +1881,11 @@ async function submitAbsent(){
 }
 
 function isAdmin(){
-  var r = localStorage.getItem('mbrRole') || 'lead';
+  var r = localStorage.getItem('bsynchRole') || 'lead';
   return r === 'admin' || r === 'supervisor' || r === 'boss';
 }
 function isSupervisor(){
-  var r = localStorage.getItem('mbrRole') || 'lead';
+  var r = localStorage.getItem('bsynchRole') || 'lead';
   return ['admin','supervisor','boss','lead'].includes(r);
 }
 
@@ -1962,7 +1962,7 @@ async function loadAttendance(){
       else if(row.type!=='late') statusBadge='<span style="font-size:10px;font-weight:700;background:#fef9c3;color:#854d0e;border-radius:8px;padding:1px 7px;margin-left:4px;">⏳ Pending</span>';
       var approveBtn = (row.type!=='late' && row.status!=='approved') ?
         '<button onclick="approveAtt('+row.id+')" style="margin-left:4px;padding:2px 8px;font-size:10px;font-weight:700;border:1px solid #16a34a;background:#f0fdf4;color:#166534;border-radius:6px;cursor:pointer;">✓ Note it</button>' : '';
-      var editBtn = '<button onclick="editAttById('+row.id+')" style="margin-left:4px;padding:2px 8px;font-size:10px;border:1px solid #3b82f6;background:#eff6ff;color:#1d4ed8;border-radius:6px;cursor:pointer;">✎ Edit</button>';
+      var editBtn = '<button onclick="editAttById('+row.id+')" style="margin-left:4px;padding:2px 8px;font-size:10px;border:1px solid #3b82f6;background:#eff6ff;color:#157567;border-radius:6px;cursor:pointer;">✎ Edit</button>';
       var delBtn  = '<button onclick="deleteAtt('+row.id+')" style="margin-left:4px;padding:2px 8px;font-size:10px;border:1px solid #ef4444;background:#fef2f2;color:#991b1b;border-radius:6px;cursor:pointer;">✕</button>';
       return '<div class="att-row" style="flex-wrap:wrap;gap:4px;" data-att-id="'+row.id+'">'+badge+statusBadge+
         '<span class="att-name">'+row.worker_name+'</span>'+
@@ -2051,7 +2051,7 @@ function exportAttPDF(){
     +'.late{background:#fef3c7;color:#92400e;}'
     +'.absent{background:#fee2e2;color:#991b1b;}'
     +'.vacation{background:#ede9fe;color:#5b21b6;}'
-    +'@media(max-width:640px){.mbr-top-bar{padding:0 10px!important;gap:6px!important;height:auto!important;min-height:44px!important;flex-wrap:wrap!important;}#mbr-checkin-chip{font-size:10px!important;padding:2px 7px!important;}#headerUser{font-size:11px!important;}.tab-btn{padding:0 12px!important;font-size:12px!important;}.workers-grid{grid-template-columns:repeat(3,1fr)!important;gap:7px!important;}.worker-card{padding:10px 6px 8px!important;}.wc-name{font-size:11px!important;}.wc-time{font-size:9px!important;}.wc-status{font-size:18px!important;}#smBulkRow{flex-direction:column!important;align-items:flex-start!important;gap:6px!important;}.gate-card{width:100%!important;padding:20px 16px!important;}.pin-grid{max-width:240px!important;}.att-form{padding:14px!important;}#mainContent,.tab-panel{padding-bottom:70px!important;}.gnav{height:52px!important;}.gnav a{font-size:9px!important;min-width:36px!important;}.gnav a .gi{font-size:17px!important;}}</style></head><body>'
+    +'@media(max-width:640px){.bsynch-top-bar{padding:0 10px!important;gap:6px!important;height:auto!important;min-height:44px!important;flex-wrap:wrap!important;}#bsynch-checkin-chip{font-size:10px!important;padding:2px 7px!important;}#headerUser{font-size:11px!important;}.tab-btn{padding:0 12px!important;font-size:12px!important;}.workers-grid{grid-template-columns:repeat(3,1fr)!important;gap:7px!important;}.worker-card{padding:10px 6px 8px!important;}.wc-name{font-size:11px!important;}.wc-time{font-size:9px!important;}.wc-status{font-size:18px!important;}#smBulkRow{flex-direction:column!important;align-items:flex-start!important;gap:6px!important;}.gate-card{width:100%!important;padding:20px 16px!important;}.pin-grid{max-width:240px!important;}.att-form{padding:14px!important;}#mainContent,.tab-panel{padding-bottom:70px!important;}.gnav{height:52px!important;}.gnav a{font-size:9px!important;min-width:36px!important;}.gnav a .gi{font-size:17px!important;}}</style></head><body>'
     +'<h1>'+title+'</h1><p>'+sub+' &nbsp;|&nbsp; Generated: '+new Date().toLocaleDateString()+'</p>'
     +'<table><thead><tr><th>Type</th><th>Name</th><th>Date</th><th>Details</th><th>Reason</th></tr></thead><tbody>';
   rows.forEach(function(row){
@@ -2082,7 +2082,7 @@ var calMonth = new Date().getMonth(); // 0-indexed
 var calAllReports = [];
 
 function isLeadOrAdmin(){
-  var r = localStorage.getItem('mbrRole') || 'lead';
+  var r = localStorage.getItem('bsynchRole') || 'lead';
   return r === 'admin' || r === 'boss' || r === 'supervisor' || r === 'lead' || r === 'inventory';
 }
 
@@ -2232,13 +2232,13 @@ if(curUser){ showMain(); }
 <script>
 /* DOMContentLoaded check-in chip */
 (function(){
-  var _a=localStorage.getItem('mbrAuth')||'';
+  var _a=localStorage.getItem('bsynchAuth')||'';
   if(!_a)return;
   function _upd(){
     fetch('/api/contractor/status?name='+encodeURIComponent(_a))
       .then(function(r){return r.json();})
       .then(function(d){
-        var bc=document.getElementById('mbr-checkin-chip');
+        var bc=document.getElementById('bsynch-checkin-chip');
         var bd=document.getElementById('chip-dot');
         var bl=document.getElementById('chip-label');
         if(!bc||!bd||!bl)return;
@@ -2290,7 +2290,7 @@ if(curUser){ showMain(); }
 
 <!-- ── Edit Attendance Modal ─────────────────────────────────────────── -->
 <div id="editAttModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;align-items:center;justify-content:center;">
-  <div style="background:#f0f4f8;border:1px solid #1e3a5f;border-radius:14px;padding:24px;max-width:420px;width:93%;box-shadow:0 8px 32px rgba(0,0,0,.6);">
+  <div style="background:#f0f4f8;border:1px solid #19354d;border-radius:14px;padding:24px;max-width:420px;width:93%;box-shadow:0 8px 32px rgba(0,0,0,.6);">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
       <span style="font-size:16px;font-weight:800;color:#0f172a;">✎ Edit Attendance</span>
       <button onclick="closeEditAtt()" style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer;">✕</button>
@@ -2309,7 +2309,7 @@ if(curUser){ showMain(); }
     <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Return Date</label>
     <input id="editAttReturn" type="date" style="width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;background:#ffffff;color:#0f172a;font-size:13px;margin-bottom:16px;">
     <div style="display:flex;gap:10px;">
-      <button onclick="saveEditAtt()" style="flex:1;padding:10px;background:#1d4ed8;border:none;border-radius:8px;color:#fff;font-weight:700;cursor:pointer;font-size:14px;">💾 Save</button>
+      <button onclick="saveEditAtt()" style="flex:1;padding:10px;background:#157567;border:none;border-radius:8px;color:#fff;font-weight:700;cursor:pointer;font-size:14px;">💾 Save</button>
       <button onclick="closeEditAtt()" style="padding:10px 18px;background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;color:#64748b;cursor:pointer;font-size:14px;">Cancel</button>
     </div>
     <div id="editAttStatus" style="margin-top:8px;font-size:12px;color:#ef4444;text-align:center;"></div>
@@ -2318,13 +2318,13 @@ if(curUser){ showMain(); }
 
 <!-- ── Daily Alert Popup (leads/boss/admin) ───────────────────────────────── -->
 <div id="attAlertModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9998;align-items:center;justify-content:center;">
-  <div style="background:#f0f4f8;border:1px solid #1e3a5f;border-radius:14px;padding:24px;max-width:440px;width:93%;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.6);">
+  <div style="background:#f0f4f8;border:1px solid #19354d;border-radius:14px;padding:24px;max-width:440px;width:93%;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.6);">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
       <span style="font-size:16px;font-weight:800;color:#0f172a;">📋 Today's Attendance Alerts</span>
       <button onclick="document.getElementById('attAlertModal').style.display='none';markAllRead();" style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer;">✕</button>
     </div>
     <div id="attAlertBody"></div>
-    <button onclick="document.getElementById('attAlertModal').style.display='none';switchTab('daysoff',document.getElementById('tab-btn-daysoff'));loadAttendance();" style="width:100%;margin-top:16px;padding:10px;background:#1e3a5f;border:1px solid #2563eb;border-radius:8px;color:#93c5fd;font-weight:700;cursor:pointer;font-size:13px;">View Full Attendance Log →</button>
+    <button onclick="document.getElementById('attAlertModal').style.display='none';switchTab('daysoff',document.getElementById('tab-btn-daysoff'));loadAttendance();" style="width:100%;margin-top:16px;padding:10px;background:#19354d;border:1px solid #2563eb;border-radius:8px;color:#93c5fd;font-weight:700;cursor:pointer;font-size:13px;">View Full Attendance Log →</button>
   </div>
 </div>
 
@@ -2388,7 +2388,7 @@ async function submitTeamAtt(){
   if(!reason){ st.style.color='#ef4444'; st.textContent='Reason is required.'; return; }
   if(type==='late' && !time){ st.style.color='#ef4444'; st.textContent='Expected arrival time is required.'; return; }
   st.style.color='#94a3b8'; st.textContent='Submitting…';
-  var by = localStorage.getItem('mbrAuth') || '';
+  var by = localStorage.getItem('bsynchAuth') || '';
   var payload = {
     worker_name: _myTeamAttWorker, type: type,
     reason: reason + (by ? '  [Reported by ' + by + ']' : ''),
@@ -2489,8 +2489,8 @@ function toggleTeamWorker_idx(idx){
 
 // ── Load My Team ─────────────────────────────────────────────────────────────
 async function loadMyTeam(){
-  var myName = localStorage.getItem('mbrAuth') || '';
-  var role   = localStorage.getItem('mbrRole') || 'lead';
+  var myName = localStorage.getItem('bsynchAuth') || '';
+  var role   = localStorage.getItem('bsynchRole') || 'lead';
   var isAdmin = ['admin','boss','supervisor'].includes(role);
   var grid   = document.getElementById('myteam-grid');
   var countEl= document.getElementById('myteam-count');
@@ -2573,17 +2573,17 @@ async function loadMyTeam(){
   var _crashCount = 0;
   window.addEventListener('error', function(e){
     _crashCount++;
-    console.warn('[MBR safety] JS error caught:', e.message, 'at', e.filename, e.lineno);
+    console.warn('[Bsynch safety] JS error caught:', e.message, 'at', e.filename, e.lineno);
     // Don't attempt recovery on first error — might be a non-fatal library issue
     if(_crashCount >= 1) _tryRecover();
   });
 
   function _tryRecover(){
     var mc = document.getElementById('mainContent');
-    var auth = localStorage.getItem('mbrAuth');
+    var auth = localStorage.getItem('bsynchAuth');
     if(!mc || !auth) return;
     if(mc.style.display === 'none' || mc.style.display === ''){
-      console.warn('[MBR safety] mainContent hidden after error — forcing visible');
+      console.warn('[Bsynch safety] mainContent hidden after error — forcing visible');
       mc.style.display = 'block';
       // Try to run applyTabVisibility if it made it
       try{ if(typeof applyTabVisibility==='function') applyTabVisibility(); }catch(ex){}
@@ -2593,10 +2593,10 @@ async function loadMyTeam(){
   // Fallback timer: if still blank after 4s and user is logged in → show it
   setTimeout(function(){
     var mc   = document.getElementById('mainContent');
-    var auth = localStorage.getItem('mbrAuth');
-    var role = localStorage.getItem('mbrRole') || 'worker';
+    var auth = localStorage.getItem('bsynchAuth');
+    var role = localStorage.getItem('bsynchRole') || 'worker';
     if(mc && auth && (mc.style.display==='none' || mc.style.display==='')){
-      console.warn('[MBR safety] Timer fallback — forcing mainContent visible');
+      console.warn('[Bsynch safety] Timer fallback — forcing mainContent visible');
       mc.style.display = 'block';
       // Show a warning toast so user knows something was off
       try{
@@ -2628,7 +2628,7 @@ async function loadMyTeam(){
       window.showMain = function(){
         try{ _origShowMain(); }
         catch(e){
-          console.error('[MBR safety] showMain threw:', e);
+          console.error('[Bsynch safety] showMain threw:', e);
           var mc = document.getElementById('mainContent');
           if(mc) mc.style.display='block';
         }
@@ -2668,7 +2668,7 @@ async function submitManualCheckin(){
   status.style.display = 'none';
   if(!worker){ status.textContent='Please select a worker.'; status.style.display='block'; return; }
   if(!time)  { status.textContent='Please enter the arrival time.'; status.style.display='block'; return; }
-  var caller = localStorage.getItem('mbrAuth') || '';
+  var caller = localStorage.getItem('bsynchAuth') || '';
   try {
     var r = await fetch('/api/checkin/manual', {
       method: 'POST',

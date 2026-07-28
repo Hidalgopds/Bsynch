@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNiIgZmlsbD0iIzFhNmJjNCIvPjx0ZXh0IHg9IjE2IiB5PSIyMyIgZm9udC1mYW1pbHk9IkFyaWFsLHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSI+QjwvdGV4dD48L3N2Zz4=">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNiIgZmlsbD0iIzFlOTQ4NCIvPjx0ZXh0IHg9IjE2IiB5PSIyMyIgZm9udC1mYW1pbHk9IkFyaWFsLHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSI+QjwvdGV4dD48L3N2Zz4=">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BSynch – Unit Check-In</title>
@@ -109,12 +109,12 @@
 </head>
 <body>
 <div class="card">
-  <div class="logo">BSynch &middot; TDG Yard</div>
+  <div class="logo">BSynch &middot; Summit Yard</div>
 
   <div class="unit-badge">
     <div class="unit-label">Section B &middot; Unit</div>
     <div class="unit-name">{{ unit }}</div>
-    <div class="unit-sub">TDG Powerhouses Project &middot; Katy, TX</div>
+    <div class="unit-sub">Project Summit &middot; Katy, TX</div>
   </div>
 
   <!-- Confirm screen -->
@@ -148,7 +148,7 @@
 
 <script>
 var UNIT = "{{ unit }}";
-var workerName = localStorage.getItem('mbrAuth');
+var workerName = localStorage.getItem('bsynchAuth');
 
 // Check login on load
 window.addEventListener('DOMContentLoaded', function(){
@@ -180,8 +180,8 @@ async function confirmYes(){
     var d = await r.json();
 
     if(d.ok){
-      localStorage.setItem('mbrUnit', UNIT);
-      localStorage.setItem('mbrUnitTime', new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}));
+      localStorage.setItem('bsynchUnit', UNIT);
+      localStorage.setItem('bsynchUnitTime', new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}));
       document.getElementById('screen-result').innerHTML =
         '<div class="status-box box-success">' +
         '<div class="status-icon">&#9989;</div>' +

@@ -10,7 +10,7 @@ html,body{height:100%;background:#f0f4f8;color:#0f172a;font-family:'Segoe UI',sy
 body{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:32px 20px 40px;min-height:100vh}
 
 .header{text-align:center;margin-bottom:32px}
-.badge{width:80px;height:80px;background:linear-gradient(135deg,#1a6bc4,#4f8ef7);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 16px}
+.badge{width:80px;height:80px;background:linear-gradient(135deg,#1e9484,#4f8ef7);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 16px}
 .position-name{font-size:28px;font-weight:800;letter-spacing:-.5px}
 .unit-info{font-size:13px;color:#64748b;margin-top:6px}
 
@@ -28,7 +28,7 @@ body{display:flex;flex-direction:column;align-items:center;justify-content:flex-
 .btn:active{opacity:.8}
 .btn-checkin{background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff}
 .btn-checkout{background:linear-gradient(135deg,#b45309,#f59e0b);color:#fff}
-.btn-move{background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:#fff}
+.btn-move{background:linear-gradient(135deg,#157567,#3b82f6);color:#fff}
 .btn-disabled{background:#1e2533;color:#4a5568;cursor:not-allowed}
 
 /* Active check-in banner */
@@ -128,14 +128,14 @@ async function init(){
     var d=await r.json();
     var meta=d.meta||{};
     var info=[];
-    if(meta.tdg_number) info.push('TDG: '+meta.tdg_number);
-    if(meta.mbr_number) info.push('MBR #'+meta.mbr_number);
+    if(meta.unit_ref_no) info.push('Summit: '+meta.unit_ref_no);
+    if(meta.internal_job_no) info.push('MSG #'+meta.internal_job_no);
     if(meta.fase) info.push('Fase '+meta.fase);
     document.getElementById('unitInfo').textContent=info.length?info.join(' · '):'No unit assigned yet';
   }catch(e){document.getElementById('unitInfo').textContent='';}
 
   // Check for stored active check-in
-  var stored=localStorage.getItem('tdg_active_checkin');
+  var stored=localStorage.getItem('active_checkin');
   if(stored){
     try{ activeCheckin=JSON.parse(stored); }catch(e){ activeCheckin=null; }
   }
@@ -147,7 +147,7 @@ async function init(){
       var ad=await ar.json();
       if(ad.active){
         activeCheckin=Object.assign({},ad.active,{worker_name:activeCheckin.worker_name});
-        localStorage.setItem('tdg_active_checkin',JSON.stringify(activeCheckin));
+        localStorage.setItem('active_checkin',JSON.stringify(activeCheckin));
         if(activeCheckin.position===POSITION){
           showHere();
         } else {
@@ -155,7 +155,7 @@ async function init(){
         }
         return;
       } else {
-        localStorage.removeItem('tdg_active_checkin');
+        localStorage.removeItem('active_checkin');
         activeCheckin=null;
       }
     }catch(e){}
@@ -166,7 +166,7 @@ async function init(){
 function showNew(){
   hide(['stateHere','stateOther','stateSuccess']);
   document.getElementById('stateNew').style.display='block';
-  var saved=localStorage.getItem('tdg_worker_name');
+  var saved=localStorage.getItem('active_worker_name');
   if(saved) document.getElementById('nameInput').value=saved;
   setTimeout(function(){ document.getElementById('nameInput').focus(); },300);
 }
@@ -201,14 +201,14 @@ async function doCheckin(){
   var err=document.getElementById('errNew');
   if(!name){err.textContent='Enter your name first.';err.style.display='block';return;}
   err.style.display='none';
-  localStorage.setItem('tdg_worker_name',name);
+  localStorage.setItem('active_worker_name',name);
   try{
     var r=await fetch('/api/checkin',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({position:POSITION,worker_name:name})});
     var d=await r.json();
     if(d.ok){
       activeCheckin=Object.assign({},d.checkin,{worker_name:name});
-      localStorage.setItem('tdg_active_checkin',JSON.stringify(activeCheckin));
+      localStorage.setItem('active_checkin',JSON.stringify(activeCheckin));
       showSuccess('✅','Checked In!','You\'re now logged at Position '+POSITION+' · '+fmt(new Date()));
     } else { err.textContent=d.error||'Error checking in.';err.style.display='block'; }
   }catch(e){err.textContent='Network error.';err.style.display='block';}
@@ -220,7 +220,7 @@ async function doCheckout(){
     var r=await fetch('/api/checkin/'+activeCheckin.id+'/checkout',{method:'POST'});
     var d=await r.json();
     if(d.ok){
-      localStorage.removeItem('tdg_active_checkin');
+      localStorage.removeItem('active_checkin');
       activeCheckin=null;
       showSuccess('👋','Checked Out','See you tomorrow! You\'ve been logged out of Position '+POSITION+'.');
     } else { err.textContent=d.error||'Error.';err.style.display='block'; }
@@ -233,7 +233,7 @@ async function doCheckoutOther(){
     var r=await fetch('/api/checkin/'+activeCheckin.id+'/checkout',{method:'POST'});
     var d=await r.json();
     if(d.ok){
-      localStorage.removeItem('tdg_active_checkin');
+      localStorage.removeItem('active_checkin');
       activeCheckin=null;
       showSuccess('👋','Checked Out','You\'ve been logged out of Position '+activeCheckin.position+'.');
     } else { err.textContent=d.error||'Error.';err.style.display='block'; }
@@ -252,7 +252,7 @@ async function doMove(){
     var d=await r2.json();
     if(d.ok){
       activeCheckin=Object.assign({},d.checkin,{worker_name:name});
-      localStorage.setItem('tdg_active_checkin',JSON.stringify(activeCheckin));
+      localStorage.setItem('active_checkin',JSON.stringify(activeCheckin));
       showSuccess('✅','Moved!','Now checked in at Position '+POSITION+' · '+fmt(new Date()));
     } else { err.textContent=d.error||'Error.';err.style.display='block'; }
   }catch(e){err.textContent='Network error.';err.style.display='block';}
