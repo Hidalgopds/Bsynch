@@ -399,6 +399,8 @@ footer{color:#94a3b8 !important;border-top-color:#e2e8f0 !important;}
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="/static/theme.js"></script>
+  <link rel="stylesheet" href="/static/themes.css">
 </head>
 <body>
 <script>
@@ -2564,7 +2566,9 @@ function printItemLabels(){
     '.lsku{font-size:10px;color:#64748b;margin-top:2px;}'+
     '.lloc{font-size:10px;color:#3b82f6;margin-top:2px;}'+
     '@media print{body{padding:0;}.page{gap:8px;}.label{border:1px solid #000;}}'+
-    '</style></head><body><div class="page">'+labelsHTML+'</div>'+
+    '</style>  <script src="/static/theme.js"></script>
+  <link rel="stylesheet" href="/static/themes.css">
+</head><body><div class="page">'+labelsHTML+'</div>'+
     '<script>window.onload=function(){setTimeout(function(){window.print();},800);};<\/script>'+
     '</body></html>';
   w.document.write(html);w.document.close();
@@ -2686,7 +2690,9 @@ function printDispatchReceipt(req){
     'h2{border-bottom:2px solid #0f172a;padding-bottom:8px;}'+
     'table{width:100%;border-collapse:collapse;margin:16px 0;}'+
     'th{background:#f8fafc;padding:8px;text-align:left;border-bottom:2px solid #e2e8f0;}'+
-    '.sig-box{border:1px solid #cbd5e1;height:80px;margin-top:8px;border-radius:6px;}</style></head><body>'+
+    '.sig-box{border:1px solid #cbd5e1;height:80px;margin-top:8px;border-radius:6px;}</style>  <script src="/static/theme.js"></script>
+  <link rel="stylesheet" href="/static/themes.css">
+</head><body>'+
     '<h2>📦 Dispatch Receipt</h2>'+
     '<table style="margin-bottom:16px;"><tr><td><strong>REQ #</strong></td><td>'+reqNum+'</td>'+
     '<td><strong>Date</strong></td><td>'+(req.created_at?fmtDate(req.created_at):'')+'</td></tr>'+

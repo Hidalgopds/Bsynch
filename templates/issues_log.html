@@ -393,6 +393,8 @@ footer{color:#64748b !important;border-top-color:#0f172a !important;}
 .rg-cell{border-top-color:#0f172a !important;}
 </style>
 
+  <script src="/static/theme.js"></script>
+  <link rel="stylesheet" href="/static/themes.css">
 </head>
 <body>
 <div style="display:flex;align-items:center;padding:0 16px;background:#19354d;border-bottom:1px solid #0f2d52;height:48px;"><a href="/" style="color:#94a3b8;text-decoration:none;font-size:13px;">← Home</a><div id="headerUser" style="display:flex;align-items:center;gap:8px;margin-left:auto;"></div></div>
@@ -822,7 +824,9 @@ function printIssue(evt, id){
     + '.logo span{color:#ef4444}'
     + 'footer{margin-top:32px;font-size:10px;color:#64748b;border-top:1px solid #e2e8f0;padding-top:8px}'
     + '@media print{body{margin:16px}}'
-    + '</style></head><body>'
+    + '</style>  <script src="/static/theme.js"></script>
+  <link rel="stylesheet" href="/static/themes.css">
+</head><body>'
     + '<div class="logo">BSynch</div>'
     + '<h1>Issue Report — Unit '+issue.unit+'</h1>'
     + '<div class="sub">Printed: '+new Date().toLocaleString()+'</div>'
