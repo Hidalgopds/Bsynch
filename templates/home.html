@@ -110,7 +110,7 @@
   var name = localStorage.getItem('mbrName') || localStorage.getItem('companyUser') || '';
   document.getElementById('hdrUserName').textContent = name ? ('Hi, ' + name) : '';
 
-  function toggleThemePop(e){
+  window.toggleThemePop = function(e){
     e.stopPropagation();
     var pop = document.getElementById('themePop');
     var btn = document.getElementById('themeBtn');
@@ -119,15 +119,15 @@
     pop.style.right = (window.innerWidth - rect.right) + 'px';
     var isOpen = pop.classList.toggle('open');
     if(isOpen && window.renderThemeSwitcher) window.renderThemeSwitcher('themePickerHome');
-  }
+  };
   document.addEventListener('click', function(){ var p = document.getElementById('themePop'); if(p) p.classList.remove('open'); });
-  function doLogout(){
+  window.doLogout = function(){
     localStorage.removeItem('mbrName');
     localStorage.removeItem('mbrRole');
     localStorage.removeItem('companySlug');
     localStorage.removeItem('companyUser');
     location.href = '/login';
-  }
+  };
   if(name) document.getElementById('hdr-user').textContent = 'Hi, ' + name;
   if(role === 'admin' || role === 'boss'){
     var t = document.getElementById('tileSettings');
