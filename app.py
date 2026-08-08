@@ -250,6 +250,10 @@ def index():
 
 @app.route("/login")
 def login_page():
+    # If accessed from a client subdomain, serve the company login page
+    co = _get_client_co()
+    if co:
+        return render_template("company-login.html")
     return render_template("login.html")
 
 @app.route("/home")
