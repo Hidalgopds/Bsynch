@@ -463,7 +463,7 @@ function renderPanel(projId){
   var pjobs=allJobs.filter(j=>j.project_id===projId);
   var pct=pjobs.length?Math.round(pjobs.reduce((s,j)=>s+parseFloat(j.progress_pct||0),0)/pjobs.length):0;
   document.getElementById('rpName').value=proj.name;
-  document.getElementById('rpClient').textContent=proj.client_name||'';
+  var _rpClient=document.getElementById('rpClient');if(_rpClient)_rpClient.textContent=proj.client_name||'';
   document.getElementById('rpPct').textContent=pct+'%';
   var weight=pjobs.length?Math.round(100/pjobs.length):0;
   var html='<div class="rp-actions">'
