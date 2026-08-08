@@ -4692,6 +4692,11 @@ def contractor_workorders():
     return render_template("contractor-workorders.html")
 
 
+@app.route("/contractor/projects")
+def contractor_projects_page():
+    return render_template("contractor-projects.html")
+
+
 # ── Helpers ──────────────────────────────────────────────────────
 
 def _next_job_number():

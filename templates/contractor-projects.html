@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Projects – Contractor</title>
+<script src="/static/theme.js"></script>
+<link rel="stylesheet" href="/static/themes.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;}
+
+/* Header */
+header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #1e2533;background:#0f1117;position:sticky;top:0;z-index:50;}
+.logo-badge{width:32px;height:32px;background:linear-gradient(135deg,#1e9484,#4f8ef7);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;flex-shrink:0;}
+.hdr-title{font-size:16px;font-weight:700;}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.btn-icon{padding:6px 14px;background:none;border:1px solid #334155;border-radius:7px;color:#94a3b8;font-size:12px;cursor:pointer;text-decoration:none;line-height:1.4;white-space:nowrap;}
+.btn-icon:hover{border-color:#1e9484;color:#1e9484;}
+.btn-primary{padding:6px 16px;background:#1e9484;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.btn-primary:hover{background:#178070;}
+
+/* KPI bar */
+.kpi-bar{display:flex;gap:12px;padding:16px 20px;overflow-x:auto;border-bottom:1px solid #1e2533;}
+.kpi-bar::-webkit-scrollbar{display:none;}
+.kpi-pill{background:#1a1d27;border:1px solid #2a2d3e;border-radius:10px;padding:10px 16px;flex-shrink:0;}
+.kpi-num{font-size:20px;font-weight:800;}
+.kpi-lbl{font-size:11px;color:#64748b;margin-top:1px;}
+
+/* Main layout */
+.main{flex:1;display:flex;overflow:hidden;}
+
+/* Project list */
+.proj-list{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0;}
+.proj-list::-webkit-scrollbar{width:4px;}
+.proj-list::-webkit-scrollbar-thumb{background:#1e2533;}
+
+/* Project card */
+.proj-card{background:#1a1d27;border:1px solid #2a2d3e;border-radius:16px;overflow:hidden;cursor:pointer;transition:border-color .15s;}
+.proj-card:hover,.proj-card.active{border-color:#1e9484;}
+.proj-card-body{padding:20px 22px;}
+.proj-top{display:flex;align-items:flex-start;gap:14px;}
+.proj-ring{position:relative;width:56px;height:56px;flex-shrink:0;}
+.proj-ring svg{width:56px;height:56px;transform:rotate(-90deg);}
+.proj-ring .track{fill:none;stroke:#1e2533;stroke-width:5;}
+.proj-ring .fill{fill:none;stroke-width:5;stroke-linecap:round;transition:stroke-dashoffset .6s ease;}
+.proj-ring-pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#1e9484;}
+.proj-meta{flex:1;min-width:0;}
+.proj-name{font-size:16px;font-weight:700;margin-bottom:3px;}
+.proj-client{font-size:13px;color:#64748b;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.proj-chips{display:flex;gap:6px;flex-wrap:wrap;}
+.chip{padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;}
+.chip-active{background:rgba(34,197,94,.12);color:#22c55e;}
+.chip-hold{background:rgba(245,158,11,.12);color:#f59e0b;}
+.chip-done{background:rgba(100,116,139,.12);color:#64748b;}
+.chip-count{background:#1e2533;color:#64748b;}
+.proj-prog-bar{margin:14px 0 0;height:6px;background:#0f1117;border-radius:4px;overflow:hidden;}
+.proj-prog-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#1e9484,#4f8ef7);transition:width .5s ease;}
+.empty-state{text-align:center;padding:60px 20px;color:#475569;}
+.empty-state .icon{font-size:44px;margin-bottom:12px;}
+.spinner{text-align:center;padding:48px;color:#475569;}
+
+/* Right panel — project detail */
+.right-panel{width:0;overflow:hidden;border-left:1px solid #1e2533;display:flex;flex-direction:column;background:#111520;transition:width .25s cubic-bezier(.4,0,.2,1);}
+.right-panel.open{width:420px;}
+@media(max-width:700px){
+  .right-panel.open{position:fixed;inset:0;width:100%;z-index:100;}
+}
+.rp-head{padding:16px 18px;border-bottom:1px solid #1e2533;display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.rp-close{background:none;border:none;color:#64748b;font-size:20px;cursor:pointer;line-height:1;padding:2px 6px;flex-shrink:0;}
+.rp-close:hover{color:#e2e8f0;}
+.rp-proj-name{font-size:15px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.rp-pct{font-size:22px;font-weight:800;color:#1e9484;flex-shrink:0;}
+.rp-body{flex:1;overflow-y:auto;padding:16px;}
+.rp-body::-webkit-scrollbar{width:4px;}
+.rp-body::-webkit-scrollbar-thumb{background:#1e2533;}
+
+/* Weight info banner */
+.weight-banner{background:rgba(30,148,132,.08);border:1px solid rgba(30,148,132,.2);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#1e9484;line-height:1.5;}
+
+/* Job rows inside panel */
+.job-item{background:#1a1d27;border:1px solid #2a2d3e;border-radius:12px;padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:border-color .15s;}
+.job-item:hover{border-color:#1e9484;}
+.job-item-top{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.job-num{font-size:11px;font-weight:700;color:#64748b;}
+.job-title{font-size:14px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.job-pct-badge{font-size:13px;font-weight:800;color:#1e9484;white-space:nowrap;}
+.job-weight{font-size:11px;color:#475569;white-space:nowrap;}
+.job-prog-track{height:6px;background:#0f1117;border-radius:4px;overflow:hidden;margin-bottom:6px;}
+.job-prog-fill{height:100%;border-radius:4px;transition:width .4s ease;}
+.fill-low{background:linear-gradient(90deg,#ef4444,#f59e0b);}
+.fill-mid{background:linear-gradient(90deg,#f59e0b,#4f8ef7);}
+.fill-high{background:linear-gradient(90deg,#1e9484,#22c55e);}
+.fill-done{background:linear-gradient(90deg,#22c55e,#4ade80);}
+.job-item-foot{display:flex;align-items:center;gap:6px;}
+.s-chip{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;}
+.s-open{background:rgba(79,142,247,.14);color:#4f8ef7;}
+.s-in_progress{background:rgba(34,197,94,.12);color:#22c55e;}
+.s-on_hold{background:rgba(245,158,11,.12);color:#f59e0b;}
+.s-completed{background:rgba(100,116,139,.12);color:#64748b;}
+.s-cancelled{background:rgba(239,68,68,.1);color:#ef4444;}
+.job-steps-info{font-size:11px;color:#475569;margin-left:auto;}
+.btn-add-job{width:100%;padding:10px;background:rgba(30,148,132,.08);border:1px dashed rgba(30,148,132,.4);border-radius:10px;color:#1e9484;font-size:13px;font-weight:600;cursor:pointer;margin-top:4px;}
+.btn-add-job:hover{background:rgba(30,148,132,.16);}
+.rp-actions{display:flex;gap:8px;margin-bottom:14px;}
+.btn-sm{padding:6px 12px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;}
+.btn-sm-primary{background:#1e9484;border:none;color:#fff;}
+.btn-sm-primary:hover{background:#178070;}
+.btn-sm-danger{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);color:#ef4444;}
+.btn-sm-danger:hover{background:rgba(239,68,68,.15);}
+
+/* Job detail panel (full screen overlay) */
+.job-panel{position:fixed;inset:0;background:#111520;z-index:200;display:none;flex-direction:column;transform:translateX(100%);transition:transform .25s cubic-bezier(.4,0,.2,1);}
+.job-panel.open{display:flex;transform:translateX(0);}
+.jp-head{padding:14px 18px;border-bottom:1px solid #1e2533;display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.jp-back{background:none;border:none;color:#1e9484;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;padding:4px 8px 4px 0;}
+.jp-back:hover{color:#22c55e;}
+.jp-job-num{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;}
+.jp-title{font-size:15px;font-weight:700;flex:1;min-width:0;}
+.jp-pct-row{display:flex;align-items:center;gap:8px;margin-top:4px;}
+.jp-pct-big{font-size:20px;font-weight:800;color:#1e9484;}
+.jp-prog-track{flex:1;height:7px;background:#1e2533;border-radius:5px;overflow:hidden;}
+.jp-prog-fill{height:100%;border-radius:5px;background:linear-gradient(90deg,#1e9484,#4f8ef7);transition:width .5s ease;}
+.jp-tabs{display:flex;border-bottom:1px solid #1e2533;flex-shrink:0;}
+.jptab{flex:1;padding:10px 4px;text-align:center;font-size:13px;font-weight:600;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;}
+.jptab.active{color:#1e9484;border-bottom-color:#1e9484;}
+.jp-body{flex:1;overflow-y:auto;padding:18px;}
+.jp-body::-webkit-scrollbar{width:4px;}
+.jp-body::-webkit-scrollbar-thumb{background:#2a2d3e;}
+
+/* Steps inside job panel */
+.steps-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.steps-header h4{font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;}
+.btn-add-step{padding:5px 12px;background:rgba(30,148,132,.12);border:1px solid #1e9484;border-radius:7px;color:#1e9484;font-size:12px;cursor:pointer;}
+.step-item{background:#1a1d27;border:1px solid #2a2d3e;border-radius:12px;padding:14px 16px;margin-bottom:10px;}
+.step-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.step-order{width:22px;height:22px;background:#0f1117;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#64748b;flex-shrink:0;}
+.step-name-input{flex:1;background:none;border:none;border-bottom:1px solid #2a2d3e;color:#e2e8f0;font-size:14px;font-weight:600;padding:2px 0;font-family:inherit;}
+.step-name-input:focus{outline:none;border-bottom-color:#1e9484;}
+.step-del{background:none;border:none;color:#334155;font-size:16px;cursor:pointer;padding:2px 4px;line-height:1;flex-shrink:0;}
+.step-del:hover{color:#ef4444;}
+.step-pct-row{display:flex;align-items:center;gap:10px;}
+.step-prog-track{flex:1;height:8px;background:#0f1117;border-radius:5px;overflow:hidden;cursor:pointer;}
+.step-prog-fill{height:100%;border-radius:5px;transition:width .3s ease;}
+.sfill-low{background:linear-gradient(90deg,#ef4444,#f59e0b);}
+.sfill-mid{background:linear-gradient(90deg,#f59e0b,#4f8ef7);}
+.sfill-high{background:linear-gradient(90deg,#1e9484,#22c55e);}
+.sfill-done{background:linear-gradient(90deg,#22c55e,#4ade80);}
+.step-pct-input{width:64px;padding:5px 8px;background:#0f1117;border:1px solid #2a2d3e;border-radius:7px;color:#e2e8f0;font-size:13px;font-weight:700;text-align:center;}
+.step-pct-input:focus{outline:none;border-color:#1e9484;}
+/* Info/Materials/Photos fields */
+.field-row{margin-bottom:14px;}
+.field-label{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;}
+.field-value{font-size:14px;color:#e2e8f0;line-height:1.5;}
+.field-value.muted{color:#64748b;}
+.status-select{width:100%;padding:8px 12px;background:#1a1d27;border:1px solid #2a2d3e;border-radius:8px;color:#e2e8f0;font-size:14px;}
+.status-select:focus{outline:none;border-color:#1e9484;}
+.edit-area{background:#0f1117;border-radius:12px;padding:16px;margin-top:16px;border:1px solid #1e2533;}
+.edit-area h4{font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;}
+.editable-input{width:100%;padding:7px 10px;background:#1a1d27;border:1px solid #2a2d3e;border-radius:8px;color:#e2e8f0;font-size:14px;font-family:inherit;margin-bottom:8px;}
+.editable-input:focus{outline:none;border-color:#1e9484;}
+.btn-row{display:flex;gap:8px;margin-top:8px;}
+.btn-save{padding:7px 16px;background:#1e9484;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;}
+.delete-btn{padding:7px 14px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:8px;color:#ef4444;font-size:13px;cursor:pointer;}
+/* Materials */
+.add-mat-form{background:#1a1d27;border:1px solid #2a2d3e;border-radius:12px;padding:14px;margin-bottom:14px;}
+.add-mat-form h4{font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;}
+.form-row{display:grid;grid-template-columns:1fr 70px 80px;gap:8px;}
+.form-input{padding:8px 10px;background:#0f1117;border:1px solid #2a2d3e;border-radius:8px;color:#e2e8f0;font-size:13px;width:100%;}
+.form-input:focus{outline:none;border-color:#1e9484;}
+.btn-add-mat{padding:7px;background:#1e9484;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;width:100%;margin-top:8px;}
+.mat-item{background:#1a1d27;border:1px solid #2a2d3e;border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.mat-info{flex:1;}.mat-name{font-size:14px;font-weight:600;}.mat-detail{font-size:12px;color:#64748b;margin-top:2px;}
+.mat-cost{font-size:13px;font-weight:700;color:#1e9484;white-space:nowrap;}
+.mat-del{background:none;border:none;color:#475569;font-size:18px;cursor:pointer;padding:2px 6px;line-height:1;}
+.mat-del:hover{color:#ef4444;}
+/* Photos */
+.photo-upload-area{border:2px dashed #2a2d3e;border-radius:12px;padding:18px;text-align:center;margin-bottom:14px;cursor:pointer;transition:border-color .15s;}
+.photo-upload-area:hover{border-color:#1e9484;}
+.photo-upload-area p{font-size:13px;color:#64748b;margin-top:6px;}
+#photoFileInput{display:none;}
+.photo-type-select,.photo-caption-input{width:100%;padding:7px 10px;background:#1a1d27;border:1px solid #2a2d3e;border-radius:8px;color:#e2e8f0;font-size:13px;margin-top:8px;}
+.btn-upload-photo{display:none;padding:8px;background:#1e9484;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;width:100%;margin-top:8px;}
+.btn-upload-photo.visible{display:block;}
+.photo-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+.photo-card{background:#1a1d27;border:1px solid #2a2d3e;border-radius:10px;overflow:hidden;}
+.photo-thumb{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;cursor:pointer;}
+.photo-foot{padding:8px 10px;display:flex;align-items:center;gap:6px;}
+.photo-type-lbl{padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;}
+.pt-before{background:rgba(245,158,11,.12);color:#f59e0b;}
+.pt-progress{background:rgba(79,142,247,.12);color:#4f8ef7;}
+.pt-after{background:rgba(34,197,94,.12);color:#22c55e;}
+.pt-other{background:#1e2533;color:#64748b;}
+.photo-caption-txt{font-size:12px;color:#64748b;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.photo-del{background:none;border:none;color:#475569;font-size:14px;cursor:pointer;padding:2px;}
+.photo-del:hover{color:#ef4444;}
+/* Lightbox */
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:300;display:none;align-items:center;justify-content:center;}
+.lightbox.open{display:flex;}
+.lightbox img{max-width:90vw;max-height:88vh;border-radius:8px;object-fit:contain;}
+.lightbox-close{position:absolute;top:16px;right:20px;background:none;border:none;color:#fff;font-size:28px;cursor:pointer;}
+
+/* Modals */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:250;display:none;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto;}
+.modal-overlay.open{display:flex;}
+.modal{background:#111520;border:1px solid #1e2533;border-radius:18px;width:100%;max-width:520px;padding:24px;margin:auto;}
+.modal h2{font-size:18px;font-weight:700;margin-bottom:18px;}
+.modal-section{margin-bottom:16px;}
+.modal-section-title{font-size:11px;font-weight:700;color:#1e9484;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid #1e2533;}
+.form-group{margin-bottom:10px;}
+.form-group label{display:block;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;}
+.form-group input,.form-group textarea,.form-group select{width:100%;padding:8px 11px;background:#1a1d27;border:1px solid #2a2d3e;border-radius:9px;color:#e2e8f0;font-size:14px;font-family:inherit;}
+.form-group input:focus,.form-group textarea:focus,.form-group select:focus{outline:none;border-color:#1e9484;}
+.form-group textarea{resize:vertical;min-height:60px;}
+.form-2col{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.step-field-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.step-field-num{width:20px;height:20px;background:#1a1d27;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#64748b;flex-shrink:0;}
+.step-field-input{flex:1;padding:7px 10px;background:#1a1d27;border:1px solid #2a2d3e;border-radius:8px;color:#e2e8f0;font-size:13px;font-family:inherit;}
+.step-field-input:focus{outline:none;border-color:#1e9484;}
+.step-field-del{background:none;border:none;color:#334155;font-size:16px;cursor:pointer;line-height:1;padding:2px 4px;}
+.step-field-del:hover{color:#ef4444;}
+.btn-add-step-field{padding:6px;background:rgba(30,148,132,.08);border:1px dashed #1e9484;border-radius:8px;color:#1e9484;font-size:12px;cursor:pointer;width:100%;margin-top:4px;}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;}
+.btn-cancel{padding:8px 18px;background:none;border:1px solid #334155;border-radius:8px;color:#94a3b8;font-size:14px;cursor:pointer;}
+.btn-submit{padding:8px 20px;background:#1e9484;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:600;cursor:pointer;}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo-badge">B</div>
+  <span class="hdr-title">Projects</span>
+  <div class="hdr-right">
+    <button class="btn-primary" onclick="openCreateProject()">+ New Project</button>
+    <a href="/contractor-hub" class="btn-icon">&#8592; Hub</a>
+  </div>
+</header>
+
+<!-- KPI bar -->
+<div class="kpi-bar">
+  <div class="kpi-pill"><div class="kpi-num" id="kpiProj">—</div><div class="kpi-lbl">Projects</div></div>
+  <div class="kpi-pill"><div class="kpi-num" id="kpiJobs">—</div><div class="kpi-lbl">Work Orders</div></div>
+  <div class="kpi-pill"><div class="kpi-num" id="kpiActive">—</div><div class="kpi-lbl">Active</div></div>
+  <div class="kpi-pill"><div class="kpi-num" id="kpiOverall" style="color:#1e9484">—</div><div class="kpi-lbl">Overall %</div></div>
+</div>
+
+<!-- Main layout -->
+<div class="main">
+
+  <!-- Project list -->
+  <div class="proj-list" id="projList">
+    <div class="spinner">Loading...</div>
+  </div>
+
+  <!-- Right panel: project detail with its jobs -->
+  <div class="right-panel" id="rightPanel">
+    <div class="rp-head">
+      <button class="rp-close" onclick="closePanel()">&#x2715;</button>
+      <div style="flex:1;min-width:0;">
+        <div class="rp-proj-name" id="rpName"></div>
+        <div style="font-size:12px;color:#64748b;" id="rpClient"></div>
+      </div>
+      <div class="rp-pct" id="rpPct">0%</div>
+    </div>
+    <div class="rp-body" id="rpBody"></div>
+  </div>
+</div>
+
+<!-- Job detail panel (full screen) -->
+<div class="job-panel" id="jobPanel">
+  <div class="jp-head">
+    <button class="jp-back" onclick="closeJobPanel()">&#8592; Back</button>
+    <div style="flex:1;min-width:0;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
+        <span class="jp-job-num" id="jpJobNum"></span>
+        <span class="jp-title" id="jpTitle"></span>
+      </div>
+      <div class="jp-pct-row">
+        <span class="jp-pct-big" id="jpPct">0%</span>
+        <div class="jp-prog-track"><div class="jp-prog-fill" id="jpProgFill" style="width:0%"></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="jp-tabs">
+    <div class="jptab active" data-tab="steps" onclick="switchJobTab(this)">Steps</div>
+    <div class="jptab" data-tab="info" onclick="switchJobTab(this)">Info</div>
+    <div class="jptab" data-tab="materials" onclick="switchJobTab(this)">Materials</div>
+    <div class="jptab" data-tab="photos" onclick="switchJobTab(this)">Photos</div>
+  </div>
+  <div class="jp-body" id="jpBody"></div>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox">
+  <button class="lightbox-close" onclick="closeLightbox()">&#x2715;</button>
+  <img id="lightboxImg" src="">
+</div>
+
+<!-- Create Project modal -->
+<div class="modal-overlay" id="projModal">
+  <div class="modal">
+    <h2>&#128196; New Project</h2>
+    <div class="form-group"><label>Project Name *</label><input id="projName" placeholder="e.g. Data Center Roofing – Phase 2"></div>
+    <div class="form-2col">
+      <div class="form-group"><label>Client</label><input id="projClient" placeholder="Client name"></div>
+      <div class="form-group"><label>Status</label>
+        <select id="projStatus"><option value="active">Active</option><option value="on_hold">On Hold</option></select>
+      </div>
+    </div>
+    <div class="form-group"><label>Description</label><textarea id="projDesc" rows="2" placeholder="Brief scope..."></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeProjModal()">Cancel</button>
+      <button class="btn-submit" onclick="submitProject()">Create Project</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create Work Order modal -->
+<div class="modal-overlay" id="woModal">
+  <div class="modal">
+    <h2>&#128203; New Work Order</h2>
+    <div class="modal-section">
+      <div class="modal-section-title">Job Details</div>
+      <div class="form-group"><label>Title *</label><input id="woTitle" placeholder="e.g. Roof panel repair – Bldg A"></div>
+      <div class="form-group"><label>Description</label><textarea id="woDesc" placeholder="What needs to be done..."></textarea></div>
+      <div class="form-2col">
+        <div class="form-group"><label>Priority</label>
+          <select id="woPriority"><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option><option value="low">Low</option></select>
+        </div>
+        <div class="form-group"><label>Status</label>
+          <select id="woStatus"><option value="open">Open</option><option value="in_progress">In Progress</option><option value="on_hold">On Hold</option></select>
+        </div>
+      </div>
+      <div class="form-2col">
+        <div class="form-group"><label>Start Date</label><input id="woStart" type="date"></div>
+        <div class="form-group"><label>Due Date</label><input id="woDue" type="date"></div>
+      </div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-title">Steps (5 default, max 10)</div>
+      <div id="woStepFields"></div>
+      <button class="btn-add-step-field" id="woAddStepBtn" onclick="addWoStepField()">+ Add Step</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeWoModal()">Cancel</button>
+      <button class="btn-submit" onclick="submitWo()">Create Work Order</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var allProjects=[], allJobs=[];
+var openProjId=null;
+var openJobId=null, openJobData=null, openJobTab='steps';
+var selectedPhotoFile=null;
+var woStepCount=0;
+var userName=localStorage.getItem('mbrName')||localStorage.getItem('companyUser')||'User';
+var DEFAULT_STEPS=['Site Assessment','Material Preparation','Structural Work','Quality Check','Final Inspection'];
+
+// ── Boot ──
+loadAll();
+function loadAll(){
+  Promise.all([
+    fetch('/api/contractor/projects').then(r=>r.json()),
+    fetch('/api/contractor/jobs').then(r=>r.json())
+  ]).then(([projs,jobs])=>{
+    allProjects=projs; allJobs=jobs;
+    updateKPIs(); renderProjects();
+    if(openProjId) renderPanel(openProjId);
+  }).catch(()=>document.getElementById('projList').innerHTML='<div class="spinner">Error loading data.</div>');
+}
+
+// ── KPIs ──
+function updateKPIs(){
+  document.getElementById('kpiProj').textContent=allProjects.length;
+  document.getElementById('kpiJobs').textContent=allJobs.length;
+  document.getElementById('kpiActive').textContent=allJobs.filter(j=>j.status==='in_progress').length;
+  var overall=allJobs.length?Math.round(allJobs.reduce((s,j)=>s+parseFloat(j.progress_pct||0),0)/allJobs.length):0;
+  document.getElementById('kpiOverall').textContent=overall+'%';
+}
+
+// ── Project list ──
+function renderProjects(){
+  var el=document.getElementById('projList');
+  if(!allProjects.length){
+    el.innerHTML='<div class="empty-state"><div class="icon">&#128196;</div><p>No projects yet.<br>Create your first project.</p></div>';
+    return;
+  }
+  el.innerHTML=allProjects.map(p=>{
+    var pjobs=allJobs.filter(j=>j.project_id===p.id);
+    var pct=pjobs.length?Math.round(pjobs.reduce((s,j)=>s+parseFloat(j.progress_pct||0),0)/pjobs.length):0;
+    var open=pjobs.filter(j=>j.status==='open').length;
+    var inp=pjobs.filter(j=>j.status==='in_progress').length;
+    var done=pjobs.filter(j=>j.status==='completed').length;
+    var active=openProjId===p.id?' active':'';
+    // Ring SVG (r=22, circ=138.2)
+    var circ=138.2, dash=circ*pct/100;
+    var clr=pct>=100?'#22c55e':pct>=60?'#1e9484':pct>=30?'#4f8ef7':'#f59e0b';
+    return '<div class="proj-card'+active+'" onclick="selectProject(\''+p.id+'\')">'+
+      '<div class="proj-card-body">'+
+      '<div class="proj-top">'+
+      '<div class="proj-ring">'+
+        '<svg viewBox="0 0 56 56"><circle class="track" cx="28" cy="28" r="22"/><circle class="fill" cx="28" cy="28" r="22" stroke="'+clr+'" stroke-dasharray="'+dash+' '+circ+'" stroke-dashoffset="0"/></svg>'+
+        '<div class="proj-ring-pct">'+pct+'%</div>'+
+      '</div>'+
+      '<div class="proj-meta">'+
+        '<div class="proj-name">'+esc(p.name)+'</div>'+
+        (p.client_name?'<div class="proj-client">'+esc(p.client_name)+'</div>':'')+
+        '<div class="proj-chips">'+
+          (inp?'<span class="chip chip-active">'+inp+' active</span>':'')+
+          (open?'<span class="chip chip-count">'+open+' open</span>':'')+
+          (done?'<span class="chip chip-done">'+done+' done</span>':'')+
+          '<span class="chip chip-count">'+pjobs.length+' jobs</span>'+
+        '</div>'+
+      '</div></div>'+
+      '<div class="proj-prog-bar"><div class="proj-prog-fill" style="width:'+pct+'%"></div></div>'+
+      '</div></div>';
+  }).join('');
+}
+
+// ── Select project → right panel ──
+function selectProject(id){
+  if(openProjId===id && document.getElementById('rightPanel').classList.contains('open')){
+    closePanel(); return;
+  }
+  openProjId=id;
+  document.getElementById('rightPanel').classList.add('open');
+  document.querySelectorAll('.proj-card').forEach(c=>c.classList.remove('active'));
+  var cards=document.querySelectorAll('.proj-card');
+  cards.forEach(c=>{if(c.onclick.toString().includes(id))c.classList.add('active');});
+  renderPanel(id);
+}
+function closePanel(){
+  document.getElementById('rightPanel').classList.remove('open');
+  openProjId=null;
+  document.querySelectorAll('.proj-card').forEach(c=>c.classList.remove('active'));
+}
+function renderPanel(projId){
+  var proj=allProjects.find(p=>p.id===projId);
+  if(!proj) return;
+  var pjobs=allJobs.filter(j=>j.project_id===projId);
+  var pct=pjobs.length?Math.round(pjobs.reduce((s,j)=>s+parseFloat(j.progress_pct||0),0)/pjobs.length):0;
+  document.getElementById('rpName').textContent=proj.name;
+  document.getElementById('rpClient').textContent=proj.client_name||'';
+  document.getElementById('rpPct').textContent=pct+'%';
+  var weight=pjobs.length?Math.round(100/pjobs.length):0;
+  var html='<div class="rp-actions">'
+    +'<button class="btn-sm btn-sm-primary" onclick="openWoModal()">+ Add Work Order</button>'
+    +'<button class="btn-sm btn-sm-danger" onclick="deleteProject(\''+projId+'\')">Delete Project</button>'
+    +'</div>';
+  if(pjobs.length){
+    html+='<div class="weight-banner">Each work order contributes <strong>'+weight+'%</strong> to this project ('+pjobs.length+' jobs, equal weight).</div>';
+  }
+  if(!pjobs.length){
+    html+='<div style="text-align:center;padding:32px;color:#64748b;font-size:13px;">No work orders yet.<br>Add one to start tracking progress.</div>';
+  } else {
+    pjobs.forEach(j=>{
+      var pct=parseFloat(j.progress_pct||0);
+      var fc=pct>=100?'fill-done':pct>=60?'fill-high':pct>=30?'fill-mid':'fill-low';
+      html+='<div class="job-item" onclick="openJobDetail(\''+j.id+'\')">'+
+        '<div class="job-item-top">'+
+          '<span class="job-num">'+esc(j.job_number)+'</span>'+
+          '<span class="job-title">'+esc(j.title)+'</span>'+
+          '<span class="job-pct-badge">'+Math.round(pct)+'%</span>'+
+          '<span class="job-weight">&#10135;'+weight+'%</span>'+
+        '</div>'+
+        '<div class="job-prog-track"><div class="job-prog-fill '+fc+'" style="width:'+pct+'%"></div></div>'+
+        '<div class="job-item-foot">'+
+          '<span class="s-chip s-'+j.status+'">'+statusLabel(j.status)+'</span>'+
+          (j.due_date?'<span style="font-size:11px;color:#64748b;">Due '+fmtDate(j.due_date)+'</span>':'')+
+        '</div>'+
+      '</div>';
+    });
+  }
+  document.getElementById('rpBody').innerHTML=html;
+}
+
+// ── Job detail panel ──
+function openJobDetail(jobId){
+  openJobId=jobId;
+  openJobData=allJobs.find(j=>j.id===jobId)||null;
+  if(!openJobData) return;
+  document.getElementById('jpJobNum').textContent=openJobData.job_number;
+  document.getElementById('jpTitle').textContent=openJobData.title;
+  updateJpProgress(parseFloat(openJobData.progress_pct||0));
+  document.getElementById('jobPanel').classList.add('open');
+  document.querySelectorAll('.jptab').forEach(t=>t.classList.remove('active'));
+  document.querySelector('.jptab[data-tab="steps"]').classList.add('active');
+  openJobTab='steps';
+  loadSteps();
+}
+function closeJobPanel(){
+  document.getElementById('jobPanel').classList.remove('open');
+  // Refresh panel to pick up any % changes
+  if(openProjId) renderPanel(openProjId);
+  loadAll();
+}
+function updateJpProgress(pct){
+  document.getElementById('jpPct').textContent=Math.round(pct)+'%';
+  document.getElementById('jpProgFill').style.width=pct+'%';
+  if(openJobData) openJobData.progress_pct=pct;
+  var idx=allJobs.findIndex(j=>j.id===openJobId);
+  if(idx>=0) allJobs[idx].progress_pct=pct;
+}
+function switchJobTab(el){
+  document.querySelectorAll('.jptab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  openJobTab=el.dataset.tab;
+  if(openJobTab==='steps') loadSteps();
+  else if(openJobTab==='info') renderInfoTab(openJobData);
+  else if(openJobTab==='materials') loadMaterials();
+  else if(openJobTab==='photos') loadPhotos();
+}
+
+// ── Steps ──
+function loadSteps(){
+  document.getElementById('jpBody').innerHTML='<div class="spinner">Loading...</div>';
+  fetch('/api/contractor/jobs/'+openJobId+'/steps')
+    .then(r=>r.json()).then(renderSteps);
+}
+function sfill(p){return p>=100?'sfill-done':p>=60?'sfill-high':p>=30?'sfill-mid':'sfill-low';}
+function renderSteps(steps){
+  var canAdd=steps.length<10;
+  var html='<div class="steps-header"><h4>Steps ('+steps.length+'/10)</h4>'
+    +(canAdd?'<button class="btn-add-step" onclick="addNewStep()">+ Add Step</button>':'')
+    +'</div>';
+  if(!steps.length){
+    html+='<div style="text-align:center;padding:28px;color:#64748b;font-size:13px;">No steps. <a href="#" onclick="initDefaultSteps();return false;" style="color:#1e9484;">Initialize 5 defaults</a></div>';
+  } else {
+    steps.forEach(s=>{
+      var p=parseFloat(s.progress_pct||0);
+      html+='<div class="step-item" id="step-'+s.id+'">'
+        +'<div class="step-top"><div class="step-order">'+(s.order_num+1)+'</div>'
+        +'<input class="step-name-input" value="'+esc(s.step_name)+'" onblur="saveStepName(\''+s.id+'\',this.value)">'
+        +'<button class="step-del" onclick="deleteStep(\''+s.id+'\')">&#215;</button></div>'
+        +'<div class="step-pct-row">'
+        +'<div class="step-prog-track" onclick="clickTrack(event,\''+s.id+'\',this)">'
+        +'<div class="step-prog-fill '+sfill(p)+'" id="sf-'+s.id+'" style="width:'+p+'%"></div></div>'
+        +'<input class="step-pct-input" type="number" min="0" max="100" value="'+Math.round(p)+'" onchange="saveStepPct(\''+s.id+'\',this.value)" id="si-'+s.id+'">'
+        +'</div></div>';
+    });
+  }
+  document.getElementById('jpBody').innerHTML=html;
+}
+function clickTrack(e,sid,el){var r=el.getBoundingClientRect();var p=Math.round((e.clientX-r.left)/r.width*100);p=Math.max(0,Math.min(100,p));document.getElementById('si-'+sid).value=p;saveStepPct(sid,p);}
+function saveStepPct(sid,val){
+  var p=Math.max(0,Math.min(100,parseFloat(val)||0));
+  var f=document.getElementById('sf-'+sid);if(f){f.style.width=p+'%';f.className='step-prog-fill '+sfill(p);}
+  fetch('/api/contractor/jobs/'+openJobId+'/steps/'+sid,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({progress_pct:p})})
+    .then(r=>r.json()).then(res=>{if(res.ok&&res.job_progress_pct!==undefined){updateJpProgress(res.job_progress_pct);}});
+}
+function saveStepName(sid,name){if(!name.trim())return;fetch('/api/contractor/jobs/'+openJobId+'/steps/'+sid,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({step_name:name.trim()})});}
+function deleteStep(sid){if(!confirm('Remove this step?'))return;fetch('/api/contractor/jobs/'+openJobId+'/steps/'+sid,{method:'DELETE'}).then(r=>r.json()).then(res=>{if(res.ok)loadSteps();});}
+function addNewStep(){
+  var name=prompt('Step name:','New Step');if(!name||!name.trim())return;
+  fetch('/api/contractor/jobs/'+openJobId+'/steps',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({step_name:name.trim()})}).then(()=>loadSteps());
+}
+function initDefaultSteps(){
+  fetch('/api/contractor/jobs/'+openJobId+'/steps',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({steps:DEFAULT_STEPS})}).then(r=>r.json()).then(res=>{if(res.ok)loadSteps();});
+}
+
+// ── Info tab ──
+function renderInfoTab(j){
+  var html='<div class="field-row"><div class="field-label">Status</div>'
+    +'<select class="status-select" onchange="updateStatus(this.value)">'
+    +['open','in_progress','on_hold','completed','cancelled'].map(s=>'<option value="'+s+'"'+(j.status===s?' selected':'')+'>'+statusLabel(s)+'</option>').join('')
+    +'</select></div>';
+  if(j.client_name||j.location) html+='<div class="field-row"><div class="field-label">Client / Location</div><div class="field-value">'+esc(j.client_name||'')+(j.location?' &mdash; '+esc(j.location):'')+'</div></div>';
+  if(j.description) html+='<div class="field-row"><div class="field-label">Description</div><div class="field-value">'+esc(j.description).replace(/\n/g,'<br>')+'</div></div>';
+  var dates=[];if(j.start_date)dates.push('Start: '+fmtDate(j.start_date));if(j.due_date)dates.push('Due: '+fmtDate(j.due_date));
+  if(dates.length) html+='<div class="field-row"><div class="field-label">Dates</div><div class="field-value">'+dates.join(' &middot; ')+'</div></div>';
+  if(j.notes) html+='<div class="field-row"><div class="field-label">Notes</div><div class="field-value">'+esc(j.notes).replace(/\n/g,'<br>')+'</div></div>';
+  html+='<div class="edit-area"><h4>Edit Job</h4>'
+    +'<input class="editable-input" id="editTitle" value="'+esc(j.title)+'" placeholder="Title">'
+    +'<input class="editable-input" id="editDue" type="date" value="'+(j.due_date||'')+'">'
+    +'<textarea class="editable-input" id="editNotes" rows="3" placeholder="Notes">'+esc(j.notes||'')+'</textarea>'
+    +'<div class="btn-row">'
+    +'<button class="btn-save" onclick="saveEdits()">Save</button>'
+    +'<button class="delete-btn" onclick="confirmDeleteJob()">Delete Job</button>'
+    +'</div></div>';
+  document.getElementById('jpBody').innerHTML=html;
+}
+function updateStatus(val){fetch('/api/contractor/jobs/'+openJobId,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:val})}).then(()=>{if(openJobData)openJobData.status=val;var idx=allJobs.findIndex(j=>j.id===openJobId);if(idx>=0)allJobs[idx].status=val;});}
+function saveEdits(){
+  var p={title:document.getElementById('editTitle').value.trim(),due_date:document.getElementById('editDue').value||null,notes:document.getElementById('editNotes').value.trim()};
+  fetch('/api/contractor/jobs/'+openJobId,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)}).then(r=>r.json()).then(res=>{if(res.ok){Object.assign(openJobData,p);var idx=allJobs.findIndex(j=>j.id===openJobId);if(idx>=0)Object.assign(allJobs[idx],p);document.getElementById('jpTitle').textContent=p.title||openJobData.title;flash('Saved &#10003;');}});
+}
+function confirmDeleteJob(){if(!confirm('Delete this work order?'))return;fetch('/api/contractor/jobs/'+openJobId,{method:'DELETE'}).then(()=>{allJobs=allJobs.filter(j=>j.id!==openJobId);closeJobPanel();});}
+
+// ── Materials ──
+function loadMaterials(){
+  document.getElementById('jpBody').innerHTML='<div class="spinner">Loading...</div>';
+  fetch('/api/contractor/jobs/'+openJobId+'/materials').then(r=>r.json()).then(renderMaterials);
+}
+function renderMaterials(mats){
+  var html='<div class="add-mat-form"><h4>Add Material</h4>'
+    +'<div class="form-row"><input class="form-input" id="matName" placeholder="Material name" style="grid-column:1/-1">'
+    +'<input class="form-input" id="matQty" type="number" placeholder="Qty" step="0.01">'
+    +'<input class="form-input" id="matUnit" placeholder="Unit" value="each">'
+    +'<input class="form-input" id="matCost" type="number" placeholder="$/unit" step="0.01"></div>'
+    +'<button class="btn-add-mat" onclick="addMaterial()">+ Add</button></div>';
+  html+=mats.map(m=>{var cost=parseFloat(m.unit_cost||0)*parseFloat(m.qty||0);return '<div class="mat-item" id="mat-'+m.id+'"><div class="mat-info"><div class="mat-name">'+esc(m.material_name)+'</div><div class="mat-detail">'+m.qty+' '+esc(m.unit||'each')+(m.unit_cost?' &middot; $'+parseFloat(m.unit_cost).toFixed(2)+'/unit':'')+'</div></div>'+(cost?'<div class="mat-cost">$'+cost.toFixed(2)+'</div>':'')+'<button class="mat-del" onclick="deleteMaterial(\''+m.id+'\')">&#215;</button></div>';}).join('');
+  if(!mats.length) html+='<div style="text-align:center;padding:24px;color:#64748b;font-size:13px;">No materials yet.</div>';
+  document.getElementById('jpBody').innerHTML=html;
+}
+function addMaterial(){var name=(document.getElementById('matName').value||'').trim();if(!name){alert('Enter a material name');return;}fetch('/api/contractor/jobs/'+openJobId+'/materials',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({material_name:name,qty:parseFloat(document.getElementById('matQty').value||0),unit:document.getElementById('matUnit').value||'each',unit_cost:parseFloat(document.getElementById('matCost').value||0),added_by:userName})}).then(r=>r.json()).then(res=>{if(res.ok)loadMaterials();});}
+function deleteMaterial(id){if(!confirm('Remove?'))return;fetch('/api/contractor/jobs/'+openJobId+'/materials/'+id,{method:'DELETE'}).then(()=>document.getElementById('mat-'+id).remove());}
+
+// ── Photos ──
+function loadPhotos(){
+  document.getElementById('jpBody').innerHTML='<div class="spinner">Loading...</div>';
+  fetch('/api/contractor/jobs/'+openJobId+'/photos').then(r=>r.json()).then(renderPhotos);
+}
+function renderPhotos(photos){
+  var html='<div class="photo-upload-area" onclick="document.getElementById(\'photoFileInput\').click()">'
+    +'<div style="font-size:32px">&#128247;</div><p>Tap to choose a photo</p>'
+    +'<input type="file" id="photoFileInput" accept="image/*" onchange="onPhotoSelected(this)">'
+    +'<select class="photo-type-select" id="photoTypeSelect" onclick="event.stopPropagation()"><option value="progress">Progress</option><option value="before">Before</option><option value="after">After</option><option value="other">Other</option></select>'
+    +'<input class="photo-caption-input" id="photoCaptionInput" placeholder="Caption" onclick="event.stopPropagation()">'
+    +'<button class="btn-upload-photo" id="uploadPhotoBtn" onclick="event.stopPropagation();uploadPhoto()">Upload Photo</button></div>';
+  if(photos.length) html+='<div class="photo-grid">'+photos.map(p=>{var tc={'before':'pt-before','progress':'pt-progress','after':'pt-after','other':'pt-other'}[p.photo_type]||'pt-other';return '<div class="photo-card"><img class="photo-thumb" src="/api/contractor/jobs/'+openJobId+'/photos/'+p.id+'/img" onclick="openLightboxId(\''+p.id+'\')" loading="lazy" onerror="this.parentElement.style.display=\'none\'"><div class="photo-foot"><span class="photo-type-lbl '+tc+'">'+ucfirst(p.photo_type||'other')+'</span><span class="photo-caption-txt">'+esc(p.caption||'')+'</span><button class="photo-del" onclick="deletePhoto(\''+p.id+'\')">&#215;</button></div></div>';}).join('')+'</div>';
+  else html+='<div style="text-align:center;padding:24px;color:#64748b;font-size:13px;">No photos yet.</div>';
+  document.getElementById('jpBody').innerHTML=html;
+}
+function onPhotoSelected(input){if(input.files&&input.files[0]){selectedPhotoFile=input.files[0];document.getElementById('uploadPhotoBtn').classList.add('visible');}}
+function uploadPhoto(){if(!selectedPhotoFile)return;var reader=new FileReader();reader.onload=function(e){fetch('/api/contractor/jobs/'+openJobId+'/photos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({photo_data:e.target.result,photo_type:document.getElementById('photoTypeSelect').value,caption:(document.getElementById('photoCaptionInput').value||'').trim(),uploaded_by:userName})}).then(r=>r.json()).then(res=>{if(res.ok){selectedPhotoFile=null;loadPhotos();}});};reader.readAsDataURL(selectedPhotoFile);}
+function deletePhoto(id){if(!confirm('Remove photo?'))return;fetch('/api/contractor/jobs/'+openJobId+'/photos/'+id,{method:'DELETE'}).then(()=>loadPhotos());}
+function openLightboxId(id){fetch('/api/contractor/jobs/'+openJobId+'/photos/'+id).then(r=>r.json()).then(d=>{document.getElementById('lightboxImg').src=d.photo_data||'';document.getElementById('lightbox').classList.add('open');});}
+function closeLightbox(){document.getElementById('lightbox').classList.remove('open');document.getElementById('lightboxImg').src='';}
+
+// ── Create Project ──
+function openCreateProject(){document.getElementById('projModal').classList.add('open');}
+function closeProjModal(){document.getElementById('projModal').classList.remove('open');}
+function submitProject(){
+  var name=document.getElementById('projName').value.trim();
+  if(!name){alert('Project name required');return;}
+  fetch('/api/contractor/projects',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,client_name:document.getElementById('projClient').value.trim(),description:document.getElementById('projDesc').value.trim(),status:document.getElementById('projStatus').value,created_by:userName})})
+    .then(r=>r.json()).then(res=>{if(res.ok){closeProjModal();['projName','projClient','projDesc'].forEach(id=>document.getElementById(id).value='');loadAll();}else alert('Error: '+res.error);});
+}
+function deleteProject(id){
+  if(!confirm('Delete project? Work orders will be unassigned.'))return;
+  fetch('/api/contractor/projects/'+id,{method:'DELETE'}).then(()=>{openProjId=null;document.getElementById('rightPanel').classList.remove('open');loadAll();});
+}
+
+// ── Create Work Order (inside project) ──
+function openWoModal(){
+  document.getElementById('woModal').classList.add('open');
+  document.getElementById('woStart').value=new Date().toISOString().split('T')[0];
+  initWoSteps();
+}
+function closeWoModal(){document.getElementById('woModal').classList.remove('open');}
+function initWoSteps(){var c=document.getElementById('woStepFields');c.innerHTML='';woStepCount=0;DEFAULT_STEPS.forEach(n=>addWoStepField(n));updateWoStepBtn();}
+function addWoStepField(defaultName){
+  if(woStepCount>=10){alert('Max 10 steps.');return;}
+  woStepCount++;
+  var n=woStepCount;
+  var c=document.getElementById('woStepFields');
+  var row=document.createElement('div');row.className='step-field-row';row.id='wsrow-'+n;
+  row.innerHTML='<div class="step-field-num">'+n+'</div>'
+    +'<input class="step-field-input" value="'+(defaultName?esc(defaultName):'')+'" placeholder="Step '+n+'">'
+    +(n>5?'<button class="step-field-del" onclick="removeWoStep('+n+')">&#215;</button>':'');
+  c.appendChild(row);updateWoStepBtn();
+}
+function removeWoStep(n){var r=document.getElementById('wsrow-'+n);if(r)r.remove();woStepCount--;document.querySelectorAll('#woStepFields .step-field-row').forEach((r,i)=>{r.querySelector('.step-field-num').textContent=i+1;});updateWoStepBtn();}
+function updateWoStepBtn(){var b=document.getElementById('woAddStepBtn');b.disabled=woStepCount>=10;b.textContent=woStepCount>=10?'Max 10 steps':'+ Add Step';}
+function submitWo(){
+  var title=document.getElementById('woTitle').value.trim();
+  if(!title){alert('Title required');return;}
+  var stepNames=[];
+  document.querySelectorAll('#woStepFields .step-field-input').forEach(inp=>{if(inp.value.trim())stepNames.push(inp.value.trim());});
+  fetch('/api/contractor/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,description:document.getElementById('woDesc').value.trim(),priority:document.getElementById('woPriority').value,status:document.getElementById('woStatus').value,start_date:document.getElementById('woStart').value||null,due_date:document.getElementById('woDue').value||null,created_by:userName,project_id:openProjId})})
+    .then(r=>r.json()).then(res=>{
+      if(!res.ok){alert('Error: '+res.error);return;}
+      return fetch('/api/contractor/jobs/'+res.job.id+'/steps',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({steps:stepNames})})
+        .then(()=>{closeWoModal();['woTitle','woDesc'].forEach(id=>document.getElementById(id).value='');document.getElementById('woPriority').value='normal';document.getElementById('woStatus').value='open';loadAll();});
+    });
+}
+
+// ── Helpers ──
+function statusLabel(s){return{open:'Open',in_progress:'In Progress',on_hold:'On Hold',completed:'Completed',cancelled:'Cancelled'}[s]||s;}
+function ucfirst(s){return s?s.charAt(0).toUpperCase()+s.slice(1):'';}
+function fmtDate(d){if(!d)return'';var p=d.split('-');return p[1]+'/'+p[2]+'/'+p[0].slice(2);}
+function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function flash(msg){var el=document.createElement('div');el.innerHTML=msg;el.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e9484;color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;font-weight:600;z-index:400;pointer-events:none;opacity:0;transition:opacity .2s;';document.body.appendChild(el);setTimeout(()=>el.style.opacity='1',10);setTimeout(()=>{el.style.opacity='0';setTimeout(()=>el.remove(),300);},1800);}
+
+document.getElementById('projModal').addEventListener('click',function(e){if(e.target===this)closeProjModal();});
+document.getElementById('woModal').addEventListener('click',function(e){if(e.target===this)closeWoModal();});
+document.getElementById('lightbox').addEventListener('click',function(e){if(e.target===this)closeLightbox();});
+</script>
+</body>
+</html>
