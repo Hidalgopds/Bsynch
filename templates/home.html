@@ -53,37 +53,21 @@
     <p>Select a module to get started</p>
   </div>
   <div class="tiles" id="tileGrid">
-    <!-- ERP -->
-    <a href="/erp" class="tile">
+    <a href="/erp" class="tile" id="tile-erp">
       <div class="tile-icon icon-erp">🏗</div>
-      <div>
-        <h3>ERP</h3>
-        <p>Field operations, crew, inventory, timesheets, and project tracking.</p>
-      </div>
+      <div><h3>ERP</h3><p>Field operations, crew, inventory, timesheets, and project tracking.</p></div>
     </a>
-    <!-- Contractor -->
-    <a href="/contractor-hub" class="tile">
+    <a href="/contractor-hub" class="tile" id="tile-contractor">
       <div class="tile-icon icon-con">🔧</div>
-      <div>
-        <h3>Contractor</h3>
-        <p>Quotes, jobs, and client management for contractors.</p>
-      </div>
+      <div><h3>Contractor</h3><p>Quotes, jobs, and client management for contractors.</p></div>
     </a>
-    <!-- Marketing -->
-    <a href="/marketing-hub" class="tile">
+    <a href="/marketing-hub" class="tile" id="tile-marketing">
       <div class="tile-icon icon-mkt">📣</div>
-      <div>
-        <h3>Marketing</h3>
-        <p>Campaigns, leads, and growth tools for your business.</p>
-      </div>
+      <div><h3>Marketing</h3><p>Campaigns, leads, and growth tools for your business.</p></div>
     </a>
-    <!-- Settings -->
-    <a href="/platform-settings" class="tile">
+    <a href="/platform-settings" class="tile" id="tile-settings">
       <div class="tile-icon icon-set">⚙️</div>
-      <div>
-        <h3>Settings</h3>
-        <p>Users, roles, integrations, and platform configuration.</p>
-      </div>
+      <div><h3>Settings</h3><p>Users, roles, integrations, and platform configuration.</p></div>
     </a>
   </div>
 </main>
@@ -91,6 +75,26 @@
 
 <script>
 (function(){
+  // Subdomain detection — filter tiles by company modules
+  var _host = location.hostname.split('.');
+  var _isSubdomain = _host.length >= 3 && _host[_host.length-2] === 'bsynch' && _host[_host.length-1] === 'com' && !['www','app'].includes(_host[0]);
+
+  if(_isSubdomain){
+    // Hide all tiles initially, then show only enabled ones
+    ['erp','contractor','marketing','settings'].forEach(function(t){
+      var el = document.getElementById('tile-'+t);
+      if(el) el.style.display='none';
+    });
+    fetch('/api/company-info').then(function(r){ return r.json(); }).then(function(d){
+      if(!d.ok) return;
+      var mods = d.company.modules || {};
+      if(mods.erp)        { var el=document.getElementById('tile-erp');        if(el) el.style.display=''; }
+      if(mods.contractor) { var el=document.getElementById('tile-contractor'); if(el) el.style.display=''; }
+      if(mods.marketing)  { var el=document.getElementById('tile-marketing');  if(el) el.style.display=''; }
+      // Settings tile never shown on client subdomains
+    }).catch(function(){});
+  }
+
   var role = localStorage.getItem('mbrRole') || '';
   var name = localStorage.getItem('mbrName') || localStorage.getItem('companyUser') || '';
   document.getElementById('hdrUserName').textContent = name ? ('Hi, ' + name) : '';

@@ -360,6 +360,20 @@ def api_company_login():
         return jsonify({"ok": False, "error": "Invalid credentials"}), 401
     return jsonify({"ok": True, "slug": slug})
 
+@app.route("/api/company-info")
+def api_company_info():
+    co = _get_client_co()
+    if not co:
+        return jsonify({"ok": False}), 404
+    # Fetch modules from master
+    r = requests.get(
+        f"{_MASTER_URL}/rest/v1/bsynch_companies?slug=eq.{co['slug']}&select=name,slug,modules&limit=1",
+        headers={"apikey": _MASTER_KEY, "Authorization": f"Bearer {_MASTER_KEY}"}
+    )
+    if r.ok and r.json():
+        return jsonify({"ok": True, "company": r.json()[0]})
+    return jsonify({"ok": False}), 404
+
 @app.route("/api/company-change-password", methods=["POST"])
 def api_company_change_password():
     data = request.get_json() or {}
