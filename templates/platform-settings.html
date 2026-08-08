@@ -15,6 +15,12 @@
     .hdr-sub{font-size:11px;color:#64748b;}
     .btn-primary{height:36px;padding:0 18px;background:#4f8ef7;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;transition:.15s;}
     .btn-primary:hover{background:#3b7de8;}
+    .pw-wrap{position:relative;display:flex;align-items:center;}
+    .pw-wrap input{flex:1;padding-right:36px;}
+    .pw-eye{position:absolute;right:10px;background:none;border:none;cursor:pointer;color:#94a3b8;font-size:16px;line-height:1;}
+    .pw-eye:hover{color:#e2e8f0;}
+    .btn-reset{height:32px;padding:0 14px;background:none;border:1px solid #f59e0b;border-radius:7px;color:#f59e0b;font-size:12px;font-weight:700;cursor:pointer;}
+    .btn-reset:hover{background:#f59e0b22;}
     .btn-danger{height:32px;padding:0 14px;background:none;border:1px solid #ef4444;border-radius:7px;color:#ef4444;font-size:12px;font-weight:700;cursor:pointer;}
     .btn-ghost{height:32px;padding:0 14px;background:none;border:1px solid #334155;border-radius:7px;color:#94a3b8;font-size:12px;font-weight:600;cursor:pointer;}
     .btn-ghost:hover{border-color:#4f8ef7;color:#4f8ef7;}
@@ -145,7 +151,10 @@
         </div>
         <div class="mfield" style="margin-bottom:0;">
           <label>Admin Password</label>
-          <input type="password" id="coAdminPass" placeholder="Leave blank to keep existing">
+          <div class="pw-wrap">
+            <input type="password" id="coAdminPass" placeholder="Leave blank to keep existing">
+            <button type="button" class="pw-eye" onclick="toggleEye('coAdminPass',this)" title="Show/hide">👁</button>
+          </div>
         </div>
       </div>
     </div>
@@ -273,10 +282,29 @@ function renderCompanies(list){
       '<div class="co-actions">'+
         '<a href="https://'+subdomain+'" target="_blank"><button class="btn-ghost">Open ↗</button></a>'+
         '<button class="btn-ghost" onclick=\'openModal('+JSON.stringify(co).replace(/'/g,"&#39;")+')\'>Edit</button>'+
+        '<button class="btn-reset" onclick="resetPassword(\''+co.id+'\',\''+co.name.replace(/\'/g,"\\\'")+'\')"'>Reset PW</button>'+
         '<button class="btn-danger" onclick="deleteCompany(\''+co.id+'\',\''+co.name.replace(/'/g,"\\'")+'\')"">Delete</button>'+
       '</div>'+
     '</div>';
   }).join('');
+}
+
+function toggleEye(inputId, btn){
+  var inp = document.getElementById(inputId);
+  if(inp.type === 'password'){ inp.type='text'; btn.textContent='🙈'; }
+  else { inp.type='password'; btn.textContent='👁'; }
+}
+
+async function resetPassword(id, name){
+  if(!confirm('Reset password for "'+name+'" to 1234? They will need to change it on next login.')) return;
+  var r = await fetch('/api/platform/companies/'+id, {
+    method:'PATCH',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({admin_password:'1234'})
+  });
+  var d = await r.json();
+  if(d.ok) alert('Password reset to 1234');
+  else alert('Error: '+(d.error||'unknown'));
 }
 
 async function loadCompanies(){
