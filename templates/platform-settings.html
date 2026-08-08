@@ -182,6 +182,11 @@ function toggleMod(m){
   document.getElementById('tog-'+m).classList.toggle('active', _modules[m]);
 }
 
+function openModalEncoded(btn){
+  var co = JSON.parse(decodeURIComponent(btn.dataset.co));
+  openModal(co);
+}
+
 function openModal(co){
   document.getElementById('modalTitle').textContent = co ? 'Edit Company' : 'Add Company';
   document.getElementById('editId').value = co ? co.id : '';
