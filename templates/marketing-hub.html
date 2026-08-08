@@ -1,21 +1,44 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Marketing — BSynch</title>
-  <style>
-    body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;}
-    .icon{font-size:56px;}
-    h1{font-size:22px;font-weight:700;}
-    p{color:#94a3b8;font-size:14px;text-align:center;max-width:320px;line-height:1.6;}
-    a{margin-top:12px;color:#4f8ef7;font-size:13px;text-decoration:none;}
-    a:hover{text-decoration:underline;}
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marketing – BSynch</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;}
+header{padding:18px 28px;display:flex;align-items:center;gap:14px;border-bottom:1px solid #1e2533;}
+.logo-badge{width:36px;height:36px;background:#2563eb;border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;}
+.hdr-title{font-size:17px;font-weight:700;}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:12px;}
+.hdr-user{font-size:13px;color:#94a3b8;}
+.btn-back{padding:6px 14px;background:none;border:1px solid #334155;border-radius:7px;color:#94a3b8;font-size:12px;cursor:pointer;text-decoration:none;}
+.btn-back:hover{border-color:#60a5fa;color:#60a5fa;}
+main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:40px 20px;}
+.module-icon{font-size:56px;}
+h1{font-size:28px;font-weight:700;}
+p{color:#94a3b8;font-size:15px;max-width:400px;text-align:center;line-height:1.6;}
+.badge{padding:6px 14px;background:#1e2533;border:1px solid #334155;border-radius:20px;font-size:12px;color:#64748b;margin-top:8px;display:inline-block;}
+</style>
 </head>
 <body>
-  <div class="icon">📣</div>
+<header>
+  <div class="logo-badge">B</div>
+  <span class="hdr-title">Marketing</span>
+  <div class="hdr-right">
+    <span class="hdr-user" id="hdrUser"></span>
+    <a href="/home" class="btn-back">← Home</a>
+  </div>
+</header>
+<main>
+  <div class="module-icon">📣</div>
   <h1>Marketing Hub</h1>
-  <p>This module is coming soon. Campaigns, leads, and growth tools will live here.</p>
-  <a href="/home">← Back to Home</a>
+  <p>Campaigns, lead tracking, and growth tools to scale your business.</p>
+  <span class="badge">Under construction — coming soon</span>
+</main>
+<script>
+var u = localStorage.getItem('mbrName') || localStorage.getItem('companyUser') || '';
+if(u) document.getElementById('hdrUser').textContent = 'Hi, ' + u;
+</script>
 </body>
 </html>

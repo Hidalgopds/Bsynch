@@ -119,8 +119,8 @@
         <div class="mod-toggle active" id="tog-erp" onclick="toggleMod('erp')">
           <span class="mod-icon">🏗</span><span class="mod-label">ERP</span>
         </div>
-        <div class="mod-toggle" id="tog-contratista" onclick="toggleMod('contratista')">
-          <span class="mod-icon">🔧</span><span class="mod-label">Contratista</span>
+        <div class="mod-toggle" id="tog-contractor" onclick="toggleMod('contractor')">
+          <span class="mod-icon">🔧</span><span class="mod-label">Contractor</span>
         </div>
         <div class="mod-toggle" id="tog-marketing" onclick="toggleMod('marketing')">
           <span class="mod-icon">📣</span><span class="mod-label">Marketing</span>
@@ -174,7 +174,7 @@
 
 <script>
 var CALLER = localStorage.getItem('mbrName') || 'Daniel Hidalgo';
-var _modules = {erp:true, contratista:false, marketing:false};
+var _modules = {erp:true, contractor:false, marketing:false};
 var _companies = [];
 
 function toggleMod(m){
@@ -197,9 +197,9 @@ function openModal(co){
   document.getElementById('coAdminUser').value = co ? (co.admin_username||'') : '';
   document.getElementById('coAdminPass').value = '';
   document.getElementById('coStatus').value = co ? (co.status||'active') : 'active';
-  var mods = co ? (co.modules||{}) : {erp:true,contratista:false,marketing:false};
-  _modules = {erp:!!mods.erp, contratista:!!mods.contratista, marketing:!!mods.marketing};
-  ['erp','contratista','marketing'].forEach(function(m){
+  var mods = co ? (co.modules||{}) : {erp:true,contractor:false,marketing:false};
+  _modules = {erp:!!mods.erp, contractor:!!mods.contractor, marketing:!!mods.marketing};
+  ['erp','contractor','marketing'].forEach(function(m){
     document.getElementById('tog-'+m).classList.toggle('active', _modules[m]);
   });
   document.getElementById('modalBg').classList.add('open');
@@ -273,7 +273,7 @@ function renderCompanies(list){
   list.forEach(function(co){ window._coMap[co.id] = co; });
   el.innerHTML = list.map(function(co){
     var mods = co.modules||{};
-    var modChips = ['erp','contratista','marketing'].map(function(m){
+    var modChips = ['erp','contractor','marketing'].map(function(m){
       return '<span class="mod-chip '+(mods[m]?'mod-on':'mod-off')+'">'+m+'</span>';
     }).join('');
     var initial = co.name ? co.name.charAt(0).toUpperCase() : '?';
