@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contractor Dashboard</title>
+<script src="/static/theme.js"></script>
+<link rel="stylesheet" href="/static/themes.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;}
+header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #1e2533;background:#0f1117;position:sticky;top:0;z-index:50;}
+.logo-badge{width:32px;height:32px;background:linear-gradient(135deg,#1e9484,#4f8ef7);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;flex-shrink:0;}
+.hdr-title{font-size:16px;font-weight:700;}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.btn-back{padding:5px 12px;background:none;border:1px solid #334155;border-radius:7px;color:#94a3b8;font-size:12px;text-decoration:none;line-height:1.4;}
+.btn-back:hover{border-color:#1e9484;color:#1e9484;}
+.btn-new{padding:6px 14px;background:#1e9484;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;}
+.btn-new:hover{background:#178070;}
+
+/* KPI row */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;padding:20px 20px 0;max-width:960px;margin:0 auto;width:100%;}
+.kpi-card{background:#1a1d27;border:1px solid #2a2d3e;border-radius:12px;padding:16px;}
+.kpi-label{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
+.kpi-value{font-size:26px;font-weight:800;color:#e2e8f0;}
+.kpi-sub{font-size:12px;color:#64748b;margin-top:2px;}
+
+/* Content */
+.dash-content{padding:20px;max-width:960px;margin:0 auto;width:100%;flex:1;}
+
+/* Unassigned jobs section */
+.section-title{font-size:14px;font-weight:700;color:#94a3b8;margin:20px 0 12px;display:flex;align-items:center;gap:8px;}
+.section-title span{font-size:12px;font-weight:500;background:#1e2533;padding:2px 8px;border-radius:10px;color:#64748b;}
+
+/* Project card */
+.proj-card{background:#1a1d27;border:1px solid #2a2d3e;border-radius:16px;margin-bottom:16px;overflow:hidden;}
+.proj-head{padding:18px 20px;cursor:pointer;display:flex;align-items:center;gap:14px;}
+.proj-head:hover{background:rgba(30,148,132,.04);}
+.proj-icon{width:40px;height:40px;background:linear-gradient(135deg,rgba(30,148,132,.2),rgba(79,142,247,.2));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.proj-info{flex:1;min-width:0;}
+.proj-name{font-size:16px;font-weight:700;margin-bottom:2px;}
+.proj-client{font-size:13px;color:#64748b;}
+.proj-pct-col{text-align:right;flex-shrink:0;}
+.proj-pct-big{font-size:24px;font-weight:800;color:#1e9484;}
+.proj-pct-lbl{font-size:11px;color:#64748b;}
+.proj-chevron{font-size:16px;color:#334155;margin-left:8px;transition:transform .2s;}
+.proj-chevron.open{transform:rotate(90deg);}
+/* Project progress bar */
+.proj-prog-bar{margin:0 20px 14px;height:8px;background:#0f1117;border-radius:5px;overflow:hidden;}
+.proj-prog-fill{height:100%;border-radius:5px;background:linear-gradient(90deg,#1e9484,#4f8ef7);transition:width .5s ease;}
+
+/* Jobs inside project */
+.proj-jobs{border-top:1px solid #1e2533;}
+.job-row{padding:14px 20px 14px 60px;border-bottom:1px solid #1e2533;cursor:pointer;}
+.job-row:last-child{border-bottom:none;}
+.job-row:hover{background:rgba(30,148,132,.04);}
+.job-row-top{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.job-row-num{font-size:11px;font-weight:700;color:#64748b;}
+.job-row-title{font-size:14px;font-weight:600;flex:1;}
+.job-pct{font-size:13px;font-weight:700;color:#1e9484;width:40px;text-align:right;}
+.job-prog-track{height:5px;background:#0f1117;border-radius:4px;overflow:hidden;margin-bottom:8px;}
+.job-prog-fill{height:100%;border-radius:4px;transition:width .4s ease;}
+.fill-low{background:linear-gradient(90deg,#ef4444,#f59e0b);}
+.fill-mid{background:linear-gradient(90deg,#f59e0b,#4f8ef7);}
+.fill-high{background:linear-gradient(90deg,#1e9484,#22c55e);}
+.fill-done{background:linear-gradient(90deg,#22c55e,#4ade80);}
+/* Steps inside job (collapsed by default) */
+.job-steps-area{display:none;padding:0 0 8px;}
+.job-steps-area.open{display:block;}
+.step-row{display:flex;align-items:center;gap:10px;padding:6px 0;}
+.step-num{width:18px;height:18px;background:#1e2533;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#64748b;flex-shrink:0;}
+.step-name{font-size:12px;color:#94a3b8;flex:1;}
+.step-pct-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap;}
+.spct-done{background:rgba(34,197,94,.12);color:#22c55e;}
+.spct-high{background:rgba(30,148,132,.12);color:#1e9484;}
+.spct-mid{background:rgba(245,158,11,.12);color:#f59e0b;}
+.spct-low{background:rgba(239,68,68,.1);color:#ef4444;}
+.spct-zero{background:#1e2533;color:#475569;}
+.step-mini-track{flex:2;height:4px;background:#1e2533;border-radius:3px;overflow:hidden;}
+.step-mini-fill{height:100%;border-radius:3px;}
+.job-expand-btn{background:none;border:none;color:#64748b;font-size:12px;cursor:pointer;padding:0;}
+.job-expand-btn:hover{color:#1e9484;}
+
+/* Status chips */
+.s-chip{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;}
+.s-open{background:rgba(79,142,247,.14);color:#4f8ef7;}
+.s-in_progress{background:rgba(34,197,94,.12);color:#22c55e;}
+.s-on_hold{background:rgba(245,158,11,.12);color:#f59e0b;}
+.s-completed{background:rgba(100,116,139,.12);color:#64748b;}
+.s-cancelled{background:rgba(239,68,68,.1);color:#ef4444;}
+
+/* Create project modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:none;align-items:center;justify-content:center;padding:20px;}
+.modal-overlay.open{display:flex;}
+.modal{background:#111520;border:1px solid #1e2533;border-radius:18px;width:100%;max-width:460px;padding:26px 24px;}
+.modal h2{font-size:18px;font-weight:700;margin-bottom:18px;}
+.form-group{margin-bottom:12px;}
+.form-group label{display:block;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;}
+.form-group input,.form-group textarea,.form-group select{width:100%;padding:8px 11px;background:#1a1d27;border:1px solid #2a2d3e;border-radius:9px;color:#e2e8f0;font-size:14px;font-family:inherit;}
+.form-group input:focus,.form-group textarea:focus,.form-group select:focus{outline:none;border-color:#1e9484;}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;}
+.btn-cancel{padding:8px 18px;background:none;border:1px solid #334155;border-radius:8px;color:#94a3b8;font-size:14px;cursor:pointer;}
+.btn-submit{padding:8px 20px;background:#1e9484;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:600;cursor:pointer;}
+.spinner{text-align:center;padding:40px;color:#475569;}
+.empty-state{text-align:center;padding:48px 20px;color:#475569;}
+.empty-state .icon{font-size:40px;margin-bottom:10px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-badge">B</div>
+  <span class="hdr-title">Contractor Dashboard</span>
+  <div class="hdr-right">
+    <a href="/contractor/workorders" class="btn-back">&#128203; Work Orders</a>
+    <button class="btn-new" onclick="openCreateProject()">+ New Project</button>
+    <a href="/contractor-hub" class="btn-back">&#8592; Hub</a>
+  </div>
+</header>
+
+<div class="kpi-row" id="kpiRow">
+  <div class="kpi-card"><div class="kpi-label">Projects</div><div class="kpi-value" id="kpiProjects">—</div></div>
+  <div class="kpi-card"><div class="kpi-label">Total Jobs</div><div class="kpi-value" id="kpiJobs">—</div></div>
+  <div class="kpi-card"><div class="kpi-label">In Progress</div><div class="kpi-value" id="kpiInProgress">—</div></div>
+  <div class="kpi-card"><div class="kpi-label">Overall Progress</div><div class="kpi-value" id="kpiOverall">—</div><div class="kpi-sub">avg across all jobs</div></div>
+</div>
+
+<div class="dash-content" id="dashContent">
+  <div class="spinner">Loading...</div>
+</div>
+
+<!-- Create project modal -->
+<div class="modal-overlay" id="projModal">
+  <div class="modal">
+    <h2>&#128196; New Project</h2>
+    <div class="form-group"><label>Project Name *</label><input id="projName" placeholder="e.g. Data Center Roofing – Phase 2"></div>
+    <div class="form-group"><label>Client / Company</label><input id="projClient" placeholder="Client name"></div>
+    <div class="form-group"><label>Description</label><textarea id="projDesc" rows="2" placeholder="Brief scope..."></textarea></div>
+    <div class="form-group"><label>Status</label>
+      <select id="projStatus"><option value="active">Active</option><option value="on_hold">On Hold</option></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeCreateProject()">Cancel</button>
+      <button class="btn-submit" onclick="submitProject()">Create Project</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var allProjects=[];
+var allJobs=[];
+var stepsCache={};
+var openProjIds={};
+var openJobSteps={};
+var userName=localStorage.getItem('mbrName')||localStorage.getItem('companyUser')||'User';
+
+loadDashboard();
+
+function loadDashboard(){
+  Promise.all([
+    fetch('/api/contractor/projects').then(function(r){return r.json();}),
+    fetch('/api/contractor/jobs').then(function(r){return r.json();})
+  ]).then(function(results){
+    allProjects=results[0];
+    allJobs=results[1];
+    updateKPIs();
+    renderDash();
+  }).catch(function(){document.getElementById('dashContent').innerHTML='<div class="empty-state"><div class="icon">&#9888;</div><p>Error loading data.</p></div>';});
+}
+
+function updateKPIs(){
+  document.getElementById('kpiProjects').textContent=allProjects.length;
+  document.getElementById('kpiJobs').textContent=allJobs.length;
+  document.getElementById('kpiInProgress').textContent=allJobs.filter(function(j){return j.status==='in_progress';}).length;
+  var totalPct = allJobs.length
+    ? Math.round(allJobs.reduce(function(s,j){return s+parseFloat(j.progress_pct||0);},0)/allJobs.length)
+    : 0;
+  document.getElementById('kpiOverall').textContent=totalPct+'%';
+}
+
+function renderDash(){
+  var el=document.getElementById('dashContent');
+  if(!allProjects.length && !allJobs.length){
+    el.innerHTML='<div class="empty-state"><div class="icon">&#128202;</div><p>No projects yet.<br>Create a project and assign work orders to it.</p></div>';
+    return;
+  }
+  var html='';
+
+  // Projects
+  allProjects.forEach(function(proj){
+    var pjobs=allJobs.filter(function(j){return j.project_id===proj.id;});
+    var pct=pjobs.length?Math.round(pjobs.reduce(function(s,j){return s+parseFloat(j.progress_pct||0);},0)/pjobs.length):0;
+    var open=openProjIds[proj.id];
+    html+='<div class="proj-card">'
+      +'<div class="proj-head" onclick="toggleProj(\''+proj.id+'\')">'
+      +'<div class="proj-icon">&#128196;</div>'
+      +'<div class="proj-info"><div class="proj-name">'+esc(proj.name)+'</div>'
+      +(proj.client_name?'<div class="proj-client">'+esc(proj.client_name)+' &middot; '+pjobs.length+' jobs</div>':'<div class="proj-client">'+pjobs.length+' jobs</div>')
+      +'</div>'
+      +'<div class="proj-pct-col"><div class="proj-pct-big">'+pct+'%</div><div class="proj-pct-lbl">complete</div></div>'
+      +'<span class="proj-chevron'+(open?' open':'')+'">&#10095;</span>'
+      +'</div>'
+      +'<div class="proj-prog-bar"><div class="proj-prog-fill" style="width:'+pct+'%"></div></div>';
+    if(open){
+      html+='<div class="proj-jobs">';
+      if(!pjobs.length){html+='<div style="padding:16px 20px;color:#64748b;font-size:13px;">No jobs assigned to this project yet.</div>';}
+      pjobs.forEach(function(j){html+=renderJobRow(j,true);});
+      html+='</div>';
+    }
+    html+='</div>';
+  });
+
+  // Unassigned jobs
+  var unassigned=allJobs.filter(function(j){return !j.project_id;});
+  if(unassigned.length){
+    html+='<div class="section-title">Unassigned Jobs <span>'+unassigned.length+'</span></div>';
+    html+='<div class="proj-card"><div class="proj-jobs">';
+    unassigned.forEach(function(j){html+=renderJobRow(j,false);});
+    html+='</div></div>';
+  }
+
+  el.innerHTML=html;
+}
+
+function renderJobRow(j,inProj){
+  var pct=parseFloat(j.progress_pct||0);
+  var fc=pct>=100?'fill-done':pct>=60?'fill-high':pct>=30?'fill-mid':'fill-low';
+  var stepsOpen=openJobSteps[j.id];
+  var indent=inProj?'padding-left:60px':'padding-left:20px';
+  var steps=stepsCache[j.id];
+  var stepsHtml='';
+  if(stepsOpen && steps){
+    stepsHtml='<div class="job-steps-area open">';
+    steps.forEach(function(s){
+      var sp=parseFloat(s.progress_pct||0);
+      var sc=sp>=100?'spct-done':sp>=60?'spct-high':sp>=30?'spct-mid':sp>0?'spct-low':'spct-zero';
+      var mf=sp>=100?'fill-done':sp>=60?'fill-high':sp>=30?'fill-mid':'fill-low';
+      stepsHtml+='<div class="step-row">'
+        +'<div class="step-num">'+(s.order_num+1)+'</div>'
+        +'<span class="step-name">'+esc(s.step_name)+'</span>'
+        +'<div class="step-mini-track"><div class="step-mini-fill '+mf+'" style="width:'+sp+'%"></div></div>'
+        +'<span class="step-pct-badge '+sc+'">'+Math.round(sp)+'%</span>'
+        +'</div>';
+    });
+    stepsHtml+='</div>';
+  } else if(stepsOpen){
+    stepsHtml='<div class="job-steps-area open"><div style="padding:6px 0;font-size:12px;color:#64748b;">Loading steps...</div></div>';
+    fetchSteps(j.id);
+  }
+  return '<div class="job-row" style="'+indent+'">'
+    +'<div class="job-row-top">'
+    +'<span class="job-row-num">'+esc(j.job_number)+'</span>'
+    +'<span class="job-row-title">'+esc(j.title)+'</span>'
+    +'<span class="s-chip s-'+j.status+'">'+statusLabel(j.status)+'</span>'
+    +'<span class="job-pct">'+Math.round(pct)+'%</span>'
+    +'<button class="job-expand-btn" onclick="event.stopPropagation();toggleJob(\''+j.id+'\')">'+(stepsOpen?'&#9650;':'&#9660;')+' steps</button>'
+    +'</div>'
+    +'<div class="job-prog-track"><div class="job-prog-fill '+fc+'" style="width:'+pct+'%"></div></div>'
+    +stepsHtml
+    +'</div>';
+}
+
+function fetchSteps(jobId){
+  fetch('/api/contractor/jobs/'+jobId+'/steps')
+    .then(function(r){return r.json();})
+    .then(function(steps){
+      stepsCache[jobId]=steps;
+      renderDash();
+    });
+}
+
+function toggleProj(projId){
+  openProjIds[projId]=!openProjIds[projId];
+  renderDash();
+}
+function toggleJob(jobId){
+  openJobSteps[jobId]=!openJobSteps[jobId];
+  if(openJobSteps[jobId] && !stepsCache[jobId]) fetchSteps(jobId);
+  renderDash();
+}
+
+// ── Create project ──
+function openCreateProject(){document.getElementById('projModal').classList.add('open');}
+function closeCreateProject(){document.getElementById('projModal').classList.remove('open');}
+function submitProject(){
+  var name=document.getElementById('projName').value.trim();
+  if(!name){alert('Project name required');return;}
+  fetch('/api/contractor/projects',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({name:name,client_name:document.getElementById('projClient').value.trim(),description:document.getElementById('projDesc').value.trim(),status:document.getElementById('projStatus').value,created_by:userName})
+  }).then(function(r){return r.json();}).then(function(res){
+    if(res.ok){closeCreateProject();loadDashboard();['projName','projClient','projDesc'].forEach(function(id){document.getElementById(id).value='';});}
+    else alert('Error: '+res.error);
+  });
+}
+
+function statusLabel(s){return{open:'Open',in_progress:'In Progress',on_hold:'On Hold',completed:'Completed',cancelled:'Cancelled'}[s]||s;}
+function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+document.getElementById('projModal').addEventListener('click',function(e){if(e.target===this)closeCreateProject();});
+</script>
+</body>
+</html>

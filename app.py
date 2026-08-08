@@ -4949,3 +4949,253 @@ def serve_job_photo_img(job_id, photo_id):
     except Exception:
         return ("", 400)
     return Response(img_bytes, mimetype=mime, headers={"Cache-Control": "max-age=86400"})
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  CONTRACTOR — PROJECTS & STEPS
+# ═══════════════════════════════════════════════════════════════════
+
+CONTRACTOR_PROJECTS_TABLE = "contractor_projects"
+JOB_STEPS_TABLE           = "job_steps"
+
+DEFAULT_STEPS = [
+    "Site Assessment",
+    "Material Preparation",
+    "Structural Work",
+    "Quality Check",
+    "Final Inspection",
+]
+
+
+def _recalc_job_progress(job_id):
+    """Recalculate and persist progress_pct for a job from its steps average."""
+    r = requests.get(
+        f"{sb_url()}/rest/v1/{JOB_STEPS_TABLE}?job_id=eq.{job_id}&select=progress_pct",
+        headers=sb_headers(), timeout=5
+    )
+    steps = r.json() if r.ok else []
+    if steps:
+        avg = round(sum(float(s.get("progress_pct", 0)) for s in steps) / len(steps), 1)
+    else:
+        avg = 0.0
+    requests.patch(
+        f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?id=eq.{job_id}",
+        json={"progress_pct": avg, "updated_at": __import__("datetime").datetime.utcnow().isoformat() + "Z"},
+        headers=sb_headers(), timeout=5
+    )
+    return avg
+
+
+# ── Projects ──────────────────────────────────────────────────────
+
+@app.route("/contractor/dashboard")
+def contractor_dashboard():
+    return render_template("contractor-dashboard.html")
+
+
+@app.route("/api/contractor/projects", methods=["GET"])
+def get_contractor_projects():
+    r = requests.get(
+        f"{sb_url()}/rest/v1/{CONTRACTOR_PROJECTS_TABLE}?select=*&order=created_at.desc&limit=200",
+        headers=sb_headers(), timeout=5
+    )
+    projects = r.json() if r.ok else []
+    # Attach jobs (with progress) to each project
+    jobs_r = requests.get(
+        f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}"
+        f"?select=id,job_number,title,status,progress_pct,project_id&order=created_at.asc&limit=1000",
+        headers=sb_headers(), timeout=5
+    )
+    all_jobs = jobs_r.json() if jobs_r.ok else []
+    jobs_by_proj = {}
+    for j in all_jobs:
+        pid = j.get("project_id")
+        if pid:
+            jobs_by_proj.setdefault(pid, []).append(j)
+    for p in projects:
+        pjobs = jobs_by_proj.get(p["id"], [])
+        p["jobs"] = pjobs
+        if pjobs:
+            p["progress_pct"] = round(
+                sum(float(j.get("progress_pct", 0)) for j in pjobs) / len(pjobs), 1
+            )
+        else:
+            p["progress_pct"] = 0.0
+    return jsonify(projects)
+
+
+@app.route("/api/contractor/projects", methods=["POST"])
+def create_contractor_project():
+    data = request.get_json() or {}
+    name = data.get("name", "").strip()
+    if not name:
+        return jsonify({"ok": False, "error": "name required"}), 400
+    payload = {
+        "name":        name,
+        "description": data.get("description", ""),
+        "client_name": data.get("client_name", ""),
+        "status":      data.get("status", "active"),
+        "created_by":  data.get("created_by", ""),
+    }
+    r = requests.post(
+        f"{sb_url()}/rest/v1/{CONTRACTOR_PROJECTS_TABLE}",
+        json=payload,
+        headers={**sb_headers(), "Prefer": "return=representation"},
+        timeout=5
+    )
+    if r.ok and r.json():
+        return jsonify({"ok": True, "project": r.json()[0]})
+    return jsonify({"ok": False, "error": r.text}), 400
+
+
+@app.route("/api/contractor/projects/<proj_id>", methods=["PATCH"])
+def update_contractor_project(proj_id):
+    data = request.get_json() or {}
+    allowed = ["name", "description", "client_name", "status"]
+    payload = {k: data[k] for k in allowed if k in data}
+    if not payload:
+        return jsonify({"ok": False, "error": "nothing to update"}), 400
+    payload["updated_at"] = __import__("datetime").datetime.utcnow().isoformat() + "Z"
+    r = requests.patch(
+        f"{sb_url()}/rest/v1/{CONTRACTOR_PROJECTS_TABLE}?id=eq.{proj_id}",
+        json=payload, headers=sb_headers(), timeout=5
+    )
+    return jsonify({"ok": r.ok})
+
+
+@app.route("/api/contractor/projects/<proj_id>", methods=["DELETE"])
+def delete_contractor_project(proj_id):
+    # Unlink jobs (set project_id = null)
+    requests.patch(
+        f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?project_id=eq.{proj_id}",
+        json={"project_id": None},
+        headers=sb_headers(), timeout=5
+    )
+    r = requests.delete(
+        f"{sb_url()}/rest/v1/{CONTRACTOR_PROJECTS_TABLE}?id=eq.{proj_id}",
+        headers=sb_headers(), timeout=5
+    )
+    return jsonify({"ok": r.ok})
+
+
+@app.route("/api/contractor/projects/<proj_id>/progress", methods=["GET"])
+def get_project_progress(proj_id):
+    """Return project-level progress summary."""
+    r = requests.get(
+        f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}"
+        f"?project_id=eq.{proj_id}&select=id,job_number,title,status,progress_pct",
+        headers=sb_headers(), timeout=5
+    )
+    jobs = r.json() if r.ok else []
+    total = round(sum(float(j.get("progress_pct", 0)) for j in jobs) / len(jobs), 1) if jobs else 0.0
+    return jsonify({"project_id": proj_id, "jobs": jobs, "total_pct": total})
+
+
+# ── Steps ─────────────────────────────────────────────────────────
+
+@app.route("/api/contractor/jobs/<job_id>/steps", methods=["GET"])
+def get_job_steps(job_id):
+    r = requests.get(
+        f"{sb_url()}/rest/v1/{JOB_STEPS_TABLE}"
+        f"?job_id=eq.{job_id}&select=*&order=order_num.asc",
+        headers=sb_headers(), timeout=5
+    )
+    return jsonify(r.json() if r.ok else [])
+
+
+@app.route("/api/contractor/jobs/<job_id>/steps", methods=["POST"])
+def create_job_steps(job_id):
+    """Create steps for a job.
+    Body options:
+      { "steps": ["Step A", "Step B", ...] }   — bulk create (replaces defaults)
+      { "step_name": "Name", "order_num": N }  — single step append
+    """
+    data = request.get_json() or {}
+
+    # Check how many steps already exist (for max-10 guard)
+    existing_r = requests.get(
+        f"{sb_url()}/rest/v1/{JOB_STEPS_TABLE}?job_id=eq.{job_id}&select=id",
+        headers=sb_headers(), timeout=5
+    )
+    existing_count = len(existing_r.json()) if existing_r.ok else 0
+
+    # ── Single step append ──
+    if "step_name" in data:
+        if existing_count >= 10:
+            return jsonify({"ok": False, "error": "Maximum 10 steps per job"}), 400
+        order_num = data.get("order_num", existing_count)
+        row = {"job_id": job_id, "step_name": data["step_name"].strip(),
+               "order_num": order_num, "progress_pct": 0}
+        r = requests.post(
+            f"{sb_url()}/rest/v1/{JOB_STEPS_TABLE}",
+            json=row,
+            headers={**sb_headers(), "Prefer": "return=representation"}, timeout=5
+        )
+        if r.ok and r.json():
+            return jsonify({"ok": True, "step": r.json()[0]})
+        return jsonify({"ok": False, "error": r.text}), 400
+
+    # ── Bulk create ──
+    step_names = data.get("steps")
+    if not step_names:
+        step_names = DEFAULT_STEPS
+    # Max 10 total
+    available = max(0, 10 - existing_count)
+    step_names = step_names[:available]
+    rows = [
+        {"job_id": job_id, "step_name": name.strip(),
+         "order_num": existing_count + i, "progress_pct": 0}
+        for i, name in enumerate(step_names) if name.strip()
+    ]
+    if not rows:
+        return jsonify({"ok": False, "error": "No steps to add (max 10 reached)"}), 400
+    r = requests.post(
+        f"{sb_url()}/rest/v1/{JOB_STEPS_TABLE}",
+        json=rows,
+        headers={**sb_headers(), "Prefer": "return=representation"}, timeout=5
+    )
+    if r.ok:
+        return jsonify({"ok": True, "steps": r.json()})
+    return jsonify({"ok": False, "error": r.text}), 400
+
+
+@app.route("/api/contractor/jobs/<job_id>/steps/<step_id>", methods=["PATCH"])
+def update_job_step(job_id, step_id):
+    data = request.get_json() or {}
+    allowed = ["step_name", "progress_pct", "notes", "order_num"]
+    payload = {k: data[k] for k in allowed if k in data}
+    # Clamp progress_pct
+    if "progress_pct" in payload:
+        payload["progress_pct"] = max(0.0, min(100.0, float(payload["progress_pct"])))
+    if not payload:
+        return jsonify({"ok": False, "error": "nothing to update"}), 400
+    payload["updated_at"] = __import__("datetime").datetime.utcnow().isoformat() + "Z"
+    r = requests.patch(
+        f"{sb_url()}/rest/v1/{JOB_STEPS_TABLE}?id=eq.{step_id}&job_id=eq.{job_id}",
+        json=payload, headers=sb_headers(), timeout=5
+    )
+    if r.ok:
+        new_pct = _recalc_job_progress(job_id)
+        return jsonify({"ok": True, "job_progress_pct": new_pct})
+    return jsonify({"ok": False, "error": r.text}), 400
+
+
+@app.route("/api/contractor/jobs/<job_id>/steps/<step_id>", methods=["DELETE"])
+def delete_job_step(job_id, step_id):
+    r = requests.delete(
+        f"{sb_url()}/rest/v1/{JOB_STEPS_TABLE}?id=eq.{step_id}&job_id=eq.{job_id}",
+        headers=sb_headers(), timeout=5
+    )
+    if r.ok:
+        _recalc_job_progress(job_id)
+    return jsonify({"ok": r.ok})
+
+
+@app.route("/api/contractor/jobs/<job_id>/steps", methods=["DELETE"])
+def delete_all_job_steps(job_id):
+    r = requests.delete(
+        f"{sb_url()}/rest/v1/{JOB_STEPS_TABLE}?job_id=eq.{job_id}",
+        headers=sb_headers(), timeout=5
+    )
+    return jsonify({"ok": r.ok})
+
