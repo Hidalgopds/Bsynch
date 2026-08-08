@@ -247,8 +247,9 @@ async function saveCompany(){
   else { alert('Error: '+(d.error||'Unknown')); }
 }
 
-async function deleteCompany(id, name){
-  if(!confirm('Delete "'+name+'"? This cannot be undone.')) return;
+async function deleteCompany(id){
+  var co = window._coMap[id];
+  if(!confirm('Delete "'+co.name+'"? This cannot be undone.')) return;
   var r = await fetch('/api/platform/companies/'+id, {method:'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify({caller_name:CALLER})});
   var d = await r.json();
   if(d.ok){ loadCompanies(); showToast('Company deleted'); }
@@ -265,9 +266,11 @@ function renderCompanies(list){
   var el = document.getElementById('companiesList');
   document.getElementById('coCount').textContent = list.length + ' client'+(list.length===1?'':'s');
   if(!list.length){
-    el.innerHTML = '<div class="empty"><div class="empty-icon">🏢</div><h3>No companies yet</h3><p>Add your first client to get started.</p></div>';
+    el.innerHTML = '<div class="empty"><div class="empty-icon">building</div><h3>No companies yet</h3><p>Add your first client to get started.</p></div>';
     return;
   }
+  window._coMap = {};
+  list.forEach(function(co){ window._coMap[co.id] = co; });
   el.innerHTML = list.map(function(co){
     var mods = co.modules||{};
     var modChips = ['erp','contratista','marketing'].map(function(m){
@@ -275,22 +278,23 @@ function renderCompanies(list){
     }).join('');
     var initial = co.name ? co.name.charAt(0).toUpperCase() : '?';
     var logoHtml = co.logo_url ? '<img src="'+co.logo_url+'" alt="">' : initial;
-    var statusChip = '<span class="co-status-'+(co.status==='active'?'active':'inactive')+'">'+(co.status||'active')+'</span>';
+    var statusBadge = '<span class="co-status-'+(co.status==='active'?'active':'inactive')+'">'+(co.status||'active')+'</span>';
     var subdomain = co.subdomain || co.slug+'.bsynch.com';
-    return '<div class="company-card">'+
-      '<div class="co-logo">'+logoHtml+'</div>'+
-      '<div class="co-info">'+
-        '<div style="display:flex;align-items:center;gap:8px;"><span class="co-name">'+co.name+'</span>'+statusChip+'</div>'+
-        '<div class="co-slug">'+subdomain+'</div>'+
-        '<div class="co-modules">'+modChips+'</div>'+
-      '</div>'+
-      '<div class="co-actions">'+
-        '<a href="https://'+subdomain+'" target="_blank"><button class="btn-ghost">Open ↗</button></a>'+
-        '<button class="btn-ghost" onclick=\'openModal('+JSON.stringify(co).replace(/'/g,"&#39;")+')\'>Edit</button>'+
-        '<button class="btn-reset" onclick="resetPassword(\''+co.id+'\',\''+co.name.replace(/\'/g,"\\\'")+'\')"'>Reset PW</button>'+
-        '<button class="btn-danger" onclick="deleteCompany(\''+co.id+'\',\''+co.name.replace(/'/g,"\\'")+'\')"">Delete</button>'+
-      '</div>'+
-    '</div>';
+    var id = co.id;
+    return '<div class="company-card">'
+      +'<div class="co-logo">'+logoHtml+'</div>'
+      +'<div class="co-info">'
+        +'<div style="display:flex;align-items:center;gap:8px;"><span class="co-name">'+co.name+'</span>'+statusBadge+'</div>'
+        +'<div class="co-slug">'+subdomain+'</div>'
+        +'<div class="co-modules">'+modChips+'</div>'
+      +'</div>'
+      +'<div class="co-actions">'
+        +'<a href="https://'+subdomain+'" target="_blank"><button class="btn-ghost">Open</button></a>'
+        +'<button class="btn-ghost" data-id="'+id+'" onclick="openModal(window._coMap[this.dataset.id])">Edit</button>'
+        +'<button class="btn-reset" data-id="'+id+'" onclick="resetPassword(this.dataset.id)">Reset PW</button>'
+        +'<button class="btn-danger" data-id="'+id+'" onclick="deleteCompany(this.dataset.id)">Delete</button>'
+      +'</div>'
+    +'</div>';
   }).join('');
 }
 

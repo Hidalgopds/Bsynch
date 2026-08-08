@@ -10,6 +10,10 @@
     html, body { height: 100%; }
     body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; display: flex; flex-direction: column; }
     header { padding: 20px 28px; display: flex; align-items: center; gap: 14px; border-bottom: 1px solid #1e2533; }
+    .hdr-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+    .hdr-user { font-size: 13px; color: #94a3b8; }
+    .btn-logout { padding: 6px 14px; background: none; border: 1px solid #334155; border-radius: 7px; color: #94a3b8; font-size: 12px; cursor: pointer; }
+    .btn-logout:hover { border-color: #ef4444; color: #ef4444; }
     .logo-badge { width: 42px; height: 42px; background: linear-gradient(135deg, #1e9484, #4f8ef7); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; color: #fff; flex-shrink: 0; }
     .header-text h1 { font-size: 17px; font-weight: 700; }
     .header-text p { font-size: 12px; color: #94a3b8; margin-top: 1px; }
@@ -41,6 +45,7 @@
     <h1>BSynch</h1>
     <p id="hdr-user">Powered by Hidalgo Ops</p>
   </div>
+  <div class="hdr-right"><span class="hdr-user" id="hdrUserName"></span><button class="btn-logout" onclick="doLogout()">Log out</button></div>
 </header>
 <main>
   <div class="hero">
@@ -89,7 +94,16 @@
 <script>
 (function(){
   var role = localStorage.getItem('mbrRole') || '';
-  var name = localStorage.getItem('mbrName') || '';
+  var name = localStorage.getItem('mbrName') || localStorage.getItem('companyUser') || '';
+  document.getElementById('hdrUserName').textContent = name ? ('Hi, ' + name) : '';
+
+  function doLogout(){
+    localStorage.removeItem('mbrName');
+    localStorage.removeItem('mbrRole');
+    localStorage.removeItem('companySlug');
+    localStorage.removeItem('companyUser');
+    location.href = '/login';
+  }
   if(name) document.getElementById('hdr-user').textContent = 'Hi, ' + name;
   if(role === 'admin' || role === 'boss'){
     var t = document.getElementById('tileSettings');
