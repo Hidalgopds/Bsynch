@@ -6,7 +6,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import date, datetime, timezone, timedelta
-from flask import Flask, request, jsonify, render_template, Response, session
+from flask import Flask, request, jsonify, render_template, Response, session, redirect
 import requests
 import uuid
 import bcrypt
@@ -275,6 +275,9 @@ def marketing_hub():
 
 @app.route("/platform-settings")
 def platform_settings_page():
+    # Only accessible from master domain, not client subdomains
+    if _get_client_co():
+        return redirect("/home")
     return render_template("platform-settings.html")
 
 # ── BSynch Platform: Company Management API ───────────────────────────
