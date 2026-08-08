@@ -287,8 +287,8 @@ def create_company():
     data = request.get_json() or {}
     # Simple platform-admin gate (caller must be in app_users with role admin)
     caller = data.get("caller_name", "")
-    err = _verify_caller_is_admin(caller)
-    if err: return err
+    if not _verify_caller_is_admin(caller):
+        return jsonify({"ok": False, "error": "Unauthorized"}), 403
     payload = {
         "name":          data.get("name", "").strip(),
         "slug":          data.get("slug", "").strip().lower(),
@@ -312,8 +312,8 @@ def create_company():
 def update_company(company_id):
     data = request.get_json() or {}
     caller = data.get("caller_name", "")
-    err = _verify_caller_is_admin(caller)
-    if err: return err
+    if not _verify_caller_is_admin(caller):
+        return jsonify({"ok": False, "error": "Unauthorized"}), 403
     payload = {k: v for k, v in data.items() if k not in ("caller_name",)}
     r = requests.patch(
         f"{SUPABASE_URL}/rest/v1/bsynch_companies?id=eq.{company_id}",
@@ -326,8 +326,8 @@ def update_company(company_id):
 def delete_company(company_id):
     data = request.get_json(silent=True) or {}
     caller = data.get("caller_name", "")
-    err = _verify_caller_is_admin(caller)
-    if err: return err
+    if not _verify_caller_is_admin(caller):
+        return jsonify({"ok": False, "error": "Unauthorized"}), 403
     r = requests.delete(
         f"{SUPABASE_URL}/rest/v1/bsynch_companies?id=eq.{company_id}",
         headers=sb_headers()
@@ -2956,8 +2956,8 @@ def delete_material_request(req_id):
     import json as _json
     data = request.get_json(silent=True) or {}
     caller = data.get("caller_name") or request.headers.get("X-Caller", "")
-    err = _verify_caller_is_admin(caller)
-    if err: return err
+    if not _verify_caller_is_admin(caller):
+        return jsonify({"ok": False, "error": "Unauthorized"}), 403
 
     # Fetch the request first to check status and get material lines
     req_r = requests.get(
@@ -3290,8 +3290,8 @@ def get_team_members():
 def create_user():
     data = request.get_json() or {}
     caller = data.get("caller_name", "")
-    err = _verify_caller_is_admin(caller)
-    if err: return err
+    if not _verify_caller_is_admin(caller):
+        return jsonify({"ok": False, "error": "Unauthorized"}), 403
     name = data.get("name", "").strip()
     role = data.get("role", "lead")
     if not name:
@@ -3315,8 +3315,8 @@ def create_user():
 def update_user_by_name(name):
     data = request.get_json() or {}
     caller = data.get("caller_name", "")
-    err = _verify_caller_is_admin(caller)
-    if err: return err
+    if not _verify_caller_is_admin(caller):
+        return jsonify({"ok": False, "error": "Unauthorized"}), 403
     payload = {}
     if "role"  in data: payload["role"]  = data["role"]
     if data.get("pin"):  payload["pin"]   = str(data["pin"])
@@ -3346,8 +3346,8 @@ def update_user_by_name(name):
 def delete_user_by_name(name):
     data = request.get_json() or {}
     caller = data.get("caller_name", "")
-    err = _verify_caller_is_admin(caller)
-    if err: return err
+    if not _verify_caller_is_admin(caller):
+        return jsonify({"ok": False, "error": "Unauthorized"}), 403
     r = requests.delete(
         f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}",
         headers=sb_headers()
