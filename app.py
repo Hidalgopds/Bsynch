@@ -199,7 +199,19 @@ def login_page():
 
 @app.route("/home")
 def home_page():
+    return render_template("home.html")
+
+@app.route("/erp")
+def erp_page():
     return render_template("landing.html")
+
+@app.route("/contractor-hub")
+def contractor_hub():
+    return render_template("contractor-hub.html")
+
+@app.route("/marketing-hub")
+def marketing_hub():
+    return render_template("marketing-hub.html")
 
 @app.route("/api/login", methods=["POST"])
 def api_login():
@@ -2821,9 +2833,10 @@ def delete_material_request(req_id):
     """Admin-only: permanently delete a material request.
     If the request was Delivered, restores inventory quantities."""
     import json as _json
-    role = request.headers.get("X-Role", "worker")
-    if role not in ("admin",):
-        return jsonify({"error": "Admin only"}), 403
+    data = request.get_json(silent=True) or {}
+    caller = data.get("caller_name") or request.headers.get("X-Caller", "")
+    err = _verify_caller_is_admin(caller)
+    if err: return err
 
     # Fetch the request first to check status and get material lines
     req_r = requests.get(
@@ -3155,6 +3168,9 @@ def get_team_members():
 @app.route("/api/users", methods=["POST"])
 def create_user():
     data = request.get_json() or {}
+    caller = data.get("caller_name", "")
+    err = _verify_caller_is_admin(caller)
+    if err: return err
     name = data.get("name", "").strip()
     role = data.get("role", "lead")
     if not name:
@@ -3177,6 +3193,9 @@ def create_user():
 @app.route("/api/users/by-name/<path:name>", methods=["PATCH"])
 def update_user_by_name(name):
     data = request.get_json() or {}
+    caller = data.get("caller_name", "")
+    err = _verify_caller_is_admin(caller)
+    if err: return err
     payload = {}
     if "role"  in data: payload["role"]  = data["role"]
     if data.get("pin"):  payload["pin"]   = str(data["pin"])
@@ -3204,6 +3223,10 @@ def update_user_by_name(name):
 
 @app.route("/api/users/by-name/<path:name>", methods=["DELETE"])
 def delete_user_by_name(name):
+    data = request.get_json() or {}
+    caller = data.get("caller_name", "")
+    err = _verify_caller_is_admin(caller)
+    if err: return err
     r = requests.delete(
         f"{SUPABASE_URL}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}",
         headers=sb_headers()
