@@ -277,10 +277,13 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
   <div class="right-panel" id="rightPanel">
     <div class="rp-head">
       <button class="rp-close" onclick="closePanel()">&#x2715;</button>
-      <div style="flex:1;min-width:0;">
-        <input class="rp-proj-name" id="rpName" style="background:none;border:none;border-bottom:1px solid transparent;width:100%;cursor:pointer;padding:0;" 
-               title="Click to rename" onfocus="this.style.borderBottomColor='#1e9484'" 
-               onblur="saveProjectName(this)" onkeydown="if(event.key==='Enter')this.blur()">
+      <div style="flex:1;min-width:0;display:flex;align-items:center;gap:6px;">
+        <input class="rp-proj-name" id="rpName" style="background:none;border:none;border-bottom:1px solid transparent;flex:1;min-width:0;cursor:text;padding:0;" 
+               title="Click to rename" onfocus="this.style.borderBottomColor='#1e9484';document.getElementById('rpSaveBtn').style.display='inline-flex';" 
+               onblur="setTimeout(function(){document.getElementById('rpSaveBtn').style.display='none';},200)" 
+               onkeydown="if(event.key==='Enter'){event.preventDefault();doSaveProjectName();}">
+        <button id="rpSaveBtn" style="display:none;background:#1e9484;border:none;color:#fff;border-radius:4px;padding:2px 10px;cursor:pointer;font-size:16px;align-items:center;flex-shrink:0;" 
+                onmousedown="event.preventDefault()" onclick="doSaveProjectName()">&#10003;</button>
       </div>
       <div class="rp-pct" id="rpPct">0%</div>
     </div>
@@ -711,25 +714,35 @@ document.getElementById('lightbox').addEventListener('click',function(e){if(e.ta
 </script>
 <script src="/static/contractor-ocr.js">
 // ── Rename project ──
-function saveProjectName(input){
-  input.style.borderBottomColor='transparent';
+function doSaveProjectName(){
+  var input=document.getElementById('rpName');
   var newName=(input.value||'').trim();
-  if(!newName||!openProjId){input.value=(allProjects.find(function(p){return p.id===openProjId;})||{}).name||'';return;}
+  document.getElementById('rpSaveBtn').style.display='none';
+  input.style.borderBottomColor='transparent';
+  if(!newName||!openProjId){
+    var orig=(allProjects.find(function(p){return p.id===openProjId;})||{}).name||'';
+    input.value=orig;
+    return;
+  }
   var proj=allProjects.find(function(p){return p.id===openProjId;});
   if(proj&&newName===proj.name)return; // no change
-  fetch('/api/contractor/projects/'+openProjId,{
+  var savedId=openProjId;
+  fetch('/api/contractor/projects/'+savedId,{
     method:'PATCH',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({name:newName,updated_at:new Date().toISOString()})
+    body:JSON.stringify({name:newName})
   }).then(function(r){return r.json();}).then(function(res){
     if(res.ok!==false){
-      // Update local cache
       if(proj) proj.name=newName;
-      renderProjects(allProjects);
-      flash('Project renamed to "'+newName+'"');
+      renderProjects();
+      flash('Renamed to "'+newName+'"');
     } else {
-      input.value=proj?proj.name:'';
+      alert('Save failed: '+(res.error||'unknown error'));
+      if(proj) input.value=proj.name;
     }
+  }).catch(function(err){
+    alert('Network error: '+err.message);
+    if(proj) input.value=proj.name;
   });
 }
 </script>
