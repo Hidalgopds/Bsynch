@@ -10,6 +10,11 @@ from flask import Flask, request, jsonify, render_template, Response, session, r
 import requests
 import uuid
 import bcrypt
+try:
+    import anthropic as _anthropic
+    _ANTHROPIC_CLIENT = _anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY","")) if os.environ.get("ANTHROPIC_API_KEY") else None
+except ImportError:
+    _ANTHROPIC_CLIENT = None
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger(__name__)
@@ -4954,6 +4959,53 @@ def serve_job_photo_img(job_id, photo_id):
     except Exception:
         return ("", 400)
     return Response(img_bytes, mimetype=mime, headers={"Cache-Control": "max-age=86400"})
+
+
+@app.route("/api/contractor/jobs/<job_id>/receipt-ocr", methods=["POST"])
+def contractor_receipt_ocr(job_id):
+    """OCR a receipt image with Claude vision and return structured line items."""
+    import json, re
+    if not _ANTHROPIC_CLIENT:
+        return jsonify({"error": "ANTHROPIC_API_KEY not configured"}), 503
+    data = request.json or {}
+    image_data = data.get("image_data", "")
+    if not image_data:
+        return jsonify({"error": "No image data"}), 400
+    # Split data URI if present
+    if "," in image_data:
+        header, b64 = image_data.split(",", 1)
+        mime = header.split(":")[1].split(";")[0] if ":" in header else "image/jpeg"
+    else:
+        b64 = image_data
+        mime = "image/jpeg"
+    try:
+        response = _ANTHROPIC_CLIENT.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=1024,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "image", "source": {"type": "base64", "media_type": mime, "data": b64}},
+                    {"type": "text", "text": (
+                        "Extract all purchased line items from this receipt. "
+                        "Ignore tax, subtotal, and total lines. "
+                        "Return ONLY a JSON array, no markdown, no explanation. "
+                        "Each object: {\"name\": \"product description\", \"qty\": number, \"unit\": \"unit of measure or 'each'\", \"unit_cost\": number, \"total\": number}. "
+                        "For unit, use the actual unit from the receipt (gal, ea, box, etc.). "
+                        "If qty is not clear use 1."
+                    )}
+                ]
+            }]
+        )
+        raw = response.content[0].text.strip()
+        # Strip markdown code blocks if present
+        raw = re.sub(r"^```[a-z]*\n?", "", raw)
+        raw = re.sub(r"\n?```$", "", raw.strip())
+        items = json.loads(raw)
+        return jsonify({"items": items})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 
 # ═══════════════════════════════════════════════════════════════════

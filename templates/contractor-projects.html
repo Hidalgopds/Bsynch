@@ -8,7 +8,8 @@
 <link rel="stylesheet" href="/static/themes.css">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0!important;min-height:100vh;display:flex;flex-direction:column;}
+.proj-card,.proj-card *{color:#e2e8f0;}.right-panel,.right-panel *:not(.chip-active):not(.chip-hold):not(.chip-done):not(.chip-count):not(.s-chip):not(.job-pct-badge):not(.rp-pct):not(.weight-banner):not(.job-num):not(.job-steps-info):not(.job-weight){color:#e2e8f0;}.job-panel,.job-panel *:not(.jp-back):not(.jp-job-num):not(.jptab):not(.jp-pct-big):not(.s-chip):not(.step-del):not(.field-label):not(.field-value.muted){color:#e2e8f0;}
 
 /* Header */
 header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #1e2533;background:#0f1117;position:sticky;top:0;z-index:50;}
@@ -24,7 +25,7 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
 .kpi-bar{display:flex;gap:12px;padding:16px 20px;overflow-x:auto;border-bottom:1px solid #1e2533;}
 .kpi-bar::-webkit-scrollbar{display:none;}
 .kpi-pill{background:#1a1d27;border:1px solid #2a2d3e;border-radius:10px;padding:10px 16px;flex-shrink:0;}
-.kpi-num{font-size:20px;font-weight:800;}
+.kpi-num{font-size:28px;font-weight:800;color:#e2e8f0!important;}
 .kpi-lbl{font-size:11px;color:#64748b;margin-top:1px;}
 
 /* Main layout */
@@ -46,7 +47,7 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
 .proj-ring .fill{fill:none;stroke-width:5;stroke-linecap:round;transition:stroke-dashoffset .6s ease;}
 .proj-ring-pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#1e9484;}
 .proj-meta{flex:1;min-width:0;}
-.proj-name{font-size:16px;font-weight:700;margin-bottom:3px;}
+.proj-name{font-size:32px;font-weight:700;margin-bottom:3px;color:#e2e8f0!important;}
 .proj-client{font-size:13px;color:#64748b;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .proj-chips{display:flex;gap:6px;flex-wrap:wrap;}
 .chip{padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;}
@@ -223,6 +224,25 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
 .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;}
 .btn-cancel{padding:8px 18px;background:none;border:1px solid #334155;border-radius:8px;color:#94a3b8;font-size:14px;cursor:pointer;}
 .btn-submit{padding:8px 20px;background:#1e9484;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:600;cursor:pointer;}
+
+/* Receipt OCR modal */
+.ocr-upload-area{border:2px dashed #2a2d3e;border-radius:12px;padding:24px;text-align:center;cursor:pointer;transition:border-color .2s;margin-bottom:14px;}
+.ocr-upload-area:hover{border-color:#1e9484;}
+.ocr-upload-area input{display:none;}
+.ocr-preview{max-width:100%;max-height:200px;border-radius:10px;margin:10px 0;display:none;}
+.ocr-scanning{text-align:center;padding:20px;color:#1e9484;font-size:14px;display:none;}
+.ocr-item{background:#1a1d27;border:1px solid #2a2d3e;border-radius:10px;padding:12px 14px;margin-bottom:10px;}
+.ocr-item-name{font-size:13px;font-weight:700;color:#e2e8f0;margin-bottom:6px;}
+.ocr-item-detail{font-size:12px;color:#64748b;margin-bottom:10px;}
+.ocr-split{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.ocr-split label{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:4px;}
+.ocr-split input{width:100%;padding:6px 8px;background:#0f1117;border:1px solid #2a2d3e;border-radius:7px;color:#e2e8f0;font-size:13px;font-weight:700;text-align:center;}
+.ocr-split input:focus{outline:none;border-color:#1e9484;}
+.ocr-unit{font-size:11px;color:#475569;margin-top:3px;}
+.ocr-total-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0 0;border-top:1px solid #1e2533;margin-top:4px;font-size:12px;color:#64748b;}
+.ocr-total-row span{color:#1e9484;font-weight:700;}
+.scan-btn{width:100%;padding:10px;background:#1e9484;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:14px;display:none;}
+.scan-btn:hover{background:#178070;}
 </style>
 </head>
 <body>
@@ -406,7 +426,6 @@ function renderProjects(){
       '</div>'+
       '<div class="proj-meta">'+
         '<div class="proj-name">'+esc(p.name)+'</div>'+
-        (p.client_name?'<div class="proj-client">'+esc(p.client_name)+'</div>':'')+
         '<div class="proj-chips">'+
           (inp?'<span class="chip chip-active">'+inp+' active</span>':'')+
           (open?'<span class="chip chip-count">'+open+' open</span>':'')+
@@ -594,7 +613,7 @@ function loadMaterials(){
   fetch('/api/contractor/jobs/'+openJobId+'/materials').then(r=>r.json()).then(renderMaterials);
 }
 function renderMaterials(mats){
-  var html='<div class="add-mat-form"><h4>Add Material</h4>'
+  var html='<div class="add-mat-form"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"><h4 style="margin:0">Add Material</h4><button class="btn-add-step" onclick="openReceiptModal()">&#128247; Scan Receipt</button></div>'
     +'<div class="form-row"><input class="form-input" id="matName" placeholder="Material name" style="grid-column:1/-1">'
     +'<input class="form-input" id="matQty" type="number" placeholder="Qty" step="0.01">'
     +'<input class="form-input" id="matUnit" placeholder="Unit" value="each">'
@@ -687,6 +706,140 @@ function flash(msg){var el=document.createElement('div');el.innerHTML=msg;el.sty
 document.getElementById('projModal').addEventListener('click',function(e){if(e.target===this)closeProjModal();});
 document.getElementById('woModal').addEventListener('click',function(e){if(e.target===this)closeWoModal();});
 document.getElementById('lightbox').addEventListener('click',function(e){if(e.target===this)closeLightbox();});
+
+// ── Receipt OCR ──
+var ocrImageData = null;
+var ocrItems = [];
+
+function openReceiptModal(){
+  ocrImageData=null; ocrItems=[];
+  document.getElementById('ocrFileInput').value='';
+  document.getElementById('ocrPreview').style.display='none';
+  document.getElementById('ocrUploadHint').style.display='block';
+  document.getElementById('ocrScanBtn').style.display='none';
+  document.getElementById('ocrScanning').style.display='none';
+  document.getElementById('ocrResults').innerHTML='';
+  document.getElementById('ocrAddBtn').style.display='none';
+  document.getElementById('receiptModal').classList.add('open');
+}
+function closeReceiptModal(){document.getElementById('receiptModal').classList.remove('open');}
+
+function ocrFileSelected(e){
+  var file=e.target.files[0];
+  if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    ocrImageData=ev.target.result;
+    var img=document.getElementById('ocrPreview');
+    img.src=ocrImageData;
+    img.style.display='block';
+    document.getElementById('ocrUploadHint').style.display='none';
+    document.getElementById('ocrScanBtn').style.display='block';
+    document.getElementById('ocrResults').innerHTML='';
+    document.getElementById('ocrAddBtn').style.display='none';
+  };
+  reader.readAsDataURL(file);
+}
+
+function runOcr(){
+  if(!ocrImageData)return;
+  document.getElementById('ocrScanBtn').style.display='none';
+  document.getElementById('ocrScanning').style.display='block';
+  document.getElementById('ocrResults').innerHTML='';
+  document.getElementById('ocrAddBtn').style.display='none';
+  fetch('/api/contractor/jobs/'+openJobId+'/receipt-ocr',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({image_data:ocrImageData})
+  }).then(r=>r.json()).then(function(res){
+    document.getElementById('ocrScanning').style.display='none';
+    if(res.error){document.getElementById('ocrResults').innerHTML='<div style="color:#ef4444;padding:12px;">Error: '+esc(res.error)+'</div>';return;}
+    ocrItems=res.items||[];
+    renderOcrResults();
+  }).catch(function(err){
+    document.getElementById('ocrScanning').style.display='none';
+    document.getElementById('ocrResults').innerHTML='<div style="color:#ef4444;padding:12px;">Connection error. Try again.</div>';
+  });
+}
+
+function renderOcrResults(){
+  if(!ocrItems.length){
+    document.getElementById('ocrResults').innerHTML='<div style="color:#64748b;text-align:center;padding:16px;">No items found in receipt.</div>';
+    return;
+  }
+  var html='<div style="font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;">Found '+ocrItems.length+' item(s) — assign quantities:</div>';
+  ocrItems.forEach(function(item,i){
+    var total=(parseFloat(item.unit_cost||0)*parseFloat(item.qty||1)).toFixed(2);
+    html+='<div class="ocr-item">';
+    html+='<div class="ocr-item-name">'+esc(item.name||'Item')+'</div>';
+    html+='<div class="ocr-item-detail">'+item.qty+' '+esc(item.unit||'ea')+' @ $'+parseFloat(item.unit_cost||0).toFixed(2)+' = $'+parseFloat(item.total||total).toFixed(2)+'</div>';
+    html+='<div class="ocr-split">';
+    html+='<div><label>&#128736; This WO</label><input type="number" id="ocrWo_'+i+'" value="'+item.qty+'" min="0" step="0.01" onchange="updateOcrStock('+i+')"><div class="ocr-unit">'+esc(item.unit||'ea')+'</div></div>';
+    html+='<div><label>&#128230; To Stock</label><input type="number" id="ocrStock_'+i+'" value="0" min="0" step="0.01"><div class="ocr-unit">'+esc(item.unit||'ea')+'</div></div>';
+    html+='</div>';
+    html+='</div>';
+  });
+  document.getElementById('ocrResults').innerHTML=html;
+  document.getElementById('ocrAddBtn').style.display='block';
+}
+
+function updateOcrStock(i){
+  var total=parseFloat(ocrItems[i].qty||0);
+  var wo=parseFloat(document.getElementById('ocrWo_'+i).value||0);
+  var remaining=Math.max(0,total-wo);
+  var stockEl=document.getElementById('ocrStock_'+i);
+  if(stockEl&&stockEl.value==0) stockEl.value=remaining>0?remaining:0;
+}
+
+function addOcrMaterials(){
+  if(!ocrItems.length)return;
+  var promises=[];
+  var stockSummary=[];
+  ocrItems.forEach(function(item,i){
+    var woQty=parseFloat(document.getElementById('ocrWo_'+i).value||0);
+    var stockQty=parseFloat(document.getElementById('ocrStock_'+i).value||0);
+    if(woQty>0){
+      promises.push(fetch('/api/contractor/jobs/'+openJobId+'/materials',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          material_name:item.name,
+          qty:woQty,
+          unit:item.unit||'each',
+          unit_cost:item.unit_cost||0,
+          added_by:userName
+        })
+      }));
+    }
+    if(stockQty>0) stockSummary.push(stockQty+' '+esc(item.unit||'ea')+' of '+esc(item.name)+' → Stock');
+  });
+  Promise.all(promises).then(function(){
+    closeReceiptModal();
+    loadMaterials();
+    if(stockSummary.length) flash('Added to WO. Stock items: '+stockSummary.join(' | '));
+    else flash('Materials added from receipt.');
+  });
+}
 </script>
+
+<!-- Receipt OCR modal -->
+<div class="modal-overlay" id="receiptModal">
+  <div class="modal" style="max-width:500px;">
+    <h2>&#128247; Scan Receipt</h2>
+    <div class="ocr-upload-area" id="ocrDropZone" onclick="document.getElementById('ocrFileInput').click()">
+      <input type="file" id="ocrFileInput" accept="image/*" capture="environment" onchange="ocrFileSelected(event)">
+      <div id="ocrUploadHint" style="color:#64748b;font-size:14px;">&#128247; Tap to take a photo or select a receipt image</div>
+      <img id="ocrPreview" class="ocr-preview">
+    </div>
+    <button class="scan-btn" id="ocrScanBtn" onclick="runOcr()">&#129302; Scan Receipt</button>
+    <div class="ocr-scanning" id="ocrScanning">&#129302; Reading receipt with AI...</div>
+    <div id="ocrResults"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeReceiptModal()">Cancel</button>
+      <button class="btn-submit" id="ocrAddBtn" style="display:none" onclick="addOcrMaterials()">Add to Materials</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
