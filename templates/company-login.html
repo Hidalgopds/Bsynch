@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BSynch – Sign In</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;display:flex;align-items:center;justify-content:center;}
+.card{background:#1a1f2e;border:1px solid #2d3748;border-radius:16px;padding:40px;width:100%;max-width:400px;}
+.logo{text-align:center;margin-bottom:32px;}
+.logo h1{font-size:28px;font-weight:700;color:#60a5fa;}
+.logo p{font-size:13px;color:#94a3b8;margin-top:4px;}
+.field{margin-bottom:16px;}
+label{display:block;font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;}
+input{width:100%;padding:10px 14px;background:#0f1117;border:1px solid #374151;border-radius:8px;color:#e2e8f0;font-size:15px;outline:none;transition:border .2s;}
+input:focus{border-color:#60a5fa;}
+.btn{width:100%;padding:12px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px;transition:background .2s;}
+.btn:hover{background:#1d4ed8;}
+.err{color:#f87171;font-size:13px;margin-top:10px;text-align:center;display:none;}
+.change-pw{display:none;margin-top:24px;padding-top:24px;border-top:1px solid #2d3748;}
+.change-pw h3{font-size:15px;margin-bottom:16px;color:#94a3b8;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <h1>BSynch</h1>
+    <p id="subLabel">Client Portal</p>
+  </div>
+
+  <!-- Login form -->
+  <div id="loginForm">
+    <div class="field">
+      <label>Username</label>
+      <input type="text" id="lgUser" autocomplete="username" placeholder="Admin username">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="lgPass" autocomplete="current-password" placeholder="Password">
+    </div>
+    <button class="btn" onclick="doLogin()">Sign In</button>
+    <div class="err" id="lgErr"></div>
+  </div>
+
+  <!-- Change password (shown on first login or when password = default) -->
+  <div class="change-pw" id="changePwSection">
+    <h3>Change your password</h3>
+    <div class="field">
+      <label>New Password</label>
+      <input type="password" id="newPass1" placeholder="New password (min 4 chars)">
+    </div>
+    <div class="field">
+      <label>Confirm Password</label>
+      <input type="password" id="newPass2" placeholder="Confirm new password">
+    </div>
+    <button class="btn" onclick="doChangePassword()">Update Password</button>
+    <div class="err" id="pwErr"></div>
+  </div>
+</div>
+
+<script>
+var _loggedUser = '';
+var _loggedPass = '';
+var _slug = location.hostname.split('.')[0];
+document.getElementById('subLabel').textContent = _slug.toUpperCase() + ' Portal';
+
+function showErr(id, msg){ var el=document.getElementById(id); el.textContent=msg; el.style.display='block'; }
+function hideErr(id){ document.getElementById(id).style.display='none'; }
+
+async function doLogin(){
+  var user = document.getElementById('lgUser').value.trim();
+  var pass = document.getElementById('lgPass').value.trim();
+  if(!user||!pass){ showErr('lgErr','Enter username and password'); return; }
+  hideErr('lgErr');
+  var r = await fetch('/api/company-login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:user,password:pass})});
+  var d = await r.json();
+  if(!d.ok){ showErr('lgErr', d.error||'Invalid credentials'); return; }
+  _loggedUser = user;
+  _loggedPass = pass;
+  localStorage.setItem('companySlug', _slug);
+  localStorage.setItem('companyUser', user);
+  // If password is still default (4 chars or less), prompt change
+  if(pass.length <= 4){
+    document.getElementById('changePwSection').style.display='block';
+  } else {
+    location.href = '/home';
+  }
+}
+
+async function doChangePassword(){
+  var np1 = document.getElementById('newPass1').value.trim();
+  var np2 = document.getElementById('newPass2').value.trim();
+  if(np1.length < 4){ showErr('pwErr','Minimum 4 characters'); return; }
+  if(np1 !== np2){ showErr('pwErr','Passwords do not match'); return; }
+  hideErr('pwErr');
+  var r = await fetch('/api/company-change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:_loggedUser,old_password:_loggedPass,new_password:np1})});
+  var d = await r.json();
+  if(!d.ok){ showErr('pwErr', d.error||'Error updating password'); return; }
+  location.href = '/home';
+}
+
+document.addEventListener('keydown', function(e){
+  if(e.key==='Enter') doLogin();
+});
+</script>
+</body>
+</html>

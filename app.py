@@ -325,6 +325,63 @@ def delete_company(company_id):
         headers=sb_headers()
     )
     return jsonify({"ok": r.ok})
+
+@app.route("/company-login")
+def company_login_page():
+    return render_template("company-login.html")
+
+@app.route("/api/company-login", methods=["POST"])
+def api_company_login():
+    data = request.get_json() or {}
+    username = data.get("username", "").strip()
+    password = data.get("password", "").strip()
+    host = request.host.split(":")[0].lower()
+    parts = host.split(".")
+    if len(parts) < 3 or parts[-2] != "bsynch" or parts[-1] != "com":
+        return jsonify({"ok": False, "error": "Not a client subdomain"}), 400
+    slug = parts[0]
+    r = requests.get(
+        f"{_MASTER_URL}/rest/v1/bsynch_companies?slug=eq.{slug}&select=id,admin_username,admin_password,status&limit=1",
+        headers={"apikey": _MASTER_KEY, "Authorization": f"Bearer {_MASTER_KEY}"}
+    )
+    if not r.ok or not r.json():
+        return jsonify({"ok": False, "error": "Company not found"}), 404
+    co = r.json()[0]
+    if co.get("status") != "active":
+        return jsonify({"ok": False, "error": "Account inactive"}), 403
+    if username != co.get("admin_username") or password != co.get("admin_password"):
+        return jsonify({"ok": False, "error": "Invalid credentials"}), 401
+    return jsonify({"ok": True, "slug": slug})
+
+@app.route("/api/company-change-password", methods=["POST"])
+def api_company_change_password():
+    data = request.get_json() or {}
+    username = data.get("username", "").strip()
+    old_password = data.get("old_password", "").strip()
+    new_password = data.get("new_password", "").strip()
+    host = request.host.split(":")[0].lower()
+    parts = host.split(".")
+    if len(parts) < 3:
+        return jsonify({"ok": False, "error": "Not a client subdomain"}), 400
+    slug = parts[0]
+    r = requests.get(
+        f"{_MASTER_URL}/rest/v1/bsynch_companies?slug=eq.{slug}&select=id,admin_username,admin_password&limit=1",
+        headers={"apikey": _MASTER_KEY, "Authorization": f"Bearer {_MASTER_KEY}"}
+    )
+    if not r.ok or not r.json():
+        return jsonify({"ok": False, "error": "Company not found"}), 404
+    co = r.json()[0]
+    if username != co.get("admin_username") or old_password != co.get("admin_password"):
+        return jsonify({"ok": False, "error": "Invalid credentials"}), 401
+    if len(new_password) < 4:
+        return jsonify({"ok": False, "error": "Password too short"}), 400
+    upd = requests.patch(
+        f"{_MASTER_URL}/rest/v1/bsynch_companies?id=eq.{co['id']}",
+        headers={"apikey": _MASTER_KEY, "Authorization": f"Bearer {_MASTER_KEY}", "Content-Type": "application/json"},
+        json={"admin_password": new_password}
+    )
+    return jsonify({"ok": upd.ok})
+
 # ── End Platform API ──────────────────────────────────────────────────
 @app.route("/api/login", methods=["POST"])
 def api_login():

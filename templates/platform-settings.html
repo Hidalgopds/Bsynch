@@ -136,6 +136,20 @@
       </div>
     </div>
     <div class="mfield">
+      <label>Admin Login</label>
+      <div class="supabase-section">
+        <p>Credentials the client uses to log in at their subdomain.</p>
+        <div class="mfield" style="margin-bottom:10px;">
+          <label>Admin Username</label>
+          <input type="text" id="coAdminUser" placeholder="e.g. nncadmin">
+        </div>
+        <div class="mfield" style="margin-bottom:0;">
+          <label>Admin Password</label>
+          <input type="password" id="coAdminPass" placeholder="Leave blank to keep existing">
+        </div>
+      </div>
+    </div>
+    <div class="mfield">
       <label>Status</label>
       <select id="coStatus">
         <option value="active">Active</option>
@@ -166,6 +180,8 @@ function openModal(co){
   document.getElementById('coSlug').value = co ? co.slug : '';
   document.getElementById('coSupaUrl').value = co ? (co.supabase_url||'') : '';
   document.getElementById('coSupaKey').value = co ? (co.supabase_key||'') : '';
+  document.getElementById('coAdminUser').value = co ? (co.admin_username||'') : '';
+  document.getElementById('coAdminPass').value = '';
   document.getElementById('coStatus').value = co ? (co.status||'active') : 'active';
   var mods = co ? (co.modules||{}) : {erp:true,contratista:false,marketing:false};
   _modules = {erp:!!mods.erp, contratista:!!mods.contratista, marketing:!!mods.marketing};
@@ -194,6 +210,8 @@ async function saveCompany(){
     modules: Object.assign({},_modules),
     supabase_url: document.getElementById('coSupaUrl').value.trim(),
     supabase_key: document.getElementById('coSupaKey').value.trim(),
+    admin_username: document.getElementById('coAdminUser').value.trim() || undefined,
+    admin_password: document.getElementById('coAdminPass').value.trim() || undefined,
     status: document.getElementById('coStatus').value
   };
   var url = id ? '/api/platform/companies/'+id : '/api/platform/companies';
