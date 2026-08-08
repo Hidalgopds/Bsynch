@@ -56,8 +56,14 @@ input:focus{border-color:#60a5fa;}
     <div class="field">
       <label>New Password</label>
       <div class="pw-wrap">
-        <input type="password" id="newPass1" placeholder="New password (min 8 chars)">
+        <input type="password" id="newPass1" placeholder="New password" oninput="checkPwStrength(this.value)">
         <button type="button" class="pw-eye" onclick="toggleEye('newPass1',this)">👁</button>
+      </div>
+      <div id="pwHint" style="margin-top:8px;font-size:12px;line-height:1.8;color:#64748b;">
+        <span id="h-len">○ 8+ characters</span><br>
+        <span id="h-upper">○ Uppercase letter (A-Z)</span><br>
+        <span id="h-lower">○ Lowercase letter (a-z)</span><br>
+        <span id="h-spec">○ Special character (!@#$%^&amp;*-+())</span>
       </div>
     </div>
     <div class="field">
@@ -77,6 +83,19 @@ var _loggedUser = '';
 var _loggedPass = '';
 var _slug = location.hostname.split('.')[0];
 document.getElementById('subLabel').textContent = _slug.toUpperCase() + ' Portal';
+
+function checkPwStrength(pw){
+  function mark(id, pass){
+    var el = document.getElementById(id);
+    if(!el) return;
+    el.style.color = pass ? '#4ade80' : '#64748b';
+    el.textContent = (pass ? '✓ ' : '○ ') + el.textContent.slice(2);
+  }
+  mark('h-len',   pw.length >= 8);
+  mark('h-upper', /[A-Z]/.test(pw));
+  mark('h-lower', /[a-z]/.test(pw));
+  mark('h-spec',  /[!@#$%^&*\-+()]/.test(pw));
+}
 
 function toggleEye(inputId, btn){
   var inp = document.getElementById(inputId);
