@@ -116,7 +116,7 @@ def _verify_caller_is_admin(name):
     if not name:
         return False
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/app_users"
+        f"{sb_url()}/rest/v1/app_users"
         f"?name=eq.{requests.utils.quote(str(name))}"
         f"&approved=eq.true&select=role&limit=1",
         headers=sb_headers(), timeout=5
@@ -176,14 +176,69 @@ def send_registration_email(to_email, name, username, role="worker"):
 app = Flask(__name__)
 app.secret_key = os.environ["SECRET_KEY"]
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+_MASTER_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_URL = _MASTER_URL  # kept for compatibility
+_MASTER_KEY = os.environ.get("SUPABASE_KEY")
+SUPABASE_KEY = _MASTER_KEY  # kept for compatibility
 TABLE = "daily_log"
 
+# ── Multi-tenant Supabase routing ────────────────────────────────────
+import threading as _threading, time as _time
+_co_cache = {}
+_co_cache_ts = 0
+_co_cache_lock = _threading.Lock()
+
+def _refresh_co_cache():
+    global _co_cache, _co_cache_ts
+    try:
+        r = requests.get(
+            f"{_MASTER_URL}/rest/v1/bsynch_companies?status=eq.active&select=slug,supabase_url,supabase_key",
+            headers={"apikey": _MASTER_KEY, "Authorization": f"Bearer {_MASTER_KEY}", "Content-Type": "application/json"}
+        )
+        if r.ok:
+            with _co_cache_lock:
+                _co_cache = {c["slug"]: c for c in r.json()}
+                _co_cache_ts = _time.time()
+    except Exception:
+        pass
+
+def _get_client_co():
+    """Return company dict for current request subdomain, or None for master."""
+    try:
+        host = request.host.split(":")[0].lower()
+        parts = host.split(".")
+        # hicons.bsynch.com → parts = ["hicons","bsynch","com"]
+        if len(parts) >= 3 and parts[-2] == "bsynch" and parts[-1] == "com":
+            slug = parts[0]
+            if slug in ("www", "app", "bsynch"):
+                return None
+            if _time.time() - _co_cache_ts > 300:
+                _refresh_co_cache()
+            return _co_cache.get(slug)
+    except Exception:
+        pass
+    return None
+
+def sb_url():
+    """Supabase URL for current request (client or master)."""
+    co = _get_client_co()
+    if co and co.get("supabase_url"):
+        return co["supabase_url"]
+    return _MASTER_URL
+
+def sb_key():
+    """Supabase key for current request (client or master)."""
+    co = _get_client_co()
+    if co and co.get("supabase_key"):
+        return co["supabase_key"]
+    return _MASTER_KEY
+# ── End multi-tenant routing ─────────────────────────────────────────
+
 def sb_headers():
+    key = sb_key()
     return {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "apikey": key,
+        "Authorization": f"Bearer {key}",
         "Content-Type": "application/json",
         "Prefer": "return=representation"
     }
@@ -290,7 +345,7 @@ def api_login():
     users = []
     for field in ["username", "email", "name"]:
         r = requests.get(
-            f"{SUPABASE_URL}/rest/v1/app_users"
+            f"{sb_url()}/rest/v1/app_users"
             f"?select=name,role,email,phone,username,approved,password"
             f"&{field}=eq.{requests.utils.quote(username)}"
             f"&limit=1",
@@ -314,7 +369,7 @@ def check_username():
     if not uname:
         return jsonify({"available": False, "error": "Username required"}), 400
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/app_users?username=eq.{requests.utils.quote(uname)}&limit=1&select=id",
+        f"{sb_url()}/rest/v1/app_users?username=eq.{requests.utils.quote(uname)}&limit=1&select=id",
         headers=sb_headers()
     )
     exists = r.ok and len(r.json()) > 0
@@ -336,7 +391,7 @@ def api_register():
         return jsonify({"error": "You must accept the data consent agreement"}), 400
     # Check username uniqueness
     chk = requests.get(
-        f"{SUPABASE_URL}/rest/v1/app_users?username=eq.{requests.utils.quote(username)}&limit=1&select=id",
+        f"{sb_url()}/rest/v1/app_users?username=eq.{requests.utils.quote(username)}&limit=1&select=id",
         headers=sb_headers()
     )
     if chk.ok and len(chk.json()) > 0:
@@ -353,7 +408,7 @@ def api_register():
         "consent_date": dt.datetime.utcnow().isoformat()
     }
     r = requests.post(
-        f"{SUPABASE_URL}/rest/v1/app_users",
+        f"{sb_url()}/rest/v1/app_users",
         headers={**sb_headers(), "Prefer": "return=representation"},
         json=payload
     )
@@ -386,7 +441,7 @@ def api_self_register():
         return jsonify({"error": "Name, phone and trade are required"}), 400
     # Check for duplicate name
     chk = requests.get(
-        f"{SUPABASE_URL}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}&limit=1&select=id",
+        f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}&limit=1&select=id",
         headers=sb_headers()
     )
     if chk.ok and len(chk.json()) > 0:
@@ -400,7 +455,7 @@ def api_self_register():
         "approved": False,
     }
     r = requests.post(
-        f"{SUPABASE_URL}/rest/v1/app_users",
+        f"{sb_url()}/rest/v1/app_users",
         headers={**sb_headers(), "Prefer": "return=representation"},
         json=payload
     )
@@ -422,7 +477,7 @@ def forgot_password():
         return jsonify({"error": "Email required"}), 400
     # Look up user by email
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/app_users?email=eq.{requests.utils.quote(email)}&select=name,role&limit=1",
+        f"{sb_url()}/rest/v1/app_users?email=eq.{requests.utils.quote(email)}&select=name,role&limit=1",
         headers=sb_headers()
     )
     users = r.json() if r.ok else []
@@ -433,7 +488,7 @@ def forgot_password():
     temp_pw = "".join(random.choices(string.ascii_letters + string.digits, k=8))
     # Update password in DB
     upd = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/app_users?email=eq.{requests.utils.quote(email)}",
+        f"{sb_url()}/rest/v1/app_users?email=eq.{requests.utils.quote(email)}",
         headers={**sb_headers(), "Prefer": "return=representation"},
         json={"password": hash_password(temp_pw)}
     )
@@ -476,7 +531,7 @@ def approve_user():
     if not name:
         return jsonify({"error": "name required"}), 400
     r = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}",
+        f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}",
         headers={**sb_headers(), "Prefer": "return=representation"},
         json={"approved": True}
     )
@@ -485,7 +540,7 @@ def approve_user():
 @app.route("/api/users/pending", methods=["GET"])
 def pending_users():
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/app_users?approved=eq.false&select=name,role,email,phone,trade,led_by,created_at&order=created_at.desc&limit=50",
+        f"{sb_url()}/rest/v1/app_users?approved=eq.false&select=name,role,email,phone,trade,led_by,created_at&order=created_at.desc&limit=50",
         headers=sb_headers()
     )
     return jsonify(r.json() if r.ok else [])
@@ -504,7 +559,7 @@ def admin_reset_password():
     if len(new_pw) < 4:
         return jsonify({"error": "Password must be at least 4 characters"}), 400
     r = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/app_users?name=eq.{requests.utils.quote(target_name)}",
+        f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(target_name)}",
         headers={**sb_headers(), "Prefer": "return=representation"},
         json={"password": hash_password(new_pw)}
     )
@@ -537,7 +592,7 @@ def submit():
         "crew": data.get("crew", ""),
         "notes": data.get("notes", "")
     }
-    resp = requests.post(f"{SUPABASE_URL}/rest/v1/{TABLE}", json=row, headers=sb_headers())
+    resp = requests.post(f"{sb_url()}/rest/v1/{TABLE}", json=row, headers=sb_headers())
     if resp.status_code in (200, 201):
         return jsonify({"ok": True, "data": resp.json()})
     return jsonify({"error": resp.text}), 500
@@ -576,7 +631,7 @@ def submit_batch():
             row["building_no"] = entry["building_no"]
         rows.append(row)
     resp = requests.post(
-        f"{SUPABASE_URL}/rest/v1/{TABLE}",
+        f"{sb_url()}/rest/v1/{TABLE}",
         json=rows,
         headers={**sb_headers(), "Prefer": "return=minimal"}
     )
@@ -587,7 +642,7 @@ def submit_batch():
 @app.route("/unit-progress/<position>")
 def unit_progress(position):
     resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{TABLE}"
+        f"{sb_url()}/rest/v1/{TABLE}"
         f"?select=area_phase,progress_pct&position=eq.{position}"
         f"&progress_pct=not.is.null&order=created_at.asc&limit=2000",
         headers=sb_headers()
@@ -598,7 +653,7 @@ def unit_progress(position):
         if phase and r.get("progress_pct") is not None:
             latest[phase] = r["progress_pct"]  # always overwrite → last = most recent
     meta_resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{TABLE}"
+        f"{sb_url()}/rest/v1/{TABLE}"
         f"?select=unit_ref_no,internal_job_no,skid_by,skid_ref,fase,building_no"
         f"&position=eq.{position}&order=created_at.desc&limit=100",
         headers=sb_headers()
@@ -622,7 +677,7 @@ def unit_progress(position):
 @app.route("/export.csv")
 def export_csv():
     resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{TABLE}"
+        f"{sb_url()}/rest/v1/{TABLE}"
         f"?select=date,period,position,area_phase,progress_pct,crew,notes&order=date.desc,period.asc",
         headers=sb_headers()
     )
@@ -643,7 +698,7 @@ def export_csv():
 @app.route("/recent")
 def recent():
     resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{TABLE}?select=*&order=created_at.desc&limit=50",
+        f"{sb_url()}/rest/v1/{TABLE}?select=*&order=created_at.desc&limit=50",
         headers=sb_headers()
     )
     return jsonify(resp.json())
@@ -655,7 +710,7 @@ def dashboard():
 @app.route("/api/data")
 def api_data():
     resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{TABLE}"
+        f"{sb_url()}/rest/v1/{TABLE}"
         f"?select=date,period,position,area_phase,progress_pct,crew,notes"
         f"&order=date.asc,created_at.asc&limit=5000",
         headers=sb_headers()
@@ -724,7 +779,7 @@ def api_data():
 @app.route("/lock/<position>", methods=["GET"])
 def get_lock(position):
     resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/unit_locks?position=eq.{position}&select=locked_by,locked_at",
+        f"{sb_url()}/rest/v1/unit_locks?position=eq.{position}&select=locked_by,locked_at",
         headers=sb_headers()
     )
     data = resp.json()
@@ -737,7 +792,7 @@ def set_lock(position):
     body = request.get_json() or {}
     locked_by = body.get("locked_by", "unknown")
     resp = requests.post(
-        f"{SUPABASE_URL}/rest/v1/unit_locks",
+        f"{sb_url()}/rest/v1/unit_locks",
         json={"position": position, "locked_by": locked_by},
         headers={**sb_headers(), "Prefer": "resolution=merge-duplicates"}
     )
@@ -746,7 +801,7 @@ def set_lock(position):
 @app.route("/lock/<position>", methods=["DELETE"])
 def del_lock(position):
     resp = requests.delete(
-        f"{SUPABASE_URL}/rest/v1/unit_locks?position=eq.{position}",
+        f"{sb_url()}/rest/v1/unit_locks?position=eq.{position}",
         headers=sb_headers()
     )
     return jsonify({"ok": resp.ok})
@@ -758,7 +813,7 @@ def migrate_page():
 @app.route("/migrate/preview/<from_pos>")
 def migrate_preview(from_pos):
     resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{TABLE}?position=eq.{from_pos}&select=id",
+        f"{sb_url()}/rest/v1/{TABLE}?position=eq.{from_pos}&select=id",
         headers={**sb_headers(), "Prefer": "count=exact"}
     )
     count = int(resp.headers.get("Content-Range", "0/0").split("/")[-1])
@@ -772,12 +827,12 @@ def migrate_execute():
     if not from_pos or not to_pos:
         return jsonify({"ok": False, "error": "Missing positions"}), 400
     count_resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{TABLE}?position=eq.{from_pos}&select=id",
+        f"{sb_url()}/rest/v1/{TABLE}?position=eq.{from_pos}&select=id",
         headers={**sb_headers(), "Prefer": "count=exact"}
     )
     count = int(count_resp.headers.get("Content-Range", "0/0").split("/")[-1])
     resp = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/{TABLE}?position=eq.{from_pos}",
+        f"{sb_url()}/rest/v1/{TABLE}?position=eq.{from_pos}",
         json={"position": to_pos},
         headers={**sb_headers(), "Prefer": "return=minimal"}
     )
@@ -797,7 +852,7 @@ def worker_hours():
     days = int(request.args.get("days", 30))
     since = (dt.date.today() - dt.timedelta(days=days)).isoformat()
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/checkins"
+        f"{sb_url()}/rest/v1/checkins"
         f"?select=worker_name,checked_in_at,checked_out_at,date"
         f"&date=gte.{since}&order=date.desc&limit=5000",
         headers=sb_headers()
@@ -845,7 +900,7 @@ def api_checkin():
     from datetime import date as _today
     row = {"position": position, "worker_name": name, "date": _today.today().isoformat()}
     r = requests.post(
-        f"{SUPABASE_URL}/rest/v1/{CHECKINS_TABLE}",
+        f"{sb_url()}/rest/v1/{CHECKINS_TABLE}",
         json=row,
         headers={**sb_headers(), "Prefer": "return=representation"}
     )
@@ -857,7 +912,7 @@ def api_checkin():
 @app.route("/api/checkin/<checkin_id>/checkout", methods=["POST"])
 def api_checkout(checkin_id):
     r = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/{CHECKINS_TABLE}?id=eq.{checkin_id}",
+        f"{sb_url()}/rest/v1/{CHECKINS_TABLE}?id=eq.{checkin_id}",
         json={"checked_out_at": "now()"},
         headers={**sb_headers(), "Prefer": "return=representation"}
     )
@@ -898,7 +953,7 @@ def api_manual_checkin():
 
     # Check for existing open check-in for this worker today
     existing = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{CHECKINS_TABLE}"
+        f"{sb_url()}/rest/v1/{CHECKINS_TABLE}"
         f"?worker_name=eq.{requests.utils.quote(worker_name)}"
         f"&date=eq.{target_date}&checked_out_at=is.null&select=id&limit=1",
         headers=sb_headers(), timeout=5
@@ -915,7 +970,7 @@ def api_manual_checkin():
         "entered_by":     caller,
     }
     r = requests.post(
-        f"{SUPABASE_URL}/rest/v1/{CHECKINS_TABLE}",
+        f"{sb_url()}/rest/v1/{CHECKINS_TABLE}",
         json=row,
         headers={**sb_headers(), "Prefer": "return=representation"},
         timeout=8
@@ -929,7 +984,7 @@ def api_active_checkins():
     """Returns all currently checked-in workers (no checkout yet)."""
     today = __import__('datetime').date.today().isoformat()
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{CHECKINS_TABLE}"
+        f"{sb_url()}/rest/v1/{CHECKINS_TABLE}"
         f"?checked_out_at=is.null&date=eq.{today}"
         f"&select=id,position,worker_name,checked_in_at&order=checked_in_at.asc",
         headers=sb_headers()
@@ -941,7 +996,7 @@ def api_today_checkins():
     """Returns all check-ins for today (including checked-out)."""
     today = __import__('datetime').date.today().isoformat()
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{CHECKINS_TABLE}"
+        f"{sb_url()}/rest/v1/{CHECKINS_TABLE}"
         f"?date=eq.{today}"
         f"&select=id,position,worker_name,checked_in_at,checked_out_at"
         f"&order=checked_in_at.asc",
@@ -957,7 +1012,7 @@ def api_checkin_by_name():
         return jsonify({"active": None})
     today = __import__('datetime').date.today().isoformat()
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{CHECKINS_TABLE}"
+        f"{sb_url()}/rest/v1/{CHECKINS_TABLE}"
         f"?worker_name=eq.{requests.utils.quote(name)}&date=eq.{today}"
         f"&checked_out_at=is.null&select=id,position,checked_in_at&limit=1",
         headers=sb_headers()
@@ -977,7 +1032,7 @@ def admin_fix_periods():
     """
     import datetime
     resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{TABLE}"
+        f"{sb_url()}/rest/v1/{TABLE}"
         f"?select=id,created_at,period&or=(period.is.null,period.eq.)"
         f"&limit=5000",
         headers=sb_headers()
@@ -1015,7 +1070,7 @@ def admin_fix_periods():
             chunk = ids[i:i+50]
             id_list = ",".join(chunk)
             r2 = requests.patch(
-                f"{SUPABASE_URL}/rest/v1/{TABLE}?id=in.({id_list})",
+                f"{sb_url()}/rest/v1/{TABLE}?id=in.({id_list})",
                 json={"period": period},
                 headers=sb_headers()
             )
@@ -1034,7 +1089,7 @@ SM_TABLE = "safety_meetings"
 def get_workers():
     """Pull worker list from app_users (approved accounts only)."""
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/app_users"
+        f"{sb_url()}/rest/v1/app_users"
         f"?approved=eq.true&select=name,role&order=name.asc&limit=200",
         headers=sb_headers()
     )
@@ -1054,14 +1109,14 @@ def add_worker():
     for _ in range(50):
         candidate = str(random.randint(1000, 9999))
         check = requests.get(
-            f"{SUPABASE_URL}/rest/v1/{WORKERS_TABLE}?pin=eq.{candidate}&select=id&limit=1",
+            f"{sb_url()}/rest/v1/{WORKERS_TABLE}?pin=eq.{candidate}&select=id&limit=1",
             headers=sb_headers()
         )
         if check.ok and not check.json():
             pin = candidate
             break
     r = requests.post(
-        f"{SUPABASE_URL}/rest/v1/{WORKERS_TABLE}",
+        f"{sb_url()}/rest/v1/{WORKERS_TABLE}",
         json={"name": name, "role": data.get("role",""), "active": True, "pin": pin},
         headers={**sb_headers(), "Prefer": "return=representation"}
     )
@@ -1073,13 +1128,13 @@ def assign_pins_bulk():
     import random
     # Get all workers without a PIN
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{WORKERS_TABLE}?pin=is.null&active=eq.true&select=id,name&limit=500",
+        f"{sb_url()}/rest/v1/{WORKERS_TABLE}?pin=is.null&active=eq.true&select=id,name&limit=500",
         headers=sb_headers()
     )
     workers = r.json() if r.ok else []
     # Get existing PINs to avoid collisions
     ep = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{WORKERS_TABLE}?pin=not.is.null&select=pin&limit=500",
+        f"{sb_url()}/rest/v1/{WORKERS_TABLE}?pin=not.is.null&select=pin&limit=500",
         headers=sb_headers()
     )
     used = set(w["pin"] for w in (ep.json() if ep.ok else []) if w.get("pin"))
@@ -1090,7 +1145,7 @@ def assign_pins_bulk():
             if candidate not in used:
                 used.add(candidate)
                 requests.patch(
-                    f"{SUPABASE_URL}/rest/v1/{WORKERS_TABLE}?id=eq.{worker['id']}",
+                    f"{sb_url()}/rest/v1/{WORKERS_TABLE}?id=eq.{worker['id']}",
                     json={"pin": candidate},
                     headers=sb_headers()
                 )
@@ -1107,7 +1162,7 @@ def update_worker(worker_id):
     if not payload:
         return jsonify({"ok": False, "error": "nothing to update"}), 400
     r = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/{WORKERS_TABLE}?id=eq.{worker_id}",
+        f"{sb_url()}/rest/v1/{WORKERS_TABLE}?id=eq.{worker_id}",
         json=payload,
         headers={**sb_headers(), "Prefer": "return=representation"}
     )
@@ -1120,7 +1175,7 @@ def update_worker(worker_id):
 @app.route("/api/workers/<worker_id>", methods=["DELETE"])
 def deactivate_worker(worker_id):
     r = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/{WORKERS_TABLE}?id=eq.{worker_id}",
+        f"{sb_url()}/rest/v1/{WORKERS_TABLE}?id=eq.{worker_id}",
         json={"active": False}, headers=sb_headers()
     )
     return jsonify({"ok": r.ok})
@@ -1133,7 +1188,7 @@ def get_safety_meeting():
     """Today's safety meeting attendance."""
     today = __import__('datetime').date.today().isoformat()
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{SM_TABLE}"
+        f"{sb_url()}/rest/v1/{SM_TABLE}"
         f"?date=eq.{today}&order=checked_in_at.asc",
         headers=sb_headers()
     )
@@ -1152,7 +1207,7 @@ def checkin_safety():
 
     # 1. Record safety meeting attendance
     r = requests.post(
-        f"{SUPABASE_URL}/rest/v1/{SM_TABLE}",
+        f"{sb_url()}/rest/v1/{SM_TABLE}",
         json={"worker_name": name, "date": today,
               "supervisor": data.get("supervisor","")},
         headers={**sb_headers(), "Prefer": "return=representation"}
@@ -1166,14 +1221,14 @@ def checkin_safety():
 
     # 2. Create payroll check-in (if not already checked in today)
     existing = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{CHECKINS_TABLE}"
+        f"{sb_url()}/rest/v1/{CHECKINS_TABLE}"
         f"?worker_name=eq.{requests.utils.quote(name)}&date=eq.{today}"
         f"&checked_out_at=is.null&select=id&limit=1",
         headers=sb_headers()
     )
     if existing.ok and not existing.json():
         requests.post(
-            f"{SUPABASE_URL}/rest/v1/{CHECKINS_TABLE}",
+            f"{sb_url()}/rest/v1/{CHECKINS_TABLE}",
             json={"worker_name": name, "position": "Safety Meeting",
                   "date": today, "checked_in_at": now_iso},
             headers={**sb_headers(), "Prefer": "return=representation"}
@@ -1187,7 +1242,7 @@ def undo_safety_checkin(record_id):
     import datetime as dt
     # Get the worker name from the SM record before deleting
     sr = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{SM_TABLE}?id=eq.{record_id}&select=worker_name&limit=1",
+        f"{sb_url()}/rest/v1/{SM_TABLE}?id=eq.{record_id}&select=worker_name&limit=1",
         headers=sb_headers()
     )
     worker_name = ""
@@ -1196,7 +1251,7 @@ def undo_safety_checkin(record_id):
 
     # Delete SM record
     r = requests.delete(
-        f"{SUPABASE_URL}/rest/v1/{SM_TABLE}?id=eq.{record_id}",
+        f"{sb_url()}/rest/v1/{SM_TABLE}?id=eq.{record_id}",
         headers=sb_headers()
     )
 
@@ -1204,7 +1259,7 @@ def undo_safety_checkin(record_id):
     if worker_name:
         today = dt.date.today().isoformat()
         requests.delete(
-            f"{SUPABASE_URL}/rest/v1/{CHECKINS_TABLE}"
+            f"{sb_url()}/rest/v1/{CHECKINS_TABLE}"
             f"?worker_name=eq.{requests.utils.quote(worker_name)}"
             f"&date=eq.{today}&position=eq.Safety Meeting&checked_out_at=is.null",
             headers=sb_headers()
@@ -1216,7 +1271,7 @@ def undo_safety_checkin(record_id):
 def safety_meeting_history():
     """Last 30 days of safety meeting attendance."""
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{SM_TABLE}"
+        f"{sb_url()}/rest/v1/{SM_TABLE}"
         f"?order=date.desc,worker_name.asc&limit=500",
         headers=sb_headers()
     )
@@ -1229,7 +1284,7 @@ def health():
 @app.route("/unit-log/<position>")
 def unit_log(position):
     resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{TABLE}"
+        f"{sb_url()}/rest/v1/{TABLE}"
         f"?select=date,period,area_phase,progress_pct,crew,notes,workers,created_at"
         f"&position=eq.{position}&order=date.asc,created_at.asc&limit=2000",
         headers=sb_headers()
@@ -1251,7 +1306,7 @@ def admin_wipe():
         <a href="/" style="color:#6b7280;font-size:13px">Cancel</a></body></html>"""
     # POST — actually wipe
     resp = requests.delete(
-        f"{SUPABASE_URL}/rest/v1/{TABLE}?created_at=gte.2000-01-01",
+        f"{sb_url()}/rest/v1/{TABLE}?created_at=gte.2000-01-01",
         headers=sb_headers()
     )
     if resp.ok:
@@ -1271,7 +1326,7 @@ def get_all_issues():
     """All issues across all units, newest first."""
     unit_filter = request.args.get("unit", "")
     status_filter = request.args.get("status", "")
-    qs = f"{SUPABASE_URL}/rest/v1/unit_issues?order=created_at.desc&limit=500"
+    qs = f"{sb_url()}/rest/v1/unit_issues?order=created_at.desc&limit=500"
     if unit_filter:
         qs += f"&unit=eq.{unit_filter}"
     if status_filter:
@@ -1290,7 +1345,7 @@ def update_issue_status(issue_id):
     if resolution:
         patch["resolution"] = resolution
     resp = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/unit_issues?id=eq.{issue_id}",
+        f"{sb_url()}/rest/v1/unit_issues?id=eq.{issue_id}",
         json=patch,
         headers={**sb_headers(), "Prefer": "return=representation"}
     )
@@ -1306,7 +1361,7 @@ def edit_issue(issue_id):
     if not patch:
         return jsonify({"ok": False, "error": "Nothing to update"}), 400
     resp = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/unit_issues?id=eq.{issue_id}",
+        f"{sb_url()}/rest/v1/unit_issues?id=eq.{issue_id}",
         json=patch,
         headers={**sb_headers(), "Prefer": "return=representation"}
     )
@@ -1315,7 +1370,7 @@ def edit_issue(issue_id):
 @app.route("/api/issues/<issue_id>", methods=["DELETE"])
 def delete_issue(issue_id):
     resp = requests.delete(
-        f"{SUPABASE_URL}/rest/v1/unit_issues?id=eq.{issue_id}",
+        f"{sb_url()}/rest/v1/unit_issues?id=eq.{issue_id}",
         headers=sb_headers()
     )
     return jsonify({"ok": resp.ok, "error": resp.text if not resp.ok else None})
@@ -1326,8 +1381,8 @@ def merge_issues(source_id, target_id):
     """Combine source issue's pins into target, then delete source."""
     h = sb_headers()
     # Fetch both issues
-    r_src = requests.get(f"{SUPABASE_URL}/rest/v1/unit_issues?id=eq.{source_id}&select=id,pins,pin_x,pin_y,drawing_type", headers=h)
-    r_tgt = requests.get(f"{SUPABASE_URL}/rest/v1/unit_issues?id=eq.{target_id}&select=id,pins,pin_x,pin_y,drawing_type", headers=h)
+    r_src = requests.get(f"{sb_url()}/rest/v1/unit_issues?id=eq.{source_id}&select=id,pins,pin_x,pin_y,drawing_type", headers=h)
+    r_tgt = requests.get(f"{sb_url()}/rest/v1/unit_issues?id=eq.{target_id}&select=id,pins,pin_x,pin_y,drawing_type", headers=h)
     src_rows = r_src.json() if r_src.ok else []
     tgt_rows = r_tgt.json() if r_tgt.ok else []
     if not src_rows or not tgt_rows:
@@ -1344,14 +1399,14 @@ def merge_issues(source_id, target_id):
     combined = issue_pins(tgt) + issue_pins(src)
     # Update target with combined pins
     r2 = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/unit_issues?id=eq.{target_id}",
+        f"{sb_url()}/rest/v1/unit_issues?id=eq.{target_id}",
         json={"pins": combined},
         headers=h
     )
     if not r2.ok:
         return jsonify({"ok": False, "error": r2.text}), 500
     # Delete source
-    requests.delete(f"{SUPABASE_URL}/rest/v1/unit_issues?id=eq.{source_id}", headers=h)
+    requests.delete(f"{sb_url()}/rest/v1/unit_issues?id=eq.{source_id}", headers=h)
     return jsonify({"ok": True, "pins": combined})
 
 @app.route("/issues/<unit>")
@@ -1361,7 +1416,7 @@ def issues_page(unit):
 @app.route("/api/issues/<unit>")
 def get_issues(unit):
     resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/unit_issues"
+        f"{sb_url()}/rest/v1/unit_issues"
         f"?unit=eq.{unit}&order=created_at.desc&limit=100",
         headers=sb_headers()
     )
@@ -1392,7 +1447,7 @@ def create_issue():
     h = sb_headers()
     h["Prefer"] = "return=representation"
     resp = requests.post(
-        f"{SUPABASE_URL}/rest/v1/unit_issues",
+        f"{sb_url()}/rest/v1/unit_issues",
         json=row,
         headers=h
     )
@@ -1410,7 +1465,7 @@ def add_pin_to_issue(issue_id):
     if x is None or y is None:
         return jsonify({"ok": False, "error": "x and y required"}), 400
     resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/unit_issues?id=eq.{issue_id}&select=id,pins",
+        f"{sb_url()}/rest/v1/unit_issues?id=eq.{issue_id}&select=id,pins",
         headers=sb_headers()
     )
     rows = resp.json() if resp.ok else []
@@ -1419,7 +1474,7 @@ def add_pin_to_issue(issue_id):
     pins = rows[0].get("pins") or []
     pins.append({"x": x, "y": y, "drawing_type": drawing_type})
     resp2 = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/unit_issues?id=eq.{issue_id}",
+        f"{sb_url()}/rest/v1/unit_issues?id=eq.{issue_id}",
         json={"pins": pins},
         headers=sb_headers()
     )
@@ -1440,10 +1495,10 @@ def upload_qc_drawing():
     filename = f"qc-{drawing_type}.{ext}"
     content_type = file.content_type or "image/jpeg"
     file_data = file.read()
-    pub_url = f"{SUPABASE_URL}/storage/v1/object/public/issue-photos/{filename}"
+    pub_url = f"{sb_url()}/storage/v1/object/public/issue-photos/{filename}"
     # Try POST (create)
     resp = requests.post(
-        f"{SUPABASE_URL}/storage/v1/object/issue-photos/{filename}",
+        f"{sb_url()}/storage/v1/object/issue-photos/{filename}",
         data=file_data,
         headers={
             "apikey": SUPABASE_KEY,
@@ -1457,11 +1512,11 @@ def upload_qc_drawing():
     # 409 = already exists → delete then re-upload
     if resp.status_code == 409:
         requests.delete(
-            f"{SUPABASE_URL}/storage/v1/object/issue-photos/{filename}",
+            f"{sb_url()}/storage/v1/object/issue-photos/{filename}",
             headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
         )
         resp2 = requests.post(
-            f"{SUPABASE_URL}/storage/v1/object/issue-photos/{filename}",
+            f"{sb_url()}/storage/v1/object/issue-photos/{filename}",
             data=file_data,
             headers={
                 "apikey": SUPABASE_KEY,
@@ -1487,7 +1542,7 @@ def test_storage():
     import io
     test_data = b"hello"
     resp = requests.post(
-        f"{SUPABASE_URL}/storage/v1/object/issue-photos/test-ping.txt",
+        f"{sb_url()}/storage/v1/object/issue-photos/test-ping.txt",
         data=test_data,
         headers={
             "apikey": SUPABASE_KEY,
@@ -1500,7 +1555,7 @@ def test_storage():
         "status": resp.status_code,
         "ok": resp.ok,
         "response": resp.text[:500],
-        "storage_url": f"{SUPABASE_URL}/storage/v1/object/issue-photos/test-ping.txt",
+        "storage_url": f"{sb_url()}/storage/v1/object/issue-photos/test-ping.txt",
         "key_prefix": SUPABASE_KEY[:12] + "..." if SUPABASE_KEY else "MISSING"
     })
 
@@ -1513,7 +1568,7 @@ def upload_photo():
     filename = f"{uuid.uuid4()}.{ext}"
     content_type = file.content_type or "image/jpeg"
     resp = requests.post(
-        f"{SUPABASE_URL}/storage/v1/object/issue-photos/{filename}",
+        f"{sb_url()}/storage/v1/object/issue-photos/{filename}",
         data=file.read(),
         headers={
             "apikey": SUPABASE_KEY,
@@ -1523,7 +1578,7 @@ def upload_photo():
         }
     )
     if resp.ok:
-        url = f"{SUPABASE_URL}/storage/v1/object/public/issue-photos/{filename}"
+        url = f"{sb_url()}/storage/v1/object/public/issue-photos/{filename}"
         return jsonify({"ok": True, "url": url})
     return jsonify({"ok": False, "error": resp.text}), 500
 
@@ -1566,7 +1621,7 @@ INT_ORDERED = [ap for ap in ORDERED_TRADES
 @app.route("/api/urgency-report")
 def urgency_report():
     # 1. Internal job numbers per position
-    internal_job_resp = requests.get(f"{SUPABASE_URL}/rest/v1/rpc/get_latest_internal_job_nos", headers=sb_headers())
+    internal_job_resp = requests.get(f"{sb_url()}/rest/v1/rpc/get_latest_internal_job_nos", headers=sb_headers())
     internal_job_map = {}
     for r in (internal_job_resp.json() if internal_job_resp.ok else []):
         pos = r.get("position",""); job_no = r.get("internal_job_no","")
@@ -1581,7 +1636,7 @@ def urgency_report():
     # Query only positions that have internal job numbers; order asc so last entry wins (most recent)
     pos_in = ",".join(f'"{p}"' for p in internal_job_map.keys())
     prog_resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{TABLE}"
+        f"{sb_url()}/rest/v1/{TABLE}"
         f"?select=position,area_phase,progress_pct"
         f"&position=in.({pos_in})"
         f"&progress_pct=not.is.null"
@@ -1598,7 +1653,7 @@ def urgency_report():
     # 3. Last 2 log entries per position (for "Last Updated" section)
     pos_list = ",".join(f'"{p}"' for p in internal_job_map.keys())
     recent_resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{TABLE}"
+        f"{sb_url()}/rest/v1/{TABLE}"
         f"?select=position,area_phase,progress_pct,date,period"
         f"&position=in.({pos_list})"
         f"&progress_pct=eq.1"
@@ -1657,7 +1712,7 @@ def urgency_report():
 def all_internal_job_nos():
     """Return latest Internal Job No per unit position via RPC (DISTINCT ON — no limit truncation)."""
     resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/rpc/get_latest_internal_job_nos",
+        f"{sb_url()}/rest/v1/rpc/get_latest_internal_job_nos",
         headers=sb_headers()
     )
     records = resp.json() if resp.ok else []
@@ -1674,7 +1729,7 @@ def all_progress():
     # Use RPC function (DISTINCT ON) — returns exactly one row per (position, area_phase),
     # most recent. No limit/truncation issues regardless of DB size.
     resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/rpc/get_latest_progress",
+        f"{sb_url()}/rest/v1/rpc/get_latest_progress",
         headers=sb_headers()
     )
     records = resp.json() if resp.ok else []
@@ -1748,7 +1803,7 @@ def is_editor(name):
     # Also accept any approved user with editor-level role
     try:
         r = requests.get(
-            f"{SUPABASE_URL}/rest/v1/app_users"
+            f"{sb_url()}/rest/v1/app_users"
             f"?name=eq.{requests.utils.quote(name)}&approved=eq.true&select=role&limit=1",
             headers=sb_headers()
         )
@@ -1771,7 +1826,7 @@ def notify_leads_attendance(worker_name, att_type, report_date, return_date, rea
         return
     try:
         resp = requests.get(
-            f"{SUPABASE_URL}/rest/v1/app_users"
+            f"{sb_url()}/rest/v1/app_users"
             f"?select=name,email,role"
             f"&role=in.(lead,admin,supervisor,boss)"
             f"&email=not.is.null&limit=50",
@@ -1834,7 +1889,7 @@ def get_attendance():
             qs_parts.append(f"{key}={val}")
     qs = "&".join(qs_parts)
     resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/attendance_reports?{qs}",
+        f"{sb_url()}/rest/v1/attendance_reports?{qs}",
         headers=sb_headers()
     )
     return jsonify(resp.json() if resp.ok else [])
@@ -1853,7 +1908,7 @@ def post_attendance():
         "arrival_time":data.get("arrival_time") or None,
     }
     resp = requests.post(
-        f"{SUPABASE_URL}/rest/v1/attendance_reports",
+        f"{sb_url()}/rest/v1/attendance_reports",
         headers={**sb_headers(), "Prefer": "return=representation"},
         json=payload
     )
@@ -1875,7 +1930,7 @@ def post_attendance():
             notif_title = f"{tlabel} — {payload['worker_name']}"
             notif_body  = f"{payload.get('reason','—')} | {payload.get('report_date','')}"
             requests.post(
-                f"{SUPABASE_URL}/rest/v1/notifications",
+                f"{sb_url()}/rest/v1/notifications",
                 json={"title": notif_title, "body": notif_body,
                       "target": "supervisor", "created_by": payload["worker_name"]},
                 headers={**sb_headers(), "Prefer": "return=minimal"},
@@ -1898,7 +1953,7 @@ def patch_attendance(att_id):
     if not payload:
         return jsonify({"error": "Nothing to update"}), 400
     r = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/attendance_reports?id=eq.{att_id}",
+        f"{sb_url()}/rest/v1/attendance_reports?id=eq.{att_id}",
         json=payload,
         headers={**sb_headers(), "Prefer": "return=minimal"}
     )
@@ -1907,7 +1962,7 @@ def patch_attendance(att_id):
 @app.route("/api/attendance/<int:att_id>", methods=["DELETE"])
 def delete_attendance(att_id):
     r = requests.delete(
-        f"{SUPABASE_URL}/rest/v1/attendance_reports?id=eq.{att_id}",
+        f"{sb_url()}/rest/v1/attendance_reports?id=eq.{att_id}",
         headers=sb_headers()
     )
     return jsonify({"ok": r.ok})
@@ -1917,7 +1972,7 @@ def get_attendance_today():
     from datetime import date as _d
     today = _d.today().isoformat()
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/attendance_reports"
+        f"{sb_url()}/rest/v1/attendance_reports"
         f"?report_date=eq.{today}&select=*&order=created_at.desc",
         headers=sb_headers(), timeout=5
     )
@@ -1942,7 +1997,7 @@ def get_attendance_active():
     import datetime as dt
     sixty_ago = (dt.date.today() - dt.timedelta(days=60)).isoformat()
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/attendance_reports"
+        f"{sb_url()}/rest/v1/attendance_reports"
         f"?report_date=lte.{today}&report_date=gte.{sixty_ago}"
         f"&select=*&order=created_at.desc&limit=500",
         headers=sb_headers(), timeout=8
@@ -2002,7 +2057,7 @@ def gen_sku(category, item_id):
 
 @app.route("/api/inventory", methods=["GET"])
 def get_inventory():
-    url = f"{SUPABASE_URL}/rest/v1/inventory_items?select=*&order=category.asc,name.asc&limit=500"
+    url = f"{sb_url()}/rest/v1/inventory_items?select=*&order=category.asc,name.asc&limit=500"
     r = requests.get(url, headers=sb_headers())
     return jsonify(r.json() if r.ok else [])
 
@@ -2013,7 +2068,7 @@ def add_inventory_item():
         return jsonify({"error": "Editor access required"}), 403
     payload = {k: data[k] for k in ["name","category","unit","qty_on_hand","notes","safe_qty","location_code"] if k in data}
     if data.get("created_by"): payload["created_by"] = data["created_by"]
-    url = f"{SUPABASE_URL}/rest/v1/inventory_items"
+    url = f"{sb_url()}/rest/v1/inventory_items"
     r = requests.post(url, headers={**sb_headers(), "Prefer": "return=representation"}, json=payload)
     if r.ok:
         rows = r.json()
@@ -2022,7 +2077,7 @@ def add_inventory_item():
             cat = payload.get("category", "General")
             sku = gen_sku(cat, new_id)
             requests.patch(
-                f"{SUPABASE_URL}/rest/v1/inventory_items?id=eq.{new_id}",
+                f"{sb_url()}/rest/v1/inventory_items?id=eq.{new_id}",
                 headers=sb_headers(), json={"sku": sku}
             )
             return jsonify({"ok": True, "sku": sku})
@@ -2040,7 +2095,7 @@ def update_inventory_item(item_id):
         payload["qty_on_hand"] = new_qty
         # Auto-set last_restocked_at if qty increased
         cur_r = requests.get(
-            f"{SUPABASE_URL}/rest/v1/inventory_items?id=eq.{item_id}&select=qty_on_hand&limit=1",
+            f"{sb_url()}/rest/v1/inventory_items?id=eq.{item_id}&select=qty_on_hand&limit=1",
             headers=sb_headers()
         )
         if cur_r.ok:
@@ -2056,7 +2111,7 @@ def update_inventory_item(item_id):
     if "unit_cost" in data: payload["unit_cost"] = data["unit_cost"]
     if data.get("updated_by"): payload["updated_by"] = data["updated_by"]
     payload["updated_at"] = "now()"
-    url = f"{SUPABASE_URL}/rest/v1/inventory_items?id=eq.{item_id}"
+    url = f"{sb_url()}/rest/v1/inventory_items?id=eq.{item_id}"
     r = requests.patch(url, headers={**sb_headers(), "Prefer": "return=representation"}, json=payload)
     if r.ok:
         # ── Safety stock notification ─────────────────────────────────
@@ -2065,7 +2120,7 @@ def update_inventory_item(item_id):
             new_safe  = payload.get("safe_qty")
             # Fetch current item to get all values if not in payload
             item_r = requests.get(
-                f"{SUPABASE_URL}/rest/v1/inventory_items?id=eq.{item_id}&select=name,qty_on_hand,safe_qty&limit=1",
+                f"{sb_url()}/rest/v1/inventory_items?id=eq.{item_id}&select=name,qty_on_hand,safe_qty&limit=1",
                 headers=sb_headers(), timeout=5
             )
             if item_r.ok and item_r.json():
@@ -2078,7 +2133,7 @@ def update_inventory_item(item_id):
                     notif_title = f"⚠️ Inventory {status_word}: {item_name}"
                     notif_body  = f"On hand: {cur_qty} | Safe level: {cur_safe}. Restock needed."
                     requests.post(
-                        f"{SUPABASE_URL}/rest/v1/notifications",
+                        f"{sb_url()}/rest/v1/notifications",
                         json={"title": notif_title, "body": notif_body,
                               "target": "supervisor", "created_by": "system"},
                         headers={**sb_headers(), "Prefer": "return=minimal"},
@@ -2093,7 +2148,7 @@ def update_inventory_item(item_id):
 @app.route("/api/inventory/low-stock", methods=["GET"])
 def get_low_stock():
     """Return Out + Low items using same logic as frontend KPI, enriched with last request date."""
-    url = f"{SUPABASE_URL}/rest/v1/inventory_items?order=category.asc,name.asc&select=*&limit=500"
+    url = f"{sb_url()}/rest/v1/inventory_items?order=category.asc,name.asc&select=*&limit=500"
     r = requests.get(url, headers=sb_headers())
     if not r.ok:
         return jsonify([])
@@ -2111,7 +2166,7 @@ def get_low_stock():
         from datetime import datetime, timezone
         item_ids = [str(it["id"]) for it in items if it.get("id")]
         # Get recent requests for these items (last 500, ordered desc)
-        req_url = f"{SUPABASE_URL}/rest/v1/material_requests?select=item_id,item_name,created_at&order=created_at.desc&limit=500"
+        req_url = f"{sb_url()}/rest/v1/material_requests?select=item_id,item_name,created_at&order=created_at.desc&limit=500"
         rr = requests.get(req_url, headers=sb_headers(), timeout=5)
         reqs = rr.json() if rr.ok else []
         # Build map: item_id -> last created_at (first hit wins since ordered desc)
@@ -2150,12 +2205,12 @@ def email_low_stock():
         return jsonify({"error": "Email not configured"}), 500
     # Prefer alert_email from app_settings, fall back to ADMIN_EMAIL env var
     _ae_r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/app_settings?key=eq.alert_email&select=value&limit=1",
+        f"{sb_url()}/rest/v1/app_settings?key=eq.alert_email&select=value&limit=1",
         headers=sb_headers(), timeout=4)
     _ae_rows = _ae_r.json() if _ae_r.ok else []
     _to_email = (_ae_rows[0]["value"].strip() if _ae_rows else "") or ADMIN_EMAIL
     _cc_r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/app_settings?key=eq.alert_cc&select=value&limit=1",
+        f"{sb_url()}/rest/v1/app_settings?key=eq.alert_cc&select=value&limit=1",
         headers=sb_headers(), timeout=4)
     _cc_rows = _cc_r.json() if _cc_r.ok else []
     _cc_raw = _cc_rows[0]["value"].strip() if _cc_rows else ""
@@ -2163,7 +2218,7 @@ def email_low_stock():
     if not _to_email:
         return jsonify({"error": "No alert email configured"}), 500
     # Fetch low-stock items
-    url = f"{SUPABASE_URL}/rest/v1/inventory_items?order=category.asc,name.asc&select=*&limit=500"
+    url = f"{sb_url()}/rest/v1/inventory_items?order=category.asc,name.asc&select=*&limit=500"
     r = requests.get(url, headers=sb_headers())
     if not r.ok:
         return jsonify({"error": "Failed to fetch inventory"}), 500
@@ -2236,7 +2291,7 @@ def email_low_stock():
 
 @app.route("/api/facturas", methods=["GET"])
 def list_facturas():
-    url = f"{SUPABASE_URL}/rest/v1/facturas?order=created_at.desc&limit=200"
+    url = f"{sb_url()}/rest/v1/facturas?order=created_at.desc&limit=200"
     r = requests.get(url, headers=sb_headers())
     if not r.ok:
         return jsonify({"ok": False, "facturas": [], "error": r.text}), 500
@@ -2255,7 +2310,7 @@ def create_factura():
         "uploader":  (data.get("uploader") or "").strip() or "Unknown",
     }
     r = requests.post(
-        f"{SUPABASE_URL}/rest/v1/facturas",
+        f"{sb_url()}/rest/v1/facturas",
         json=payload,
         headers={**sb_headers(), "Prefer": "return=representation"},
         timeout=15
@@ -2269,7 +2324,7 @@ def create_factura():
 @app.route("/api/facturas/<factura_id>", methods=["DELETE"])
 def delete_factura(factura_id):
     r = requests.delete(
-        f"{SUPABASE_URL}/rest/v1/facturas?id=eq.{factura_id}",
+        f"{sb_url()}/rest/v1/facturas?id=eq.{factura_id}",
         headers=sb_headers(),
         timeout=10
     )
@@ -2291,7 +2346,7 @@ def list_pos():
     """List purchase orders — optional ?status= filter."""
     status = request.args.get("status","")
     q = f"&status=eq.{status}" if status else ""
-    url = f"{SUPABASE_URL}/rest/v1/purchase_orders?order=created_at.desc&limit=200{q}"
+    url = f"{sb_url()}/rest/v1/purchase_orders?order=created_at.desc&limit=200{q}"
     r = requests.get(url, headers=sb_headers())
     if not r.ok:
         return jsonify({"ok": False, "pos": [], "error": r.text}), 500
@@ -2325,7 +2380,7 @@ def create_po():
         return jsonify({"error": f"Payload error: {str(e)}"}), 400
     try:
         r = requests.post(
-            f"{SUPABASE_URL}/rest/v1/purchase_orders",
+            f"{sb_url()}/rest/v1/purchase_orders",
             json=payload,
             headers={**sb_headers(), "Prefer": "return=representation"},
             timeout=10
@@ -2343,7 +2398,7 @@ def create_po():
 
 @app.route("/api/po/<po_id>", methods=["GET"])
 def get_po(po_id):
-    url = f"{SUPABASE_URL}/rest/v1/purchase_orders?id=eq.{po_id}&limit=1"
+    url = f"{sb_url()}/rest/v1/purchase_orders?id=eq.{po_id}&limit=1"
     r = requests.get(url, headers=sb_headers())
     if not r.ok or not r.json():
         return jsonify({"error": "Not found"}), 404
@@ -2361,7 +2416,7 @@ def update_po(po_id):
         return jsonify({"error": "Nothing to update"}), 400
     payload["updated_at"] = "now()"
     r = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/purchase_orders?id=eq.{po_id}",
+        f"{sb_url()}/rest/v1/purchase_orders?id=eq.{po_id}",
         json=payload,
         headers={**sb_headers(), "Prefer": "return=representation"}
     )
@@ -2390,7 +2445,7 @@ def receive_po(po_id):
 
     # Fetch current PO
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/purchase_orders?id=eq.{po_id}&limit=1",
+        f"{sb_url()}/rest/v1/purchase_orders?id=eq.{po_id}&limit=1",
         headers=sb_headers()
     )
     if not r.ok or not r.json():
@@ -2419,7 +2474,7 @@ def receive_po(po_id):
             continue
         # Get current qty
         ir = requests.get(
-            f"{SUPABASE_URL}/rest/v1/inventory_items?id=eq.{iid}&select=qty_on_hand,name&limit=1",
+            f"{sb_url()}/rest/v1/inventory_items?id=eq.{iid}&select=qty_on_hand,name&limit=1",
             headers=sb_headers()
         )
         if not ir.ok or not ir.json():
@@ -2428,7 +2483,7 @@ def receive_po(po_id):
         cur = ir.json()[0]
         new_qty = (cur.get("qty_on_hand") or 0) + qty
         pr = requests.patch(
-            f"{SUPABASE_URL}/rest/v1/inventory_items?id=eq.{iid}",
+            f"{sb_url()}/rest/v1/inventory_items?id=eq.{iid}",
             json={"qty_on_hand": new_qty, "last_restocked_at": "now()", "updated_at": "now()"},
             headers={**sb_headers(), "Prefer": "return=minimal"}
         )
@@ -2459,7 +2514,7 @@ def receive_po(po_id):
         "updated_at":         "now()"
     }
     requests.patch(
-        f"{SUPABASE_URL}/rest/v1/purchase_orders?id=eq.{po_id}",
+        f"{sb_url()}/rest/v1/purchase_orders?id=eq.{po_id}",
         json=patch_payload,
         headers={**sb_headers(), "Prefer": "return=minimal"}
     )
@@ -2467,7 +2522,7 @@ def receive_po(po_id):
     # In-app notification
     try:
         requests.post(
-            f"{SUPABASE_URL}/rest/v1/notifications",
+            f"{sb_url()}/rest/v1/notifications",
             json={"title": f"📦 PO Received: {po.get('po_number',po_id)}",
                   "body": f"{new_status.upper()} — received by {received_by}. {len(errors)} error(s).",
                   "target": "supervisor", "created_by": received_by},
@@ -2495,7 +2550,7 @@ def allocate_po(po_id):
         return jsonify({"error": "No items specified"}), 400
 
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/purchase_orders?id=eq.{po_id}&limit=1",
+        f"{sb_url()}/rest/v1/purchase_orders?id=eq.{po_id}&limit=1",
         headers=sb_headers(), timeout=10
     )
     if not r.ok or not r.json():
@@ -2514,7 +2569,7 @@ def allocate_po(po_id):
     existing_allocs.append(alloc)
 
     patch_r = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/purchase_orders?id=eq.{po_id}",
+        f"{sb_url()}/rest/v1/purchase_orders?id=eq.{po_id}",
         json={"allocations": existing_allocs},
         headers={**sb_headers(), "Prefer": "return=minimal"},
         timeout=10
@@ -2529,14 +2584,14 @@ def allocate_po(po_id):
             continue
         try:
             inv_r = requests.get(
-                f"{SUPABASE_URL}/rest/v1/inventory_items?id=eq.{item_id}&select=qty_on_hand,name,safe_qty&limit=1",
+                f"{sb_url()}/rest/v1/inventory_items?id=eq.{item_id}&select=qty_on_hand,name,safe_qty&limit=1",
                 headers=sb_headers(), timeout=8
             )
             if inv_r.ok and inv_r.json():
                 inv = inv_r.json()[0]
                 new_qty = max(0, float(inv.get("qty_on_hand") or 0) - qty_alloc)
                 requests.patch(
-                    f"{SUPABASE_URL}/rest/v1/inventory_items?id=eq.{item_id}",
+                    f"{sb_url()}/rest/v1/inventory_items?id=eq.{item_id}",
                     json={"qty_on_hand": new_qty},
                     headers={**sb_headers(), "Prefer": "return=minimal"}, timeout=8
                 )
@@ -2545,7 +2600,7 @@ def allocate_po(po_id):
                     if safe > 0 and new_qty <= safe:
                         status_word = "OUT" if new_qty <= 0 else "LOW"
                         requests.post(
-                            f"{SUPABASE_URL}/rest/v1/notifications",
+                            f"{sb_url()}/rest/v1/notifications",
                             json={"title": f"\u26a0\ufe0f Inventory {status_word}: {inv.get('name',item_id)}",
                                   "body": f"Allocated to {job_name}. On hand: {new_qty} | Safe: {safe}",
                                   "target": "supervisor", "created_by": "system"},
@@ -2562,7 +2617,7 @@ def allocate_po(po_id):
 @app.route("/api/inventory/locations", methods=["GET"])
 def get_inventory_locations():
     """Return items grouped by location_code."""
-    url = f"{SUPABASE_URL}/rest/v1/inventory_items?select=id,name,category,sku,location_code,qty_on_hand,unit&order=location_code.asc,name.asc&limit=500"
+    url = f"{sb_url()}/rest/v1/inventory_items?select=id,name,category,sku,location_code,qty_on_hand,unit&order=location_code.asc,name.asc&limit=500"
     r = requests.get(url, headers=sb_headers())
     if not r.ok:
         return jsonify([])
@@ -2593,7 +2648,7 @@ def inventory_locations_qr_pdf():
     from reportlab.lib.utils import ImageReader
 
     # Fetch distinct locations
-    url = f"{SUPABASE_URL}/rest/v1/inventory_items?select=location_code&not.location_code.is=null&order=location_code.asc&limit=500"
+    url = f"{sb_url()}/rest/v1/inventory_items?select=location_code&not.location_code.is=null&order=location_code.asc&limit=500"
     r = requests.get(url, headers=sb_headers())
     if not r.ok:
         return "Error fetching locations", 500
@@ -2681,7 +2736,7 @@ def sku_backfill():
     data = request.json or {}
     if not is_editor(data.get("editor","")):
         return jsonify({"error":"Editor access required"}),403
-    url = f"{SUPABASE_URL}/rest/v1/inventory_items?sku=is.null&select=id,category&limit=500"
+    url = f"{sb_url()}/rest/v1/inventory_items?sku=is.null&select=id,category&limit=500"
     r = requests.get(url, headers=sb_headers())
     if not r.ok:
         return jsonify({"error":r.text}),500
@@ -2690,7 +2745,7 @@ def sku_backfill():
     for it in items:
         sku = gen_sku(it.get("category","General"), it["id"])
         requests.patch(
-            f"{SUPABASE_URL}/rest/v1/inventory_items?id=eq.{it['id']}",
+            f"{sb_url()}/rest/v1/inventory_items?id=eq.{it['id']}",
             headers=sb_headers(), json={"sku": sku}
         )
         updated += 1
@@ -2701,7 +2756,7 @@ def delete_inventory_item(item_id):
     data = request.json or {}
     if not is_editor(data.get("editor", "")):
         return jsonify({"error": "Editor access required"}), 403
-    url = f"{SUPABASE_URL}/rest/v1/inventory_items?id=eq.{item_id}"
+    url = f"{sb_url()}/rest/v1/inventory_items?id=eq.{item_id}"
     r = requests.delete(url, headers=sb_headers())
     if r.ok:
         return jsonify({"ok": True})
@@ -2712,7 +2767,7 @@ def write_mat_doc(mvt_type, item_id, item_name, qty, **kw):
     """Write a material document (GI/GR). Best-effort, never raises."""
     try:
         requests.post(
-            f"{SUPABASE_URL}/rest/v1/material_documents",
+            f"{sb_url()}/rest/v1/material_documents",
             json={"mvt_type": mvt_type,
                   "item_id": str(item_id) if item_id else None,
                   "item_name": item_name or "",
@@ -2733,7 +2788,7 @@ def list_mat_docs():
     limit   = request.args.get("limit", 300)
     item_id = request.args.get("item_id")
     mvt     = request.args.get("mvt_type")
-    url = (f"{SUPABASE_URL}/rest/v1/material_documents"
+    url = (f"{sb_url()}/rest/v1/material_documents"
            f"?select=*&order=created_at.desc&limit={limit}")
     if item_id: url += f"&item_id=eq.{item_id}"
     if mvt:     url += f"&mvt_type=eq.{mvt}"
@@ -2755,7 +2810,7 @@ def create_mat_doc():
         "notes":        (data.get("notes") or "").strip() or None,
     }
     r = requests.post(
-        f"{SUPABASE_URL}/rest/v1/material_documents",
+        f"{sb_url()}/rest/v1/material_documents",
         json=payload,
         headers={**sb_headers(), "Prefer": "return=representation"},
         timeout=15
@@ -2771,7 +2826,7 @@ def get_material_requests():
     item_id = request.args.get("item_id")
     limit   = int(request.args.get("limit", 200))
     days    = request.args.get("days")          # history mode: last N days
-    url = f"{SUPABASE_URL}/rest/v1/material_requests?select=*&order=created_at.desc&limit={limit}"
+    url = f"{sb_url()}/rest/v1/material_requests?select=*&order=created_at.desc&limit={limit}"
     if status:
         url += f"&status=eq.{status}"
     if item_id:
@@ -2805,7 +2860,7 @@ def create_material_request():
     }
     if data.get("materials_json"):
         payload["materials_json"] = data["materials_json"]
-    url = f"{SUPABASE_URL}/rest/v1/material_requests"
+    url = f"{sb_url()}/rest/v1/material_requests"
     r = requests.post(url, headers={**sb_headers(), "Prefer": "return=representation"}, json=payload)
     if r.ok:
         return jsonify({"ok": True})
@@ -2818,7 +2873,7 @@ def approve_material_request(req_id):
         return jsonify({"error": "Editor access required"}), 403
     status = data.get("status", "Approved")
     payload = {"status": status, "approved_by": data["approved_by"], "approved_at": "now()"}
-    url = f"{SUPABASE_URL}/rest/v1/material_requests?id=eq.{req_id}"
+    url = f"{sb_url()}/rest/v1/material_requests?id=eq.{req_id}"
     r = requests.patch(url, headers={**sb_headers(), "Prefer": "return=representation"}, json=payload)
     if r.ok:
         return jsonify({"ok": True})
@@ -2835,7 +2890,7 @@ def deliver_material_request(req_id):
         return jsonify({"error": "delivered_by required"}), 400
     # Fetch the request to get all material lines
     req_r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/material_requests?id=eq.{req_id}&select=*&limit=1",
+        f"{sb_url()}/rest/v1/material_requests?id=eq.{req_id}&select=*&limit=1",
         headers=sb_headers()
     )
     materials = []
@@ -2853,14 +2908,14 @@ def deliver_material_request(req_id):
         if not iid or qty <= 0:
             continue
         inv_r = requests.get(
-            f"{SUPABASE_URL}/rest/v1/inventory_items?id=eq.{iid}&select=qty_on_hand&limit=1",
+            f"{sb_url()}/rest/v1/inventory_items?id=eq.{iid}&select=qty_on_hand&limit=1",
             headers=sb_headers()
         )
         if inv_r.ok and inv_r.json():
             cur_qty = inv_r.json()[0].get("qty_on_hand") or 0
             new_qty = max(0, cur_qty - qty)
             requests.patch(
-                f"{SUPABASE_URL}/rest/v1/inventory_items?id=eq.{iid}",
+                f"{sb_url()}/rest/v1/inventory_items?id=eq.{iid}",
                 headers={**sb_headers(), "Prefer": "return=minimal"},
                 json={"qty_on_hand": new_qty, "updated_at": "now()"}
             )
@@ -2887,7 +2942,7 @@ def deliver_material_request(req_id):
         "signature_data": signature_data,
         "pickup_by": pickup_by
     }
-    url = f"{SUPABASE_URL}/rest/v1/material_requests?id=eq.{req_id}"
+    url = f"{sb_url()}/rest/v1/material_requests?id=eq.{req_id}"
     r = requests.patch(url, headers={**sb_headers(), "Prefer": "return=representation"}, json=payload)
     if r.ok:
         return jsonify({"ok": True})
@@ -2906,7 +2961,7 @@ def delete_material_request(req_id):
 
     # Fetch the request first to check status and get material lines
     req_r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/material_requests?id=eq.{req_id}&select=*&limit=1",
+        f"{sb_url()}/rest/v1/material_requests?id=eq.{req_id}&select=*&limit=1",
         headers=sb_headers()
     )
     restored = 0
@@ -2929,20 +2984,20 @@ def delete_material_request(req_id):
                 if not iid or qty <= 0:
                     continue
                 inv_r = requests.get(
-                    f"{SUPABASE_URL}/rest/v1/inventory_items?id=eq.{iid}&select=qty_on_hand&limit=1",
+                    f"{sb_url()}/rest/v1/inventory_items?id=eq.{iid}&select=qty_on_hand&limit=1",
                     headers=sb_headers()
                 )
                 if inv_r.ok and inv_r.json():
                     cur_qty = inv_r.json()[0].get("qty_on_hand") or 0
                     requests.patch(
-                        f"{SUPABASE_URL}/rest/v1/inventory_items?id=eq.{iid}",
+                        f"{sb_url()}/rest/v1/inventory_items?id=eq.{iid}",
                         headers={**sb_headers(), "Prefer": "return=minimal"},
                         json={"qty_on_hand": cur_qty + qty, "updated_at": "now()"}
                     )
                     restored += qty
 
     # Delete the request
-    url = f"{SUPABASE_URL}/rest/v1/material_requests?id=eq.{req_id}"
+    url = f"{sb_url()}/rest/v1/material_requests?id=eq.{req_id}"
     r = requests.delete(url, headers={
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}",
@@ -2969,7 +3024,7 @@ def export_material_requests():
     if request.args.get("date_to"):
         filters.append(f"created_at=lte.{requests.utils.quote(request.args['date_to'])}T23:59:59")
     qs = "&".join(filters) + ("&" if filters else "")
-    url = (f"{SUPABASE_URL}/rest/v1/material_requests"
+    url = (f"{sb_url()}/rest/v1/material_requests"
            f"?{qs}select=id,created_at,requester_name,contractor_company,job_name,"
            f"item_name,qty_needed,building,notes,status,approved_by,approved_at,"
            f"delivered_by,delivered_at,pickup_by&order=created_at.desc&limit=1000")
@@ -2979,7 +3034,7 @@ def export_material_requests():
 # ── Suppliers ────────────────────────────────────────────────────────────────
 @app.route("/api/suppliers", methods=["GET"])
 def get_suppliers():
-    url = f"{SUPABASE_URL}/rest/v1/suppliers?select=*&order=name.asc"
+    url = f"{sb_url()}/rest/v1/suppliers?select=*&order=name.asc"
     r = requests.get(url, headers=sb_headers())
     return jsonify({"suppliers": r.json() if r.ok else []})
 
@@ -2997,7 +3052,7 @@ def create_supplier():
         "email":        (data.get("email") or "").strip() or None,
         "notes":        (data.get("notes") or "").strip() or None,
     }
-    r = requests.post(f"{SUPABASE_URL}/rest/v1/suppliers",
+    r = requests.post(f"{sb_url()}/rest/v1/suppliers",
                       headers={**sb_headers(), "Prefer": "return=representation"},
                       json=payload)
     if r.ok:
@@ -3016,7 +3071,7 @@ def update_supplier(sup_id):
     if not payload:
         return jsonify({"error": "Nothing to update"}), 400
     r = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/suppliers?id=eq.{sup_id}",
+        f"{sb_url()}/rest/v1/suppliers?id=eq.{sup_id}",
         headers={**sb_headers(), "Prefer": "return=representation"},
         json=payload)
     return jsonify({"ok": r.ok}) if r.ok else jsonify({"error": r.text}), 400
@@ -3024,7 +3079,7 @@ def update_supplier(sup_id):
 @app.route("/api/suppliers/<sup_id>", methods=["DELETE"])
 def delete_supplier(sup_id):
     r = requests.delete(
-        f"{SUPABASE_URL}/rest/v1/suppliers?id=eq.{sup_id}",
+        f"{sb_url()}/rest/v1/suppliers?id=eq.{sup_id}",
         headers=sb_headers())
     return jsonify({"ok": r.ok})
 
@@ -3033,7 +3088,7 @@ def delete_supplier(sup_id):
 @app.route("/api/users/has-pin", methods=["GET"])
 def has_pin():
     name = request.args.get("name", "")
-    url = f"{SUPABASE_URL}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}&select=pin"
+    url = f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}&select=pin"
     r = requests.get(url, headers=sb_headers())
     rows = r.json() if r.ok else []
     has = bool(rows and rows[0].get("pin"))
@@ -3048,13 +3103,13 @@ def set_pin():
         return jsonify({"error": "PIN must be 4 digits"}), 400
     # Uniqueness check — no two users can share a PIN
     chk = requests.get(
-        f"{SUPABASE_URL}/rest/v1/app_users?pin=eq.{pin}&select=name&limit=1",
+        f"{sb_url()}/rest/v1/app_users?pin=eq.{pin}&select=name&limit=1",
         headers=sb_headers()
     )
     taken = [r for r in (chk.json() if chk.ok else []) if r.get("name") != name]
     if taken:
         return jsonify({"error": "PIN already taken — choose another"}), 409
-    url = f"{SUPABASE_URL}/rest/v1/app_users"
+    url = f"{sb_url()}/rest/v1/app_users"
     existing = requests.get(f"{url}?name=eq.{requests.utils.quote(name)}&select=role&limit=1", headers=sb_headers())
     existing_rows = existing.json() if existing.ok else []
     if existing_rows:
@@ -3078,7 +3133,7 @@ def verify_pin():
     data = request.json or {}
     name = data.get("name", "")
     pin = str(data.get("pin", ""))
-    url = f"{SUPABASE_URL}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}&select=pin,role"
+    url = f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}&select=pin,role"
     r = requests.get(url, headers=sb_headers())
     rows = r.json() if r.ok else []
     if not rows:
@@ -3095,7 +3150,7 @@ UM_TABLE = "unit_materials"
 @app.route("/api/unit-materials/<unit>", methods=["GET"])
 def get_unit_materials(unit):
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{UM_TABLE}"
+        f"{sb_url()}/rest/v1/{UM_TABLE}"
         f"?unit=eq.{requests.utils.quote(unit)}&order=date.asc,created_at.asc&limit=500",
         headers=sb_headers()
     )
@@ -3114,7 +3169,7 @@ def add_unit_material():
         "date":          data.get("date", ""),
         "created_by":    data.get("created_by", ""),
     }
-    r = requests.post(f"{SUPABASE_URL}/rest/v1/{UM_TABLE}",
+    r = requests.post(f"{sb_url()}/rest/v1/{UM_TABLE}",
                       headers=sb_headers(), json=payload)
     rows = r.json() if r.ok else []
     if rows:
@@ -3129,7 +3184,7 @@ def update_unit_material(item_id):
     if not payload:
         return jsonify({"error": "nothing to update"}), 400
     r = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/{UM_TABLE}?id=eq.{item_id}",
+        f"{sb_url()}/rest/v1/{UM_TABLE}?id=eq.{item_id}",
         headers=sb_headers(), json=payload
     )
     rows = r.json() if r.ok else []
@@ -3140,7 +3195,7 @@ def update_unit_material(item_id):
 @app.route("/api/unit-materials/<item_id>", methods=["DELETE"])
 def delete_unit_material(item_id):
     r = requests.delete(
-        f"{SUPABASE_URL}/rest/v1/{UM_TABLE}?id=eq.{item_id}",
+        f"{sb_url()}/rest/v1/{UM_TABLE}?id=eq.{item_id}",
         headers=sb_headers()
     )
     return jsonify({"ok": r.ok})
@@ -3152,7 +3207,7 @@ PU_TABLE = "project_units"
 @app.route("/api/project-units", methods=["GET"])
 def get_project_units():
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{PU_TABLE}?order=created_at.asc&limit=200",
+        f"{sb_url()}/rest/v1/{PU_TABLE}?order=created_at.asc&limit=200",
         headers=sb_headers()
     )
     return jsonify(r.json() if r.ok else [])
@@ -3164,7 +3219,7 @@ def create_project_unit():
     if not unit_name:
         return jsonify({"error": "unit_name required"}), 400
     payload = {"unit_name": unit_name, "status": "active"}
-    r = requests.post(f"{SUPABASE_URL}/rest/v1/{PU_TABLE}",
+    r = requests.post(f"{sb_url()}/rest/v1/{PU_TABLE}",
                       headers=sb_headers(), json=payload)
     rows = r.json() if r.ok else []
     if rows:
@@ -3181,7 +3236,7 @@ def update_project_unit(unit_id):
     if payload.get("status") == "completed":
         payload["completed_at"] = datetime.utcnow().isoformat()
     r = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/{PU_TABLE}?id=eq.{unit_id}",
+        f"{sb_url()}/rest/v1/{PU_TABLE}?id=eq.{unit_id}",
         headers=sb_headers(), json=payload
     )
     rows = r.json() if r.ok else []
@@ -3192,7 +3247,7 @@ def update_project_unit(unit_id):
 @app.route("/api/project-units/<unit_id>", methods=["DELETE"])
 def delete_project_unit(unit_id):
     r = requests.delete(
-        f"{SUPABASE_URL}/rest/v1/{PU_TABLE}?id=eq.{unit_id}",
+        f"{sb_url()}/rest/v1/{PU_TABLE}?id=eq.{unit_id}",
         headers=sb_headers()
     )
     return jsonify({"ok": r.ok})
@@ -3209,7 +3264,7 @@ def settings_page():
 # ── App Users CRUD ───────────────────────────────────────────────
 @app.route("/api/users", methods=["GET"])
 def list_users():
-    url = f"{SUPABASE_URL}/rest/v1/app_users?order=name.asc&select=name,role,pin,email,phone,led_by,company&limit=200"
+    url = f"{sb_url()}/rest/v1/app_users?order=name.asc&select=name,role,pin,email,phone,led_by,company&limit=200"
     r = requests.get(url, headers=sb_headers(), timeout=8)
     rows = r.json() if r.ok else []
     # Mask pin
@@ -3224,9 +3279,9 @@ def get_team_members():
     lead = request.args.get("lead","").strip()
     if not lead:
         # Boss/admin: return all with led_by populated
-        url = f"{SUPABASE_URL}/rest/v1/app_users?led_by=not.is.null&order=led_by.asc,name.asc&select=name,role,led_by&limit=200"
+        url = f"{sb_url()}/rest/v1/app_users?led_by=not.is.null&order=led_by.asc,name.asc&select=name,role,led_by&limit=200"
     else:
-        url = (f"{SUPABASE_URL}/rest/v1/app_users"
+        url = (f"{sb_url()}/rest/v1/app_users"
                f"?led_by=eq.{requests.utils.quote(lead)}&order=name.asc&select=name,role,led_by&limit=200")
     r = requests.get(url, headers=sb_headers(), timeout=8)
     return jsonify(r.json() if r.ok else [])
@@ -3248,7 +3303,7 @@ def create_user():
     if data.get("pin"):
         payload["pin"] = str(data["pin"])
     r = requests.post(
-        f"{SUPABASE_URL}/rest/v1/app_users",
+        f"{sb_url()}/rest/v1/app_users",
         headers={**sb_headers(), "Prefer": "return=representation"},
         json=payload
     )
@@ -3274,14 +3329,14 @@ def update_user_by_name(name):
     if not payload:
         return jsonify({"ok": False, "error": "nothing to update"}), 400
     r = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}",
+        f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}",
         headers={**sb_headers(), "Prefer": "return=representation"},
         json=payload
     )
     # If name changed, sync to workers table too
     if r.ok and new_name:
         requests.patch(
-            f"{SUPABASE_URL}/rest/v1/workers?name=eq.{requests.utils.quote(name)}",
+            f"{sb_url()}/rest/v1/workers?name=eq.{requests.utils.quote(name)}",
             headers={**sb_headers(), "Prefer": "return=representation"},
             json={"name": new_name}
         )
@@ -3294,7 +3349,7 @@ def delete_user_by_name(name):
     err = _verify_caller_is_admin(caller)
     if err: return err
     r = requests.delete(
-        f"{SUPABASE_URL}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}",
+        f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}",
         headers=sb_headers()
     )
     return jsonify({"ok": r.ok})
@@ -3307,7 +3362,7 @@ def set_consent():
         return jsonify({"ok": False, "error": "name required"}), 400
     import datetime as dt
     r = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}",
+        f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}",
         headers={**sb_headers(), "Prefer": "return=representation"},
         json={"consented_at": dt.datetime.utcnow().isoformat()}
     )
@@ -3317,7 +3372,7 @@ def set_consent():
 @app.route("/api/workers/all", methods=["GET"])
 def get_all_workers():
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{WORKERS_TABLE}"
+        f"{sb_url()}/rest/v1/{WORKERS_TABLE}"
         f"?order=name.asc&limit=200",
         headers=sb_headers()
     )
@@ -3331,7 +3386,7 @@ def update_worker_by_name(name):
     if not payload:
         return jsonify({"ok": False, "error": "nothing to update"}), 400
     r = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/{WORKERS_TABLE}?name=eq.{requests.utils.quote(name)}",
+        f"{sb_url()}/rest/v1/{WORKERS_TABLE}?name=eq.{requests.utils.quote(name)}",
         headers={**sb_headers(), "Prefer": "return=representation"},
         json=payload
     )
@@ -3340,7 +3395,7 @@ def update_worker_by_name(name):
 @app.route("/api/workers/by-name/<path:name>", methods=["DELETE"])
 def delete_worker_by_name(name):
     r = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/{WORKERS_TABLE}?name=eq.{requests.utils.quote(name)}",
+        f"{sb_url()}/rest/v1/{WORKERS_TABLE}?name=eq.{requests.utils.quote(name)}",
         headers=sb_headers(),
         json={"active": False}
     )
@@ -3352,7 +3407,7 @@ CONTACTS_TABLE = "contacts"
 @app.route("/api/contacts", methods=["GET"])
 def list_contacts():
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{CONTACTS_TABLE}?order=name.asc&limit=200",
+        f"{sb_url()}/rest/v1/{CONTACTS_TABLE}?order=name.asc&limit=200",
         headers=sb_headers()
     )
     return jsonify(r.json() if r.ok else [])
@@ -3365,7 +3420,7 @@ def create_contact():
     allowed = ["name", "company", "role", "phone", "email", "notes"]
     payload = {k: data[k] for k in allowed if k in data}
     r = requests.post(
-        f"{SUPABASE_URL}/rest/v1/{CONTACTS_TABLE}",
+        f"{sb_url()}/rest/v1/{CONTACTS_TABLE}",
         headers={**sb_headers(), "Prefer": "return=representation"},
         json=payload
     )
@@ -3379,7 +3434,7 @@ def update_contact(contact_id):
     if not payload:
         return jsonify({"ok": False, "error": "nothing to update"}), 400
     r = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/{CONTACTS_TABLE}?id=eq.{contact_id}",
+        f"{sb_url()}/rest/v1/{CONTACTS_TABLE}?id=eq.{contact_id}",
         headers={**sb_headers(), "Prefer": "return=representation"},
         json=payload
     )
@@ -3388,7 +3443,7 @@ def update_contact(contact_id):
 @app.route("/api/contacts/<contact_id>", methods=["DELETE"])
 def delete_contact(contact_id):
     r = requests.delete(
-        f"{SUPABASE_URL}/rest/v1/{CONTACTS_TABLE}?id=eq.{contact_id}",
+        f"{sb_url()}/rest/v1/{CONTACTS_TABLE}?id=eq.{contact_id}",
         headers=sb_headers()
     )
     return jsonify({"ok": r.ok})
@@ -3400,7 +3455,7 @@ def checkins_week():
     import datetime as dt
     start = request.args.get("start", "")
     end   = request.args.get("end", "")
-    url = (f"{SUPABASE_URL}/rest/v1/{CHECKINS_TABLE}"
+    url = (f"{sb_url()}/rest/v1/{CHECKINS_TABLE}"
            f"?select=id,worker_name,position,date,checked_in_at,checked_out_at"
            f"&order=date.asc,worker_name.asc&limit=5000")
     if start: url += f"&date=gte.{start}"
@@ -3452,7 +3507,7 @@ def auto_checkout():
     for target_date in [yesterday, today]:
         checkout_time = target_date + "T23:00:00"
         co = requests.patch(
-            f"{SUPABASE_URL}/rest/v1/{CHECKINS_TABLE}"
+            f"{sb_url()}/rest/v1/{CHECKINS_TABLE}"
             f"?date=eq.{target_date}&checked_out_at=is.null",
             json={"checked_out_at": checkout_time, "auto_checkout": True},
             headers={**sb_headers(), "Prefer": "return=representation"}
@@ -3463,21 +3518,21 @@ def auto_checkout():
     # ── 2. Mark absent — workers with zero check-ins today ───────────────────
     # Get all active workers
     wr = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{WORKERS_TABLE}?active=eq.true&select=name&limit=500",
+        f"{sb_url()}/rest/v1/{WORKERS_TABLE}?active=eq.true&select=name&limit=500",
         headers=sb_headers()
     )
     all_workers = [w["name"] for w in (wr.json() if wr.ok else []) if w.get("name")]
 
     # Get all workers who had ANY check-in today
     cr = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{CHECKINS_TABLE}?date=eq.{today}&select=worker_name&limit=500",
+        f"{sb_url()}/rest/v1/{CHECKINS_TABLE}?date=eq.{today}&select=worker_name&limit=500",
         headers=sb_headers()
     )
     checked_in_names = set(r["worker_name"] for r in (cr.json() if cr.ok else []) if r.get("worker_name"))
 
     # Also check who already has an attendance record for today (don't double-mark)
     ar = requests.get(
-        f"{SUPABASE_URL}/rest/v1/attendance_reports?report_date=eq.{today}&select=worker_name&limit=500",
+        f"{sb_url()}/rest/v1/attendance_reports?report_date=eq.{today}&select=worker_name&limit=500",
         headers=sb_headers()
     )
     already_attendance = set(r["worker_name"] for r in (ar.json() if ar.ok else []) if r.get("worker_name"))
@@ -3487,7 +3542,7 @@ def auto_checkout():
         if name not in checked_in_names and name not in already_attendance:
             # Create absent record automatically
             requests.post(
-                f"{SUPABASE_URL}/rest/v1/attendance_reports",
+                f"{sb_url()}/rest/v1/attendance_reports",
                 json={"worker_name": name, "type": "absent",
                       "reason": "Auto-marked: no check-in recorded for this day.",
                       "report_date": today},
@@ -3515,14 +3570,14 @@ def checkin_by_pin():
 
     # Find worker with this PIN — look in app_users first, fall back to workers table
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/app_users?pin=eq.{pin}&approved=eq.true&select=name&limit=1",
+        f"{sb_url()}/rest/v1/app_users?pin=eq.{pin}&approved=eq.true&select=name&limit=1",
         headers=sb_headers()
     )
     rows = r.json() if r.ok else []
     if not rows:
         # Fallback: legacy pins stored in workers table
         r2 = requests.get(
-            f"{SUPABASE_URL}/rest/v1/workers?pin=eq.{pin}&select=name&limit=1",
+            f"{sb_url()}/rest/v1/workers?pin=eq.{pin}&select=name&limit=1",
             headers=sb_headers()
         )
         rows = r2.json() if r2.ok else []
@@ -3534,7 +3589,7 @@ def checkin_by_pin():
 
     # Check if currently checked in
     active = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{CHECKINS_TABLE}"
+        f"{sb_url()}/rest/v1/{CHECKINS_TABLE}"
         f"?worker_name=eq.{requests.utils.quote(worker_name)}"
         f"&date=eq.{today}&checked_out_at=is.null&select=id,position,checked_in_at&limit=1",
         headers=sb_headers()
@@ -3545,7 +3600,7 @@ def checkin_by_pin():
         # Check OUT
         checkin_id = active_rows[0]["id"]
         co = requests.patch(
-            f"{SUPABASE_URL}/rest/v1/{CHECKINS_TABLE}?id=eq.{checkin_id}",
+            f"{sb_url()}/rest/v1/{CHECKINS_TABLE}?id=eq.{checkin_id}",
             json={"checked_out_at": dt.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")},
             headers={**sb_headers(), "Prefer": "return=representation"}
         )
@@ -3556,7 +3611,7 @@ def checkin_by_pin():
         # Check IN (late arrival via tablet)
         now_iso = dt.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
         ci = requests.post(
-            f"{SUPABASE_URL}/rest/v1/{CHECKINS_TABLE}",
+            f"{sb_url()}/rest/v1/{CHECKINS_TABLE}",
             json={"worker_name": worker_name, "position": "Late Arrival",
                   "date": today, "checked_in_at": now_iso, "source": "tablet"},
             headers={**sb_headers(), "Prefer": "return=representation"}
@@ -3571,7 +3626,7 @@ def workers_no_pin():
     if not kiosk_allowed():
         return jsonify({"ok": False, "error": "Unauthorized IP"}), 403
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{WORKERS_TABLE}?pin=is.null&active=eq.true"
+        f"{sb_url()}/rest/v1/{WORKERS_TABLE}?pin=is.null&active=eq.true"
         f"&select=id,name&order=name.asc&limit=200",
         headers=sb_headers()
     )
@@ -3589,14 +3644,14 @@ def set_kiosk_pin(worker_id):
         return jsonify({"ok": False, "error": "PIN must be 4 digits"}), 400
     # Uniqueness check
     check = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{WORKERS_TABLE}?pin=eq.{pin}&select=id&limit=1",
+        f"{sb_url()}/rest/v1/{WORKERS_TABLE}?pin=eq.{pin}&select=id&limit=1",
         headers=sb_headers()
     )
     if check.ok and check.json():
         return jsonify({"ok": False, "error": "PIN already taken — choose another"}), 409
     # Save PIN
     r = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/{WORKERS_TABLE}?id=eq.{worker_id}",
+        f"{sb_url()}/rest/v1/{WORKERS_TABLE}?id=eq.{worker_id}",
         json={"pin": pin},
         headers={**sb_headers(), "Prefer": "return=representation"}
     )
@@ -3611,7 +3666,7 @@ def get_contractor_profile():
     if not name:
         return jsonify({"ok": False, "error": "name required"}), 400
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/app_users"
+        f"{sb_url()}/rest/v1/app_users"
         f"?name=eq.{requests.utils.quote(name)}&select=name,pin,company&limit=1",
         headers=sb_headers()
     )
@@ -3632,7 +3687,7 @@ def update_contractor_profile():
     if not name:
         return jsonify({"ok": False, "error": "name required"}), 400
     r = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}",
+        f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}",
         headers={**sb_headers(), "Prefer": "return=minimal"},
         json={"company": company}
     )
@@ -3654,7 +3709,7 @@ def update_contractor_pin():
 
     # Get current PIN
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{WORKERS_TABLE}"
+        f"{sb_url()}/rest/v1/{WORKERS_TABLE}"
         f"?name=eq.{requests.utils.quote(name)}&select=id,pin&limit=1",
         headers=sb_headers()
     )
@@ -3671,7 +3726,7 @@ def update_contractor_pin():
 
     # Check new PIN is not already taken by someone else
     dup = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{WORKERS_TABLE}"
+        f"{sb_url()}/rest/v1/{WORKERS_TABLE}"
         f"?pin=eq.{new_pin}&id=neq.{worker_id}&select=id&limit=1",
         headers=sb_headers()
     )
@@ -3680,7 +3735,7 @@ def update_contractor_pin():
 
     # Save new PIN
     pr = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/{WORKERS_TABLE}?id=eq.{worker_id}",
+        f"{sb_url()}/rest/v1/{WORKERS_TABLE}?id=eq.{worker_id}",
         json={"pin": new_pin},
         headers={**sb_headers(), "Prefer": "return=representation"}
     )
@@ -3695,7 +3750,7 @@ def update_contractor_name():
     if not old_name or not new_name:
         return jsonify({"ok": False, "error": "old_name and new_name required"}), 400
     r = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/{WORKERS_TABLE}?name=eq.{requests.utils.quote(old_name)}",
+        f"{sb_url()}/rest/v1/{WORKERS_TABLE}?name=eq.{requests.utils.quote(old_name)}",
         json={"name": new_name},
         headers={**sb_headers(), "Prefer": "return=representation"}
     )
@@ -3731,7 +3786,7 @@ button{{background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:10px
 @app.route("/api/config/<key>", methods=["GET"])
 def get_config(key):
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/app_config?key=eq.{requests.utils.quote(key)}&select=value&limit=1",
+        f"{sb_url()}/rest/v1/app_config?key=eq.{requests.utils.quote(key)}&select=value&limit=1",
         headers=sb_headers()
     )
     rows = r.json() if r.ok else []
@@ -3745,7 +3800,7 @@ def set_config(key):
     value = data.get("value")
     import datetime as dt
     r = requests.post(
-        f"{SUPABASE_URL}/rest/v1/app_config",
+        f"{sb_url()}/rest/v1/app_config",
         headers={**sb_headers(), "Prefer": "resolution=merge-duplicates,return=representation"},
         json={"key": key, "value": value, "updated_at": dt.datetime.utcnow().isoformat()}
     )
@@ -3755,7 +3810,7 @@ def set_config(key):
 @app.route("/api/workers/inactive", methods=["DELETE"])
 def delete_inactive_workers():
     r = requests.delete(
-        f"{SUPABASE_URL}/rest/v1/{WORKERS_TABLE}?active=eq.false",
+        f"{sb_url()}/rest/v1/{WORKERS_TABLE}?active=eq.false",
         headers=sb_headers()
     )
     return jsonify({"ok": r.ok, "error": r.text if not r.ok else None})
@@ -3780,7 +3835,7 @@ def mark_unit_sent(position):
 
     # 1. Fetch all daily_log records for this position
     logs_resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{TABLE}?position=eq.{position}"
+        f"{sb_url()}/rest/v1/{TABLE}?position=eq.{position}"
         f"&order=created_at.asc&limit=100000",
         headers=sb_headers()
     )
@@ -3836,14 +3891,14 @@ def mark_unit_sent(position):
         "snapshot_json": snapshot
     }
     requests.post(
-        f"{SUPABASE_URL}/rest/v1/{SENT_TABLE}",
+        f"{sb_url()}/rest/v1/{SENT_TABLE}",
         headers={**sb_headers(), "Prefer": "return=minimal"},
         json=sent_payload
     )
 
     # 4. Delete all daily_log records for this position
     requests.delete(
-        f"{SUPABASE_URL}/rest/v1/{TABLE}?position=eq.{position}",
+        f"{sb_url()}/rest/v1/{TABLE}?position=eq.{position}",
         headers=sb_headers()
     )
 
@@ -3879,7 +3934,7 @@ def mark_unit_sent(position):
 @app.route("/api/sent-units", methods=["GET"])
 def get_sent_units():
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{SENT_TABLE}"
+        f"{sb_url()}/rest/v1/{SENT_TABLE}"
         f"?select=id,position,unit_ref_no,internal_job_no,sent_date,sent_by,overall_pct,log_count"
         f"&order=sent_date.desc&limit=200",
         headers=sb_headers()
@@ -3913,15 +3968,15 @@ def safety_meeting_bulk_checkin():
         now_iso = datetime.utcnow().isoformat() + "Z"
 
     # Already in safety meeting today
-    r_sm = requests.get(f"{SUPABASE_URL}/rest/v1/{SM_TABLE}?date=eq.{today}&select=worker_name", headers=sb_headers())
+    r_sm = requests.get(f"{sb_url()}/rest/v1/{SM_TABLE}?date=eq.{today}&select=worker_name", headers=sb_headers())
     already_sm = {r["worker_name"] for r in (r_sm.json() if r_sm.ok and isinstance(r_sm.json(), list) else [])}
 
     # Already checked in via checkins table
-    r_ci = requests.get(f"{SUPABASE_URL}/rest/v1/{CHECKINS_TABLE}?date=eq.{today}&checked_out_at=is.null&select=worker_name", headers=sb_headers())
+    r_ci = requests.get(f"{sb_url()}/rest/v1/{CHECKINS_TABLE}?date=eq.{today}&checked_out_at=is.null&select=worker_name", headers=sb_headers())
     already_ci = {r["worker_name"] for r in (r_ci.json() if r_ci.ok and isinstance(r_ci.json(), list) else [])}
 
     # Has attendance record today (skip these)
-    r_att = requests.get(f"{SUPABASE_URL}/rest/v1/attendance_reports?report_date=eq.{today}&select=worker_name", headers=sb_headers())
+    r_att = requests.get(f"{sb_url()}/rest/v1/attendance_reports?report_date=eq.{today}&select=worker_name", headers=sb_headers())
     has_att = {r["worker_name"] for r in (r_att.json() if r_att.ok and isinstance(r_att.json(), list) else [])}
 
     checked_in, skipped = 0, 0
@@ -3932,11 +3987,11 @@ def safety_meeting_bulk_checkin():
         if name in has_att:
             skipped += 1; continue
         # Insert safety_meeting record
-        requests.post(f"{SUPABASE_URL}/rest/v1/{SM_TABLE}",
+        requests.post(f"{sb_url()}/rest/v1/{SM_TABLE}",
             json={"worker_name": name, "supervisor": supervisor, "date": today, "checked_in_at": now_iso},
             headers={**sb_headers(), "Prefer": "return=minimal"})
         # Insert checkins record
-        requests.post(f"{SUPABASE_URL}/rest/v1/{CHECKINS_TABLE}",
+        requests.post(f"{sb_url()}/rest/v1/{CHECKINS_TABLE}",
             json={"worker_name": name, "position": "Safety Meeting", "date": today, "checked_in_at": now_iso},
             headers={**sb_headers(), "Prefer": "return=minimal"})
         checked_in += 1
@@ -3950,7 +4005,7 @@ def contractor_status():
     if not name: return jsonify({"ok":False}), 400
     today = date.today().isoformat()
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{CHECKINS_TABLE}"
+        f"{sb_url()}/rest/v1/{CHECKINS_TABLE}"
         f"?worker_name=eq.{requests.utils.quote(name)}&date=eq.{today}"
         f"&checked_out_at=is.null&select=id,checked_in_at&limit=1",
         headers=sb_headers(), timeout=5
@@ -3961,7 +4016,7 @@ def contractor_status():
         return jsonify({"ok":True,"checked_in":True,"since":utc_to_cdt(ci)})
     # Fallback: check safety_meetings table (covers day safety meeting attended but checkins INSERT failed)
     sm = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{SM_TABLE}"
+        f"{sb_url()}/rest/v1/{SM_TABLE}"
         f"?worker_name=eq.{requests.utils.quote(name)}&date=eq.{today}"
         f"&select=id,checked_in_at&limit=1",
         headers=sb_headers(), timeout=5
@@ -3978,7 +4033,7 @@ def notifications():
     if request.method == "POST":
         data = request.get_json() or {}
         r = requests.post(
-            f"{SUPABASE_URL}/rest/v1/notifications",
+            f"{sb_url()}/rest/v1/notifications",
             json={"title":data.get("title","").strip(),
                   "body":data.get("body","").strip(),
                   "target":data.get("target","all"),
@@ -3988,14 +4043,14 @@ def notifications():
         return jsonify({"ok":r.ok})
     name = request.args.get("name","").strip()
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/notifications?order=created_at.desc&limit=20",
+        f"{sb_url()}/rest/v1/notifications?order=created_at.desc&limit=20",
         headers=sb_headers(), timeout=5
     )
     notifs = r.json() if r.ok else []
     read_ids = set()
     if name:
         r2 = requests.get(
-            f"{SUPABASE_URL}/rest/v1/notification_reads"
+            f"{sb_url()}/rest/v1/notification_reads"
             f"?worker_name=eq.{requests.utils.quote(name)}&select=notification_id",
             headers=sb_headers(), timeout=5
         )
@@ -4010,7 +4065,7 @@ def mark_notification_read(nid):
     name = (request.get_json() or {}).get("name","").strip()
     if not name: return jsonify({"ok":False}),400
     requests.post(
-        f"{SUPABASE_URL}/rest/v1/notification_reads",
+        f"{sb_url()}/rest/v1/notification_reads",
         json={"notification_id":nid,"worker_name":name},
         headers={**sb_headers(),"Prefer":"return=minimal,resolution=ignore-duplicates"}
     )
@@ -4022,7 +4077,7 @@ def mark_notification_read(nid):
 def notifications_admin():
     """Admin/Boss: full notification list with per-notification read counts (batched)."""
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/notifications?order=created_at.desc&limit=200",
+        f"{sb_url()}/rest/v1/notifications?order=created_at.desc&limit=200",
         headers=sb_headers(), timeout=8
     )
     if not r.ok:
@@ -4034,7 +4089,7 @@ def notifications_admin():
     ids = [str(n["id"]) for n in notifs]
     id_filter = "(" + ",".join(ids) + ")"
     r2 = requests.get(
-        f"{SUPABASE_URL}/rest/v1/notification_reads"
+        f"{sb_url()}/rest/v1/notification_reads"
         f"?notification_id=in.{id_filter}&select=notification_id",
         headers=sb_headers(), timeout=8
     )
@@ -4057,18 +4112,18 @@ def notification_manage(nid):
         if "target" in data: payload["target"] = str(data["target"])
         if not payload: return jsonify({"ok": False, "error": "nothing to update"}), 400
         r = requests.patch(
-            f"{SUPABASE_URL}/rest/v1/notifications?id=eq.{nid}",
+            f"{sb_url()}/rest/v1/notifications?id=eq.{nid}",
             json=payload,
             headers={**sb_headers(), "Prefer": "return=minimal"}
         )
         return jsonify({"ok": r.ok})
     else:  # DELETE
         requests.delete(
-            f"{SUPABASE_URL}/rest/v1/notification_reads?notification_id=eq.{nid}",
+            f"{sb_url()}/rest/v1/notification_reads?notification_id=eq.{nid}",
             headers=sb_headers(), timeout=5
         )
         r = requests.delete(
-            f"{SUPABASE_URL}/rest/v1/notifications?id=eq.{nid}",
+            f"{sb_url()}/rest/v1/notifications?id=eq.{nid}",
             headers=sb_headers(), timeout=5
         )
         return jsonify({"ok": r.ok})
@@ -4087,7 +4142,7 @@ def contractor_hours():
         return jsonify({"error":"invalid week_start"}),400
 
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/{CHECKINS_TABLE}"
+        f"{sb_url()}/rest/v1/{CHECKINS_TABLE}"
         f"?worker_name=eq.{requests.utils.quote(name)}"
         f"&date=gte.{ws.isoformat()}&date=lte.{we.isoformat()}"
         f"&select=date,checked_in_at,checked_out_at,auto_checkout"
@@ -4140,7 +4195,7 @@ def contractor_change_password():
         return jsonify({"error":"Password must be at least 4 characters"}),400
     # Verify current password
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}&select=password&limit=1",
+        f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}&select=password&limit=1",
         headers=sb_headers(), timeout=5
     )
     users = r.json() if r.ok else []
@@ -4150,7 +4205,7 @@ def contractor_change_password():
         return jsonify({"error":"Current password incorrect"}),403
     # Update password
     r2 = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}",
+        f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}",
         json={"password": hash_password(new_pw)},
         headers={**sb_headers(), "Prefer":"return=representation"}
     )
@@ -4165,7 +4220,7 @@ def contractor_reset_own_pin():
         return jsonify({"error":"name required"}),400
     # Find worker id by name
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/workers?name=eq.{requests.utils.quote(name)}&select=id&limit=1",
+        f"{sb_url()}/rest/v1/workers?name=eq.{requests.utils.quote(name)}&select=id&limit=1",
         headers=sb_headers(), timeout=5
     )
     workers = r.json() if r.ok else []
@@ -4173,7 +4228,7 @@ def contractor_reset_own_pin():
         return jsonify({"error":"Worker not found"}),404
     wid = workers[0]["id"]
     r2 = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/workers?id=eq.{wid}",
+        f"{sb_url()}/rest/v1/workers?id=eq.{wid}",
         json={"pin": None},
         headers={**sb_headers(), "Prefer":"return=representation"}
     )
@@ -4183,7 +4238,7 @@ def contractor_reset_own_pin():
 @app.route("/api/workers/<worker_id>/reset-pin", methods=["POST"])
 def reset_worker_pin(worker_id):
     r = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/workers?id=eq.{worker_id}",
+        f"{sb_url()}/rest/v1/workers?id=eq.{worker_id}",
         json={"pin": None},
         headers={**sb_headers(), "Prefer": "return=representation"}
     )
@@ -4193,7 +4248,7 @@ def reset_worker_pin(worker_id):
 @app.route("/api/session-version", methods=["GET"])
 def get_session_version():
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/app_settings?key=eq.session_version&select=value&limit=1",
+        f"{sb_url()}/rest/v1/app_settings?key=eq.session_version&select=value&limit=1",
         headers=sb_headers(), timeout=5
     )
     data = r.json() if r.ok else []
@@ -4210,7 +4265,7 @@ def force_logout_all():
     import time
     new_ver = str(int(time.time()))
     requests.patch(
-        f"{SUPABASE_URL}/rest/v1/app_settings?key=eq.session_version",
+        f"{sb_url()}/rest/v1/app_settings?key=eq.session_version",
         json={"value": new_ver},
         headers={**sb_headers(), "Prefer": "return=representation"}
     )
@@ -4228,7 +4283,7 @@ def update_worker_location():
     now_iso = datetime.now(timezone.utc).isoformat()
     # Upsert current location
     r = requests.post(
-        f"{SUPABASE_URL}/rest/v1/worker_locations?on_conflict=worker_name",
+        f"{sb_url()}/rest/v1/worker_locations?on_conflict=worker_name",
         json={"worker_name": name, "unit": unit, "updated_at": now_iso},
         headers={**sb_headers(), "Prefer": "resolution=merge-duplicates,return=representation"},
         timeout=5
@@ -4237,7 +4292,7 @@ def update_worker_location():
         return jsonify({"ok": False, "error": r.text}), 200
     # Log to history
     requests.post(
-        f"{SUPABASE_URL}/rest/v1/worker_location_history",
+        f"{sb_url()}/rest/v1/worker_location_history",
         json={"worker_name": name, "unit": unit, "recorded_at": now_iso},
         headers={**sb_headers(), "Prefer": "return=minimal"},
         timeout=5
@@ -4248,7 +4303,7 @@ def update_worker_location():
 @app.route("/api/worker/locations", methods=["GET"])
 def get_worker_locations():
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/worker_locations?select=worker_name,unit,updated_at&order=unit.asc",
+        f"{sb_url()}/rest/v1/worker_locations?select=worker_name,unit,updated_at&order=unit.asc",
         headers=sb_headers(), timeout=5
     )
     return jsonify(r.json() if r.ok else [])
@@ -4281,7 +4336,7 @@ def build_location_pdf(target_date=None):
 
     # Fetch history for the date
     r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/worker_location_history"
+        f"{sb_url()}/rest/v1/worker_location_history"
         f"?recorded_at=gte.{target_date}T00:00:00Z"
         f"&recorded_at=lt.{target_date}T23:59:59Z"
         f"&select=worker_name,unit,recorded_at&order=recorded_at.asc",
@@ -4414,7 +4469,7 @@ def location_history_pdf():
 def _do_reset_locations():
     """Direct Python call — no auth check, used by APScheduler and HTTP route."""
     r = requests.delete(
-        f"{SUPABASE_URL}/rest/v1/worker_locations?worker_name=neq.PLACEHOLDER",
+        f"{sb_url()}/rest/v1/worker_locations?worker_name=neq.PLACEHOLDER",
         headers={**sb_headers(), "Prefer": "return=minimal"},
         timeout=10
     )
@@ -4507,7 +4562,7 @@ OPS_ALLOWED_KEYS = {"alert_email", "alert_cc", "alert_enabled"}
 @app.route("/api/ops-settings", methods=["GET"])
 def get_ops_settings():
     """Return ops-related app_settings keys as a flat dict."""
-    url = f"{SUPABASE_URL}/rest/v1/app_settings?select=key,value"
+    url = f"{sb_url()}/rest/v1/app_settings?select=key,value"
     r = requests.get(url, headers=sb_headers(), timeout=5)
     rows = r.json() if r.ok else []
     result = {}
@@ -4530,7 +4585,7 @@ def put_ops_settings():
     for key, value in updates.items():
         # Try update first
         patch_r = requests.patch(
-            f"{SUPABASE_URL}/rest/v1/app_settings?key=eq.{key}",
+            f"{sb_url()}/rest/v1/app_settings?key=eq.{key}",
             json={"value": str(value)},
             headers={**sb_headers(), "Prefer": "return=representation"},
             timeout=5
@@ -4539,7 +4594,7 @@ def put_ops_settings():
         if not patched:
             # Row doesn't exist — insert it
             post_r = requests.post(
-                f"{SUPABASE_URL}/rest/v1/app_settings",
+                f"{sb_url()}/rest/v1/app_settings",
                 json={"key": key, "value": str(value)},
                 headers={**sb_headers(), "Prefer": "return=minimal"},
                 timeout=5
