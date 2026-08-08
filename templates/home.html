@@ -16,10 +16,9 @@
     .btn-logout:hover { border-color: #ef4444; color: #ef4444; }
     .btn-theme { padding: 6px 12px; background: rgba(30,148,132,.12); border: 1px solid #1e9484; border-radius: 7px; color: #1e9484; font-size: 12px; cursor: pointer; }
     .btn-theme:hover { background: rgba(30,148,132,.22); }
-    .theme-popover { position: absolute; top: 62px; right: 16px; background: #1a1d27; border: 1px solid #2a2d3e; border-radius: 14px; padding: 14px; z-index: 9999; min-width: 210px; box-shadow: 0 12px 40px rgba(0,0,0,.5); display: none; }
+    .theme-popover { position: fixed; top: 70px; right: 20px; background: #1a1d27; border: 1px solid #2a2d3e; border-radius: 14px; padding: 16px; z-index: 99999; min-width: 210px; box-shadow: 0 12px 40px rgba(0,0,0,.5); display: none; }
     .theme-popover.open { display: block; }
     .tp-title { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 10px; }
-    header { position: relative; }
     .logo-badge { width: 42px; height: 42px; background: linear-gradient(135deg, #1e9484, #4f8ef7); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; color: #fff; flex-shrink: 0; }
     .header-text h1 { font-size: 17px; font-weight: 700; }
     .header-text p { font-size: 12px; color: #94a3b8; margin-top: 1px; }
@@ -55,12 +54,8 @@
   </div>
   <div class="hdr-right">
     <span class="hdr-user" id="hdrUserName"></span>
-    <button class="btn-theme" onclick="toggleThemePop(event)">🎨 Theme</button>
+    <button class="btn-theme" id="themeBtn" onclick="toggleThemePop(event)">🎨 Theme</button>
     <button class="btn-logout" onclick="doLogout()">Log out</button>
-  </div>
-  <div class="theme-popover" id="themePop">
-    <div class="tp-title">Appearance</div>
-    <div id="themePickerHome"></div>
   </div>
 </header>
 <main>
@@ -118,6 +113,10 @@
   function toggleThemePop(e){
     e.stopPropagation();
     var pop = document.getElementById('themePop');
+    var btn = document.getElementById('themeBtn');
+    var rect = btn.getBoundingClientRect();
+    pop.style.top = (rect.bottom + 8) + 'px';
+    pop.style.right = (window.innerWidth - rect.right) + 'px';
     var isOpen = pop.classList.toggle('open');
     if(isOpen && window.renderThemeSwitcher) window.renderThemeSwitcher('themePickerHome');
   }
@@ -136,5 +135,9 @@
   }
 })();
 </script>
+<div class="theme-popover" id="themePop">
+  <div class="tp-title">Appearance</div>
+  <div id="themePickerHome"></div>
+</div>
 </body>
 </html>
