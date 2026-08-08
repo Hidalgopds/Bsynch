@@ -80,18 +80,27 @@ async function doLogin(){
   _loggedPass = pass;
   localStorage.setItem('companySlug', _slug);
   localStorage.setItem('companyUser', user);
-  // If password is still default (4 chars or less), prompt change
-  if(pass.length <= 4){
+  // Always prompt password change after first login
+  if(pass === '1234' || pass.length <= 4){
     document.getElementById('changePwSection').style.display='block';
   } else {
     location.href = '/home';
   }
 }
 
+function validatePassword(pw){
+  if(pw.length < 8) return 'Minimum 8 characters';
+  if(!/[A-Z]/.test(pw)) return 'Must include at least one uppercase letter';
+  if(!/[a-z]/.test(pw)) return 'Must include at least one lowercase letter';
+  if(!/[!@#$%^&*\-+()]/.test(pw)) return 'Must include at least one special character: !@#$%^&*-+()';
+  return null;
+}
+
 async function doChangePassword(){
   var np1 = document.getElementById('newPass1').value.trim();
   var np2 = document.getElementById('newPass2').value.trim();
-  if(np1.length < 4){ showErr('pwErr','Minimum 4 characters'); return; }
+  var pwErr = validatePassword(np1);
+  if(pwErr){ showErr('pwErr', pwErr); return; }
   if(np1 !== np2){ showErr('pwErr','Passwords do not match'); return; }
   hideErr('pwErr');
   var r = await fetch('/api/company-change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:_loggedUser,old_password:_loggedPass,new_password:np1})});

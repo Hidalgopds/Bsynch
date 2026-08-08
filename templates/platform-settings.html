@@ -199,6 +199,15 @@ document.getElementById('coName').addEventListener('input', function(){
   }
 });
 
+function validateAdminPassword(pw){
+  if(!pw) return null; // blank = keep existing, skip validation
+  if(pw.length < 8) return 'Password: minimum 8 characters';
+  if(!/[A-Z]/.test(pw)) return 'Password: must include an uppercase letter';
+  if(!/[a-z]/.test(pw)) return 'Password: must include a lowercase letter';
+  if(!/[!@#$%^&*\-+()]/.test(pw)) return 'Password: must include a special character (!@#$%^&*-+())';
+  return null;
+}
+
 async function saveCompany(){
   var name = document.getElementById('coName').value.trim();
   var slug = document.getElementById('coSlug').value.trim().toLowerCase();
@@ -214,6 +223,8 @@ async function saveCompany(){
     admin_password: document.getElementById('coAdminPass').value.trim() || undefined,
     status: document.getElementById('coStatus').value
   };
+  var pwValidErr = validateAdminPassword(body.admin_password);
+  if(pwValidErr){ alert(pwValidErr); return; }
   var url = id ? '/api/platform/companies/'+id : '/api/platform/companies';
   var method = id ? 'PATCH' : 'POST';
   var r = await fetch(url, {method:method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
