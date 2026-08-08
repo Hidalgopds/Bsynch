@@ -370,6 +370,7 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
 </div>
 
 <script>
+var allProjects
 var allProjects=[], allJobs=[];
 var openProjId=null;
 var openJobId=null, openJobData=null, openJobTab='steps';
@@ -706,121 +707,8 @@ function flash(msg){var el=document.createElement('div');el.innerHTML=msg;el.sty
 document.getElementById('projModal').addEventListener('click',function(e){if(e.target===this)closeProjModal();});
 document.getElementById('woModal').addEventListener('click',function(e){if(e.target===this)closeWoModal();});
 document.getElementById('lightbox').addEventListener('click',function(e){if(e.target===this)closeLightbox();});
-
-// ── Receipt OCR ──
-var ocrImageData = null;
-var ocrItems = [];
-
-function openReceiptModal(){
-  ocrImageData=null; ocrItems=[];
-  document.getElementById('ocrFileInput').value='';
-  document.getElementById('ocrPreview').style.display='none';
-  document.getElementById('ocrUploadHint').style.display='block';
-  document.getElementById('ocrScanBtn').style.display='none';
-  document.getElementById('ocrScanning').style.display='none';
-  document.getElementById('ocrResults').innerHTML='';
-  document.getElementById('ocrAddBtn').style.display='none';
-  document.getElementById('receiptModal').classList.add('open');
-}
-function closeReceiptModal(){document.getElementById('receiptModal').classList.remove('open');}
-
-function ocrFileSelected(e){
-  var file=e.target.files[0];
-  if(!file)return;
-  var reader=new FileReader();
-  reader.onload=function(ev){
-    ocrImageData=ev.target.result;
-    var img=document.getElementById('ocrPreview');
-    img.src=ocrImageData;
-    img.style.display='block';
-    document.getElementById('ocrUploadHint').style.display='none';
-    document.getElementById('ocrScanBtn').style.display='block';
-    document.getElementById('ocrResults').innerHTML='';
-    document.getElementById('ocrAddBtn').style.display='none';
-  };
-  reader.readAsDataURL(file);
-}
-
-function runOcr(){
-  if(!ocrImageData)return;
-  document.getElementById('ocrScanBtn').style.display='none';
-  document.getElementById('ocrScanning').style.display='block';
-  document.getElementById('ocrResults').innerHTML='';
-  document.getElementById('ocrAddBtn').style.display='none';
-  fetch('/api/contractor/jobs/'+openJobId+'/receipt-ocr',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({image_data:ocrImageData})
-  }).then(r=>r.json()).then(function(res){
-    document.getElementById('ocrScanning').style.display='none';
-    if(res.error){document.getElementById('ocrResults').innerHTML='<div style="color:#ef4444;padding:12px;">Error: '+esc(res.error)+'</div>';return;}
-    ocrItems=res.items||[];
-    renderOcrResults();
-  }).catch(function(err){
-    document.getElementById('ocrScanning').style.display='none';
-    document.getElementById('ocrResults').innerHTML='<div style="color:#ef4444;padding:12px;">Connection error. Try again.</div>';
-  });
-}
-
-function renderOcrResults(){
-  if(!ocrItems.length){
-    document.getElementById('ocrResults').innerHTML='<div style="color:#64748b;text-align:center;padding:16px;">No items found in receipt.</div>';
-    return;
-  }
-  var html='<div style="font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;">Found '+ocrItems.length+' item(s) — assign quantities:</div>';
-  ocrItems.forEach(function(item,i){
-    var total=(parseFloat(item.unit_cost||0)*parseFloat(item.qty||1)).toFixed(2);
-    html+='<div class="ocr-item">';
-    html+='<div class="ocr-item-name">'+esc(item.name||'Item')+'</div>';
-    html+='<div class="ocr-item-detail">'+item.qty+' '+esc(item.unit||'ea')+' @ $'+parseFloat(item.unit_cost||0).toFixed(2)+' = $'+parseFloat(item.total||total).toFixed(2)+'</div>';
-    html+='<div class="ocr-split">';
-    html+='<div><label>&#128736; This WO</label><input type="number" id="ocrWo_'+i+'" value="'+item.qty+'" min="0" step="0.01" onchange="updateOcrStock('+i+')"><div class="ocr-unit">'+esc(item.unit||'ea')+'</div></div>';
-    html+='<div><label>&#128230; To Stock</label><input type="number" id="ocrStock_'+i+'" value="0" min="0" step="0.01"><div class="ocr-unit">'+esc(item.unit||'ea')+'</div></div>';
-    html+='</div>';
-    html+='</div>';
-  });
-  document.getElementById('ocrResults').innerHTML=html;
-  document.getElementById('ocrAddBtn').style.display='block';
-}
-
-function updateOcrStock(i){
-  var total=parseFloat(ocrItems[i].qty||0);
-  var wo=parseFloat(document.getElementById('ocrWo_'+i).value||0);
-  var remaining=Math.max(0,total-wo);
-  var stockEl=document.getElementById('ocrStock_'+i);
-  if(stockEl&&stockEl.value==0) stockEl.value=remaining>0?remaining:0;
-}
-
-function addOcrMaterials(){
-  if(!ocrItems.length)return;
-  var promises=[];
-  var stockSummary=[];
-  ocrItems.forEach(function(item,i){
-    var woQty=parseFloat(document.getElementById('ocrWo_'+i).value||0);
-    var stockQty=parseFloat(document.getElementById('ocrStock_'+i).value||0);
-    if(woQty>0){
-      promises.push(fetch('/api/contractor/jobs/'+openJobId+'/materials',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          material_name:item.name,
-          qty:woQty,
-          unit:item.unit||'each',
-          unit_cost:item.unit_cost||0,
-          added_by:userName
-        })
-      }));
-    }
-    if(stockQty>0) stockSummary.push(stockQty+' '+esc(item.unit||'ea')+' of '+esc(item.name)+' → Stock');
-  });
-  Promise.all(promises).then(function(){
-    closeReceiptModal();
-    loadMaterials();
-    if(stockSummary.length) flash('Added to WO. Stock items: '+stockSummary.join(' | '));
-    else flash('Materials added from receipt.');
-  });
-}
 </script>
+<script src="/static/contractor-ocr.js"></script>
 
 <!-- Receipt OCR modal -->
 <div class="modal-overlay" id="receiptModal">
