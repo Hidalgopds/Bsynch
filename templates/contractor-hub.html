@@ -4,24 +4,35 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Contractor – BSynch</title>
+<script src="/static/theme.js"></script>
+<link rel="stylesheet" href="/static/themes.css">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;}
 header{padding:18px 28px;display:flex;align-items:center;gap:14px;border-bottom:1px solid #1e2533;}
-.logo-badge{width:36px;height:36px;background:#2563eb;border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;}
+.logo-badge{width:36px;height:36px;background:linear-gradient(135deg,#1e9484,#4f8ef7);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;}
 .hdr-title{font-size:17px;font-weight:700;}
-.hdr-right{margin-left:auto;display:flex;align-items:center;gap:12px;}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
 .hdr-user{font-size:13px;color:#94a3b8;}
 .btn-back{padding:6px 14px;background:none;border:1px solid #334155;border-radius:7px;color:#94a3b8;font-size:12px;cursor:pointer;text-decoration:none;}
-.btn-back:hover{border-color:#60a5fa;color:#60a5fa;}
-main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:40px 20px;}
+.btn-back:hover{border-color:#1e9484;color:#1e9484;}
+.btn-settings{padding:6px 14px;background:rgba(30,148,132,.12);border:1px solid #1e9484;border-radius:7px;color:#1e9484;font-size:12px;cursor:pointer;}
+.btn-settings:hover{background:rgba(30,148,132,.22);}
+/* Content */
+.hub-content{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:40px 20px;}
 .module-icon{font-size:56px;}
 h1{font-size:28px;font-weight:700;}
-p{color:#94a3b8;font-size:15px;max-width:400px;text-align:center;line-height:1.6;}
+.hub-desc{color:#94a3b8;font-size:15px;max-width:400px;text-align:center;line-height:1.6;}
 .badge{padding:6px 14px;background:#1e2533;border:1px solid #334155;border-radius:20px;font-size:12px;color:#64748b;margin-top:8px;display:inline-block;}
+/* Settings panel */
+.settings-panel{display:none;padding:24px;max-width:420px;width:100%;margin:0 auto;}
+.settings-panel.open{display:block;}
+.sp-back{display:flex;align-items:center;gap:8px;font-size:13px;color:#94a3b8;cursor:pointer;margin-bottom:20px;}
+.sp-back:hover{color:#1e9484;}
+.sp-section{background:#1a1d27;border:1px solid #2a2d3e;border-radius:14px;padding:20px;margin-bottom:16px;}
+.sp-section h3{font-size:13px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;}
+footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1px solid #1e2533;}
 </style>
-  <script src="/static/theme.js"></script>
-  <link rel="stylesheet" href="/static/themes.css">
 </head>
 <body>
 <header>
@@ -29,18 +40,44 @@ p{color:#94a3b8;font-size:15px;max-width:400px;text-align:center;line-height:1.6
   <span class="hdr-title">Contractor</span>
   <div class="hdr-right">
     <span class="hdr-user" id="hdrUser"></span>
+    <button class="btn-settings" onclick="showSettings()">⚙️ Settings</button>
     <a href="/home" class="btn-back">← Home</a>
   </div>
 </header>
-<main>
+
+<!-- Main module content -->
+<div class="hub-content" id="hubContent">
   <div class="module-icon">🔧</div>
   <h1>Contractor Hub</h1>
-  <p>Quotes, job tracking, client management, and field reporting — all in one place.</p>
+  <p class="hub-desc">Quotes, job tracking, client management, and field reporting — all in one place.</p>
   <span class="badge">Under construction — coming soon</span>
-</main>
+</div>
+
+<!-- Settings panel -->
+<div class="settings-panel" id="settingsPanel">
+  <div class="sp-back" onclick="showHub()">← Back to Contractor</div>
+
+  <div class="sp-section">
+    <h3>🎨 Theme</h3>
+    <div id="themePicker"></div>
+  </div>
+</div>
+
+<footer>BSynch · Contractor Module</footer>
+
 <script>
 var u = localStorage.getItem('mbrName') || localStorage.getItem('companyUser') || '';
 if(u) document.getElementById('hdrUser').textContent = 'Hi, ' + u;
+
+function showSettings(){
+  document.getElementById('hubContent').style.display = 'none';
+  document.getElementById('settingsPanel').classList.add('open');
+  if(window.renderThemeSwitcher) window.renderThemeSwitcher('themePicker');
+}
+function showHub(){
+  document.getElementById('settingsPanel').classList.remove('open');
+  document.getElementById('hubContent').style.display = '';
+}
 </script>
 </body>
 </html>
