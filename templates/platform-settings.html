@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNiIgZmlsbD0iIzFlOTQ4NCIvPjx0ZXh0IHg9IjE2IiB5PSIyMyIgZm9udC1mYW1pbHk9IkFyaWFsLHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSI+QjwvdGV4dD48L3N2Zz4=">
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Platform Settings — BSynch</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;}
+    header{padding:16px 28px;display:flex;align-items:center;gap:14px;border-bottom:1px solid #1e2533;flex-shrink:0;}
+    .logo-badge{width:36px;height:36px;background:linear-gradient(135deg,#1e9484,#4f8ef7);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:#fff;flex-shrink:0;}
+    .hdr-back{color:#4f8ef7;font-size:13px;text-decoration:none;margin-right:4px;}
+    .hdr-back:hover{text-decoration:underline;}
+    .hdr-title{font-size:16px;font-weight:700;}
+    .hdr-sub{font-size:11px;color:#64748b;}
+    .btn-primary{height:36px;padding:0 18px;background:#4f8ef7;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;transition:.15s;}
+    .btn-primary:hover{background:#3b7de8;}
+    .btn-danger{height:32px;padding:0 14px;background:none;border:1px solid #ef4444;border-radius:7px;color:#ef4444;font-size:12px;font-weight:700;cursor:pointer;}
+    .btn-ghost{height:32px;padding:0 14px;background:none;border:1px solid #334155;border-radius:7px;color:#94a3b8;font-size:12px;font-weight:600;cursor:pointer;}
+    .btn-ghost:hover{border-color:#4f8ef7;color:#4f8ef7;}
+    main{flex:1;padding:28px 28px 60px;max-width:960px;width:100%;margin:0 auto;}
+    .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;}
+    .page-title{font-size:20px;font-weight:800;}
+    .page-sub{font-size:13px;color:#64748b;margin-top:3px;}
+    /* Company cards */
+    .companies{display:flex;flex-direction:column;gap:14px;}
+    .company-card{background:#1a1d27;border:1px solid #2a2d3e;border-radius:14px;padding:18px 20px;display:flex;align-items:center;gap:16px;transition:border-color .15s;}
+    .company-card:hover{border-color:#3b4a6b;}
+    .co-logo{width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#1e9484,#4f8ef7);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#fff;flex-shrink:0;overflow:hidden;}
+    .co-logo img{width:100%;height:100%;object-fit:cover;border-radius:12px;}
+    .co-info{flex:1;min-width:0;}
+    .co-name{font-size:15px;font-weight:700;}
+    .co-slug{font-size:11px;color:#4f8ef7;margin-top:2px;}
+    .co-modules{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+    .mod-chip{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px;}
+    .mod-on{background:rgba(34,197,94,.12);color:#22c55e;border:1px solid rgba(34,197,94,.2);}
+    .mod-off{background:rgba(51,65,85,.3);color:#475569;border:1px solid #2a2d3e;}
+    .co-status-active{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(34,197,94,.1);color:#22c55e;border:1px solid rgba(34,197,94,.2);}
+    .co-status-inactive{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(148,163,184,.1);color:#64748b;border:1px solid #2a2d3e;}
+    .co-actions{display:flex;gap:8px;align-items:center;flex-shrink:0;}
+    .co-subdomain{font-size:11px;color:#64748b;margin-top:3px;}
+    /* Empty state */
+    .empty{text-align:center;padding:60px 20px;color:#475569;}
+    .empty-icon{font-size:48px;margin-bottom:12px;}
+    .empty h3{font-size:16px;font-weight:700;color:#64748b;margin-bottom:6px;}
+    /* Modal */
+    .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;padding:20px;}
+    .modal-bg.open{display:flex;}
+    .modal{background:#1a1d27;border:1px solid #2a2d3e;border-radius:16px;padding:28px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto;position:relative;}
+    .modal h2{font-size:17px;font-weight:800;margin-bottom:20px;}
+    .mfield{margin-bottom:16px;}
+    .mfield label{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:5px;}
+    .mfield input,.mfield select{width:100%;background:#0f1117;border:1px solid #2a2d3e;border-radius:8px;color:#e2e8f0;font-size:13px;padding:9px 12px;outline:none;transition:.15s;}
+    .mfield input:focus,.mfield select:focus{border-color:#4f8ef7;}
+    .mfield input::placeholder{color:#475569;}
+    .modules-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:4px;}
+    .mod-toggle{background:#0f1117;border:1px solid #2a2d3e;border-radius:8px;padding:10px 8px;text-align:center;cursor:pointer;transition:.15s;user-select:none;}
+    .mod-toggle.active{border-color:#4f8ef7;background:rgba(79,142,247,.08);}
+    .mod-toggle .mod-icon{font-size:20px;display:block;margin-bottom:4px;}
+    .mod-toggle .mod-label{font-size:11px;font-weight:700;color:#94a3b8;}
+    .mod-toggle.active .mod-label{color:#4f8ef7;}
+    .modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:16px;border-top:1px solid #1e2533;}
+    .btn-cancel{height:36px;padding:0 16px;background:none;border:1px solid #334155;border-radius:8px;color:#64748b;font-size:13px;font-weight:600;cursor:pointer;}
+    .supabase-section{background:#0a0d14;border:1px solid #1e2533;border-radius:10px;padding:14px;margin-top:4px;}
+    .supabase-section p{font-size:11px;color:#64748b;margin-bottom:10px;line-height:1.5;}
+    .toast{display:none;position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#14532d;border:1px solid #22c55e;border-radius:10px;padding:8px 18px;z-index:2000;color:#86efac;font-size:13px;font-weight:700;white-space:nowrap;}
+    @media(max-width:600px){.company-card{flex-direction:column;align-items:flex-start;}.co-actions{margin-top:8px;}.modules-grid{grid-template-columns:repeat(3,1fr);}}
+  </style>
+</head>
+<body>
+<div id="toast" class="toast"></div>
+<header>
+  <div class="logo-badge">B</div>
+  <div style="flex:1;">
+    <div style="display:flex;align-items:center;gap:6px;">
+      <a href="/home" class="hdr-back">← Home</a>
+      <span style="color:#334155;">/</span>
+      <span class="hdr-title">Platform Settings</span>
+    </div>
+    <div class="hdr-sub">Manage BSynch clients and their access</div>
+  </div>
+  <button class="btn-primary" onclick="openModal()">+ Add Company</button>
+</header>
+
+<main>
+  <div class="page-header">
+    <div>
+      <div class="page-title">Companies</div>
+      <div class="page-sub" id="coCount">Loading...</div>
+    </div>
+  </div>
+  <div class="companies" id="companiesList">
+    <div class="empty"><div class="empty-icon">🏢</div><h3>No companies yet</h3><p>Add your first client to get started.</p></div>
+  </div>
+</main>
+
+<!-- Add/Edit Modal -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h2 id="modalTitle">Add Company</h2>
+    <input type="hidden" id="editId">
+    <div class="mfield">
+      <label>Company Name *</label>
+      <input type="text" id="coName" placeholder="e.g. HiCons Construction">
+    </div>
+    <div class="mfield">
+      <label>Slug / Subdomain *</label>
+      <input type="text" id="coSlug" placeholder="e.g. hicons → hicons.bsynch.com">
+    </div>
+    <div class="mfield">
+      <label>Enabled Modules</label>
+      <div class="modules-grid">
+        <div class="mod-toggle active" id="tog-erp" onclick="toggleMod('erp')">
+          <span class="mod-icon">🏗</span><span class="mod-label">ERP</span>
+        </div>
+        <div class="mod-toggle" id="tog-contratista" onclick="toggleMod('contratista')">
+          <span class="mod-icon">🔧</span><span class="mod-label">Contratista</span>
+        </div>
+        <div class="mod-toggle" id="tog-marketing" onclick="toggleMod('marketing')">
+          <span class="mod-icon">📣</span><span class="mod-label">Marketing</span>
+        </div>
+      </div>
+    </div>
+    <div class="mfield">
+      <label>Supabase Connection</label>
+      <div class="supabase-section">
+        <p>Create a Supabase project for this client and paste the credentials here.</p>
+        <div class="mfield" style="margin-bottom:10px;">
+          <label>Project URL</label>
+          <input type="text" id="coSupaUrl" placeholder="https://xxxx.supabase.co">
+        </div>
+        <div class="mfield" style="margin-bottom:0;">
+          <label>Anon Key</label>
+          <input type="text" id="coSupaKey" placeholder="eyJ...">
+        </div>
+      </div>
+    </div>
+    <div class="mfield">
+      <label>Status</label>
+      <select id="coStatus">
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveCompany()">Save Company</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var CALLER = localStorage.getItem('mbrName') || 'Daniel Hidalgo';
+var _modules = {erp:true, contratista:false, marketing:false};
+var _companies = [];
+
+function toggleMod(m){
+  _modules[m] = !_modules[m];
+  document.getElementById('tog-'+m).classList.toggle('active', _modules[m]);
+}
+
+function openModal(co){
+  document.getElementById('modalTitle').textContent = co ? 'Edit Company' : 'Add Company';
+  document.getElementById('editId').value = co ? co.id : '';
+  document.getElementById('coName').value = co ? co.name : '';
+  document.getElementById('coSlug').value = co ? co.slug : '';
+  document.getElementById('coSupaUrl').value = co ? (co.supabase_url||'') : '';
+  document.getElementById('coSupaKey').value = co ? (co.supabase_key||'') : '';
+  document.getElementById('coStatus').value = co ? (co.status||'active') : 'active';
+  var mods = co ? (co.modules||{}) : {erp:true,contratista:false,marketing:false};
+  _modules = {erp:!!mods.erp, contratista:!!mods.contratista, marketing:!!mods.marketing};
+  ['erp','contratista','marketing'].forEach(function(m){
+    document.getElementById('tog-'+m).classList.toggle('active', _modules[m]);
+  });
+  document.getElementById('modalBg').classList.add('open');
+}
+function closeModal(){ document.getElementById('modalBg').classList.remove('open'); }
+
+document.getElementById('coName').addEventListener('input', function(){
+  var slug = document.getElementById('coSlug').value;
+  if(!slug){
+    document.getElementById('coSlug').value = this.value.toLowerCase().replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'');
+  }
+});
+
+async function saveCompany(){
+  var name = document.getElementById('coName').value.trim();
+  var slug = document.getElementById('coSlug').value.trim().toLowerCase();
+  if(!name||!slug){ alert('Name and slug required'); return; }
+  var id = document.getElementById('editId').value;
+  var body = {
+    caller_name: CALLER, name: name, slug: slug,
+    subdomain: slug+'.bsynch.com',
+    modules: Object.assign({},_modules),
+    supabase_url: document.getElementById('coSupaUrl').value.trim(),
+    supabase_key: document.getElementById('coSupaKey').value.trim(),
+    status: document.getElementById('coStatus').value
+  };
+  var url = id ? '/api/platform/companies/'+id : '/api/platform/companies';
+  var method = id ? 'PATCH' : 'POST';
+  var r = await fetch(url, {method:method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  var d = await r.json();
+  if(d.ok !== false){ closeModal(); loadCompanies(); showToast(id?'Company updated':'Company created'); }
+  else { alert('Error: '+(d.error||'Unknown')); }
+}
+
+async function deleteCompany(id, name){
+  if(!confirm('Delete "'+name+'"? This cannot be undone.')) return;
+  var r = await fetch('/api/platform/companies/'+id, {method:'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify({caller_name:CALLER})});
+  var d = await r.json();
+  if(d.ok){ loadCompanies(); showToast('Company deleted'); }
+}
+
+function showToast(msg){
+  var t = document.getElementById('toast');
+  t.textContent = '✓ '+msg;
+  t.style.display='block';
+  setTimeout(function(){ t.style.display='none'; }, 3000);
+}
+
+function renderCompanies(list){
+  var el = document.getElementById('companiesList');
+  document.getElementById('coCount').textContent = list.length + ' client'+(list.length===1?'':'s');
+  if(!list.length){
+    el.innerHTML = '<div class="empty"><div class="empty-icon">🏢</div><h3>No companies yet</h3><p>Add your first client to get started.</p></div>';
+    return;
+  }
+  el.innerHTML = list.map(function(co){
+    var mods = co.modules||{};
+    var modChips = ['erp','contratista','marketing'].map(function(m){
+      return '<span class="mod-chip '+(mods[m]?'mod-on':'mod-off')+'">'+m+'</span>';
+    }).join('');
+    var initial = co.name ? co.name.charAt(0).toUpperCase() : '?';
+    var logoHtml = co.logo_url ? '<img src="'+co.logo_url+'" alt="">' : initial;
+    var statusChip = '<span class="co-status-'+(co.status==='active'?'active':'inactive')+'">'+(co.status||'active')+'</span>';
+    var subdomain = co.subdomain || co.slug+'.bsynch.com';
+    return '<div class="company-card">'+
+      '<div class="co-logo">'+logoHtml+'</div>'+
+      '<div class="co-info">'+
+        '<div style="display:flex;align-items:center;gap:8px;"><span class="co-name">'+co.name+'</span>'+statusChip+'</div>'+
+        '<div class="co-slug">'+subdomain+'</div>'+
+        '<div class="co-modules">'+modChips+'</div>'+
+      '</div>'+
+      '<div class="co-actions">'+
+        '<a href="https://'+subdomain+'" target="_blank"><button class="btn-ghost">Open ↗</button></a>'+
+        '<button class="btn-ghost" onclick=\'openModal('+JSON.stringify(co).replace(/'/g,"&#39;")+')\'>Edit</button>'+
+        '<button class="btn-danger" onclick="deleteCompany(\''+co.id+'\',\''+co.name.replace(/'/g,"\\'")+'\')"">Delete</button>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+async function loadCompanies(){
+  var r = await fetch('/api/platform/companies');
+  var list = await r.json();
+  _companies = Array.isArray(list) ? list : [];
+  renderCompanies(_companies);
+}
+
+loadCompanies();
+</script>
+</body>
+</html>

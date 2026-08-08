@@ -213,6 +213,72 @@ def contractor_hub():
 def marketing_hub():
     return render_template("marketing-hub.html")
 
+
+@app.route("/platform-settings")
+def platform_settings_page():
+    return render_template("platform-settings.html")
+
+# ── BSynch Platform: Company Management API ───────────────────────────
+@app.route("/api/platform/companies", methods=["GET"])
+def get_companies():
+    r = requests.get(
+        f"{SUPABASE_URL}/rest/v1/bsynch_companies?order=created_at.asc",
+        headers=sb_headers()
+    )
+    return jsonify(r.json() if r.ok else [])
+
+@app.route("/api/platform/companies", methods=["POST"])
+def create_company():
+    data = request.get_json() or {}
+    # Simple platform-admin gate (caller must be in app_users with role admin)
+    caller = data.get("caller_name", "")
+    err = _verify_caller_is_admin(caller)
+    if err: return err
+    payload = {
+        "name":          data.get("name", "").strip(),
+        "slug":          data.get("slug", "").strip().lower(),
+        "subdomain":     data.get("subdomain", "").strip().lower(),
+        "modules":       data.get("modules", {"erp": True, "contratista": False, "marketing": False}),
+        "supabase_url":  data.get("supabase_url", ""),
+        "supabase_key":  data.get("supabase_key", ""),
+        "status":        data.get("status", "active"),
+        "logo_url":      data.get("logo_url", "") or None,
+    }
+    if not payload["name"] or not payload["slug"]:
+        return jsonify({"ok": False, "error": "name and slug required"}), 400
+    r = requests.post(
+        f"{SUPABASE_URL}/rest/v1/bsynch_companies",
+        headers={**sb_headers(), "Prefer": "return=representation"},
+        json=payload
+    )
+    return jsonify({"ok": r.ok, "data": r.json() if r.ok else None, "error": r.text if not r.ok else None})
+
+@app.route("/api/platform/companies/<company_id>", methods=["PATCH"])
+def update_company(company_id):
+    data = request.get_json() or {}
+    caller = data.get("caller_name", "")
+    err = _verify_caller_is_admin(caller)
+    if err: return err
+    payload = {k: v for k, v in data.items() if k not in ("caller_name",)}
+    r = requests.patch(
+        f"{SUPABASE_URL}/rest/v1/bsynch_companies?id=eq.{company_id}",
+        headers={**sb_headers(), "Prefer": "return=representation"},
+        json=payload
+    )
+    return jsonify({"ok": r.ok, "error": r.text if not r.ok else None})
+
+@app.route("/api/platform/companies/<company_id>", methods=["DELETE"])
+def delete_company(company_id):
+    data = request.get_json(silent=True) or {}
+    caller = data.get("caller_name", "")
+    err = _verify_caller_is_admin(caller)
+    if err: return err
+    r = requests.delete(
+        f"{SUPABASE_URL}/rest/v1/bsynch_companies?id=eq.{company_id}",
+        headers=sb_headers()
+    )
+    return jsonify({"ok": r.ok})
+# ── End Platform API ──────────────────────────────────────────────────
 @app.route("/api/login", methods=["POST"])
 def api_login():
     data = request.get_json() or {}
