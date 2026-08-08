@@ -4674,3 +4674,278 @@ def put_ops_settings():
     if errors:
         return jsonify({"error": f"Failed to save: {errors}"}), 500
     return jsonify({"ok": True, "saved": list(updates.keys())})
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  CONTRACTOR MODULE
+# ═══════════════════════════════════════════════════════════════════
+
+CONTRACTOR_JOBS_TABLE  = "contractor_jobs"
+JOB_MATERIALS_TABLE    = "job_materials"
+JOB_PHOTOS_TABLE       = "job_photos"
+
+
+# ── Page routes ──────────────────────────────────────────────────
+
+@app.route("/contractor/workorders")
+def contractor_workorders():
+    return render_template("contractor-workorders.html")
+
+
+# ── Helpers ──────────────────────────────────────────────────────
+
+def _next_job_number():
+    """Return next WO-XXX number based on existing jobs for this client."""
+    r = requests.get(
+        f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}"
+        f"?select=job_number&order=created_at.asc&limit=1000",
+        headers=sb_headers(), timeout=5
+    )
+    rows = r.json() if r.ok else []
+    nums = []
+    for row in rows:
+        jn = row.get("job_number", "")
+        if jn.startswith("WO-"):
+            try:
+                nums.append(int(jn.split("-")[1]))
+            except Exception:
+                pass
+    nxt = (max(nums) + 1) if nums else 1
+    return f"WO-{nxt:03d}"
+
+
+# ── Work Orders ───────────────────────────────────────────────────
+
+@app.route("/api/contractor/jobs", methods=["GET"])
+def get_contractor_jobs():
+    status_filter = request.args.get("status")
+    url = (
+        f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}"
+        f"?select=*&order=created_at.desc&limit=500"
+    )
+    if status_filter:
+        url += f"&status=eq.{status_filter}"
+    r = requests.get(url, headers=sb_headers(), timeout=8)
+    return jsonify(r.json() if r.ok else [])
+
+
+@app.route("/api/contractor/jobs", methods=["POST"])
+def create_contractor_job():
+    data = request.get_json() or {}
+    title = data.get("title", "").strip()
+    if not title:
+        return jsonify({"ok": False, "error": "title required"}), 400
+
+    payload = {
+        "job_number":   _next_job_number(),
+        "title":        title,
+        "description":  data.get("description", ""),
+        "client_name":  data.get("client_name", ""),
+        "location":     data.get("location", ""),
+        "status":       data.get("status", "open"),
+        "priority":     data.get("priority", "normal"),
+        "crew":         data.get("crew", []),
+        "start_date":   data.get("start_date") or None,
+        "due_date":     data.get("due_date") or None,
+        "notes":        data.get("notes", ""),
+        "created_by":   data.get("created_by", ""),
+    }
+    r = requests.post(
+        f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}",
+        json=payload,
+        headers={**sb_headers(), "Prefer": "return=representation"},
+        timeout=8
+    )
+    if r.ok and r.json():
+        return jsonify({"ok": True, "job": r.json()[0]})
+    return jsonify({"ok": False, "error": r.text}), 400
+
+
+@app.route("/api/contractor/jobs/<job_id>", methods=["GET"])
+def get_contractor_job(job_id):
+    r = requests.get(
+        f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?id=eq.{job_id}&select=*&limit=1",
+        headers=sb_headers(), timeout=5
+    )
+    rows = r.json() if r.ok else []
+    if not rows:
+        return jsonify({"error": "not found"}), 404
+    return jsonify(rows[0])
+
+
+@app.route("/api/contractor/jobs/<job_id>", methods=["PATCH"])
+def update_contractor_job(job_id):
+    data = request.get_json() or {}
+    allowed = [
+        "title", "description", "client_name", "location", "status",
+        "priority", "crew", "start_date", "due_date", "completed_date",
+        "notes"
+    ]
+    payload = {k: data[k] for k in allowed if k in data}
+    if not payload:
+        return jsonify({"ok": False, "error": "nothing to update"}), 400
+    payload["updated_at"] = __import__("datetime").datetime.utcnow().isoformat() + "Z"
+    r = requests.patch(
+        f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?id=eq.{job_id}",
+        json=payload,
+        headers={**sb_headers(), "Prefer": "return=representation"},
+        timeout=8
+    )
+    return jsonify({"ok": r.ok})
+
+
+@app.route("/api/contractor/jobs/<job_id>", methods=["DELETE"])
+def delete_contractor_job(job_id):
+    # Delete child records first
+    requests.delete(
+        f"{sb_url()}/rest/v1/{JOB_MATERIALS_TABLE}?job_id=eq.{job_id}",
+        headers=sb_headers(), timeout=5
+    )
+    requests.delete(
+        f"{sb_url()}/rest/v1/{JOB_PHOTOS_TABLE}?job_id=eq.{job_id}",
+        headers=sb_headers(), timeout=5
+    )
+    r = requests.delete(
+        f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?id=eq.{job_id}",
+        headers=sb_headers(), timeout=5
+    )
+    return jsonify({"ok": r.ok})
+
+
+# ── Job Materials ─────────────────────────────────────────────────
+
+@app.route("/api/contractor/jobs/<job_id>/materials", methods=["GET"])
+def get_job_materials(job_id):
+    r = requests.get(
+        f"{sb_url()}/rest/v1/{JOB_MATERIALS_TABLE}"
+        f"?job_id=eq.{job_id}&select=*&order=created_at.asc",
+        headers=sb_headers(), timeout=5
+    )
+    return jsonify(r.json() if r.ok else [])
+
+
+@app.route("/api/contractor/jobs/<job_id>/materials", methods=["POST"])
+def add_job_material(job_id):
+    data = request.get_json() or {}
+    material_name = data.get("material_name", "").strip()
+    if not material_name:
+        return jsonify({"ok": False, "error": "material_name required"}), 400
+    payload = {
+        "job_id":        job_id,
+        "material_name": material_name,
+        "qty":           float(data.get("qty", 0)),
+        "unit":          data.get("unit", "each"),
+        "unit_cost":     float(data.get("unit_cost", 0)),
+        "notes":         data.get("notes", ""),
+        "added_by":      data.get("added_by", ""),
+    }
+    r = requests.post(
+        f"{sb_url()}/rest/v1/{JOB_MATERIALS_TABLE}",
+        json=payload,
+        headers={**sb_headers(), "Prefer": "return=representation"},
+        timeout=5
+    )
+    if r.ok and r.json():
+        return jsonify({"ok": True, "material": r.json()[0]})
+    return jsonify({"ok": False, "error": r.text}), 400
+
+
+@app.route("/api/contractor/jobs/<job_id>/materials/<mat_id>", methods=["DELETE"])
+def delete_job_material(job_id, mat_id):
+    r = requests.delete(
+        f"{sb_url()}/rest/v1/{JOB_MATERIALS_TABLE}?id=eq.{mat_id}&job_id=eq.{job_id}",
+        headers=sb_headers(), timeout=5
+    )
+    return jsonify({"ok": r.ok})
+
+
+# ── Job Photos ────────────────────────────────────────────────────
+
+@app.route("/api/contractor/jobs/<job_id>/photos", methods=["GET"])
+def get_job_photos(job_id):
+    r = requests.get(
+        f"{sb_url()}/rest/v1/{JOB_PHOTOS_TABLE}"
+        f"?job_id=eq.{job_id}&select=id,caption,photo_type,uploaded_by,created_at"
+        f"&order=created_at.asc",
+        headers=sb_headers(), timeout=5
+    )
+    return jsonify(r.json() if r.ok else [])
+
+
+@app.route("/api/contractor/jobs/<job_id>/photos/<photo_id>", methods=["GET"])
+def get_job_photo_data(job_id, photo_id):
+    """Return full photo_data for a single photo (separate call to keep list fast)."""
+    r = requests.get(
+        f"{sb_url()}/rest/v1/{JOB_PHOTOS_TABLE}"
+        f"?id=eq.{photo_id}&job_id=eq.{job_id}&select=*&limit=1",
+        headers=sb_headers(), timeout=5
+    )
+    rows = r.json() if r.ok else []
+    if not rows:
+        return jsonify({"error": "not found"}), 404
+    return jsonify(rows[0])
+
+
+@app.route("/api/contractor/jobs/<job_id>/photos", methods=["POST"])
+def add_job_photo(job_id):
+    data = request.get_json() or {}
+    photo_data = data.get("photo_data", "").strip()
+    if not photo_data:
+        return jsonify({"ok": False, "error": "photo_data required"}), 400
+    payload = {
+        "job_id":      job_id,
+        "photo_data":  photo_data,
+        "caption":     data.get("caption", ""),
+        "photo_type":  data.get("photo_type", "progress"),
+        "uploaded_by": data.get("uploaded_by", ""),
+    }
+    r = requests.post(
+        f"{sb_url()}/rest/v1/{JOB_PHOTOS_TABLE}",
+        json=payload,
+        headers={**sb_headers(), "Prefer": "return=representation"},
+        timeout=10
+    )
+    if r.ok and r.json():
+        row = r.json()[0]
+        return jsonify({"ok": True, "photo": {
+            "id": row["id"], "caption": row["caption"],
+            "photo_type": row["photo_type"], "uploaded_by": row["uploaded_by"],
+            "created_at": row["created_at"]
+        }})
+    return jsonify({"ok": False, "error": r.text}), 400
+
+
+@app.route("/api/contractor/jobs/<job_id>/photos/<photo_id>", methods=["DELETE"])
+def delete_job_photo(job_id, photo_id):
+    r = requests.delete(
+        f"{sb_url()}/rest/v1/{JOB_PHOTOS_TABLE}?id=eq.{photo_id}&job_id=eq.{job_id}",
+        headers=sb_headers(), timeout=5
+    )
+    return jsonify({"ok": r.ok})
+
+
+
+@app.route("/api/contractor/jobs/<job_id>/photos/<photo_id>/img", methods=["GET"])
+def serve_job_photo_img(job_id, photo_id):
+    """Serve a job photo as a binary image response (for <img> src)."""
+    from flask import Response
+    import base64, re
+    r = requests.get(
+        f"{sb_url()}/rest/v1/{JOB_PHOTOS_TABLE}"
+        f"?id=eq.{photo_id}&job_id=eq.{job_id}&select=photo_data&limit=1",
+        headers=sb_headers(), timeout=8
+    )
+    rows = r.json() if r.ok else []
+    if not rows or not rows[0].get("photo_data"):
+        return ("", 404)
+    data_uri = rows[0]["photo_data"]
+    # data:image/jpeg;base64,....
+    m = re.match(r"data:(image/\w+);base64,(.+)", data_uri, re.DOTALL)
+    if not m:
+        return ("", 400)
+    mime, b64 = m.group(1), m.group(2)
+    try:
+        img_bytes = base64.b64decode(b64)
+    except Exception:
+        return ("", 400)
+    return Response(img_bytes, mimetype=mime, headers={"Cache-Control": "max-age=86400"})

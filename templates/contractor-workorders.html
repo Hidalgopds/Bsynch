@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Work Orders – Contractor</title>
+<script src="/static/theme.js"></script>
+<link rel="stylesheet" href="/static/themes.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;}
+
+/* ── Header ── */
+header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #1e2533;background:#0f1117;position:sticky;top:0;z-index:50;}
+.logo-badge{width:32px;height:32px;background:linear-gradient(135deg,#1e9484,#4f8ef7);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;flex-shrink:0;}
+.hdr-title{font-size:16px;font-weight:700;}
+.hdr-sep{color:#334155;margin:0 2px;}
+.hdr-sub{font-size:14px;color:#64748b;}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.btn-back{padding:5px 12px;background:none;border:1px solid #334155;border-radius:7px;color:#94a3b8;font-size:12px;cursor:pointer;text-decoration:none;line-height:1.4;}
+.btn-back:hover{border-color:#1e9484;color:#1e9484;}
+.btn-new{padding:6px 14px;background:#1e9484;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;}
+.btn-new:hover{background:#178070;}
+
+/* ── Filter bar ── */
+.filter-bar{padding:14px 20px;display:flex;gap:8px;overflow-x:auto;border-bottom:1px solid #1e2533;background:#0f1117;}
+.filter-bar::-webkit-scrollbar{display:none;}
+.filter-chip{padding:5px 14px;border-radius:20px;border:1px solid #2a2d3e;background:none;color:#94a3b8;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;transition:all .15s;}
+.filter-chip.active{background:#1e9484;border-color:#1e9484;color:#fff;}
+.filter-chip:hover:not(.active){border-color:#1e9484;color:#1e9484;}
+
+/* ── List ── */
+.wo-list{flex:1;padding:16px 20px;max-width:800px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:12px;}
+.empty-state{text-align:center;padding:60px 20px;color:#475569;}
+.empty-state .icon{font-size:48px;margin-bottom:12px;}
+.empty-state p{font-size:14px;}
+
+/* ── WO Card ── */
+.wo-card{background:#1a1d27;border:1px solid #2a2d3e;border-radius:14px;padding:18px 20px;cursor:pointer;transition:border-color .15s,transform .12s;}
+.wo-card:hover{border-color:#1e9484;transform:translateY(-1px);}
+.wo-card-top{display:flex;align-items:flex-start;gap:12px;}
+.wo-card-info{flex:1;min-width:0;}
+.wo-number{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;}
+.wo-title{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.wo-client{font-size:13px;color:#94a3b8;margin-top:3px;}
+.wo-card-meta{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap;}
+.status-badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;}
+.s-open{background:rgba(79,142,247,.14);color:#4f8ef7;}
+.s-in_progress{background:rgba(34,197,94,.12);color:#22c55e;}
+.s-on_hold{background:rgba(245,158,11,.12);color:#f59e0b;}
+.s-completed{background:rgba(100,116,139,.12);color:#64748b;}
+.s-cancelled{background:rgba(239,68,68,.1);color:#ef4444;}
+.priority-badge{padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;}
+.p-urgent{background:rgba(239,68,68,.1);color:#ef4444;}
+.p-high{background:rgba(245,158,11,.12);color:#f59e0b;}
+.p-normal{background:rgba(100,116,139,.08);color:#94a3b8;}
+.p-low{background:rgba(100,116,139,.06);color:#64748b;}
+.wo-due{font-size:12px;color:#64748b;}
+.wo-crew{font-size:12px;color:#64748b;}
+
+/* ── Detail Panel ── */
+.panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100;display:none;opacity:0;transition:opacity .2s;}
+.panel-overlay.open{display:block;opacity:1;}
+.detail-panel{position:fixed;top:0;right:0;height:100vh;width:min(520px,100vw);background:#111520;border-left:1px solid #1e2533;z-index:101;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s cubic-bezier(.4,0,.2,1);}
+.detail-panel.open{transform:translateX(0);}
+.panel-head{padding:18px 20px;border-bottom:1px solid #1e2533;display:flex;align-items:center;gap:10px;}
+.panel-close{background:none;border:none;color:#64748b;font-size:22px;cursor:pointer;line-height:1;padding:2px 6px;margin-right:4px;}
+.panel-close:hover{color:#e2e8f0;}
+.panel-job-number{font-size:12px;font-weight:700;color:#1e9484;text-transform:uppercase;letter-spacing:.5px;}
+.panel-title{font-size:17px;font-weight:700;flex:1;min-width:0;}
+
+/* Panel tabs */
+.panel-tabs{display:flex;border-bottom:1px solid #1e2533;background:#111520;flex-shrink:0;}
+.ptab{flex:1;padding:11px 8px;text-align:center;font-size:13px;font-weight:600;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;}
+.ptab.active{color:#1e9484;border-bottom-color:#1e9484;}
+.ptab:hover:not(.active){color:#94a3b8;}
+
+/* Panel body */
+.panel-body{flex:1;overflow-y:auto;padding:20px;}
+.panel-body::-webkit-scrollbar{width:4px;}
+.panel-body::-webkit-scrollbar-thumb{background:#2a2d3e;border-radius:4px;}
+
+/* Info tab */
+.field-row{margin-bottom:16px;}
+.field-label{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
+.field-value{font-size:14px;color:#e2e8f0;line-height:1.5;}
+.field-value.muted{color:#64748b;}
+.status-select{width:100%;padding:8px 12px;background:#1a1d27;border:1px solid #2a2d3e;border-radius:8px;color:#e2e8f0;font-size:14px;cursor:pointer;}
+.status-select:focus{outline:none;border-color:#1e9484;}
+.crew-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;background:#1e2533;border-radius:20px;font-size:12px;margin:2px;}
+.edit-btn{padding:5px 12px;background:rgba(30,148,132,.12);border:1px solid #1e9484;border-radius:7px;color:#1e9484;font-size:12px;cursor:pointer;margin-top:8px;}
+.edit-btn:hover{background:rgba(30,148,132,.22);}
+.delete-btn{padding:5px 12px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:7px;color:#ef4444;font-size:12px;cursor:pointer;}
+.delete-btn:hover{background:rgba(239,68,68,.15);}
+
+/* Materials tab */
+.add-material-form{background:#1a1d27;border:1px solid #2a2d3e;border-radius:12px;padding:16px;margin-bottom:16px;}
+.add-material-form h4{font-size:13px;font-weight:700;margin-bottom:12px;color:#94a3b8;}
+.form-grid{display:grid;grid-template-columns:1fr 80px 90px;gap:8px;}
+.form-input{padding:8px 10px;background:#0f1117;border:1px solid #2a2d3e;border-radius:8px;color:#e2e8f0;font-size:13px;width:100%;}
+.form-input:focus{outline:none;border-color:#1e9484;}
+.btn-add-mat{padding:8px 14px;background:#1e9484;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;width:100%;margin-top:8px;}
+.btn-add-mat:hover{background:#178070;}
+.mat-list{display:flex;flex-direction:column;gap:8px;}
+.mat-item{background:#1a1d27;border:1px solid #2a2d3e;border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:10px;}
+.mat-info{flex:1;}
+.mat-name{font-size:14px;font-weight:600;}
+.mat-detail{font-size:12px;color:#64748b;margin-top:2px;}
+.mat-cost{font-size:13px;font-weight:700;color:#1e9484;white-space:nowrap;}
+.mat-del{background:none;border:none;color:#475569;font-size:18px;cursor:pointer;padding:2px 6px;line-height:1;}
+.mat-del:hover{color:#ef4444;}
+
+/* Photos tab */
+.photo-upload-area{border:2px dashed #2a2d3e;border-radius:12px;padding:24px;text-align:center;margin-bottom:16px;cursor:pointer;transition:border-color .15s;}
+.photo-upload-area:hover{border-color:#1e9484;}
+.photo-upload-area p{font-size:13px;color:#64748b;margin-top:8px;}
+#photoFileInput{display:none;}
+.photo-type-select{width:100%;padding:7px 10px;background:#1a1d27;border:1px solid #2a2d3e;border-radius:8px;color:#e2e8f0;font-size:13px;margin-top:10px;}
+.btn-upload-photo{padding:8px 14px;background:#1e9484;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;width:100%;margin-top:8px;display:none;}
+.btn-upload-photo.visible{display:block;}
+.photo-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+.photo-card{background:#1a1d27;border:1px solid #2a2d3e;border-radius:10px;overflow:hidden;}
+.photo-thumb{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;cursor:pointer;}
+.photo-card-foot{padding:8px 10px;display:flex;align-items:center;gap:6px;}
+.photo-caption{font-size:12px;color:#64748b;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.photo-del{background:none;border:none;color:#475569;font-size:14px;cursor:pointer;padding:2px;}
+.photo-del:hover{color:#ef4444;}
+.photo-type-label{padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;}
+.pt-before{background:rgba(245,158,11,.12);color:#f59e0b;}
+.pt-progress{background:rgba(79,142,247,.12);color:#4f8ef7;}
+.pt-after{background:rgba(34,197,94,.12);color:#22c55e;}
+.pt-other{background:#1e2533;color:#64748b;}
+
+/* Lightbox */
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:200;display:none;align-items:center;justify-content:center;}
+.lightbox.open{display:flex;}
+.lightbox img{max-width:90vw;max-height:88vh;border-radius:8px;object-fit:contain;}
+.lightbox-close{position:absolute;top:16px;right:20px;background:none;border:none;color:#fff;font-size:28px;cursor:pointer;}
+
+/* Create modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:none;align-items:center;justify-content:center;padding:16px;}
+.modal-overlay.open{display:flex;}
+.modal{background:#111520;border:1px solid #1e2533;border-radius:18px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;padding:28px 24px;}
+.modal h2{font-size:18px;font-weight:700;margin-bottom:20px;}
+.modal .form-group{margin-bottom:14px;}
+.modal label{display:block;font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
+.modal input,.modal textarea,.modal select{width:100%;padding:9px 12px;background:#1a1d27;border:1px solid #2a2d3e;border-radius:9px;color:#e2e8f0;font-size:14px;font-family:inherit;}
+.modal input:focus,.modal textarea:focus,.modal select:focus{outline:none;border-color:#1e9484;}
+.modal textarea{resize:vertical;min-height:80px;}
+.modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.modal-actions{display:flex;gap:10px;margin-top:20px;justify-content:flex-end;}
+.btn-cancel{padding:8px 18px;background:none;border:1px solid #334155;border-radius:8px;color:#94a3b8;font-size:14px;cursor:pointer;}
+.btn-cancel:hover{border-color:#e2e8f0;color:#e2e8f0;}
+.btn-submit{padding:8px 20px;background:#1e9484;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:600;cursor:pointer;}
+.btn-submit:hover{background:#178070;}
+
+/* Edit fields */
+.editable-input{width:100%;padding:7px 10px;background:#0f1117;border:1px solid #2a2d3e;border-radius:8px;color:#e2e8f0;font-size:14px;font-family:inherit;}
+.editable-input:focus{outline:none;border-color:#1e9484;}
+.btn-save{padding:6px 14px;background:#1e9484;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;margin-top:8px;}
+.btn-save:hover{background:#178070;}
+
+/* Loading spinner */
+.spinner{display:flex;align-items:center;justify-content:center;padding:40px;color:#475569;gap:8px;}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo-badge">B</div>
+  <span class="hdr-title">Contractor</span>
+  <span class="hdr-sep">/</span>
+  <span class="hdr-sub">Work Orders</span>
+  <div class="hdr-right">
+    <button class="btn-new" onclick="openCreate()">+ New Job</button>
+    <a href="/contractor-hub" class="btn-back">&#8592; Hub</a>
+  </div>
+</header>
+
+<!-- Filter bar -->
+<div class="filter-bar">
+  <button class="filter-chip active" data-status="">All</button>
+  <button class="filter-chip" data-status="open">Open</button>
+  <button class="filter-chip" data-status="in_progress">In Progress</button>
+  <button class="filter-chip" data-status="on_hold">On Hold</button>
+  <button class="filter-chip" data-status="completed">Completed</button>
+  <button class="filter-chip" data-status="cancelled">Cancelled</button>
+</div>
+
+<!-- WO list -->
+<div class="wo-list" id="woList">
+  <div class="spinner">Loading...</div>
+</div>
+
+<!-- ── Detail panel ── -->
+<div class="panel-overlay" id="panelOverlay" onclick="closePanel()"></div>
+<div class="detail-panel" id="detailPanel">
+  <div class="panel-head">
+    <button class="panel-close" onclick="closePanel()">&#x2715;</button>
+    <div style="flex:1;min-width:0;">
+      <div class="panel-job-number" id="panelJobNum"></div>
+      <div class="panel-title" id="panelTitle"></div>
+    </div>
+  </div>
+  <div class="panel-tabs">
+    <div class="ptab active" data-tab="info" onclick="switchTab(this)">Info</div>
+    <div class="ptab" data-tab="materials" onclick="switchTab(this)">Materials</div>
+    <div class="ptab" data-tab="photos" onclick="switchTab(this)">Photos</div>
+  </div>
+  <div class="panel-body" id="panelBody">
+    <!-- filled dynamically -->
+  </div>
+</div>
+
+<!-- ── Create modal ── -->
+<div class="modal-overlay" id="createModal">
+  <div class="modal">
+    <h2>&#128203; New Work Order</h2>
+    <div class="form-group">
+      <label>Job Title *</label>
+      <input id="newTitle" type="text" placeholder="e.g. Roof panel repair – Building 3">
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <textarea id="newDesc" placeholder="What needs to be done..."></textarea>
+    </div>
+    <div class="modal-grid">
+      <div class="form-group">
+        <label>Client / Company</label>
+        <input id="newClient" type="text" placeholder="Client name">
+      </div>
+      <div class="form-group">
+        <label>Location / Site</label>
+        <input id="newLocation" type="text" placeholder="Job site address">
+      </div>
+    </div>
+    <div class="modal-grid">
+      <div class="form-group">
+        <label>Priority</label>
+        <select id="newPriority">
+          <option value="normal">Normal</option>
+          <option value="high">High</option>
+          <option value="urgent">Urgent</option>
+          <option value="low">Low</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select id="newStatus">
+          <option value="open">Open</option>
+          <option value="in_progress">In Progress</option>
+          <option value="on_hold">On Hold</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-grid">
+      <div class="form-group">
+        <label>Start Date</label>
+        <input id="newStart" type="date">
+      </div>
+      <div class="form-group">
+        <label>Due Date</label>
+        <input id="newDue" type="date">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Notes</label>
+      <textarea id="newNotes" rows="2" placeholder="Additional notes..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeCreate()">Cancel</button>
+      <button class="btn-submit" onclick="submitNewJob()">Create Job</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Photo lightbox ── -->
+<div class="lightbox" id="lightbox">
+  <button class="lightbox-close" onclick="closeLightbox()">&#x2715;</button>
+  <img id="lightboxImg" src="">
+</div>
+
+<script>
+// ── State ──
+var allJobs = [];
+var currentFilter = '';
+var openJobId = null;
+var openJobData = null;
+var currentTab = 'info';
+var selectedPhotoFile = null;
+var userName = localStorage.getItem('mbrName') || localStorage.getItem('companyUser') || 'User';
+
+// ── Boot ──
+loadJobs();
+document.querySelectorAll('.filter-chip').forEach(function(chip){
+  chip.addEventListener('click', function(){
+    document.querySelectorAll('.filter-chip').forEach(function(c){c.classList.remove('active');});
+    chip.classList.add('active');
+    currentFilter = chip.dataset.status;
+    renderList(allJobs);
+  });
+});
+
+// ── Load & render jobs ──
+function loadJobs(){
+  fetch('/api/contractor/jobs')
+    .then(function(r){return r.json();})
+    .then(function(jobs){
+      allJobs = jobs;
+      renderList(jobs);
+    })
+    .catch(function(){renderList([]);});
+}
+
+function renderList(jobs){
+  var filtered = currentFilter
+    ? jobs.filter(function(j){return j.status === currentFilter;})
+    : jobs;
+  var el = document.getElementById('woList');
+  if(!filtered.length){
+    el.innerHTML = '<div class="empty-state"><div class="icon">&#128203;</div><p>No work orders yet.<br>Tap <strong>+ New Job</strong> to create one.</p></div>';
+    return;
+  }
+  el.innerHTML = filtered.map(function(j){
+    return '<div class="wo-card" onclick="openPanel(\'' + j.id + '\')">'
+      + '<div class="wo-card-top">'
+      + '<div class="wo-card-info">'
+      + '<div class="wo-number">' + esc(j.job_number) + '</div>'
+      + '<div class="wo-title">' + esc(j.title) + '</div>'
+      + (j.client_name ? '<div class="wo-client">' + esc(j.client_name) + (j.location ? ' &middot; ' + esc(j.location) : '') + '</div>' : '')
+      + '</div>'
+      + '</div>'
+      + '<div class="wo-card-meta">'
+      + '<span class="status-badge s-' + j.status + '">' + statusLabel(j.status) + '</span>'
+      + '<span class="priority-badge p-' + j.priority + '">' + ucfirst(j.priority) + '</span>'
+      + (j.due_date ? '<span class="wo-due">Due ' + fmtDate(j.due_date) + '</span>' : '')
+      + (j.crew && j.crew.length ? '<span class="wo-crew">&#128119; ' + j.crew.length + ' crew</span>' : '')
+      + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+// ── Panel ──
+function openPanel(id){
+  openJobId = id;
+  openJobData = allJobs.find(function(j){return j.id === id;}) || null;
+  if(!openJobData) return;
+  document.getElementById('panelJobNum').textContent = openJobData.job_number;
+  document.getElementById('panelTitle').textContent = openJobData.title;
+  document.getElementById('panelOverlay').classList.add('open');
+  document.getElementById('detailPanel').classList.add('open');
+  // reset to info tab
+  document.querySelectorAll('.ptab').forEach(function(t){t.classList.remove('active');});
+  document.querySelector('.ptab[data-tab="info"]').classList.add('active');
+  currentTab = 'info';
+  renderInfoTab(openJobData);
+}
+
+function closePanel(){
+  document.getElementById('panelOverlay').classList.remove('open');
+  document.getElementById('detailPanel').classList.remove('open');
+  openJobId = null;
+  openJobData = null;
+}
+
+function switchTab(el){
+  document.querySelectorAll('.ptab').forEach(function(t){t.classList.remove('active');});
+  el.classList.add('active');
+  currentTab = el.dataset.tab;
+  if(currentTab === 'info') renderInfoTab(openJobData);
+  else if(currentTab === 'materials') loadMaterials();
+  else if(currentTab === 'photos') loadPhotos();
+}
+
+// ── Info tab ──
+function renderInfoTab(j){
+  var html = '';
+  // Status (editable select)
+  html += '<div class="field-row">'
+    + '<div class="field-label">Status</div>'
+    + '<select class="status-select" id="statusSel" onchange="updateStatus(this.value)">'
+    + ['open','in_progress','on_hold','completed','cancelled'].map(function(s){
+        return '<option value="' + s + '"' + (j.status === s ? ' selected' : '') + '>' + statusLabel(s) + '</option>';
+      }).join('')
+    + '</select>'
+    + '</div>';
+  // Priority
+  html += '<div class="field-row">'
+    + '<div class="field-label">Priority</div>'
+    + '<span class="priority-badge p-' + j.priority + '">' + ucfirst(j.priority) + '</span>'
+    + '</div>';
+  // Client & location
+  if(j.client_name || j.location){
+    html += '<div class="field-row"><div class="field-label">Client / Location</div>'
+      + '<div class="field-value">' + esc(j.client_name || '') + (j.location ? ' &mdash; ' + esc(j.location) : '') + '</div></div>';
+  }
+  // Description
+  if(j.description){
+    html += '<div class="field-row"><div class="field-label">Description</div>'
+      + '<div class="field-value">' + esc(j.description).replace(/\n/g,'<br>') + '</div></div>';
+  }
+  // Dates
+  var dates = [];
+  if(j.start_date) dates.push('Start: ' + fmtDate(j.start_date));
+  if(j.due_date)   dates.push('Due: ' + fmtDate(j.due_date));
+  if(j.completed_date) dates.push('Completed: ' + fmtDate(j.completed_date));
+  if(dates.length){
+    html += '<div class="field-row"><div class="field-label">Dates</div>'
+      + '<div class="field-value">' + dates.join(' &nbsp;&middot;&nbsp; ') + '</div></div>';
+  }
+  // Crew
+  html += '<div class="field-row"><div class="field-label">Crew</div>';
+  if(j.crew && j.crew.length){
+    html += '<div>' + j.crew.map(function(n){return '<span class="crew-chip">&#128119; ' + esc(n) + '</span>';}).join('') + '</div>';
+  } else {
+    html += '<div class="field-value muted">No crew assigned</div>';
+  }
+  html += '</div>';
+  // Notes
+  if(j.notes){
+    html += '<div class="field-row"><div class="field-label">Notes</div>'
+      + '<div class="field-value">' + esc(j.notes).replace(/\n/g,'<br>') + '</div></div>';
+  }
+  // Edit section
+  html += '<hr style="border:none;border-top:1px solid #1e2533;margin:20px 0;">';
+  html += '<div class="field-label" style="margin-bottom:12px;">Edit Job</div>';
+  html += '<div class="form-group" style="margin-bottom:10px;"><label style="font-size:11px;color:#64748b;display:block;margin-bottom:4px;">Title</label>'
+    + '<input class="editable-input" id="editTitle" value="' + esc(j.title) + '"></div>';
+  html += '<div class="form-group" style="margin-bottom:10px;"><label style="font-size:11px;color:#64748b;display:block;margin-bottom:4px;">Client</label>'
+    + '<input class="editable-input" id="editClient" value="' + esc(j.client_name||'') + '"></div>';
+  html += '<div class="form-group" style="margin-bottom:10px;"><label style="font-size:11px;color:#64748b;display:block;margin-bottom:4px;">Location</label>'
+    + '<input class="editable-input" id="editLocation" value="' + esc(j.location||'') + '"></div>';
+  html += '<div class="form-group" style="margin-bottom:10px;"><label style="font-size:11px;color:#64748b;display:block;margin-bottom:4px;">Due Date</label>'
+    + '<input class="editable-input" id="editDue" type="date" value="' + (j.due_date||'') + '"></div>';
+  html += '<div class="form-group" style="margin-bottom:10px;"><label style="font-size:11px;color:#64748b;display:block;margin-bottom:4px;">Notes</label>'
+    + '<textarea class="editable-input" id="editNotes" rows="3">' + esc(j.notes||'') + '</textarea></div>';
+  html += '<div style="display:flex;gap:10px;">'
+    + '<button class="btn-save" onclick="saveEdits()">Save Changes</button>'
+    + '<button class="delete-btn" onclick="confirmDelete()">Delete Job</button>'
+    + '</div>';
+  document.getElementById('panelBody').innerHTML = html;
+}
+
+function updateStatus(val){
+  fetch('/api/contractor/jobs/' + openJobId, {
+    method: 'PATCH',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({status: val, updated_at: new Date().toISOString()})
+  }).then(function(){
+    openJobData.status = val;
+    var card = document.querySelector('.wo-card[onclick*="' + openJobId + '"] .status-badge');
+    if(card){ card.className = 'status-badge s-' + val; card.textContent = statusLabel(val); }
+    var idx = allJobs.findIndex(function(j){return j.id === openJobId;});
+    if(idx>=0) allJobs[idx].status = val;
+  });
+}
+
+function saveEdits(){
+  var payload = {
+    title: document.getElementById('editTitle').value.trim(),
+    client_name: document.getElementById('editClient').value.trim(),
+    location: document.getElementById('editLocation').value.trim(),
+    due_date: document.getElementById('editDue').value || null,
+    notes: document.getElementById('editNotes').value.trim()
+  };
+  fetch('/api/contractor/jobs/' + openJobId, {
+    method: 'PATCH',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  }).then(function(r){return r.json();}).then(function(res){
+    if(res.ok){
+      Object.assign(openJobData, payload);
+      var idx = allJobs.findIndex(function(j){return j.id === openJobId;});
+      if(idx>=0) Object.assign(allJobs[idx], payload);
+      document.getElementById('panelTitle').textContent = payload.title || openJobData.title;
+      renderList(allJobs);
+      renderInfoTab(openJobData);
+      flash('Saved &#10003;');
+    }
+  });
+}
+
+function confirmDelete(){
+  if(!confirm('Delete this work order? This also removes all materials and photos.')) return;
+  fetch('/api/contractor/jobs/' + openJobId, {method:'DELETE'})
+    .then(function(){
+      allJobs = allJobs.filter(function(j){return j.id !== openJobId;});
+      renderList(allJobs);
+      closePanel();
+    });
+}
+
+// ── Materials tab ──
+function loadMaterials(){
+  document.getElementById('panelBody').innerHTML = '<div class="spinner">Loading...</div>';
+  fetch('/api/contractor/jobs/' + openJobId + '/materials')
+    .then(function(r){return r.json();})
+    .then(renderMaterials);
+}
+
+function renderMaterials(mats){
+  var html = '<div class="add-material-form">'
+    + '<h4>Add Material</h4>'
+    + '<div class="form-grid">'
+    + '<input class="form-input" id="matName" placeholder="Material name" style="grid-column:1/-1">'
+    + '<input class="form-input" id="matQty" type="number" placeholder="Qty" step="0.01">'
+    + '<input class="form-input" id="matUnit" placeholder="Unit" value="each">'
+    + '<input class="form-input" id="matCost" type="number" placeholder="Unit $" step="0.01">'
+    + '</div>'
+    + '<input class="form-input" id="matNotes" placeholder="Notes (optional)" style="margin-top:8px;width:100%">'
+    + '<button class="btn-add-mat" onclick="addMaterial()">+ Add Material</button>'
+    + '</div>';
+  if(mats.length){
+    html += '<div class="mat-list">' + mats.map(function(m){
+      var cost = parseFloat(m.unit_cost||0) * parseFloat(m.qty||0);
+      return '<div class="mat-item" id="mat-' + m.id + '">'
+        + '<div class="mat-info">'
+        + '<div class="mat-name">' + esc(m.material_name) + '</div>'
+        + '<div class="mat-detail">' + m.qty + ' ' + esc(m.unit||'each')
+          + (m.unit_cost ? ' &middot; $' + parseFloat(m.unit_cost).toFixed(2) + '/unit' : '') + '</div>'
+        + '</div>'
+        + (cost ? '<div class="mat-cost">$' + cost.toFixed(2) + '</div>' : '')
+        + '<button class="mat-del" onclick="deleteMaterial(\'' + m.id + '\')">&#215;</button>'
+        + '</div>';
+    }).join('') + '</div>';
+  } else {
+    html += '<div style="text-align:center;padding:30px;color:#475569;font-size:13px;">No materials added yet.</div>';
+  }
+  document.getElementById('panelBody').innerHTML = html;
+}
+
+function addMaterial(){
+  var name = (document.getElementById('matName').value||'').trim();
+  if(!name){ alert('Enter a material name'); return; }
+  var payload = {
+    material_name: name,
+    qty: parseFloat(document.getElementById('matQty').value||0),
+    unit: document.getElementById('matUnit').value||'each',
+    unit_cost: parseFloat(document.getElementById('matCost').value||0),
+    notes: document.getElementById('matNotes').value,
+    added_by: userName
+  };
+  fetch('/api/contractor/jobs/' + openJobId + '/materials', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+  }).then(function(r){return r.json();}).then(function(res){
+    if(res.ok) loadMaterials();
+    else alert('Error: ' + res.error);
+  });
+}
+
+function deleteMaterial(matId){
+  if(!confirm('Remove this material?')) return;
+  fetch('/api/contractor/jobs/' + openJobId + '/materials/' + matId, {method:'DELETE'})
+    .then(function(){document.getElementById('mat-' + matId).remove();});
+}
+
+// ── Photos tab ──
+function loadPhotos(){
+  document.getElementById('panelBody').innerHTML = '<div class="spinner">Loading...</div>';
+  fetch('/api/contractor/jobs/' + openJobId + '/photos')
+    .then(function(r){return r.json();})
+    .then(renderPhotos);
+}
+
+function renderPhotos(photos){
+  var html = '<div class="photo-upload-area" onclick="document.getElementById(\'photoFileInput\').click()">'
+    + '<div style="font-size:32px;">&#128247;</div>'
+    + '<p>Tap to choose a photo</p>'
+    + '<input type="file" id="photoFileInput" accept="image/*" onchange="onPhotoSelected(this)">'
+    + '<select class="photo-type-select" id="photoTypeSelect" onclick="event.stopPropagation()">'
+    + '<option value="progress">Progress</option>'
+    + '<option value="before">Before</option>'
+    + '<option value="after">After</option>'
+    + '<option value="other">Other</option>'
+    + '</select>'
+    + '<input class="form-input" id="photoCaptionInput" placeholder="Caption (optional)" style="margin-top:8px;" onclick="event.stopPropagation()">'
+    + '<button class="btn-upload-photo" id="uploadPhotoBtn" onclick="event.stopPropagation();uploadPhoto()">Upload Photo</button>'
+    + '</div>';
+  if(photos.length){
+    html += '<div class="photo-grid">' + photos.map(function(p){
+      var typeClass = {'before':'pt-before','progress':'pt-progress','after':'pt-after','other':'pt-other'}[p.photo_type]||'pt-other';
+      var typeLabel = ucfirst(p.photo_type||'other');
+      return '<div class="photo-card">'
+        + '<img class="photo-thumb" src="/api/contractor/jobs/' + openJobId + '/photos/' + p.id + '/img" '
+        + 'onclick="openLightboxId(\'' + p.id + '\')" loading="lazy" '
+        + 'onerror="this.parentElement.style.display=\'none\'">'
+        + '<div class="photo-card-foot">'
+        + '<span class="photo-type-label ' + typeClass + '">' + typeLabel + '</span>'
+        + '<span class="photo-caption">' + esc(p.caption||'') + '</span>'
+        + '<button class="photo-del" onclick="deletePhoto(\'' + p.id + '\')">&#215;</button>'
+        + '</div>'
+        + '</div>';
+    }).join('') + '</div>';
+  } else {
+    html += '<div style="text-align:center;padding:30px;color:#475569;font-size:13px;">No photos yet.</div>';
+  }
+  document.getElementById('panelBody').innerHTML = html;
+}
+
+function onPhotoSelected(input){
+  if(input.files && input.files[0]){
+    selectedPhotoFile = input.files[0];
+    document.getElementById('uploadPhotoBtn').classList.add('visible');
+  }
+}
+
+function uploadPhoto(){
+  if(!selectedPhotoFile){ alert('No file selected'); return; }
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var payload = {
+      photo_data: e.target.result,
+      photo_type: document.getElementById('photoTypeSelect').value,
+      caption: (document.getElementById('photoCaptionInput').value||'').trim(),
+      uploaded_by: userName
+    };
+    fetch('/api/contractor/jobs/' + openJobId + '/photos', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+    }).then(function(r){return r.json();}).then(function(res){
+      if(res.ok){ selectedPhotoFile=null; loadPhotos(); }
+      else alert('Error uploading photo: ' + res.error);
+    });
+  };
+  reader.readAsDataURL(selectedPhotoFile);
+}
+
+function deletePhoto(photoId){
+  if(!confirm('Remove this photo?')) return;
+  fetch('/api/contractor/jobs/' + openJobId + '/photos/' + photoId, {method:'DELETE'})
+    .then(function(){loadPhotos();});
+}
+
+function openLightboxId(photoId){
+  fetch('/api/contractor/jobs/' + openJobId + '/photos/' + photoId)
+    .then(function(r){return r.json();})
+    .then(function(data){
+      document.getElementById('lightboxImg').src = data.photo_data || '';
+      document.getElementById('lightbox').classList.add('open');
+    });
+}
+
+function closeLightbox(){
+  document.getElementById('lightbox').classList.remove('open');
+  document.getElementById('lightboxImg').src = '';
+}
+
+// ── Create modal ──
+function openCreate(){
+  document.getElementById('createModal').classList.add('open');
+  document.getElementById('newStart').value = new Date().toISOString().split('T')[0];
+}
+function closeCreate(){
+  document.getElementById('createModal').classList.remove('open');
+}
+function submitNewJob(){
+  var title = document.getElementById('newTitle').value.trim();
+  if(!title){ alert('Job title is required'); return; }
+  var payload = {
+    title: title,
+    description: document.getElementById('newDesc').value.trim(),
+    client_name: document.getElementById('newClient').value.trim(),
+    location: document.getElementById('newLocation').value.trim(),
+    priority: document.getElementById('newPriority').value,
+    status: document.getElementById('newStatus').value,
+    start_date: document.getElementById('newStart').value || null,
+    due_date: document.getElementById('newDue').value || null,
+    notes: document.getElementById('newNotes').value.trim(),
+    created_by: userName
+  };
+  fetch('/api/contractor/jobs', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+  }).then(function(r){return r.json();}).then(function(res){
+    if(res.ok){
+      allJobs.unshift(res.job);
+      renderList(allJobs);
+      closeCreate();
+      // clear form
+      ['newTitle','newDesc','newClient','newLocation','newNotes'].forEach(function(id){
+        document.getElementById(id).value='';
+      });
+      document.getElementById('newPriority').value = 'normal';
+      document.getElementById('newStatus').value = 'open';
+    } else {
+      alert('Error creating job: ' + res.error);
+    }
+  });
+}
+
+// ── Helpers ──
+function statusLabel(s){
+  return {open:'Open',in_progress:'In Progress',on_hold:'On Hold',completed:'Completed',cancelled:'Cancelled'}[s]||s;
+}
+function ucfirst(s){ return s ? s.charAt(0).toUpperCase()+s.slice(1) : ''; }
+function fmtDate(d){ if(!d) return ''; var p=d.split('-'); return p[1]+'/'+p[2]+'/'+p[0].slice(2); }
+function esc(s){ if(!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function flash(msg){
+  var el=document.createElement('div');
+  el.innerHTML=msg;
+  el.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e9484;color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;font-weight:600;z-index:300;pointer-events:none;opacity:0;transition:opacity .2s;';
+  document.body.appendChild(el);
+  setTimeout(function(){el.style.opacity='1';},10);
+  setTimeout(function(){el.style.opacity='0';setTimeout(function(){el.remove();},300);},1800);
+}
+
+// close modal on overlay click
+document.getElementById('createModal').addEventListener('click', function(e){
+  if(e.target===this) closeCreate();
+});
+// close lightbox on click
+document.getElementById('lightbox').addEventListener('click', function(e){
+  if(e.target===this) closeLightbox();
+});
+</script>
+
+<!-- Photo serve route shim: photos are served via separate endpoint -->
+<script>
+// Replace img src for photos — we need to load full photo data on thumb display
+// Override after DOM renders
+document.addEventListener('DOMContentLoaded', function(){});
+</script>
+</body>
+</html>
