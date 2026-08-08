@@ -7,6 +7,87 @@
 <title>Project Summit — BSynch</title>
 
 
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #0f1117; color: #e2e8f0;
+      min-height: 100vh; display: flex; flex-direction: column;
+    }
+    main {
+      flex: 1; padding: 24px 16px 80px;
+      display: flex; flex-direction: column; align-items: center;
+    }
+    .hero { text-align: center; margin-bottom: 24px; }
+    .hero h2 { font-size: 22px; font-weight: 700; }
+    .hero p { font-size: 14px; color: #94a3b8; margin-top: 6px; }
+    .cards {
+      display: flex; flex-wrap: wrap; gap: 14px;
+      justify-content: center; max-width: 680px; width: 100%;
+    }
+    .card {
+      flex: 1 1 240px; max-width: 270px;
+      background: #1a1d27; border: 1px solid #2a2d3e;
+      border-radius: 16px; padding: 22px 18px 18px;
+      text-decoration: none; color: inherit;
+      display: flex; flex-direction: column; gap: 12px;
+      transition: border-color .15s, transform .12s, box-shadow .15s;
+      cursor: pointer;
+    }
+    .card:hover {
+      border-color: #4f8ef7;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(79,142,247,.15);
+    }
+    .card-icon {
+      width: 52px; height: 52px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; flex-shrink: 0;
+    }
+    .icon-log  { background: rgba(34,197,94,.12); }
+    .icon-dash { background: rgba(79,142,247,.12); }
+    .icon-inv  { background: rgba(245,158,11,.12); }
+    .icon-ts   { background: rgba(168,85,247,.12); }
+    .card-body { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+    .card-body h2 { font-size: 15px; font-weight: 700; }
+    .card-body p { font-size: 13px; color: #94a3b8; line-height: 1.5; }
+    .card-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: auto; padding-top: 12px;
+      border-top: 1px solid #2a2d3e;
+    }
+    .tag {
+      font-size: 10px; font-weight: 700; padding: 2px 8px;
+      border-radius: 20px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .tag-crew { background: rgba(34,197,94,.12); color: #22c55e; }
+    .tag-mgmt { background: rgba(79,142,247,.12); color: #4f8ef7; }
+    .tag-inv  { background: rgba(245,158,11,.12); color: #f59e0b; }
+    .tag-ts   { background: rgba(168,85,247,.12); color: #a855f7; }
+    .tag-all  { background: rgba(30,148,132,.12); color: #1e9484; }
+    .card-arrow { color: #4f8ef7; font-size: 18px; }
+    footer {
+      text-align: center; padding: 16px; font-size: 12px;
+      color: #334155; border-top: 1px solid #1e2533;
+    }
+    /* GNAV */
+    .gnav {
+      position: fixed; bottom: 0; left: 0; right: 0; height: 54px;
+      background: #060c18; border-top: 1px solid #1a2535;
+      display: flex; justify-content: space-around; align-items: center;
+      z-index: 9999; box-shadow: 0 -4px 24px rgba(0,0,0,.5);
+    }
+    .gnav a {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 1px; text-decoration: none; color: #475569;
+      padding: 0 8px; font-size: 10px; font-weight: 500;
+      transition: .15s; min-width: 44px;
+    }
+    .gnav a:hover, .gnav a.gna { color: #a855f7; }
+    .gi { font-size: 20px; line-height: 1; }
+    .gnav-sub { display: block; font-size: 8px; color: #94a3b8; line-height: 1; margin-top: 1px; white-space: nowrap; }
+  </style>
   <script src="/static/theme.js"></script>
   <link rel="stylesheet" href="/static/themes.css">
 </head>
