@@ -20,11 +20,12 @@ function openReceiptModal() {
   hide('ocrScanning'); hide('ocrAddBtn');
   document.getElementById('ocrResults').innerHTML = '';
   document.getElementById('receiptModal').classList.add('open');
-  // Pre-load all active WOs for the picker
+  // Pre-load all active WOs for the picker (best-effort; runOcr also fetches)
   fetch('/api/contractor/jobs')
     .then(function(r) { return r.json(); })
     .then(function(res) {
-      ocrAllJobs = (res.jobs || []).filter(function(j) {
+      var list = Array.isArray(res) ? res : (res.jobs || []);
+      ocrAllJobs = list.filter(function(j) {
         return j.status !== 'cancelled' && j.status !== 'completed';
       });
     });
@@ -60,20 +61,35 @@ function runOcr() {
   show('ocrScanning');
   document.getElementById('ocrResults').innerHTML = '';
   hide('ocrAddBtn');
-  fetch('/api/contractor/jobs/' + openJobId + '/receipt-ocr', {
+
+  // Fetch OCR + jobs list in parallel — both must complete before render
+  var ocrPromise = fetch('/api/contractor/jobs/' + openJobId + '/receipt-ocr', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ image_data: ocrImageData })
-  })
+  }).then(function(r) { return r.json(); });
+
+  var jobsPromise = fetch('/api/contractor/jobs')
     .then(function(r) { return r.json(); })
     .then(function(res) {
+      // Endpoint returns a raw array, not {jobs:[...]}
+      var list = Array.isArray(res) ? res : (res.jobs || []);
+      return list.filter(function(j) {
+        return j.status !== 'cancelled' && j.status !== 'completed';
+      });
+    });
+
+  Promise.all([ocrPromise, jobsPromise])
+    .then(function(results) {
+      var ocrRes = results[0];
+      ocrAllJobs = results[1];
       hide('ocrScanning');
-      if (res.error) {
+      if (ocrRes.error) {
         document.getElementById('ocrResults').innerHTML =
-          '<div style="color:#ef4444;padding:12px;">Error: ' + esc(res.error) + '</div>';
+          '<div style="color:#ef4444;padding:12px;">Error: ' + esc(ocrRes.error) + '</div>';
         return;
       }
-      ocrItems = res.items || [];
+      ocrItems = ocrRes.items || [];
       ocrRowCount = {};
       renderOcrResults();
     })

@@ -278,8 +278,9 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
     <div class="rp-head">
       <button class="rp-close" onclick="closePanel()">&#x2715;</button>
       <div style="flex:1;min-width:0;">
-        <div class="rp-proj-name" id="rpName"></div>
-        <div style="font-size:12px;color:#64748b;" id="rpClient"></div>
+        <input class="rp-proj-name" id="rpName" style="background:none;border:none;border-bottom:1px solid transparent;width:100%;cursor:pointer;padding:0;" 
+               title="Click to rename" onfocus="this.style.borderBottomColor='#1e9484'" 
+               onblur="saveProjectName(this)" onkeydown="if(event.key==='Enter')this.blur()">
       </div>
       <div class="rp-pct" id="rpPct">0%</div>
     </div>
@@ -461,7 +462,7 @@ function renderPanel(projId){
   if(!proj) return;
   var pjobs=allJobs.filter(j=>j.project_id===projId);
   var pct=pjobs.length?Math.round(pjobs.reduce((s,j)=>s+parseFloat(j.progress_pct||0),0)/pjobs.length):0;
-  document.getElementById('rpName').textContent=proj.name;
+  document.getElementById('rpName').value=proj.name;
   document.getElementById('rpClient').textContent=proj.client_name||'';
   document.getElementById('rpPct').textContent=pct+'%';
   var weight=pjobs.length?Math.round(100/pjobs.length):0;
@@ -708,7 +709,30 @@ document.getElementById('projModal').addEventListener('click',function(e){if(e.t
 document.getElementById('woModal').addEventListener('click',function(e){if(e.target===this)closeWoModal();});
 document.getElementById('lightbox').addEventListener('click',function(e){if(e.target===this)closeLightbox();});
 </script>
-<script src="/static/contractor-ocr.js"></script>
+<script src="/static/contractor-ocr.js">
+// ── Rename project ──
+function saveProjectName(input){
+  input.style.borderBottomColor='transparent';
+  var newName=(input.value||'').trim();
+  if(!newName||!openProjId){input.value=(allProjects.find(function(p){return p.id===openProjId;})||{}).name||'';return;}
+  var proj=allProjects.find(function(p){return p.id===openProjId;});
+  if(proj&&newName===proj.name)return; // no change
+  fetch('/api/contractor/projects/'+openProjId,{
+    method:'PATCH',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({name:newName,updated_at:new Date().toISOString()})
+  }).then(function(r){return r.json();}).then(function(res){
+    if(res.ok!==false){
+      // Update local cache
+      if(proj) proj.name=newName;
+      renderProjects(allProjects);
+      flash('Project renamed to "'+newName+'"');
+    } else {
+      input.value=proj?proj.name:'';
+    }
+  });
+}
+</script>
 
 <!-- Receipt OCR modal -->
 <div class="modal-overlay" id="receiptModal">
