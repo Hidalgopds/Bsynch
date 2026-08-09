@@ -693,11 +693,28 @@ function submitWo(){
   if(!title){alert('Title required');return;}
   var stepNames=[];
   document.querySelectorAll('#woStepFields .step-field-input').forEach(inp=>{if(inp.value.trim())stepNames.push(inp.value.trim());});
-  fetch('/api/contractor/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,description:document.getElementById('woDesc').value.trim(),priority:document.getElementById('woPriority').value,status:document.getElementById('woStatus').value,start_date:document.getElementById('woStart').value||null,due_date:document.getElementById('woDue').value||null,created_by:userName,project_id:openProjId})})
-    .then(r=>r.json()).then(res=>{
-      if(!res.ok){alert('Error: '+res.error);return;}
+  var btn=document.querySelector('#woModal .btn-submit');
+  if(btn){btn.disabled=true;btn.textContent='Creating...';}
+  fetch('/api/contractor/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:title,description:document.getElementById('woDesc').value.trim(),priority:document.getElementById('woPriority').value,status:document.getElementById('woStatus').value,start_date:document.getElementById('woStart').value||null,due_date:document.getElementById('woDue').value||null,created_by:userName,project_id:openProjId})})
+    .then(r=>r.json()).then(function(res){
+      if(!res.ok){alert('Error creating work order: '+(res.error||'unknown'));return;}
+      if(!res.job||!res.job.id){
+        // job created but no id returned — still reload
+        closeWoModal();loadAll();return;
+      }
       return fetch('/api/contractor/jobs/'+res.job.id+'/steps',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({steps:stepNames})})
-        .then(()=>{closeWoModal();['woTitle','woDesc'].forEach(id=>document.getElementById(id).value='');document.getElementById('woPriority').value='normal';document.getElementById('woStatus').value='open';loadAll();});
+        .then(function(){
+          closeWoModal();
+          ['woTitle','woDesc'].forEach(function(id){document.getElementById(id).value='';});
+          document.getElementById('woPriority').value='normal';
+          document.getElementById('woStatus').value='open';
+          loadAll();
+          flash('Work order created');
+        });
+    }).catch(function(err){
+      alert('Network error: '+err.message);
+    }).finally(function(){
+      if(btn){btn.disabled=false;btn.textContent='Create Work Order';}
     });
 }
 
