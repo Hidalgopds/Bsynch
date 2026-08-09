@@ -386,14 +386,14 @@ var DEFAULT_STEPS=['Site Assessment','Material Preparation','Structural Work','Q
 // ── Boot ──
 loadAll();
 function loadAll(){
-  Promise.all([
-    fetch('/api/contractor/projects').then(r=>r.json()),
-    fetch('/api/contractor/jobs').then(r=>r.json())
-  ]).then(([projs,jobs])=>{
-    allProjects=projs; allJobs=jobs;
-    updateKPIs(); renderProjects();
-    if(openProjId) renderPanel(openProjId);
-  }).catch(()=>document.getElementById('projList').innerHTML='<div class="spinner">Error loading data.</div>');
+  fetch('/api/contractor/projects')
+    .then(r=>r.json())
+    .then(projs=>{
+      allProjects=projs;
+      allJobs=projs.reduce((acc,p)=>acc.concat(p.jobs||[]),[]);
+      updateKPIs(); renderProjects();
+      if(openProjId) renderPanel(openProjId);
+    }).catch(()=>document.getElementById('projList').innerHTML='<div class="spinner">Error loading data.</div>');
 }
 
 // ── KPIs ──

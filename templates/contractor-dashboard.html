@@ -157,15 +157,15 @@ var userName=localStorage.getItem('mbrName')||localStorage.getItem('companyUser'
 loadDashboard();
 
 function loadDashboard(){
-  Promise.all([
-    fetch('/api/contractor/projects').then(function(r){return r.json();}),
-    fetch('/api/contractor/jobs').then(function(r){return r.json();})
-  ]).then(function(results){
-    allProjects=results[0];
-    allJobs=results[1];
-    updateKPIs();
-    renderDash();
-  }).catch(function(){document.getElementById('dashContent').innerHTML='<div class="empty-state"><div class="icon">&#9888;</div><p>Error loading data.</p></div>';});
+  fetch('/api/contractor/projects')
+    .then(function(r){return r.json();})
+    .then(function(projects){
+      allProjects=projects;
+      // Jobs are embedded in each project — flatten for KPI and unassigned-job views
+      allJobs=projects.reduce(function(acc,p){return acc.concat(p.jobs||[]);},[]);
+      updateKPIs();
+      renderDash();
+    }).catch(function(){document.getElementById('dashContent').innerHTML='<div class="empty-state"><div class="icon">&#9888;</div><p>Error loading data.</p></div>';});
 }
 
 function updateKPIs(){

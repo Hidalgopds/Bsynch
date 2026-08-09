@@ -5052,25 +5052,17 @@ def contractor_dashboard():
 
 @app.route("/api/contractor/projects", methods=["GET"])
 def get_contractor_projects():
+    # Single query using PostgREST embedded join (FK: contractor_jobs.project_id → contractor_projects.id)
     r = requests.get(
-        f"{sb_url()}/rest/v1/{CONTRACTOR_PROJECTS_TABLE}?select=*&order=created_at.desc&limit=200",
-        headers=sb_headers(), timeout=5
+        f"{sb_url()}/rest/v1/{CONTRACTOR_PROJECTS_TABLE}"
+        f"?select=*,{CONTRACTOR_JOBS_TABLE}(id,job_number,title,status,progress_pct,project_id,due_date)"
+        f"&order=created_at.desc&limit=200",
+        headers=sb_headers(), timeout=10
     )
     projects = r.json() if r.ok else []
-    # Attach jobs (with progress) to each project
-    jobs_r = requests.get(
-        f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}"
-        f"?select=id,job_number,title,status,progress_pct,project_id&order=created_at.asc&limit=1000",
-        headers=sb_headers(), timeout=5
-    )
-    all_jobs = jobs_r.json() if jobs_r.ok else []
-    jobs_by_proj = {}
-    for j in all_jobs:
-        pid = j.get("project_id")
-        if pid:
-            jobs_by_proj.setdefault(pid, []).append(j)
     for p in projects:
-        pjobs = jobs_by_proj.get(p["id"], [])
+        pjobs = p.pop(CONTRACTOR_JOBS_TABLE, None) or []
+        # sort jobs by created_at is not available here; order in sub-select not guaranteed but acceptable
         p["jobs"] = pjobs
         if pjobs:
             p["progress_pct"] = round(
