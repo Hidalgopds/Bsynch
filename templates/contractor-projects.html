@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0!important;min-height:100vh;display:flex;flex-direction:column;}
-.proj-card,.proj-card *{color:#e2e8f0;}.right-panel,.right-panel *:not(.chip-active):not(.chip-hold):not(.chip-done):not(.chip-count):not(.s-chip):not(.job-pct-badge):not(.rp-pct):not(.weight-banner):not(.job-num):not(.job-steps-info):not(.job-weight){color:#e2e8f0;}.job-panel,.job-panel *:not(.jp-back):not(.jp-job-num):not(.jptab):not(.jp-pct-big):not(.s-chip):not(.step-del):not(.field-label):not(.field-value.muted){color:#e2e8f0;}
+.proj-card,.proj-card *{color:#0f172a;}.right-panel,.right-panel *:not(.chip-active):not(.chip-hold):not(.chip-done):not(.chip-count):not(.s-chip):not(.job-pct-badge):not(.rp-pct):not(.weight-banner):not(.job-num):not(.job-steps-info):not(.job-weight){color:#e2e8f0;}.job-panel,.job-panel *:not(.jp-back):not(.jp-job-num):not(.jptab):not(.jp-pct-big):not(.s-chip):not(.step-del):not(.field-label):not(.field-value.muted){color:#e2e8f0;}
 
 /* Header */
 header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #1e2533;background:#0f1117;position:sticky;top:0;z-index:50;}
@@ -37,8 +37,8 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
 .proj-list::-webkit-scrollbar-thumb{background:#1e2533;}
 
 /* Project card */
-.proj-card{background:#1a1d27;border:1px solid #2a2d3e;border-radius:16px;overflow:hidden;cursor:pointer;transition:border-color .15s;}
-.proj-card:hover,.proj-card.active{border-color:#1e9484;}
+.proj-card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;cursor:pointer;transition:border-color .15s,box-shadow .15s;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.proj-card:hover,.proj-card.active{border-color:#1e9484;box-shadow:0 2px 8px rgba(30,148,132,.15);}
 .proj-card-body{padding:20px 22px;}
 .proj-top{display:flex;align-items:flex-start;gap:14px;}
 .proj-ring{position:relative;width:56px;height:56px;flex-shrink:0;}
@@ -380,6 +380,7 @@ var openProjId=null;
 var openJobId=null, openJobData=null, openJobTab='steps';
 var selectedPhotoFile=null;
 var woStepCount=0;
+var woForProjectId=null; // captured when modal opens
 var userName=localStorage.getItem('mbrName')||localStorage.getItem('companyUser')||'User';
 var DEFAULT_STEPS=['Site Assessment','Material Preparation','Structural Work','Quality Check','Final Inspection'];
 
@@ -669,6 +670,7 @@ function deleteProject(id){
 
 // ── Create Work Order (inside project) ──
 function openWoModal(){
+  woForProjectId=openProjId; // lock in the project now
   document.getElementById('woModal').classList.add('open');
   document.getElementById('woStart').value=new Date().toISOString().split('T')[0];
   initWoSteps();
@@ -695,7 +697,7 @@ function submitWo(){
   document.querySelectorAll('#woStepFields .step-field-input').forEach(inp=>{if(inp.value.trim())stepNames.push(inp.value.trim());});
   var btn=document.querySelector('#woModal .btn-submit');
   if(btn){btn.disabled=true;btn.textContent='Creating...';}
-  fetch('/api/contractor/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:title,description:document.getElementById('woDesc').value.trim(),priority:document.getElementById('woPriority').value,status:document.getElementById('woStatus').value,start_date:document.getElementById('woStart').value||null,due_date:document.getElementById('woDue').value||null,created_by:userName,project_id:openProjId})})
+  fetch('/api/contractor/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:title,description:document.getElementById('woDesc').value.trim(),priority:document.getElementById('woPriority').value,status:document.getElementById('woStatus').value,start_date:document.getElementById('woStart').value||null,due_date:document.getElementById('woDue').value||null,created_by:userName,project_id:woForProjectId})})
     .then(r=>r.json()).then(function(res){
       if(!res.ok){alert('Error creating work order: '+(res.error||'unknown'));return;}
       if(!res.job||!res.job.id){
