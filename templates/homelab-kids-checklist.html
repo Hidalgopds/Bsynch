@@ -31,6 +31,7 @@ main{flex:1;padding:24px 16px 60px;max-width:900px;width:100%;margin:0 auto;}
 .kid-card{background:#1a1d27;border:2px solid #2a2d3e;border-radius:20px;padding:22px 14px;text-align:center;cursor:pointer;transition:transform .15s,border-color .15s;}
 .kid-card:hover,.kid-card:active{transform:translateY(-3px) scale(1.02);border-color:#1e9484;}
 .kid-avatar{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 10px;}
+.kid-photo{object-fit:cover;background:#0f1117;}
 .kid-name{font-weight:700;font-size:15px;}
 .kid-empty{text-align:center;color:#64748b;padding:40px 20px;}
 
@@ -143,7 +144,7 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
     <div class="kid-banner">
       <div class="kid-avatar" id="cvAvatar"></div>
       <div class="kid-name" id="cvName"></div>
-      <button class="btn-ghost" onclick="showScreen('profilePicker'); loadKids();">Cambiar</button>
+      <button class="btn-ghost" onclick="goToProfilePicker()">Cambiar</button>
     </div>
     <div id="blocksWrap"></div>
   </section>
@@ -152,7 +153,7 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
   <section class="screen" id="settingsView">
     <div class="kid-banner">
       <div class="kid-name" style="font-size:20px;">⚙️ Settings de padres</div>
-      <button class="btn-ghost" onclick="showScreen('profilePicker'); loadKids();">Salir</button>
+      <button class="btn-ghost" onclick="goToProfilePicker()">Salir</button>
     </div>
     <div class="settings-tabs">
       <button class="active" data-tab="kids" onclick="switchSettingsTab('kids')">Jóvenes</button>
@@ -179,7 +180,11 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
           <input type="date" id="newKidDob">
           <button class="btn-primary" onclick="createKid()">Crear</button>
         </div>
-        <p style="font-size:11px;color:#64748b;">La fecha de nacimiento decide qué juegos mentales le tocan según su edad.</p>
+        <div class="field-row">
+          <input type="file" id="newKidPhotos" accept="image/*" multiple onchange="handleKidPhotoPick(event)">
+        </div>
+        <div id="newKidPhotoPreview" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;"></div>
+        <p style="font-size:11px;color:#64748b;">La fecha de nacimiento decide qué juegos mentales le tocan según su edad. Hasta 5 fotos — se van alternando solas en su perfil.</p>
       </div>
       <div class="card" id="kidsListCard"><h4>Jóvenes</h4><div id="kidsList"></div></div>
     </div>
@@ -340,7 +345,49 @@ function showScreen(id){
   document.getElementById(id).classList.add('active');
 }
 
+// ── Idle timeout: kick back to profile picker after 10 min of no activity ──
+var IDLE_MS = 10 * 60 * 1000;
+var idleTimer = null;
+function startIdleTimer(){
+  clearIdleTimer();
+  idleTimer = setTimeout(function(){ goToProfilePicker(); }, IDLE_MS);
+}
+function clearIdleTimer(){
+  if(idleTimer){ clearTimeout(idleTimer); idleTimer = null; }
+}
+function goToProfilePicker(){
+  clearIdleTimer();
+  state.selectedKid = null;
+  showScreen('profilePicker');
+  loadKids();
+}
+document.addEventListener('click', function(){ if(idleTimer) startIdleTimer(); });
+document.addEventListener('touchstart', function(){ if(idleTimer) startIdleTimer(); });
+
 // ── Profile picker ──────────────────────────────────────────────
+function kidAvatarHtml(k, extraClass, extraStyle, extraAttrs){
+  extraClass = extraClass || '';
+  extraStyle = extraStyle || '';
+  extraAttrs = extraAttrs || '';
+  if(k.photo_ids && k.photo_ids.length){
+    var pid = k.photo_ids[Math.floor(Math.random()*k.photo_ids.length)];
+    return '<img class="kid-avatar kid-photo ' + extraClass + '" data-kid-id="' + k.id + '" ' + extraAttrs +
+      ' style="' + extraStyle + '" src="/api/homelab/kids/' + k.id + '/photos/' + pid + '/img">';
+  }
+  return '<div class="kid-avatar ' + extraClass + '" ' + extraAttrs +
+    ' style="background:' + k.color + '33;' + extraStyle + '">' + k.avatar_emoji + '</div>';
+}
+function rotateKidPhotos(){
+  document.querySelectorAll('.kid-photo').forEach(function(img){
+    var kidId = img.dataset.kidId;
+    var kid = state.kids.find(function(k){ return k.id === kidId; });
+    if(!kid || !kid.photo_ids || kid.photo_ids.length < 2) return;
+    var pid = kid.photo_ids[Math.floor(Math.random()*kid.photo_ids.length)];
+    img.src = '/api/homelab/kids/' + kidId + '/photos/' + pid + '/img';
+  });
+}
+setInterval(rotateKidPhotos, 5000);
+
 function loadKids(){
   fetch(API + '/kids').then(function(r){ return r.json(); }).then(function(kids){
     state.kids = kids;
@@ -351,7 +398,7 @@ function loadKids(){
     }
     grid.innerHTML = kids.map(function(k){
       return '<div class="kid-card card" onclick="selectKid(\'' + k.id + '\')">' +
-        '<div class="kid-avatar" style="background:' + k.color + '33;">' + k.avatar_emoji + '</div>' +
+        kidAvatarHtml(k) +
         '<div class="kid-name">' + escapeHtml(k.name) + '</div></div>';
     }).join('');
   });
@@ -361,11 +408,11 @@ function selectKid(kidId){
   var kid = state.kids.find(function(k){ return k.id === kidId; });
   if(!kid) return;
   state.selectedKid = kid;
-  document.getElementById('cvAvatar').textContent = kid.avatar_emoji;
-  document.getElementById('cvAvatar').style.background = kid.color + '33';
+  document.getElementById('cvAvatar').outerHTML = kidAvatarHtml(kid, '', '', 'id="cvAvatar"');
   document.getElementById('cvName').textContent = kid.name;
   showScreen('checklistView');
   loadChecklist();
+  startIdleTimer();
 }
 
 // ── Checklist ────────────────────────────────────────────────────
@@ -752,12 +799,34 @@ function loadKidsSettings(){
     state.kids = kids;
     document.getElementById('kidsList').innerHTML = kids.map(function(k){
       var age = ageFromDob(k.fecha_nacimiento);
-      var detail = [k.sexo, age != null ? (age + ' años') : null].filter(Boolean).join(' · ');
-      return '<div class="list-item"><span style="font-size:20px;">' + k.avatar_emoji + '</span>' +
+      var photoNote = k.photo_ids && k.photo_ids.length ? (k.photo_ids.length + ' foto' + (k.photo_ids.length>1?'s':'')) : null;
+      var detail = [k.sexo, age != null ? (age + ' años') : null, photoNote].filter(Boolean).join(' · ');
+      return '<div class="list-item">' + kidAvatarHtml(k, '', 'width:32px;height:32px;font-size:16px;margin:0;') +
         '<span class="li-title">' + escapeHtml(k.name) + (detail ? '<div class="game-pick-desc">' + escapeHtml(detail) + '</div>' : '') + '</span>' +
         '<button class="icon-btn" onclick="deleteKid(\'' + k.id + '\')">🗑</button></div>';
     }).join('') || '<div style="color:#64748b;font-size:13px;">Sin jóvenes todavía.</div>';
   });
+}
+var newKidPhotoDataUrls = [];
+function handleKidPhotoPick(evt){
+  var files = Array.prototype.slice.call(evt.target.files).slice(0, 5);
+  newKidPhotoDataUrls = [];
+  var pending = files.length;
+  if(!pending) renderKidPhotoPreview();
+  files.forEach(function(file){
+    var reader = new FileReader();
+    reader.onload = function(){
+      newKidPhotoDataUrls.push(reader.result);
+      pending--;
+      if(pending === 0) renderKidPhotoPreview();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function renderKidPhotoPreview(){
+  document.getElementById('newKidPhotoPreview').innerHTML = newKidPhotoDataUrls.map(function(url, i){
+    return '<img src="' + url + '" style="width:48px;height:48px;border-radius:10px;object-fit:cover;">';
+  }).join('');
 }
 function createKid(){
   var name = document.getElementById('newKidName').value.trim();
@@ -769,12 +838,24 @@ function createKid(){
   fetch(API + '/kids', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ name: name, avatar_emoji: emoji, color: color, sexo: sexo, fecha_nacimiento: dob })
-  }).then(function(r){ return r.json(); }).then(function(){
-    document.getElementById('newKidName').value = '';
-    document.getElementById('newKidEmoji').value = '';
-    document.getElementById('newKidSexo').value = '';
-    document.getElementById('newKidDob').value = '';
-    loadKidsSettings();
+  }).then(function(r){ return r.json(); }).then(function(res){
+    var kidId = res.kid && res.kid.id;
+    var photoUploads = (kidId ? newKidPhotoDataUrls : []).map(function(dataUrl){
+      return fetch(API + '/kids/' + kidId + '/photos', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ photo_data: dataUrl })
+      });
+    });
+    Promise.all(photoUploads).then(function(){
+      document.getElementById('newKidName').value = '';
+      document.getElementById('newKidEmoji').value = '';
+      document.getElementById('newKidSexo').value = '';
+      document.getElementById('newKidDob').value = '';
+      document.getElementById('newKidPhotos').value = '';
+      newKidPhotoDataUrls = [];
+      renderKidPhotoPreview();
+      loadKidsSettings();
+    });
   });
 }
 function deleteKid(id){
