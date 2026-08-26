@@ -277,6 +277,10 @@ def contractor_hub():
 def marketing_hub():
     return render_template("marketing-hub.html")
 
+@app.route("/homelab-hub")
+def homelab_hub():
+    return render_template("homelab-hub.html")
+
 
 @app.route("/platform-settings")
 def platform_settings_page():

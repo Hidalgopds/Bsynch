@@ -34,6 +34,7 @@
     .icon-con  { background: rgba(245,158,11,.15); }
     .icon-mkt  { background: rgba(168,85,247,.15); }
     .icon-set  { background: rgba(30,148,132,.15); }
+    .icon-lab  { background: rgba(34,197,94,.15); }
     .tile h3 { font-size: 16px; font-weight: 700; }
     .tile p  { font-size: 12px; color: #94a3b8; line-height: 1.5; }
     .tile-coming { opacity: .55; cursor: default; }
@@ -80,6 +81,10 @@
       <div class="tile-icon icon-set">⚙️</div>
       <div><h3>Settings</h3><p>Users, roles, integrations, and platform configuration.</p></div>
     </a>
+    <a href="/homelab-hub" class="tile" id="tile-homelab">
+      <div class="tile-icon icon-lab">🏠</div>
+      <div><h3>Home Lab</h3><p>Custom apps and views for projects you're building at home.</p></div>
+    </a>
   </div>
 </main>
 <footer>BSynch · Powered by Hidalgo Ops</footer>
@@ -92,7 +97,7 @@
 
   if(_isSubdomain){
     // Hide all tiles initially, then show only enabled ones
-    ['erp','contractor','marketing','settings'].forEach(function(t){
+    ['erp','contractor','marketing','settings','homelab'].forEach(function(t){
       var el = document.getElementById('tile-'+t);
       if(el) el.style.display='none';
     });
