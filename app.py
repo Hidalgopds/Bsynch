@@ -296,6 +296,7 @@ HL_GAME_HIST   = "homelab_game_history"
 HL_SETTINGS    = "homelab_settings"
 HL_APPROVALS   = "homelab_block_approvals"
 HL_APPROVAL_NOTIF = "homelab_approval_notifications"
+HL_GUARDIANS   = "homelab_guardians"
 
 
 def _hl_today():
@@ -382,6 +383,51 @@ def _hl_get_settings():
     return {row["key"]: row["value"] for row in rows}
 
 
+def _hl_find_guardian_by_pin(pin):
+    """Return {id, name, relationship} for the guardian owning this PIN, or None."""
+    pin = str(pin or "").strip()
+    if not pin:
+        return None
+    r = requests.get(f"{sb_url()}/rest/v1/{HL_GUARDIANS}?pin=eq.{pin}&select=id,name,relationship",
+                      headers=sb_headers(), timeout=5)
+    rows = r.json() if r.ok else []
+    return rows[0] if rows else None
+
+
+def _hl_kid_age(kid_id):
+    """Age in whole years from homelab_kids.fecha_nacimiento, or None if unset."""
+    r = requests.get(f"{sb_url()}/rest/v1/{HL_KIDS}?id=eq.{kid_id}&select=fecha_nacimiento",
+                      headers=sb_headers(), timeout=5)
+    rows = r.json() if r.ok else []
+    dob = rows[0].get("fecha_nacimiento") if rows else None
+    if not dob:
+        return None
+    y, m, d = [int(x) for x in dob.split("-")]
+    today = date.today()
+    age = today.year - y - ((today.month, today.day) < (m, d))
+    return age
+
+
+def _hl_games_for_kid(kid_id):
+    """Active games, filtered to the kid's age when both the kid's DOB and the
+    game's age range are set. A game with no min/max age is always included."""
+    r = requests.get(f"{sb_url()}/rest/v1/{HL_GAMES}?active=eq.true&select=*&order=order_num.asc",
+                      headers=sb_headers(), timeout=10)
+    games = r.json() if r.ok else []
+    age = _hl_kid_age(kid_id) if kid_id else None
+    if age is None:
+        return games
+    out = []
+    for g in games:
+        lo, hi = g.get("min_age"), g.get("max_age")
+        if lo is not None and age < lo:
+            continue
+        if hi is not None and age > hi:
+            continue
+        out.append(g)
+    return out
+
+
 # — Kids —
 @app.route("/api/homelab/kids", methods=["GET"])
 def hl_get_kids():
@@ -403,6 +449,8 @@ def hl_create_kid():
         "avatar_emoji": data.get("avatar_emoji", "🧒"),
         "color": data.get("color", "#4f8ef7"),
         "order_num": data.get("order_num", 0),
+        "sexo": data.get("sexo") or None,
+        "fecha_nacimiento": data.get("fecha_nacimiento") or None,
     }
     r = requests.post(f"{sb_url()}/rest/v1/{HL_KIDS}", json=payload,
                        headers={**sb_headers(), "Prefer": "return=representation"}, timeout=5)
@@ -414,7 +462,7 @@ def hl_create_kid():
 @app.route("/api/homelab/kids/<kid_id>", methods=["PATCH"])
 def hl_update_kid(kid_id):
     data = request.get_json() or {}
-    allowed = ["name", "avatar_emoji", "color", "order_num"]
+    allowed = ["name", "avatar_emoji", "color", "order_num", "sexo", "fecha_nacimiento"]
     payload = {k: data[k] for k in allowed if k in data}
     if not payload:
         return jsonify({"ok": False, "error": "nothing to update"}), 400
@@ -526,6 +574,9 @@ def hl_delete_task(task_id):
 # — Mental games pool —
 @app.route("/api/homelab/games", methods=["GET"])
 def hl_get_games():
+    kid_id = request.args.get("kid_id", "")
+    if kid_id:
+        return jsonify(_hl_games_for_kid(kid_id))
     r = requests.get(
         f"{sb_url()}/rest/v1/{HL_GAMES}?active=eq.true&select=*&order=order_num.asc",
         headers=sb_headers(), timeout=10
@@ -543,6 +594,8 @@ def hl_create_game():
         "title": title,
         "description": data.get("description", ""),
         "order_num": data.get("order_num", 0),
+        "min_age": data.get("min_age") if data.get("min_age") not in ("", None) else None,
+        "max_age": data.get("max_age") if data.get("max_age") not in ("", None) else None,
     }
     r = requests.post(f"{sb_url()}/rest/v1/{HL_GAMES}", json=payload,
                        headers={**sb_headers(), "Prefer": "return=representation"}, timeout=5)
@@ -554,8 +607,11 @@ def hl_create_game():
 @app.route("/api/homelab/games/<game_id>", methods=["PATCH"])
 def hl_update_game(game_id):
     data = request.get_json() or {}
-    allowed = ["title", "description", "order_num"]
+    allowed = ["title", "description", "order_num", "min_age", "max_age"]
     payload = {k: data[k] for k in allowed if k in data}
+    for k in ("min_age", "max_age"):
+        if k in payload and payload[k] in ("", None):
+            payload[k] = None
     if not payload:
         return jsonify({"ok": False, "error": "nothing to update"}), 400
     r = requests.patch(f"{sb_url()}/rest/v1/{HL_GAMES}?id=eq.{game_id}", json=payload,
@@ -570,13 +626,93 @@ def hl_delete_game(game_id):
     return jsonify({"ok": r.ok})
 
 
-# — Settings (parent PIN + game repeat cooldown) —
+# — Guardians ("responsables"): each has their own name + PIN —
+@app.route("/api/homelab/guardians", methods=["GET"])
+def hl_get_guardians():
+    r = requests.get(f"{sb_url()}/rest/v1/{HL_GUARDIANS}?select=id,name,relationship,created_at&order=created_at.asc",
+                      headers=sb_headers(), timeout=10)
+    return jsonify(r.json() if r.ok else [])
+
+
+@app.route("/api/homelab/guardians", methods=["POST"])
+def hl_create_guardian():
+    data = request.get_json() or {}
+    name = data.get("name", "").strip()
+    pin = str(data.get("pin", "")).strip()
+    if not name or not pin:
+        return jsonify({"ok": False, "error": "name and pin required"}), 400
+    if not pin.isdigit() or len(pin) != 4:
+        return jsonify({"ok": False, "error": "El PIN debe ser de 4 dígitos"}), 400
+
+    # First guardian ever: no auth needed (cold start). Otherwise any existing
+    # guardian's PIN authorizes adding another one.
+    existing = requests.get(f"{sb_url()}/rest/v1/{HL_GUARDIANS}?select=id&limit=1",
+                             headers=sb_headers(), timeout=5)
+    has_guardians = bool(existing.ok and existing.json())
+    if has_guardians:
+        current_pin = str(data.get("current_pin", "")).strip()
+        if not _hl_find_guardian_by_pin(current_pin):
+            return jsonify({"ok": False, "error": "PIN incorrecto"}), 403
+
+    payload = {"name": name, "relationship": data.get("relationship", ""), "pin": pin}
+    r = requests.post(f"{sb_url()}/rest/v1/{HL_GUARDIANS}", json=payload,
+                       headers={**sb_headers(), "Prefer": "return=representation"}, timeout=5)
+    if r.ok and r.json():
+        return jsonify({"ok": True, "guardian": r.json()[0]})
+    if r.status_code == 409:
+        return jsonify({"ok": False, "error": "Ese PIN ya lo usa otro responsable"}), 409
+    return jsonify({"ok": False, "error": r.text}), 400
+
+
+@app.route("/api/homelab/guardians/<guardian_id>", methods=["PATCH"])
+def hl_update_guardian(guardian_id):
+    data = request.get_json() or {}
+    current_pin = str(data.get("current_pin", "")).strip()
+    if not _hl_find_guardian_by_pin(current_pin):
+        return jsonify({"ok": False, "error": "PIN incorrecto"}), 403
+
+    payload = {}
+    if "name" in data:
+        payload["name"] = data["name"].strip()
+    if "relationship" in data:
+        payload["relationship"] = data["relationship"]
+    if "new_pin" in data:
+        new_pin = str(data["new_pin"]).strip()
+        if not new_pin.isdigit() or len(new_pin) != 4:
+            return jsonify({"ok": False, "error": "El PIN debe ser de 4 dígitos"}), 400
+        payload["pin"] = new_pin
+    if not payload:
+        return jsonify({"ok": False, "error": "nothing to update"}), 400
+
+    r = requests.patch(f"{sb_url()}/rest/v1/{HL_GUARDIANS}?id=eq.{guardian_id}", json=payload,
+                        headers=sb_headers(), timeout=5)
+    if r.status_code == 409:
+        return jsonify({"ok": False, "error": "Ese PIN ya lo usa otro responsable"}), 409
+    return jsonify({"ok": r.ok})
+
+
+@app.route("/api/homelab/guardians/<guardian_id>", methods=["DELETE"])
+def hl_delete_guardian(guardian_id):
+    data = request.get_json(silent=True) or {}
+    current_pin = str(data.get("current_pin", "")).strip()
+    if not _hl_find_guardian_by_pin(current_pin):
+        return jsonify({"ok": False, "error": "PIN incorrecto"}), 403
+
+    count_r = requests.get(f"{sb_url()}/rest/v1/{HL_GUARDIANS}?select=id", headers=sb_headers(), timeout=5)
+    if count_r.ok and len(count_r.json()) <= 1:
+        return jsonify({"ok": False, "error": "Debe quedar al menos un responsable"}), 400
+
+    r = requests.delete(f"{sb_url()}/rest/v1/{HL_GUARDIANS}?id=eq.{guardian_id}",
+                         headers=sb_headers(), timeout=5)
+    return jsonify({"ok": r.ok})
+
+
+# — Settings (game repeat cooldown + parent notification email) —
 @app.route("/api/homelab/settings", methods=["GET"])
 def hl_get_settings_route():
     s = _hl_get_settings()
     return jsonify({
         "game_repeat_cooldown": int(s.get("game_repeat_cooldown", 3)),
-        "has_pin": bool(s.get("parent_pin")),
         "parent_email": s.get("parent_email", ""),
     })
 
@@ -584,25 +720,18 @@ def hl_get_settings_route():
 @app.route("/api/homelab/verify-pin", methods=["POST"])
 def hl_verify_pin():
     data = request.get_json() or {}
-    pin = str(data.get("pin", "")).strip()
-    s = _hl_get_settings()
-    return jsonify({"ok": pin != "" and pin == s.get("parent_pin", "")})
+    guardian = _hl_find_guardian_by_pin(data.get("pin", ""))
+    return jsonify({"ok": guardian is not None, "guardian": guardian})
 
 
 @app.route("/api/homelab/settings", methods=["PATCH"])
 def hl_update_settings():
     data = request.get_json() or {}
     current_pin = str(data.get("current_pin", "")).strip()
-    s = _hl_get_settings()
-    if current_pin != s.get("parent_pin", ""):
+    if not _hl_find_guardian_by_pin(current_pin):
         return jsonify({"ok": False, "error": "PIN incorrecto"}), 403
 
     updates = {}
-    if "new_pin" in data:
-        new_pin = str(data["new_pin"]).strip()
-        if not new_pin.isdigit() or len(new_pin) != 4:
-            return jsonify({"ok": False, "error": "El PIN debe ser de 4 dígitos"}), 400
-        updates["parent_pin"] = new_pin
     if "game_repeat_cooldown" in data:
         try:
             updates["game_repeat_cooldown"] = str(int(data["game_repeat_cooldown"]))
@@ -651,10 +780,14 @@ def hl_get_checklist():
     completions_by_task = {c["task_id"]: c for c in completions}
 
     ar = requests.get(
-        f"{sb_url()}/rest/v1/{HL_APPROVALS}?kid_id=eq.{kid_id}&completion_date=eq.{on_date}&select=block_id",
+        f"{sb_url()}/rest/v1/{HL_APPROVALS}?kid_id=eq.{kid_id}&completion_date=eq.{on_date}"
+        f"&select=block_id,{HL_GUARDIANS}(name)",
         headers=sb_headers(), timeout=10
     )
-    approved_block_ids = {a["block_id"] for a in (ar.json() if ar.ok else [])}
+    approved_by = {}
+    for a in (ar.json() if ar.ok else []):
+        g = a.get(HL_GUARDIANS)
+        approved_by[a["block_id"]] = g.get("name") if g else "Responsable"
 
     out_blocks = []
     for b in blocks:
@@ -668,7 +801,8 @@ def hl_get_checklist():
         out_blocks.append({
             **b, "tasks": tasks, "done": done, "total": total,
             "progress_pct": pct, "complete": total > 0 and done == total,
-            "approved": b["id"] in approved_block_ids,
+            "approved": b["id"] in approved_by,
+            "approved_by": approved_by.get(b["id"]),
         })
 
     return jsonify({"date": on_date, "kid_id": kid_id, "blocks": out_blocks})
@@ -722,11 +856,9 @@ def hl_spin_game():
     if not kid_id or not task_id:
         return jsonify({"ok": False, "error": "kid_id and task_id required"}), 400
 
-    games_r = requests.get(f"{sb_url()}/rest/v1/{HL_GAMES}?active=eq.true&select=id,title,description",
-                            headers=sb_headers(), timeout=10)
-    games = games_r.json() if games_r.ok else []
+    games = _hl_games_for_kid(kid_id)
     if not games:
-        return jsonify({"ok": False, "error": "no hay juegos configurados"}), 400
+        return jsonify({"ok": False, "error": "no hay juegos configurados para su edad"}), 400
 
     settings = _hl_get_settings()
     cooldown = int(settings.get("game_repeat_cooldown", 3))
@@ -790,16 +922,17 @@ def hl_approve_block(block_id):
     if not kid_id or not pin:
         return jsonify({"ok": False, "error": "kid_id and pin required"}), 400
 
-    settings = _hl_get_settings()
-    if pin != settings.get("parent_pin", ""):
+    guardian = _hl_find_guardian_by_pin(pin)
+    if not guardian:
         return jsonify({"ok": False, "error": "PIN incorrecto"}), 403
 
     r = requests.post(
         f"{sb_url()}/rest/v1/{HL_APPROVALS}?on_conflict=kid_id,block_id,completion_date",
-        json={"kid_id": kid_id, "block_id": block_id, "completion_date": on_date},
+        json={"kid_id": kid_id, "block_id": block_id, "completion_date": on_date,
+              "approved_by_guardian_id": guardian["id"]},
         headers={**sb_headers(), "Prefer": "resolution=merge-duplicates,return=representation"}, timeout=5
     )
-    return jsonify({"ok": r.ok})
+    return jsonify({"ok": r.ok, "guardian_name": guardian["name"] if r.ok else None})
 # ── End Home Lab ──────────────────────────────────────────────────────
 
 

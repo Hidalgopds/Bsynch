@@ -100,7 +100,7 @@ main{flex:1;padding:24px 16px 60px;max-width:900px;width:100%;margin:0 auto;}
 .card{background:#1a1d27;border:1px solid #2a2d3e;border-radius:16px;padding:18px;margin-bottom:14px;}
 .card h4{font-size:14px;margin-bottom:12px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;}
 .field-row{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center;}
-.field-row input[type=text],.field-row input[type=number]{flex:1;min-width:120px;padding:9px 12px;border-radius:9px;border:1px solid #2a2d3e;background:#0f1117;color:#e2e8f0;font-size:14px;}
+.field-row input[type=text],.field-row input[type=number],.field-row input[type=date],.field-row select{flex:1;min-width:120px;padding:9px 12px;border-radius:9px;border:1px solid #2a2d3e;background:#0f1117;color:#e2e8f0;font-size:14px;}
 .field-row input[type=color]{width:40px;height:38px;border-radius:9px;border:1px solid #2a2d3e;background:#0f1117;padding:2px;}
 .list-item{display:flex;align-items:center;gap:10px;padding:10px 8px;border-bottom:1px solid #232838;}
 .list-item:last-child{border-bottom:none;}
@@ -158,18 +158,28 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
       <button class="active" data-tab="kids" onclick="switchSettingsTab('kids')">Jóvenes</button>
       <button data-tab="tasks" onclick="switchSettingsTab('tasks')">Bloques &amp; Tareas</button>
       <button data-tab="games" onclick="switchSettingsTab('games')">Juegos mentales</button>
+      <button data-tab="guardians" onclick="switchSettingsTab('guardians')">Responsables</button>
       <button data-tab="general" onclick="switchSettingsTab('general')">General</button>
     </div>
 
     <div class="settings-pane active" id="pane-kids">
       <div class="card">
-        <h4>Agregar Joven</h4>
+        <h4>Crear cuenta</h4>
         <div class="field-row">
           <input type="text" id="newKidEmoji" placeholder="🧒" maxlength="2" style="max-width:56px;flex:none;">
           <input type="text" id="newKidName" placeholder="Nombre">
           <input type="color" id="newKidColor" value="#4f8ef7">
-          <button class="btn-primary" onclick="createKid()">Agregar</button>
         </div>
+        <div class="field-row">
+          <select id="newKidSexo">
+            <option value="">Sexo</option>
+            <option value="Hombre">Hombre</option>
+            <option value="Mujer">Mujer</option>
+          </select>
+          <input type="date" id="newKidDob">
+          <button class="btn-primary" onclick="createKid()">Crear</button>
+        </div>
+        <p style="font-size:11px;color:#64748b;">La fecha de nacimiento decide qué juegos mentales le tocan según su edad.</p>
       </div>
       <div class="card" id="kidsListCard"><h4>Jóvenes</h4><div id="kidsList"></div></div>
     </div>
@@ -194,21 +204,37 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
         </div>
         <div class="field-row">
           <input type="text" id="newGameDesc" placeholder="Descripción corta (opcional)">
+        </div>
+        <div class="field-row">
+          <span style="font-size:13px;color:#94a3b8;">Edad</span>
+          <input type="number" id="newGameMinAge" placeholder="mín" min="0" max="99" style="max-width:70px;">
+          <span style="font-size:13px;color:#94a3b8;">–</span>
+          <input type="number" id="newGameMaxAge" placeholder="máx" min="0" max="99" style="max-width:70px;">
+          <span style="font-size:11px;color:#64748b;">(vacío = todas las edades)</span>
           <button class="btn-primary" onclick="createGame()">Agregar</button>
         </div>
       </div>
       <div class="card"><h4>Pool de actividades</h4><div id="gamesList"></div></div>
     </div>
 
-    <div class="settings-pane" id="pane-general">
+    <div class="settings-pane" id="pane-guardians">
       <div class="card">
-        <h4>PIN de padres</h4>
+        <h4>Agregar responsable</h4>
+        <p style="font-size:12px;color:#94a3b8;margin-bottom:10px;">Cada responsable (papá, mamá, abuela, etc.) tiene su propio PIN. Cualquiera puede editar tareas y aprobar bloques.</p>
         <div class="field-row">
-          <input type="text" id="newPin" placeholder="Nuevo PIN de 4 dígitos" maxlength="4">
-          <button class="btn-primary" onclick="changePin()">Cambiar PIN</button>
+          <input type="text" id="newGuardianName" placeholder="Nombre">
+          <input type="text" id="newGuardianRelation" placeholder="Papá / Mamá / Abuela...">
         </div>
-        <div id="pinChangeMsg" style="font-size:12px;color:#94a3b8;"></div>
+        <div class="field-row">
+          <input type="text" id="newGuardianPin" placeholder="PIN de 4 dígitos" maxlength="4">
+          <button class="btn-primary" onclick="createGuardian()">Agregar</button>
+        </div>
+        <div id="guardianAddMsg" style="font-size:12px;color:#94a3b8;"></div>
       </div>
+      <div class="card"><h4>Responsables</h4><div id="guardiansList"></div></div>
+    </div>
+
+    <div class="settings-pane" id="pane-general">
       <div class="card">
         <h4>Ruleta de juegos mentales</h4>
         <div class="field-row">
@@ -236,23 +262,41 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
 <!-- PIN gate modal -->
 <div class="modal-overlay" id="pinGateModal">
   <div class="modal">
-    <h3>🔒 PIN de padres</h3>
-    <div class="pin-display" id="pinDots"></div>
-    <div class="pin-pad">
-      <button class="pin-key" onclick="pinPress('1')">1</button>
-      <button class="pin-key" onclick="pinPress('2')">2</button>
-      <button class="pin-key" onclick="pinPress('3')">3</button>
-      <button class="pin-key" onclick="pinPress('4')">4</button>
-      <button class="pin-key" onclick="pinPress('5')">5</button>
-      <button class="pin-key" onclick="pinPress('6')">6</button>
-      <button class="pin-key" onclick="pinPress('7')">7</button>
-      <button class="pin-key" onclick="pinPress('8')">8</button>
-      <button class="pin-key" onclick="pinPress('9')">9</button>
-      <button class="pin-key" onclick="closePinGate()">✕</button>
-      <button class="pin-key" onclick="pinPress('0')">0</button>
-      <button class="pin-key" onclick="pinBackspace()">⌫</button>
+    <div id="pinPadWrap">
+      <h3>🔒 PIN de responsable</h3>
+      <div class="pin-display" id="pinDots"></div>
+      <div class="pin-pad">
+        <button class="pin-key" onclick="pinPress('1')">1</button>
+        <button class="pin-key" onclick="pinPress('2')">2</button>
+        <button class="pin-key" onclick="pinPress('3')">3</button>
+        <button class="pin-key" onclick="pinPress('4')">4</button>
+        <button class="pin-key" onclick="pinPress('5')">5</button>
+        <button class="pin-key" onclick="pinPress('6')">6</button>
+        <button class="pin-key" onclick="pinPress('7')">7</button>
+        <button class="pin-key" onclick="pinPress('8')">8</button>
+        <button class="pin-key" onclick="pinPress('9')">9</button>
+        <button class="pin-key" onclick="closePinGate()">✕</button>
+        <button class="pin-key" onclick="pinPress('0')">0</button>
+        <button class="pin-key" onclick="pinBackspace()">⌫</button>
+      </div>
+      <div class="pin-error" id="pinError"></div>
     </div>
-    <div class="pin-error" id="pinError"></div>
+    <div id="firstGuardianForm" style="display:none;">
+      <h3>👋 Primero, crea tu cuenta</h3>
+      <p style="font-size:13px;color:#94a3b8;text-align:center;margin-bottom:16px;">Eres el primer responsable de esta casa. Elige tu PIN de 4 dígitos.</p>
+      <div class="field-row">
+        <input type="text" id="fgName" placeholder="Tu nombre">
+        <input type="text" id="fgRelation" placeholder="Papá / Mamá / Abuela...">
+      </div>
+      <div class="field-row">
+        <input type="text" id="fgPin" placeholder="PIN de 4 dígitos" maxlength="4">
+      </div>
+      <div class="field-row">
+        <button class="btn-primary" style="flex:1;" onclick="createFirstGuardian()">Crear cuenta</button>
+        <button class="btn-ghost" onclick="closePinGate()">Cancelar</button>
+      </div>
+      <div id="fgMsg" class="pin-error"></div>
+    </div>
   </div>
 </div>
 
@@ -288,7 +332,8 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
 <script>
 var API = '/api/homelab';
 var state = { kids: [], selectedKid: null, checklist: null, pinInput: '', pinPurpose: 'settings',
-              blocksCache: [], gamesCache: [], activeGameTaskId: null, gameMode: 'wheel' };
+              blocksCache: [], gamesCache: [], guardiansCache: [], activeGameTaskId: null, gameMode: 'wheel',
+              approvingBlockId: null, currentGuardian: null };
 
 function showScreen(id){
   document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
@@ -354,7 +399,8 @@ function renderChecklist(){
     }).join('');
     var banner = '';
     if(b.complete && b.approved){
-      banner = '<div class="block-complete-banner">🎉 ¡Bloque completo! Screen time desbloqueado.</div>';
+      banner = '<div class="block-complete-banner">🎉 ¡Bloque completo! Screen time desbloqueado.' +
+        (b.approved_by ? '<br><span style="font-weight:400;">Aprobado por ' + escapeHtml(b.approved_by) + '</span>' : '') + '</div>';
     } else if(b.complete && !b.approved){
       banner = '<div class="block-pending-banner">✅ ¡Todo listo! Esperando aprobación de un adulto.<br>' +
         '<button class="btn-primary" onclick="openApprovalPin(\'' + b.id + '\')">👏 Aprobar</button></div>';
@@ -408,7 +454,7 @@ function openGameModal(taskId){
   document.getElementById('gameModalPicker').style.display = '';
   document.getElementById('gameModalResult').style.display = 'none';
   setGameMode('wheel');
-  fetch(API + '/games').then(function(r){ return r.json(); }).then(function(games){
+  fetch(API + '/games?kid_id=' + state.selectedKid.id).then(function(r){ return r.json(); }).then(function(games){
     state.gamesCache = games;
     buildWheel(games);
     buildManualList(games);
@@ -490,7 +536,7 @@ function showGameResult(game){
 // ── Confetti + sound ────────────────────────────────────────────
 function celebrate(big){
   var layer = document.getElementById('confettiLayer');
-  var n = big ? 70 : 30;
+  var n = big ? 140 : 60;
   var colors = ['#1e9484','#4f8ef7','#f59e0b','#a855f7','#ef4444','#22c55e'];
   for(var i=0;i<n;i++){
     var p = document.createElement('div');
@@ -506,6 +552,8 @@ function celebrate(big){
     (function(el){ setTimeout(function(){ el.remove(); }, 4000); })(p);
   }
   playChime(big);
+  playWhoop();
+  playApplause(big ? 10 : 4);
 }
 function playChime(big){
   try{
@@ -526,11 +574,29 @@ function playChime(big){
     });
   }catch(e){}
 }
-function playApplause(){
+function playWhoop(){
   try{
     var Ctx = window.AudioContext || window.webkitAudioContext;
     var ctx = new Ctx();
-    var claps = 10;
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.type = 'triangle';
+    var start = ctx.currentTime;
+    osc.frequency.setValueAtTime(320, start);
+    osc.frequency.exponentialRampToValueAtTime(880, start + 0.22);
+    osc.frequency.exponentialRampToValueAtTime(660, start + 0.34);
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.28, start + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.4);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(start); osc.stop(start + 0.42);
+  }catch(e){}
+}
+function playApplause(claps){
+  try{
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    var ctx = new Ctx();
+    claps = claps || 10;
     for(var i=0;i<claps;i++){
       var start = ctx.currentTime + i*0.09 + Math.random()*0.02;
       var bufferSize = ctx.sampleRate * 0.06;
@@ -557,7 +623,17 @@ function openSettingsGate(){
   state.pinPurpose = 'settings';
   document.getElementById('pinError').textContent = '';
   renderPinDots();
-  document.getElementById('pinGateModal').classList.add('open');
+  fetch(API + '/guardians').then(function(r){ return r.json(); }).then(function(guardians){
+    state.guardiansCache = guardians;
+    if(!guardians.length){
+      document.getElementById('pinPadWrap').style.display = 'none';
+      document.getElementById('firstGuardianForm').style.display = '';
+    } else {
+      document.getElementById('pinPadWrap').style.display = '';
+      document.getElementById('firstGuardianForm').style.display = 'none';
+    }
+    document.getElementById('pinGateModal').classList.add('open');
+  });
 }
 function openApprovalPin(blockId){
   state.pinInput = '';
@@ -565,10 +641,33 @@ function openApprovalPin(blockId){
   state.approvingBlockId = blockId;
   document.getElementById('pinError').textContent = '';
   renderPinDots();
+  document.getElementById('pinPadWrap').style.display = '';
+  document.getElementById('firstGuardianForm').style.display = 'none';
   document.getElementById('pinGateModal').classList.add('open');
 }
 function closePinGate(){
   document.getElementById('pinGateModal').classList.remove('open');
+}
+function createFirstGuardian(){
+  var name = document.getElementById('fgName').value.trim();
+  var relation = document.getElementById('fgRelation').value.trim();
+  var pin = document.getElementById('fgPin').value.trim();
+  var msg = document.getElementById('fgMsg');
+  if(!name || !/^\d{4}$/.test(pin)){ msg.textContent = 'Nombre y PIN de 4 dígitos son obligatorios.'; return; }
+  fetch(API + '/guardians', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ name: name, relationship: relation, pin: pin })
+  }).then(function(r){ return r.json(); }).then(function(res){
+    if(res.ok){
+      state.pinInput = pin;
+      state.currentGuardian = res.guardian;
+      closePinGate();
+      showScreen('settingsView');
+      loadSettingsData();
+    } else {
+      msg.textContent = res.error || 'Error';
+    }
+  });
 }
 function renderPinDots(){
   var dots = '';
@@ -595,6 +694,7 @@ function submitPin(){
     body: JSON.stringify({ pin: state.pinInput })
   }).then(function(r){ return r.json(); }).then(function(res){
     if(res.ok){
+      state.currentGuardian = res.guardian;
       closePinGate();
       showScreen('settingsView');
       loadSettingsData();
@@ -613,7 +713,6 @@ function submitApprovalPin(){
     if(res.ok){
       closePinGate();
       celebrate(true);
-      playApplause();
       loadChecklistAndCheckBlocks();
     } else {
       document.getElementById('pinError').textContent = res.error || 'PIN incorrecto';
@@ -633,17 +732,29 @@ function loadSettingsData(){
   loadKidsSettings();
   loadBlocksSettings();
   loadGamesSettings();
+  loadGuardiansSettings();
   fetch(API + '/settings').then(function(r){ return r.json(); }).then(function(s){
     document.getElementById('cooldownInput').value = s.game_repeat_cooldown;
     document.getElementById('parentEmailInput').value = s.parent_email || '';
   });
 }
+function ageFromDob(dob){
+  if(!dob) return null;
+  var parts = dob.split('-').map(Number);
+  var today = new Date();
+  var age = today.getFullYear() - parts[0];
+  var beforeBirthday = (today.getMonth()+1 < parts[1]) || (today.getMonth()+1 === parts[1] && today.getDate() < parts[2]);
+  if(beforeBirthday) age--;
+  return age;
+}
 function loadKidsSettings(){
   fetch(API + '/kids').then(function(r){ return r.json(); }).then(function(kids){
     state.kids = kids;
     document.getElementById('kidsList').innerHTML = kids.map(function(k){
+      var age = ageFromDob(k.fecha_nacimiento);
+      var detail = [k.sexo, age != null ? (age + ' años') : null].filter(Boolean).join(' · ');
       return '<div class="list-item"><span style="font-size:20px;">' + k.avatar_emoji + '</span>' +
-        '<span class="li-title">' + escapeHtml(k.name) + '</span>' +
+        '<span class="li-title">' + escapeHtml(k.name) + (detail ? '<div class="game-pick-desc">' + escapeHtml(detail) + '</div>' : '') + '</span>' +
         '<button class="icon-btn" onclick="deleteKid(\'' + k.id + '\')">🗑</button></div>';
     }).join('') || '<div style="color:#64748b;font-size:13px;">Sin jóvenes todavía.</div>';
   });
@@ -653,12 +764,16 @@ function createKid(){
   if(!name) return;
   var emoji = document.getElementById('newKidEmoji').value.trim() || '🧒';
   var color = document.getElementById('newKidColor').value;
+  var sexo = document.getElementById('newKidSexo').value;
+  var dob = document.getElementById('newKidDob').value;
   fetch(API + '/kids', {
     method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ name: name, avatar_emoji: emoji, color: color })
+    body: JSON.stringify({ name: name, avatar_emoji: emoji, color: color, sexo: sexo, fecha_nacimiento: dob })
   }).then(function(r){ return r.json(); }).then(function(){
     document.getElementById('newKidName').value = '';
     document.getElementById('newKidEmoji').value = '';
+    document.getElementById('newKidSexo').value = '';
+    document.getElementById('newKidDob').value = '';
     loadKidsSettings();
   });
 }
@@ -724,8 +839,12 @@ function loadGamesSettings(){
   fetch(API + '/games').then(function(r){ return r.json(); }).then(function(games){
     state.gamesCache = games;
     document.getElementById('gamesList').innerHTML = games.map(function(g){
+      var ageLabel = (g.min_age != null || g.max_age != null)
+        ? ('Edad ' + (g.min_age != null ? g.min_age : '0') + '–' + (g.max_age != null ? g.max_age : '∞'))
+        : 'Todas las edades';
       return '<div class="list-item"><span class="li-title">' + escapeHtml(g.title) +
-        (g.description ? '<div class="game-pick-desc">' + escapeHtml(g.description) + '</div>' : '') + '</span>' +
+        (g.description ? '<div class="game-pick-desc">' + escapeHtml(g.description) + '</div>' : '') +
+        '<div class="game-pick-desc">' + ageLabel + '</div></span>' +
         '<button class="icon-btn" onclick="deleteGame(\'' + g.id + '\')">🗑</button></div>';
     }).join('') || '<div style="color:#64748b;font-size:13px;">Sin actividades todavía.</div>';
   });
@@ -734,12 +853,16 @@ function createGame(){
   var title = document.getElementById('newGameTitle').value.trim();
   if(!title) return;
   var desc = document.getElementById('newGameDesc').value.trim();
+  var minAge = document.getElementById('newGameMinAge').value;
+  var maxAge = document.getElementById('newGameMaxAge').value;
   fetch(API + '/games', {
     method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ title: title, description: desc })
+    body: JSON.stringify({ title: title, description: desc, min_age: minAge, max_age: maxAge })
   }).then(function(r){ return r.json(); }).then(function(){
     document.getElementById('newGameTitle').value = '';
     document.getElementById('newGameDesc').value = '';
+    document.getElementById('newGameMinAge').value = '';
+    document.getElementById('newGameMaxAge').value = '';
     loadGamesSettings();
   });
 }
@@ -747,17 +870,44 @@ function deleteGame(id){
   fetch(API + '/games/' + id, { method: 'DELETE' }).then(function(){ loadGamesSettings(); });
 }
 
-function changePin(){
-  var newPin = document.getElementById('newPin').value.trim();
-  var msg = document.getElementById('pinChangeMsg');
-  if(!/^\d{4}$/.test(newPin)){ msg.textContent = 'El PIN debe ser de 4 dígitos.'; msg.style.color = '#ef4444'; return; }
-  fetch(API + '/settings', {
-    method: 'PATCH', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ current_pin: state.pinInput, new_pin: newPin })
+function loadGuardiansSettings(){
+  fetch(API + '/guardians').then(function(r){ return r.json(); }).then(function(guardians){
+    state.guardiansCache = guardians;
+    document.getElementById('guardiansList').innerHTML = guardians.map(function(g){
+      return '<div class="list-item"><span class="li-title">' + escapeHtml(g.name) +
+        (g.relationship ? '<div class="game-pick-desc">' + escapeHtml(g.relationship) + '</div>' : '') + '</span>' +
+        '<button class="icon-btn" onclick="deleteGuardian(\'' + g.id + '\')">🗑</button></div>';
+    }).join('') || '<div style="color:#64748b;font-size:13px;">Sin responsables todavía.</div>';
+  });
+}
+function createGuardian(){
+  var name = document.getElementById('newGuardianName').value.trim();
+  var relation = document.getElementById('newGuardianRelation').value.trim();
+  var pin = document.getElementById('newGuardianPin').value.trim();
+  var msg = document.getElementById('guardianAddMsg');
+  if(!name || !/^\d{4}$/.test(pin)){ msg.textContent = 'Nombre y PIN de 4 dígitos son obligatorios.'; msg.style.color = '#ef4444'; return; }
+  fetch(API + '/guardians', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ name: name, relationship: relation, pin: pin, current_pin: state.pinInput })
   }).then(function(r){ return r.json(); }).then(function(res){
-    msg.textContent = res.ok ? 'PIN actualizado ✓' : (res.error || 'Error');
+    msg.textContent = res.ok ? 'Agregado ✓' : (res.error || 'Error');
     msg.style.color = res.ok ? '#22c55e' : '#ef4444';
-    if(res.ok) document.getElementById('newPin').value = '';
+    if(res.ok){
+      document.getElementById('newGuardianName').value = '';
+      document.getElementById('newGuardianRelation').value = '';
+      document.getElementById('newGuardianPin').value = '';
+      loadGuardiansSettings();
+    }
+  });
+}
+function deleteGuardian(id){
+  if(!confirm('¿Eliminar este responsable?')) return;
+  fetch(API + '/guardians/' + id, {
+    method: 'DELETE', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ current_pin: state.pinInput })
+  }).then(function(r){ return r.json(); }).then(function(res){
+    if(!res.ok) alert(res.error || 'No se pudo eliminar');
+    loadGuardiansSettings();
   });
 }
 function saveCooldown(){
