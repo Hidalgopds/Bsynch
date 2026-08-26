@@ -47,8 +47,9 @@ main{flex:1;padding:24px 16px 60px;max-width:900px;width:100%;margin:0 auto;}
 .block-pct{font-size:13px;font-weight:700;color:#1e9484;}
 .progress-track{height:12px;border-radius:8px;background:#0f1117;overflow:hidden;margin-bottom:16px;border:1px solid #2a2d3e;}
 .progress-fill{height:100%;background:linear-gradient(90deg,#1e9484,#4f8ef7);border-radius:8px;transition:width .4s ease;}
-.block-complete-banner{display:none;background:rgba(34,197,94,.12);border:1px solid #22c55e;color:#22c55e;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700;margin-bottom:14px;text-align:center;}
-.block-card.is-complete .block-complete-banner{display:block;}
+.block-complete-banner{background:rgba(34,197,94,.12);border:1px solid #22c55e;color:#22c55e;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700;margin-bottom:14px;text-align:center;}
+.block-pending-banner{background:rgba(245,158,11,.12);border:1px solid #f59e0b;color:#f59e0b;border-radius:10px;padding:12px 14px;font-size:13px;font-weight:700;margin-bottom:14px;text-align:center;}
+.block-pending-banner .btn-primary{margin-top:8px;padding:8px 16px;font-size:13px;}
 
 .task-row{display:flex;align-items:center;gap:14px;padding:13px 6px;border-bottom:1px solid #232838;cursor:pointer;}
 .task-row:last-child{border-bottom:none;}
@@ -217,6 +218,15 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
           <button class="btn-primary" onclick="saveCooldown()">Guardar</button>
         </div>
       </div>
+      <div class="card">
+        <h4>Aviso por correo</h4>
+        <p style="font-size:12px;color:#94a3b8;margin-bottom:10px;">Cuando un joven termine un bloque, se envía un aviso a este correo para que lo apruebes.</p>
+        <div class="field-row">
+          <input type="text" id="parentEmailInput" placeholder="tu@correo.com">
+          <button class="btn-primary" onclick="saveParentEmail()">Guardar</button>
+        </div>
+        <div id="parentEmailMsg" style="font-size:12px;color:#94a3b8;"></div>
+      </div>
     </div>
   </section>
 </main>
@@ -342,11 +352,18 @@ function renderChecklist(){
         '<div style="flex:1;"><div class="task-title">' + escapeHtml(t.title) + (t.is_mental_game ? ' 🧠' : '') + '</div>' + extra + '</div>' + badge +
         '</div>';
     }).join('');
+    var banner = '';
+    if(b.complete && b.approved){
+      banner = '<div class="block-complete-banner">🎉 ¡Bloque completo! Screen time desbloqueado.</div>';
+    } else if(b.complete && !b.approved){
+      banner = '<div class="block-pending-banner">✅ ¡Todo listo! Esperando aprobación de un adulto.<br>' +
+        '<button class="btn-primary" onclick="openApprovalPin(\'' + b.id + '\')">👏 Aprobar</button></div>';
+    }
     return '<div class="block-card card' + (b.complete ? ' is-complete' : '') + '">' +
       '<div class="block-head"><span class="block-icon">' + b.icon + '</span><span class="block-title">' + escapeHtml(b.name) + '</span>' +
       '<span class="block-pct">' + b.done + '/' + b.total + '</span></div>' +
       '<div class="progress-track"><div class="progress-fill" style="width:' + b.progress_pct + '%;"></div></div>' +
-      '<div class="block-complete-banner">🎉 ¡Bloque completo! Screen time desbloqueado.</div>' +
+      banner +
       tasksHtml +
       '</div>';
   }).join('');
@@ -380,7 +397,7 @@ function loadChecklistAndCheckBlocks(){
     state.checklist = data;
     renderChecklist();
     data.blocks.forEach(function(b){
-      if(b.complete && !wasComplete[b.id]) celebrate(true);
+      if(b.complete && !wasComplete[b.id]) celebrate(false);
     });
   });
 }
@@ -509,11 +526,43 @@ function playChime(big){
     });
   }catch(e){}
 }
+function playApplause(){
+  try{
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    var ctx = new Ctx();
+    var claps = 10;
+    for(var i=0;i<claps;i++){
+      var start = ctx.currentTime + i*0.09 + Math.random()*0.02;
+      var bufferSize = ctx.sampleRate * 0.06;
+      var buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      var data = buffer.getChannelData(0);
+      for(var j=0;j<bufferSize;j++){ data[j] = (Math.random()*2 - 1) * (1 - j/bufferSize); }
+      var noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+      var filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 1500 + Math.random()*800;
+      var gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.35, start);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.08);
+      noise.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      noise.start(start);
+    }
+  }catch(e){}
+}
 
 // ── PIN gate ──────────────────────────────────────────────────────
 function openSettingsGate(){
   state.pinInput = '';
   state.pinPurpose = 'settings';
+  document.getElementById('pinError').textContent = '';
+  renderPinDots();
+  document.getElementById('pinGateModal').classList.add('open');
+}
+function openApprovalPin(blockId){
+  state.pinInput = '';
+  state.pinPurpose = 'approve';
+  state.approvingBlockId = blockId;
   document.getElementById('pinError').textContent = '';
   renderPinDots();
   document.getElementById('pinGateModal').classList.add('open');
@@ -537,6 +586,10 @@ function pinBackspace(){
   renderPinDots();
 }
 function submitPin(){
+  if(state.pinPurpose === 'approve'){
+    submitApprovalPin();
+    return;
+  }
   fetch(API + '/verify-pin', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ pin: state.pinInput })
@@ -547,6 +600,23 @@ function submitPin(){
       loadSettingsData();
     } else {
       document.getElementById('pinError').textContent = 'PIN incorrecto';
+      state.pinInput = '';
+      renderPinDots();
+    }
+  });
+}
+function submitApprovalPin(){
+  fetch(API + '/blocks/' + state.approvingBlockId + '/approve', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ kid_id: state.selectedKid.id, pin: state.pinInput })
+  }).then(function(r){ return r.json(); }).then(function(res){
+    if(res.ok){
+      closePinGate();
+      celebrate(true);
+      playApplause();
+      loadChecklistAndCheckBlocks();
+    } else {
+      document.getElementById('pinError').textContent = res.error || 'PIN incorrecto';
       state.pinInput = '';
       renderPinDots();
     }
@@ -565,6 +635,7 @@ function loadSettingsData(){
   loadGamesSettings();
   fetch(API + '/settings').then(function(r){ return r.json(); }).then(function(s){
     document.getElementById('cooldownInput').value = s.game_repeat_cooldown;
+    document.getElementById('parentEmailInput').value = s.parent_email || '';
   });
 }
 function loadKidsSettings(){
@@ -695,6 +766,17 @@ function saveCooldown(){
     method: 'PATCH', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ current_pin: state.pinInput, game_repeat_cooldown: val })
   }).then(function(r){ return r.json(); });
+}
+function saveParentEmail(){
+  var val = document.getElementById('parentEmailInput').value.trim();
+  var msg = document.getElementById('parentEmailMsg');
+  fetch(API + '/settings', {
+    method: 'PATCH', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ current_pin: state.pinInput, parent_email: val })
+  }).then(function(r){ return r.json(); }).then(function(res){
+    msg.textContent = res.ok ? 'Guardado ✓' : (res.error || 'Error');
+    msg.style.color = res.ok ? '#22c55e' : '#ef4444';
+  });
 }
 
 function escapeHtml(s){

@@ -294,10 +294,86 @@ HL_COMPLETIONS = "homelab_task_completions"
 HL_GAMES       = "homelab_games"
 HL_GAME_HIST   = "homelab_game_history"
 HL_SETTINGS    = "homelab_settings"
+HL_APPROVALS   = "homelab_block_approvals"
+HL_APPROVAL_NOTIF = "homelab_approval_notifications"
 
 
 def _hl_today():
     return date.today().isoformat()
+
+
+def _hl_task_block_id(task_id):
+    r = requests.get(f"{sb_url()}/rest/v1/{HL_TASKS}?id=eq.{task_id}&select=block_id",
+                      headers=sb_headers(), timeout=5)
+    rows = r.json() if r.ok else []
+    return rows[0]["block_id"] if rows else None
+
+
+def _hl_revoke_block_approval(kid_id, block_id, on_date):
+    requests.delete(
+        f"{sb_url()}/rest/v1/{HL_APPROVALS}?kid_id=eq.{kid_id}&block_id=eq.{block_id}&completion_date=eq.{on_date}",
+        headers=sb_headers(), timeout=5
+    )
+    requests.delete(
+        f"{sb_url()}/rest/v1/{HL_APPROVAL_NOTIF}?kid_id=eq.{kid_id}&block_id=eq.{block_id}&completion_date=eq.{on_date}",
+        headers=sb_headers(), timeout=5
+    )
+
+
+def _hl_check_and_notify_block_complete(kid_id, block_id, on_date):
+    """If every active task in block_id is done for kid_id+on_date, claim the
+    one-per-day notification row and email the parent the first time it happens."""
+    tasks_r = requests.get(f"{sb_url()}/rest/v1/{HL_TASKS}?block_id=eq.{block_id}&active=eq.true&select=id",
+                            headers=sb_headers(), timeout=5)
+    task_ids = [t["id"] for t in (tasks_r.json() if tasks_r.ok else [])]
+    if not task_ids:
+        return
+
+    comp_r = requests.get(
+        f"{sb_url()}/rest/v1/{HL_COMPLETIONS}?kid_id=eq.{kid_id}&completion_date=eq.{on_date}&select=task_id",
+        headers=sb_headers(), timeout=5
+    )
+    completed_ids = {c["task_id"] for c in (comp_r.json() if comp_r.ok else [])}
+    if not all(tid in completed_ids for tid in task_ids):
+        return
+
+    claim = requests.post(
+        f"{sb_url()}/rest/v1/{HL_APPROVAL_NOTIF}",
+        json={"kid_id": kid_id, "block_id": block_id, "completion_date": on_date},
+        headers={**sb_headers(), "Prefer": "return=representation"}, timeout=5
+    )
+    if claim.ok and claim.json():
+        _hl_send_approval_email(kid_id, block_id)
+
+
+def _hl_send_approval_email(kid_id, block_id):
+    settings = _hl_get_settings()
+    to_email = settings.get("parent_email", "")
+    if not to_email or not SMTP_EMAIL or not SMTP_PASSWORD:
+        return
+    kid_r = requests.get(f"{sb_url()}/rest/v1/{HL_KIDS}?id=eq.{kid_id}&select=name", headers=sb_headers(), timeout=5)
+    block_r = requests.get(f"{sb_url()}/rest/v1/{HL_BLOCKS}?id=eq.{block_id}&select=name", headers=sb_headers(), timeout=5)
+    kid_name = ((kid_r.json() or [{}])[0].get("name") if kid_r.ok and kid_r.json() else None) or "Tu hijo/a"
+    block_name = ((block_r.json() or [{}])[0].get("name") if block_r.ok and block_r.json() else None) or "su rutina"
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = f"✅ {kid_name} terminó {block_name} — esperando tu aprobación"
+        msg["From"] = SMTP_EMAIL
+        msg["To"] = to_email
+        html = f"""
+        <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;background:#0f1117;color:#e2e8f0;border-radius:12px;padding:28px;">
+          <div style="background:#1e9484;width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:16px;">🎉</div>
+          <h2 style="margin:0 0 8px;">{kid_name} terminó su lista de {block_name}</h2>
+          <p style="color:#94a3b8;margin:0 0 20px;">Está esperando tu aprobación para desbloquear el screen time.</p>
+          <a href="https://bsynch.com/homelab/kids-checklist" style="display:inline-block;background:#1e9484;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;">Revisar y aprobar →</a>
+        </div>
+        """
+        msg.attach(MIMEText(html, "html"))
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as srv:
+            srv.login(SMTP_EMAIL, SMTP_PASSWORD)
+            srv.sendmail(SMTP_EMAIL, [to_email], msg.as_string())
+    except Exception as e:
+        logger.error("[HomeLab email] %s", e)
 
 
 def _hl_get_settings():
@@ -501,6 +577,7 @@ def hl_get_settings_route():
     return jsonify({
         "game_repeat_cooldown": int(s.get("game_repeat_cooldown", 3)),
         "has_pin": bool(s.get("parent_pin")),
+        "parent_email": s.get("parent_email", ""),
     })
 
 
@@ -531,6 +608,8 @@ def hl_update_settings():
             updates["game_repeat_cooldown"] = str(int(data["game_repeat_cooldown"]))
         except (TypeError, ValueError):
             return jsonify({"ok": False, "error": "game_repeat_cooldown must be a number"}), 400
+    if "parent_email" in data:
+        updates["parent_email"] = str(data["parent_email"]).strip()
 
     for key, value in updates.items():
         requests.post(
@@ -571,6 +650,12 @@ def hl_get_checklist():
     completions = cr.json() if cr.ok else []
     completions_by_task = {c["task_id"]: c for c in completions}
 
+    ar = requests.get(
+        f"{sb_url()}/rest/v1/{HL_APPROVALS}?kid_id=eq.{kid_id}&completion_date=eq.{on_date}&select=block_id",
+        headers=sb_headers(), timeout=10
+    )
+    approved_block_ids = {a["block_id"] for a in (ar.json() if ar.ok else [])}
+
     out_blocks = []
     for b in blocks:
         tasks = sorted([t for t in (b.pop(HL_TASKS, None) or []) if t.get("active", True)],
@@ -583,6 +668,7 @@ def hl_get_checklist():
         out_blocks.append({
             **b, "tasks": tasks, "done": done, "total": total,
             "progress_pct": pct, "complete": total > 0 and done == total,
+            "approved": b["id"] in approved_block_ids,
         })
 
     return jsonify({"date": on_date, "kid_id": kid_id, "blocks": out_blocks})
@@ -603,12 +689,15 @@ def hl_toggle_task():
         headers=sb_headers(), timeout=5
     )
     rows = existing.json() if existing.ok else []
+    block_id = _hl_task_block_id(task_id)
     if rows:
         requests.delete(
             f"{sb_url()}/rest/v1/{HL_COMPLETIONS}?id=eq.{rows[0]['id']}",
             headers=sb_headers(), timeout=5
         )
         completed = False
+        if block_id:
+            _hl_revoke_block_approval(kid_id, block_id, on_date)
     else:
         requests.post(
             f"{sb_url()}/rest/v1/{HL_COMPLETIONS}",
@@ -616,6 +705,8 @@ def hl_toggle_task():
             headers={**sb_headers(), "Prefer": "return=representation"}, timeout=5
         )
         completed = True
+        if block_id:
+            _hl_check_and_notify_block_complete(kid_id, block_id, on_date)
 
     return jsonify({"ok": True, "completed": completed})
 
@@ -659,6 +750,9 @@ def hl_spin_game():
                   json={"kid_id": kid_id, "task_id": task_id, "completion_date": on_date, "game_id": winner["id"]},
                   headers={**sb_headers(), "Prefer": "resolution=merge-duplicates,return=representation"},
                   timeout=5)
+    block_id = _hl_task_block_id(task_id)
+    if block_id:
+        _hl_check_and_notify_block_complete(kid_id, block_id, on_date)
 
     return jsonify({"ok": True, "game": winner})
 
@@ -680,7 +774,32 @@ def hl_pick_manual_game():
                   json={"kid_id": kid_id, "task_id": task_id, "completion_date": on_date, "game_id": game_id},
                   headers={**sb_headers(), "Prefer": "resolution=merge-duplicates,return=representation"},
                   timeout=5)
+    block_id = _hl_task_block_id(task_id)
+    if block_id:
+        _hl_check_and_notify_block_complete(kid_id, block_id, on_date)
     return jsonify({"ok": True})
+
+
+# — Parent approval —
+@app.route("/api/homelab/blocks/<block_id>/approve", methods=["POST"])
+def hl_approve_block(block_id):
+    data = request.get_json() or {}
+    kid_id = data.get("kid_id", "")
+    pin = str(data.get("pin", "")).strip()
+    on_date = data.get("date") or _hl_today()
+    if not kid_id or not pin:
+        return jsonify({"ok": False, "error": "kid_id and pin required"}), 400
+
+    settings = _hl_get_settings()
+    if pin != settings.get("parent_pin", ""):
+        return jsonify({"ok": False, "error": "PIN incorrecto"}), 403
+
+    r = requests.post(
+        f"{sb_url()}/rest/v1/{HL_APPROVALS}?on_conflict=kid_id,block_id,completion_date",
+        json={"kid_id": kid_id, "block_id": block_id, "completion_date": on_date},
+        headers={**sb_headers(), "Prefer": "resolution=merge-duplicates,return=representation"}, timeout=5
+    )
+    return jsonify({"ok": r.ok})
 # ── End Home Lab ──────────────────────────────────────────────────────
 
 
