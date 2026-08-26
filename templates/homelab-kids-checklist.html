@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Kids Checklist – BSynch</title>
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#1e9484">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kids Checklist">
+<link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+<link rel="icon" href="/static/icons/icon-192.png">
 <script src="/static/theme.js"></script>
 <link rel="stylesheet" href="/static/themes.css">
 <style>
@@ -26,15 +34,16 @@ main{flex:1;padding:24px 16px 60px;max-width:900px;width:100%;margin:0 auto;}
 .screen.active{display:block;}
 
 /* Profile picker */
-#profilePicker{display:flex;flex-direction:column;min-height:calc(100vh - 150px);}
+#profilePicker.active{display:flex;flex-direction:column;min-height:calc(100vh - 150px);}
 #profilePicker h2{text-align:center;font-size:20px;margin-bottom:14px;flex-shrink:0;}
 .kid-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:18px;flex:1;}
-.kid-card{background:#1a1d27;border:2px solid #2a2d3e;border-radius:20px;padding:22px 14px;text-align:center;cursor:pointer;transition:transform .15s,border-color .15s;display:flex;flex-direction:column;align-items:center;justify-content:center;}
-.kid-card:hover,.kid-card:active{transform:translateY(-3px) scale(1.02);border-color:#1e9484;}
+.kid-card{background:#1a1d27;border:3px solid rgba(255,255,255,.25);border-radius:20px;padding:22px 14px;text-align:center;cursor:pointer;transition:transform .15s,border-color .15s;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.kid-card:hover,.kid-card:active{transform:translateY(-3px) scale(1.02);border-color:#fff;}
 .kid-avatar{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 10px;}
-.kid-grid .kid-avatar{width:min(30vw,240px);height:min(30vw,240px);font-size:min(15vw,120px);}
+.kid-grid .kid-avatar{width:min(30vw,240px);height:min(30vw,240px);font-size:min(15vw,120px);border:4px solid rgba(255,255,255,.6);}
 .kid-photo{object-fit:cover;background:#0f1117;}
 .kid-name{font-weight:700;font-size:15px;}
+.kid-grid .kid-name{color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.25);}
 .kid-grid .kid-name{font-size:min(6vw,34px);margin-top:6px;}
 .kid-empty{text-align:center;color:#64748b;padding:40px 20px;}
 
@@ -66,6 +75,7 @@ main{flex:1;padding:24px 16px 60px;max-width:900px;width:100%;margin:0 auto;}
 .task-title{flex:1;font-size:15px;}
 .task-row.done .task-title{color:#64748b;text-decoration:line-through;}
 .task-badge{font-size:11px;padding:2px 8px;border-radius:20px;background:rgba(245,158,11,.14);color:#f59e0b;font-weight:700;}
+.edit-hint{font-size:14px;opacity:.6;flex-shrink:0;}
 .task-game-result{font-size:12px;color:#94a3b8;margin-top:2px;}
 
 /* Wheel modal */
@@ -98,6 +108,11 @@ main{flex:1;padding:24px 16px 60px;max-width:900px;width:100%;margin:0 auto;}
 .pin-key{aspect-ratio:1;border-radius:14px;background:#0f1117;border:1px solid #2a2d3e;color:#e2e8f0;font-size:20px;font-weight:700;cursor:pointer;}
 .pin-key:hover{border-color:#1e9484;}
 .pin-error{color:#ef4444;font-size:13px;text-align:center;margin-top:10px;min-height:18px;}
+
+/* Photo crop */
+.crop-viewport{width:260px;height:260px;margin:0 auto;border-radius:50%;overflow:hidden;position:relative;background:#0f1117;border:2px solid #2a2d3e;cursor:grab;touch-action:none;}
+.crop-viewport:active{cursor:grabbing;}
+.crop-viewport img{position:absolute;top:0;left:0;max-width:none;user-select:none;pointer-events:none;}
 
 /* Settings */
 .settings-tabs{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;}
@@ -176,7 +191,11 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
         <div class="field-row">
           <input type="text" id="newKidEmoji" placeholder="🧒" maxlength="2" style="max-width:56px;flex:none;">
           <input type="text" id="newKidName" placeholder="Nombre">
-          <input type="color" id="newKidColor" value="#4f8ef7">
+        </div>
+        <div class="field-row" style="align-items:center;">
+          <span style="font-size:12px;color:#94a3b8;">Fondo:</span>
+          <div id="kidColorSwatches" style="display:flex;gap:8px;"></div>
+          <input type="color" id="newKidColor" value="#4f8ef7" title="Personalizado" style="width:34px;height:34px;padding:2px;">
         </div>
         <div class="field-row">
           <select id="newKidSexo">
@@ -342,13 +361,48 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
   </div>
 </div>
 
+<!-- Photo crop modal -->
+<div class="modal-overlay" id="cropModal">
+  <div class="modal">
+    <h3>✂️ Recortar foto</h3>
+    <div class="crop-viewport" id="cropViewport">
+      <img id="cropImg" draggable="false">
+    </div>
+    <div class="field-row" style="margin-top:16px;">
+      <span style="font-size:12px;color:#94a3b8;">🔍</span>
+      <input type="range" id="cropZoom" min="100" max="300" value="100" style="flex:1;">
+    </div>
+    <div class="field-row">
+      <button class="btn-primary" style="flex:1;" onclick="confirmCrop()">Usar foto</button>
+      <button class="btn-ghost" onclick="cancelCrop()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <div id="confettiLayer"></div>
 
 <script>
 var API = '/api/homelab';
 var state = { kids: [], selectedKid: null, checklist: null, pinInput: '', pinPurpose: 'settings',
               blocksCache: [], gamesCache: [], guardiansCache: [], activeGameTaskId: null, gameMode: 'wheel',
-              approvingBlockId: null, currentGuardian: null };
+              approvingBlockId: null, currentGuardian: null, uncheckingTaskId: null, newKidColor: '#4f8ef7' };
+var KID_COLOR_PRESETS = ['#ef4444','#f59e0b','#22c55e','#4f8ef7','#a855f7','#ec4899'];
+
+function renderKidColorSwatches(){
+  var wrap = document.getElementById('kidColorSwatches');
+  if(!wrap) return;
+  wrap.innerHTML = KID_COLOR_PRESETS.map(function(c){
+    var active = state.newKidColor === c;
+    return '<button type="button" onclick="pickKidColor(\'' + c + '\')" style="width:28px;height:28px;border-radius:50%;background:' + c +
+      ';border:' + (active ? '3px solid #fff' : '2px solid transparent') + ';box-shadow:0 0 0 1px #2a2d3e;cursor:pointer;"></button>';
+  }).join('');
+}
+function pickKidColor(c){
+  state.newKidColor = c;
+  document.getElementById('newKidColor').value = c;
+  renderKidColorSwatches();
+}
+renderKidColorSwatches();
 
 function showScreen(id){
   document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
@@ -387,17 +441,6 @@ function kidAvatarHtml(k, extraClass, extraStyle, extraAttrs){
   return '<div class="kid-avatar ' + extraClass + '" ' + extraAttrs +
     ' style="background:' + k.color + '33;' + extraStyle + '">' + k.avatar_emoji + '</div>';
 }
-function rotateKidPhotos(){
-  document.querySelectorAll('.kid-photo').forEach(function(img){
-    var kidId = img.dataset.kidId;
-    var kid = state.kids.find(function(k){ return k.id === kidId; });
-    if(!kid || !kid.photo_ids || kid.photo_ids.length < 2) return;
-    var pid = kid.photo_ids[Math.floor(Math.random()*kid.photo_ids.length)];
-    img.src = '/api/homelab/kids/' + kidId + '/photos/' + pid + '/img';
-  });
-}
-setInterval(rotateKidPhotos, 5000);
-
 function layoutKidGrid(count){
   var grid = document.getElementById('kidGrid');
   if(!count){ grid.style.gridTemplateColumns = ''; grid.style.gridTemplateRows = ''; return; }
@@ -416,7 +459,7 @@ function loadKids(){
       return;
     }
     grid.innerHTML = kids.map(function(k){
-      return '<div class="kid-card card" onclick="selectKid(\'' + k.id + '\')">' +
+      return '<div class="kid-card" style="background:' + (k.color || '#4f8ef7') + ';" onclick="selectKid(\'' + k.id + '\')">' +
         kidAvatarHtml(k) +
         '<div class="kid-name">' + escapeHtml(k.name) + '</div></div>';
     }).join('');
@@ -470,7 +513,7 @@ function renderChecklist(){
     var tasksHtml = b.tasks.map(function(t){
       var doneCls = t.completed ? ' done' : '';
       var badge = t.is_premium ? '<span class="task-badge">🔒 Premium</span>' : '';
-      var img = t.task_image ? '<img class="task-image" src="' + t.task_image + '">' : '';
+      var img = t.has_image ? '<img class="task-image" src="' + API + '/tasks/' + t.id + '/image">' : '';
       var extra = '';
       if(t.is_mental_game && t.completed && t.completed_game_id){
         var g = state.gamesCache.find(function(gg){ return gg.id === t.completed_game_id; });
@@ -479,6 +522,7 @@ function renderChecklist(){
       return '<div class="task-row' + doneCls + '" onclick="handleTaskTap(\'' + t.id + '\', ' + !!t.is_mental_game + ', ' + !!t.completed + ')">' +
         '<div class="checkbox">' + (t.completed ? '✓' : '') + '</div>' + img +
         '<div style="flex:1;"><div class="task-title">' + escapeHtml(t.title) + (t.is_mental_game ? ' 🧠' : '') + '</div>' + extra + '</div>' + badge +
+        (t.completed ? '<span class="edit-hint" title="Un adulto puede deschequear esto">✏️</span>' : '') +
         '</div>';
     }).join('');
     var banner = '';
@@ -501,8 +545,11 @@ function renderChecklist(){
 }
 
 function handleTaskTap(taskId, isMentalGame, isCompleted){
+  if(isCompleted){
+    openUncheckPin(taskId); // undoing a check needs a guardian PIN
+    return;
+  }
   if(isMentalGame){
-    if(isCompleted) return; // already played today
     openGameModal(taskId);
     return;
   }
@@ -730,6 +777,16 @@ function openApprovalPin(blockId){
   document.getElementById('firstGuardianForm').style.display = 'none';
   document.getElementById('pinGateModal').classList.add('open');
 }
+function openUncheckPin(taskId){
+  state.pinInput = '';
+  state.pinPurpose = 'uncheck';
+  state.uncheckingTaskId = taskId;
+  document.getElementById('pinError').textContent = '';
+  renderPinDots();
+  document.getElementById('pinPadWrap').style.display = '';
+  document.getElementById('firstGuardianForm').style.display = 'none';
+  document.getElementById('pinGateModal').classList.add('open');
+}
 function closePinGate(){
   document.getElementById('pinGateModal').classList.remove('open');
 }
@@ -774,6 +831,10 @@ function submitPin(){
     submitApprovalPin();
     return;
   }
+  if(state.pinPurpose === 'uncheck'){
+    submitUncheckPin();
+    return;
+  }
   fetch(API + '/verify-pin', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ pin: state.pinInput })
@@ -804,6 +865,26 @@ function submitApprovalPin(){
       state.pinInput = '';
       renderPinDots();
     }
+  });
+}
+function submitUncheckPin(){
+  fetch(API + '/verify-pin', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ pin: state.pinInput })
+  }).then(function(r){ return r.json(); }).then(function(res){
+    if(!res.ok){
+      document.getElementById('pinError').textContent = 'PIN incorrecto';
+      state.pinInput = '';
+      renderPinDots();
+      return;
+    }
+    fetch(API + '/checklist/toggle', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ kid_id: state.selectedKid.id, task_id: state.uncheckingTaskId })
+    }).then(function(){
+      closePinGate();
+      loadChecklistAndCheckBlocks();
+    });
   });
 }
 
@@ -846,25 +927,108 @@ function loadKidsSettings(){
   });
 }
 var newKidPhotoDataUrls = [];
+var cropQueue = [];
+var cropState = { natW: 0, natH: 0, scale: 1, minScale: 1, offsetX: 0, offsetY: 0, dragging: false, startX: 0, startY: 0, startOffX: 0, startOffY: 0 };
+var CROP_VIEWPORT = 260;
+var CROP_OUTPUT = 400;
+
 function handleKidPhotoPick(evt){
-  var files = Array.prototype.slice.call(evt.target.files).slice(0, 5);
-  newKidPhotoDataUrls = [];
-  var pending = files.length;
-  if(!pending) renderKidPhotoPreview();
-  files.forEach(function(file){
-    var reader = new FileReader();
-    reader.onload = function(){
-      newKidPhotoDataUrls.push(reader.result);
-      pending--;
-      if(pending === 0) renderKidPhotoPreview();
-    };
-    reader.readAsDataURL(file);
-  });
+  var room = 5 - newKidPhotoDataUrls.length;
+  cropQueue = Array.prototype.slice.call(evt.target.files).slice(0, Math.max(room, 0));
+  evt.target.value = '';
+  processNextCropQueueItem();
 }
+function processNextCropQueueItem(){
+  if(!cropQueue.length) return;
+  var file = cropQueue.shift();
+  var reader = new FileReader();
+  reader.onload = function(){
+    var img = document.getElementById('cropImg');
+    img.onload = function(){
+      cropState.natW = img.naturalWidth;
+      cropState.natH = img.naturalHeight;
+      cropState.minScale = Math.max(CROP_VIEWPORT / cropState.natW, CROP_VIEWPORT / cropState.natH);
+      cropState.scale = cropState.minScale;
+      cropState.offsetX = (CROP_VIEWPORT - cropState.natW * cropState.scale) / 2;
+      cropState.offsetY = (CROP_VIEWPORT - cropState.natH * cropState.scale) / 2;
+      document.getElementById('cropZoom').value = 100;
+      applyCropTransform();
+      document.getElementById('cropModal').classList.add('open');
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+function applyCropTransform(){
+  var img = document.getElementById('cropImg');
+  img.style.width = (cropState.natW * cropState.scale) + 'px';
+  img.style.height = (cropState.natH * cropState.scale) + 'px';
+  img.style.left = cropState.offsetX + 'px';
+  img.style.top = cropState.offsetY + 'px';
+}
+function clampCropOffset(){
+  var w = cropState.natW * cropState.scale, h = cropState.natH * cropState.scale;
+  cropState.offsetX = Math.min(0, Math.max(CROP_VIEWPORT - w, cropState.offsetX));
+  cropState.offsetY = Math.min(0, Math.max(CROP_VIEWPORT - h, cropState.offsetY));
+}
+function cancelCrop(){
+  document.getElementById('cropModal').classList.remove('open');
+  processNextCropQueueItem();
+}
+function confirmCrop(){
+  var img = document.getElementById('cropImg');
+  var k = CROP_OUTPUT / CROP_VIEWPORT;
+  var canvas = document.createElement('canvas');
+  canvas.width = CROP_OUTPUT; canvas.height = CROP_OUTPUT;
+  var ctx = canvas.getContext('2d');
+  ctx.drawImage(img, cropState.offsetX * k, cropState.offsetY * k,
+    cropState.natW * cropState.scale * k, cropState.natH * cropState.scale * k);
+  newKidPhotoDataUrls.push(canvas.toDataURL('image/jpeg', 0.85));
+  document.getElementById('cropModal').classList.remove('open');
+  renderKidPhotoPreview();
+  processNextCropQueueItem();
+}
+(function(){
+  var vp = document.getElementById('cropViewport');
+  if(!vp) return;
+  vp.addEventListener('pointerdown', function(e){
+    cropState.dragging = true;
+    cropState.startX = e.clientX; cropState.startY = e.clientY;
+    cropState.startOffX = cropState.offsetX; cropState.startOffY = cropState.offsetY;
+    vp.setPointerCapture(e.pointerId);
+  });
+  vp.addEventListener('pointermove', function(e){
+    if(!cropState.dragging) return;
+    cropState.offsetX = cropState.startOffX + (e.clientX - cropState.startX);
+    cropState.offsetY = cropState.startOffY + (e.clientY - cropState.startY);
+    clampCropOffset();
+    applyCropTransform();
+  });
+  ['pointerup','pointercancel'].forEach(function(ev){
+    vp.addEventListener(ev, function(){ cropState.dragging = false; });
+  });
+  var zoom = document.getElementById('cropZoom');
+  if(zoom) zoom.addEventListener('input', function(){
+    var oldScale = cropState.scale;
+    cropState.scale = cropState.minScale * (zoom.value / 100);
+    // keep viewport center fixed while zooming
+    var cx = CROP_VIEWPORT/2, cy = CROP_VIEWPORT/2;
+    cropState.offsetX = cx - (cx - cropState.offsetX) * (cropState.scale / oldScale);
+    cropState.offsetY = cy - (cy - cropState.offsetY) * (cropState.scale / oldScale);
+    clampCropOffset();
+    applyCropTransform();
+  });
+})();
+
 function renderKidPhotoPreview(){
   document.getElementById('newKidPhotoPreview').innerHTML = newKidPhotoDataUrls.map(function(url, i){
-    return '<img src="' + url + '" style="width:48px;height:48px;border-radius:10px;object-fit:cover;">';
+    return '<div style="position:relative;"><img src="' + url + '" style="width:48px;height:48px;border-radius:10px;object-fit:cover;">' +
+      '<button type="button" onclick="removeKidPhotoPreview(' + i + ')" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:#ef4444;color:#fff;border:none;font-size:11px;cursor:pointer;line-height:1;">✕</button></div>';
   }).join('');
+}
+function removeKidPhotoPreview(i){
+  newKidPhotoDataUrls.splice(i, 1);
+  renderKidPhotoPreview();
 }
 function createKid(){
   var name = document.getElementById('newKidName').value.trim();
@@ -892,6 +1056,7 @@ function createKid(){
       document.getElementById('newKidPhotos').value = '';
       newKidPhotoDataUrls = [];
       renderKidPhotoPreview();
+      pickKidColor('#4f8ef7');
       loadKidsSettings();
     });
   });
@@ -1089,6 +1254,9 @@ function escapeHtml(s){
 }
 
 loadKids();
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){ navigator.serviceWorker.register('/sw.js').catch(function(){}); });
+}
 </script>
 </body>
 </html>

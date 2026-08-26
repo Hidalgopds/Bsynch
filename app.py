@@ -285,6 +285,26 @@ def homelab_hub():
 def homelab_kids_checklist_page():
     return render_template("homelab-kids-checklist.html")
 
+@app.route("/sw.js")
+def homelab_service_worker():
+    # Served from the root (not /static/) so its scope covers the whole
+    # site — needed for the Kids Checklist PWA to install as a standalone app.
+    from flask import Response
+    js = """
+const CACHE_NAME = 'kids-checklist-v1';
+const APP_SHELL = ['/homelab/kids-checklist'];
+self.addEventListener('install', function(e){
+  e.waitUntil(caches.open(CACHE_NAME).then(function(c){ return c.addAll(APP_SHELL); }));
+  self.skipWaiting();
+});
+self.addEventListener('activate', function(e){ self.clients.claim(); });
+self.addEventListener('fetch', function(e){
+  if(e.request.method !== 'GET') return;
+  e.respondWith(fetch(e.request).catch(function(){ return caches.match(e.request); }));
+});
+"""
+    return Response(js, mimetype="application/javascript")
+
 
 # ── Home Lab: Kids Checklist / Screen Time ───────────────────────────
 HL_KIDS        = "homelab_kids"
@@ -346,16 +366,22 @@ def _hl_check_and_notify_block_complete(kid_id, block_id, on_date):
         headers={**sb_headers(), "Prefer": "return=representation"}, timeout=5
     )
     if claim.ok and claim.json():
-        _hl_send_approval_email(kid_id, block_id)
+        # Resolve request-scoped values now; the SMTP send happens off-thread
+        # (can take 300ms-1s) so it doesn't add latency to the checkbox tap.
+        base_url, headers = sb_url(), sb_headers()
+        _threading.Thread(
+            target=_hl_send_approval_email, args=(base_url, headers, kid_id, block_id), daemon=True
+        ).start()
 
 
-def _hl_send_approval_email(kid_id, block_id):
-    settings = _hl_get_settings()
+def _hl_send_approval_email(base_url, headers, kid_id, block_id):
+    settings_r = requests.get(f"{base_url}/rest/v1/{HL_SETTINGS}?select=key,value", headers=headers, timeout=5)
+    settings = {row["key"]: row["value"] for row in (settings_r.json() if settings_r.ok else [])}
     to_email = settings.get("parent_email", "")
     if not to_email or not SMTP_EMAIL or not SMTP_PASSWORD:
         return
-    kid_r = requests.get(f"{sb_url()}/rest/v1/{HL_KIDS}?id=eq.{kid_id}&select=name", headers=sb_headers(), timeout=5)
-    block_r = requests.get(f"{sb_url()}/rest/v1/{HL_BLOCKS}?id=eq.{block_id}&select=name", headers=sb_headers(), timeout=5)
+    kid_r = requests.get(f"{base_url}/rest/v1/{HL_KIDS}?id=eq.{kid_id}&select=name", headers=headers, timeout=5)
+    block_r = requests.get(f"{base_url}/rest/v1/{HL_BLOCKS}?id=eq.{block_id}&select=name", headers=headers, timeout=5)
     kid_name = ((kid_r.json() or [{}])[0].get("name") if kid_r.ok and kid_r.json() else None) or "Tu hijo/a"
     block_name = ((block_r.json() or [{}])[0].get("name") if block_r.ok and block_r.json() else None) or "su rutina"
     try:
@@ -506,7 +532,9 @@ def hl_serve_kid_photo(kid_id, photo_id):
         img_bytes = base64.b64decode(b64)
     except Exception:
         return ("", 400)
-    return Response(img_bytes, mimetype=mime)
+    resp = Response(img_bytes, mimetype=mime)
+    resp.headers["Cache-Control"] = "private, max-age=3600"
+    return resp
 
 
 @app.route("/api/homelab/kids", methods=["POST"])
@@ -646,6 +674,29 @@ def hl_delete_task(task_id):
     r = requests.patch(f"{sb_url()}/rest/v1/{HL_TASKS}?id=eq.{task_id}", json={"active": False},
                         headers=sb_headers(), timeout=5)
     return jsonify({"ok": r.ok})
+
+
+@app.route("/api/homelab/tasks/<task_id>/image", methods=["GET"])
+def hl_serve_task_image(task_id):
+    """Serve a task's image as a binary response, cached by the browser —
+    keeps it out of the checklist JSON that gets re-fetched on every check."""
+    from flask import Response
+    import base64, re
+    r = requests.get(f"{sb_url()}/rest/v1/{HL_TASKS}?id=eq.{task_id}&select=task_image&limit=1",
+                      headers=sb_headers(), timeout=8)
+    rows = r.json() if r.ok else []
+    if not rows or not rows[0].get("task_image"):
+        return ("", 404)
+    m = re.match(r"data:(image/\w+);base64,(.+)", rows[0]["task_image"], re.DOTALL)
+    if not m:
+        return ("", 400)
+    try:
+        img_bytes = base64.b64decode(m.group(2))
+    except Exception:
+        return ("", 400)
+    resp = Response(img_bytes, mimetype=m.group(1))
+    resp.headers["Cache-Control"] = "private, max-age=3600"
+    return resp
 
 
 # — Mental games pool —
@@ -874,6 +925,9 @@ def hl_get_checklist():
             c = completions_by_task.get(t["id"])
             t["completed"] = c is not None
             t["completed_game_id"] = c.get("game_id") if c else None
+            # Strip the (potentially large) base64 image from the hot checklist
+            # payload — the client fetches it separately, once, via a cacheable URL.
+            t["has_image"] = bool(t.pop("task_image", None))
         done, total, pct = _hl_block_progress(tasks, completions_by_task)
         out_blocks.append({
             **b, "tasks": tasks, "done": done, "total": total,
