@@ -297,6 +297,8 @@ HL_SETTINGS    = "homelab_settings"
 HL_APPROVALS   = "homelab_block_approvals"
 HL_APPROVAL_NOTIF = "homelab_approval_notifications"
 HL_GUARDIANS   = "homelab_guardians"
+HL_KID_PHOTOS  = "homelab_kid_photos"
+HL_MAX_PHOTOS_PER_KID = 5
 
 
 def _hl_today():
@@ -432,10 +434,79 @@ def _hl_games_for_kid(kid_id):
 @app.route("/api/homelab/kids", methods=["GET"])
 def hl_get_kids():
     r = requests.get(
-        f"{sb_url()}/rest/v1/{HL_KIDS}?active=eq.true&select=*&order=order_num.asc,created_at.asc",
+        f"{sb_url()}/rest/v1/{HL_KIDS}?active=eq.true&select=*,{HL_KID_PHOTOS}(id)&order=order_num.asc,created_at.asc",
         headers=sb_headers(), timeout=10
     )
+    kids = r.json() if r.ok else []
+    for k in kids:
+        photos = k.pop(HL_KID_PHOTOS, None) or []
+        k["photo_ids"] = [p["id"] for p in photos]
+    return jsonify(kids)
+
+
+# — Kid photos (up to HL_MAX_PHOTOS_PER_KID, stored as data URIs) —
+@app.route("/api/homelab/kids/<kid_id>/photos", methods=["GET"])
+def hl_get_kid_photos(kid_id):
+    r = requests.get(
+        f"{sb_url()}/rest/v1/{HL_KID_PHOTOS}?kid_id=eq.{kid_id}&select=id,order_num,created_at&order=order_num.asc",
+        headers=sb_headers(), timeout=5
+    )
     return jsonify(r.json() if r.ok else [])
+
+
+@app.route("/api/homelab/kids/<kid_id>/photos", methods=["POST"])
+def hl_add_kid_photo(kid_id):
+    data = request.get_json() or {}
+    photo_data = data.get("photo_data", "").strip()
+    if not photo_data:
+        return jsonify({"ok": False, "error": "photo_data required"}), 400
+
+    count_r = requests.get(f"{sb_url()}/rest/v1/{HL_KID_PHOTOS}?kid_id=eq.{kid_id}&select=id",
+                            headers=sb_headers(), timeout=5)
+    existing = count_r.json() if count_r.ok else []
+    if len(existing) >= HL_MAX_PHOTOS_PER_KID:
+        return jsonify({"ok": False, "error": f"Máximo {HL_MAX_PHOTOS_PER_KID} fotos por joven"}), 400
+
+    r = requests.post(
+        f"{sb_url()}/rest/v1/{HL_KID_PHOTOS}",
+        json={"kid_id": kid_id, "photo_data": photo_data, "order_num": len(existing)},
+        headers={**sb_headers(), "Prefer": "return=representation"}, timeout=10
+    )
+    if r.ok and r.json():
+        return jsonify({"ok": True, "photo_id": r.json()[0]["id"]})
+    return jsonify({"ok": False, "error": r.text}), 400
+
+
+@app.route("/api/homelab/kids/<kid_id>/photos/<photo_id>", methods=["DELETE"])
+def hl_delete_kid_photo(kid_id, photo_id):
+    r = requests.delete(
+        f"{sb_url()}/rest/v1/{HL_KID_PHOTOS}?id=eq.{photo_id}&kid_id=eq.{kid_id}",
+        headers=sb_headers(), timeout=5
+    )
+    return jsonify({"ok": r.ok})
+
+
+@app.route("/api/homelab/kids/<kid_id>/photos/<photo_id>/img", methods=["GET"])
+def hl_serve_kid_photo(kid_id, photo_id):
+    """Serve a kid photo as a binary image response (for <img> src)."""
+    from flask import Response
+    import base64, re
+    r = requests.get(
+        f"{sb_url()}/rest/v1/{HL_KID_PHOTOS}?id=eq.{photo_id}&kid_id=eq.{kid_id}&select=photo_data&limit=1",
+        headers=sb_headers(), timeout=8
+    )
+    rows = r.json() if r.ok else []
+    if not rows or not rows[0].get("photo_data"):
+        return ("", 404)
+    m = re.match(r"data:(image/\w+);base64,(.+)", rows[0]["photo_data"], re.DOTALL)
+    if not m:
+        return ("", 400)
+    mime, b64 = m.group(1), m.group(2)
+    try:
+        img_bytes = base64.b64decode(b64)
+    except Exception:
+        return ("", 400)
+    return Response(img_bytes, mimetype=mime)
 
 
 @app.route("/api/homelab/kids", methods=["POST"])
