@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Home Lab – BSynch</title>
+<script src="/static/theme.js"></script>
+<link rel="stylesheet" href="/static/themes.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;}
+header{padding:16px 24px;display:flex;align-items:center;gap:14px;border-bottom:1px solid #1e2533;background:#0f1117;}
+.logo-badge{width:36px;height:36px;background:linear-gradient(135deg,#1e9484,#4f8ef7);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;flex-shrink:0;}
+.hdr-title{font-size:17px;font-weight:700;}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.hdr-user{font-size:13px;color:#94a3b8;}
+.btn-back{padding:6px 14px;background:none;border:1px solid #334155;border-radius:7px;color:#94a3b8;font-size:12px;cursor:pointer;text-decoration:none;line-height:1.4;}
+.btn-back:hover{border-color:#1e9484;color:#1e9484;}
+.btn-settings{padding:6px 14px;background:rgba(30,148,132,.12);border:1px solid #1e9484;border-radius:7px;color:#1e9484;font-size:12px;cursor:pointer;}
+.btn-settings:hover{background:rgba(30,148,132,.22);}
+.hub-content{flex:1;padding:32px 20px 60px;}
+.hub-header{max-width:680px;margin:0 auto 28px;}
+.hub-header h1{font-size:22px;font-weight:700;margin-bottom:4px;}
+.hub-header p{font-size:14px;color:#94a3b8;}
+.tile-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;max-width:680px;margin:0 auto;}
+.tile{background:#1a1d27;border:1px solid #2a2d3e;border-radius:16px;padding:24px 22px;cursor:pointer;text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:10px;transition:border-color .18s,transform .15s,box-shadow .18s;}
+.tile:hover{border-color:#1e9484;transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.35);}
+.tile.disabled{cursor:default;opacity:.55;}
+.tile.disabled:hover{border-color:#2a2d3e;transform:none;box-shadow:none;}
+.tile-icon{width:48px;height:48px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:24px;}
+.icon-teal{background:rgba(30,148,132,.14);}
+.icon-blue{background:rgba(79,142,247,.14);}
+.icon-amber{background:rgba(245,158,11,.14);}
+.tile-name{font-size:16px;font-weight:700;}
+.tile-desc{font-size:13px;color:#64748b;line-height:1.5;}
+.tile-badge{margin-top:4px;display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;width:fit-content;}
+.badge-live{background:rgba(34,197,94,.12);color:#22c55e;}
+.badge-soon{background:#1e2533;color:#475569;}
+.tile-arrow{margin-top:auto;font-size:18px;color:#334155;text-align:right;}
+.settings-panel{display:none;padding:24px;max-width:420px;width:100%;margin:0 auto;}
+.settings-panel.open{display:block;}
+.sp-back{display:flex;align-items:center;gap:8px;font-size:13px;color:#94a3b8;cursor:pointer;margin-bottom:20px;}
+.sp-back:hover{color:#1e9484;}
+.sp-section{background:#1a1d27;border:1px solid #2a2d3e;border-radius:14px;padding:20px;margin-bottom:16px;}
+.sp-section h3{font-size:13px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;}
+footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1px solid #1e2533;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo-badge">B</div>
+  <span class="hdr-title">Home Lab</span>
+  <div class="hdr-right">
+    <span class="hdr-user" id="hdrUser"></span>
+    <button class="btn-settings" onclick="showSettings()">&#9881;&#65039; Settings</button>
+    <a href="/home" class="btn-back">&#8592; Home</a>
+  </div>
+</header>
+
+<div class="hub-content" id="hubContent">
+  <div class="hub-header">
+    <h1>&#127968; Home Lab</h1>
+    <p>Custom apps and views for projects you're building at home.</p>
+  </div>
+
+  <div class="tile-grid">
+
+    <div class="tile disabled">
+      <div class="tile-icon icon-teal">&#10024;</div>
+      <div class="tile-name">Your first app</div>
+      <div class="tile-desc">This hub is ready — tell Claude what to build here and it shows up as a tile.</div>
+      <span class="tile-badge badge-soon">Coming soon</span>
+    </div>
+
+  </div>
+</div>
+
+<div class="settings-panel" id="settingsPanel">
+  <div class="sp-back" onclick="showHub()">&#8592; Back to Home Lab</div>
+  <div class="sp-section">
+    <h3>&#127912; Theme</h3>
+    <div id="themePicker"></div>
+  </div>
+</div>
+
+<footer>BSynch &middot; Home Lab</footer>
+
+<script>
+var u = localStorage.getItem('mbrName') || localStorage.getItem('companyUser') || '';
+if(u) document.getElementById('hdrUser').textContent = 'Hi, ' + u;
+
+function showSettings(){
+  document.getElementById('hubContent').style.display = 'none';
+  document.getElementById('settingsPanel').classList.add('open');
+  if(window.renderThemeSwitcher) window.renderThemeSwitcher('themePicker');
+}
+function showHub(){
+  document.getElementById('settingsPanel').classList.remove('open');
+  document.getElementById('hubContent').style.display = '';
+}
+</script>
+</body>
+</html>
