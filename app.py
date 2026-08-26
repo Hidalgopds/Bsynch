@@ -281,6 +281,408 @@ def marketing_hub():
 def homelab_hub():
     return render_template("homelab-hub.html")
 
+@app.route("/homelab/kids-checklist")
+def homelab_kids_checklist_page():
+    return render_template("homelab-kids-checklist.html")
+
+
+# ── Home Lab: Kids Checklist / Screen Time ───────────────────────────
+HL_KIDS        = "homelab_kids"
+HL_BLOCKS      = "homelab_blocks"
+HL_TASKS       = "homelab_tasks"
+HL_COMPLETIONS = "homelab_task_completions"
+HL_GAMES       = "homelab_games"
+HL_GAME_HIST   = "homelab_game_history"
+HL_SETTINGS    = "homelab_settings"
+
+
+def _hl_today():
+    return date.today().isoformat()
+
+
+def _hl_get_settings():
+    r = requests.get(f"{sb_url()}/rest/v1/{HL_SETTINGS}?select=key,value", headers=sb_headers(), timeout=5)
+    rows = r.json() if r.ok else []
+    return {row["key"]: row["value"] for row in rows}
+
+
+# — Kids —
+@app.route("/api/homelab/kids", methods=["GET"])
+def hl_get_kids():
+    r = requests.get(
+        f"{sb_url()}/rest/v1/{HL_KIDS}?active=eq.true&select=*&order=order_num.asc,created_at.asc",
+        headers=sb_headers(), timeout=10
+    )
+    return jsonify(r.json() if r.ok else [])
+
+
+@app.route("/api/homelab/kids", methods=["POST"])
+def hl_create_kid():
+    data = request.get_json() or {}
+    name = data.get("name", "").strip()
+    if not name:
+        return jsonify({"ok": False, "error": "name required"}), 400
+    payload = {
+        "name": name,
+        "avatar_emoji": data.get("avatar_emoji", "🧒"),
+        "color": data.get("color", "#4f8ef7"),
+        "order_num": data.get("order_num", 0),
+    }
+    r = requests.post(f"{sb_url()}/rest/v1/{HL_KIDS}", json=payload,
+                       headers={**sb_headers(), "Prefer": "return=representation"}, timeout=5)
+    if r.ok and r.json():
+        return jsonify({"ok": True, "kid": r.json()[0]})
+    return jsonify({"ok": False, "error": r.text}), 400
+
+
+@app.route("/api/homelab/kids/<kid_id>", methods=["PATCH"])
+def hl_update_kid(kid_id):
+    data = request.get_json() or {}
+    allowed = ["name", "avatar_emoji", "color", "order_num"]
+    payload = {k: data[k] for k in allowed if k in data}
+    if not payload:
+        return jsonify({"ok": False, "error": "nothing to update"}), 400
+    r = requests.patch(f"{sb_url()}/rest/v1/{HL_KIDS}?id=eq.{kid_id}", json=payload,
+                        headers=sb_headers(), timeout=5)
+    return jsonify({"ok": r.ok})
+
+
+@app.route("/api/homelab/kids/<kid_id>", methods=["DELETE"])
+def hl_delete_kid(kid_id):
+    r = requests.patch(f"{sb_url()}/rest/v1/{HL_KIDS}?id=eq.{kid_id}", json={"active": False},
+                        headers=sb_headers(), timeout=5)
+    return jsonify({"ok": r.ok})
+
+
+# — Blocks —
+@app.route("/api/homelab/blocks", methods=["GET"])
+def hl_get_blocks():
+    r = requests.get(
+        f"{sb_url()}/rest/v1/{HL_BLOCKS}?active=eq.true&select=*,{HL_TASKS}(*)"
+        f"&order=order_num.asc",
+        headers=sb_headers(), timeout=10
+    )
+    blocks = r.json() if r.ok else []
+    for b in blocks:
+        tasks = b.pop(HL_TASKS, None) or []
+        b["tasks"] = sorted([t for t in tasks if t.get("active", True)], key=lambda t: t.get("order_num", 0))
+    return jsonify(blocks)
+
+
+@app.route("/api/homelab/blocks", methods=["POST"])
+def hl_create_block():
+    data = request.get_json() or {}
+    name = data.get("name", "").strip()
+    if not name:
+        return jsonify({"ok": False, "error": "name required"}), 400
+    payload = {
+        "name": name,
+        "icon": data.get("icon", "⭐"),
+        "order_num": data.get("order_num", 0),
+    }
+    r = requests.post(f"{sb_url()}/rest/v1/{HL_BLOCKS}", json=payload,
+                       headers={**sb_headers(), "Prefer": "return=representation"}, timeout=5)
+    if r.ok and r.json():
+        return jsonify({"ok": True, "block": r.json()[0]})
+    return jsonify({"ok": False, "error": r.text}), 400
+
+
+@app.route("/api/homelab/blocks/<block_id>", methods=["PATCH"])
+def hl_update_block(block_id):
+    data = request.get_json() or {}
+    allowed = ["name", "icon", "order_num"]
+    payload = {k: data[k] for k in allowed if k in data}
+    if not payload:
+        return jsonify({"ok": False, "error": "nothing to update"}), 400
+    r = requests.patch(f"{sb_url()}/rest/v1/{HL_BLOCKS}?id=eq.{block_id}", json=payload,
+                        headers=sb_headers(), timeout=5)
+    return jsonify({"ok": r.ok})
+
+
+@app.route("/api/homelab/blocks/<block_id>", methods=["DELETE"])
+def hl_delete_block(block_id):
+    r = requests.patch(f"{sb_url()}/rest/v1/{HL_BLOCKS}?id=eq.{block_id}", json={"active": False},
+                        headers=sb_headers(), timeout=5)
+    return jsonify({"ok": r.ok})
+
+
+# — Tasks —
+@app.route("/api/homelab/tasks", methods=["POST"])
+def hl_create_task():
+    data = request.get_json() or {}
+    block_id = data.get("block_id", "")
+    title = data.get("title", "").strip()
+    if not block_id or not title:
+        return jsonify({"ok": False, "error": "block_id and title required"}), 400
+    payload = {
+        "block_id": block_id,
+        "title": title,
+        "order_num": data.get("order_num", 0),
+        "is_premium": bool(data.get("is_premium", False)),
+        "is_mental_game": bool(data.get("is_mental_game", False)),
+    }
+    r = requests.post(f"{sb_url()}/rest/v1/{HL_TASKS}", json=payload,
+                       headers={**sb_headers(), "Prefer": "return=representation"}, timeout=5)
+    if r.ok and r.json():
+        return jsonify({"ok": True, "task": r.json()[0]})
+    return jsonify({"ok": False, "error": r.text}), 400
+
+
+@app.route("/api/homelab/tasks/<task_id>", methods=["PATCH"])
+def hl_update_task(task_id):
+    data = request.get_json() or {}
+    allowed = ["title", "order_num", "is_premium", "is_mental_game", "block_id"]
+    payload = {k: data[k] for k in allowed if k in data}
+    if not payload:
+        return jsonify({"ok": False, "error": "nothing to update"}), 400
+    r = requests.patch(f"{sb_url()}/rest/v1/{HL_TASKS}?id=eq.{task_id}", json=payload,
+                        headers=sb_headers(), timeout=5)
+    return jsonify({"ok": r.ok})
+
+
+@app.route("/api/homelab/tasks/<task_id>", methods=["DELETE"])
+def hl_delete_task(task_id):
+    r = requests.patch(f"{sb_url()}/rest/v1/{HL_TASKS}?id=eq.{task_id}", json={"active": False},
+                        headers=sb_headers(), timeout=5)
+    return jsonify({"ok": r.ok})
+
+
+# — Mental games pool —
+@app.route("/api/homelab/games", methods=["GET"])
+def hl_get_games():
+    r = requests.get(
+        f"{sb_url()}/rest/v1/{HL_GAMES}?active=eq.true&select=*&order=order_num.asc",
+        headers=sb_headers(), timeout=10
+    )
+    return jsonify(r.json() if r.ok else [])
+
+
+@app.route("/api/homelab/games", methods=["POST"])
+def hl_create_game():
+    data = request.get_json() or {}
+    title = data.get("title", "").strip()
+    if not title:
+        return jsonify({"ok": False, "error": "title required"}), 400
+    payload = {
+        "title": title,
+        "description": data.get("description", ""),
+        "order_num": data.get("order_num", 0),
+    }
+    r = requests.post(f"{sb_url()}/rest/v1/{HL_GAMES}", json=payload,
+                       headers={**sb_headers(), "Prefer": "return=representation"}, timeout=5)
+    if r.ok and r.json():
+        return jsonify({"ok": True, "game": r.json()[0]})
+    return jsonify({"ok": False, "error": r.text}), 400
+
+
+@app.route("/api/homelab/games/<game_id>", methods=["PATCH"])
+def hl_update_game(game_id):
+    data = request.get_json() or {}
+    allowed = ["title", "description", "order_num"]
+    payload = {k: data[k] for k in allowed if k in data}
+    if not payload:
+        return jsonify({"ok": False, "error": "nothing to update"}), 400
+    r = requests.patch(f"{sb_url()}/rest/v1/{HL_GAMES}?id=eq.{game_id}", json=payload,
+                        headers=sb_headers(), timeout=5)
+    return jsonify({"ok": r.ok})
+
+
+@app.route("/api/homelab/games/<game_id>", methods=["DELETE"])
+def hl_delete_game(game_id):
+    r = requests.patch(f"{sb_url()}/rest/v1/{HL_GAMES}?id=eq.{game_id}", json={"active": False},
+                        headers=sb_headers(), timeout=5)
+    return jsonify({"ok": r.ok})
+
+
+# — Settings (parent PIN + game repeat cooldown) —
+@app.route("/api/homelab/settings", methods=["GET"])
+def hl_get_settings_route():
+    s = _hl_get_settings()
+    return jsonify({
+        "game_repeat_cooldown": int(s.get("game_repeat_cooldown", 3)),
+        "has_pin": bool(s.get("parent_pin")),
+    })
+
+
+@app.route("/api/homelab/verify-pin", methods=["POST"])
+def hl_verify_pin():
+    data = request.get_json() or {}
+    pin = str(data.get("pin", "")).strip()
+    s = _hl_get_settings()
+    return jsonify({"ok": pin != "" and pin == s.get("parent_pin", "")})
+
+
+@app.route("/api/homelab/settings", methods=["PATCH"])
+def hl_update_settings():
+    data = request.get_json() or {}
+    current_pin = str(data.get("current_pin", "")).strip()
+    s = _hl_get_settings()
+    if current_pin != s.get("parent_pin", ""):
+        return jsonify({"ok": False, "error": "PIN incorrecto"}), 403
+
+    updates = {}
+    if "new_pin" in data:
+        new_pin = str(data["new_pin"]).strip()
+        if not new_pin.isdigit() or len(new_pin) != 4:
+            return jsonify({"ok": False, "error": "El PIN debe ser de 4 dígitos"}), 400
+        updates["parent_pin"] = new_pin
+    if "game_repeat_cooldown" in data:
+        try:
+            updates["game_repeat_cooldown"] = str(int(data["game_repeat_cooldown"]))
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "game_repeat_cooldown must be a number"}), 400
+
+    for key, value in updates.items():
+        requests.post(
+            f"{sb_url()}/rest/v1/{HL_SETTINGS}",
+            json={"key": key, "value": value},
+            headers={**sb_headers(), "Prefer": "resolution=merge-duplicates"},
+            timeout=5
+        )
+    return jsonify({"ok": True})
+
+
+# — Daily checklist —
+def _hl_block_progress(block_tasks, completions_by_task):
+    total = len(block_tasks)
+    done = sum(1 for t in block_tasks if t["id"] in completions_by_task)
+    pct = round((done / total) * 100, 1) if total else 0.0
+    return done, total, pct
+
+
+@app.route("/api/homelab/checklist", methods=["GET"])
+def hl_get_checklist():
+    kid_id = request.args.get("kid_id", "")
+    on_date = request.args.get("date") or _hl_today()
+    if not kid_id:
+        return jsonify({"ok": False, "error": "kid_id required"}), 400
+
+    br = requests.get(
+        f"{sb_url()}/rest/v1/{HL_BLOCKS}?active=eq.true&select=*,{HL_TASKS}(*)&order=order_num.asc",
+        headers=sb_headers(), timeout=10
+    )
+    blocks = br.json() if br.ok else []
+
+    cr = requests.get(
+        f"{sb_url()}/rest/v1/{HL_COMPLETIONS}"
+        f"?kid_id=eq.{kid_id}&completion_date=eq.{on_date}&select=task_id,game_id",
+        headers=sb_headers(), timeout=10
+    )
+    completions = cr.json() if cr.ok else []
+    completions_by_task = {c["task_id"]: c for c in completions}
+
+    out_blocks = []
+    for b in blocks:
+        tasks = sorted([t for t in (b.pop(HL_TASKS, None) or []) if t.get("active", True)],
+                        key=lambda t: t.get("order_num", 0))
+        for t in tasks:
+            c = completions_by_task.get(t["id"])
+            t["completed"] = c is not None
+            t["completed_game_id"] = c.get("game_id") if c else None
+        done, total, pct = _hl_block_progress(tasks, completions_by_task)
+        out_blocks.append({
+            **b, "tasks": tasks, "done": done, "total": total,
+            "progress_pct": pct, "complete": total > 0 and done == total,
+        })
+
+    return jsonify({"date": on_date, "kid_id": kid_id, "blocks": out_blocks})
+
+
+@app.route("/api/homelab/checklist/toggle", methods=["POST"])
+def hl_toggle_task():
+    data = request.get_json() or {}
+    kid_id = data.get("kid_id", "")
+    task_id = data.get("task_id", "")
+    on_date = data.get("date") or _hl_today()
+    if not kid_id or not task_id:
+        return jsonify({"ok": False, "error": "kid_id and task_id required"}), 400
+
+    existing = requests.get(
+        f"{sb_url()}/rest/v1/{HL_COMPLETIONS}"
+        f"?kid_id=eq.{kid_id}&task_id=eq.{task_id}&completion_date=eq.{on_date}&select=id",
+        headers=sb_headers(), timeout=5
+    )
+    rows = existing.json() if existing.ok else []
+    if rows:
+        requests.delete(
+            f"{sb_url()}/rest/v1/{HL_COMPLETIONS}?id=eq.{rows[0]['id']}",
+            headers=sb_headers(), timeout=5
+        )
+        completed = False
+    else:
+        requests.post(
+            f"{sb_url()}/rest/v1/{HL_COMPLETIONS}",
+            json={"kid_id": kid_id, "task_id": task_id, "completion_date": on_date},
+            headers={**sb_headers(), "Prefer": "return=representation"}, timeout=5
+        )
+        completed = True
+
+    return jsonify({"ok": True, "completed": completed})
+
+
+# — Mental games: wheel spin / manual pick —
+@app.route("/api/homelab/games/spin", methods=["POST"])
+def hl_spin_game():
+    import random
+    data = request.get_json() or {}
+    kid_id = data.get("kid_id", "")
+    task_id = data.get("task_id", "")
+    on_date = data.get("date") or _hl_today()
+    if not kid_id or not task_id:
+        return jsonify({"ok": False, "error": "kid_id and task_id required"}), 400
+
+    games_r = requests.get(f"{sb_url()}/rest/v1/{HL_GAMES}?active=eq.true&select=id,title,description",
+                            headers=sb_headers(), timeout=10)
+    games = games_r.json() if games_r.ok else []
+    if not games:
+        return jsonify({"ok": False, "error": "no hay juegos configurados"}), 400
+
+    settings = _hl_get_settings()
+    cooldown = int(settings.get("game_repeat_cooldown", 3))
+
+    recent = []
+    if cooldown > 0:
+        hist_r = requests.get(
+            f"{sb_url()}/rest/v1/{HL_GAME_HIST}?kid_id=eq.{kid_id}"
+            f"&select=game_id&order=picked_at.desc&limit={cooldown}",
+            headers=sb_headers(), timeout=5
+        )
+        recent = [h["game_id"] for h in (hist_r.json() if hist_r.ok else [])]
+
+    pool = [g for g in games if g["id"] not in recent] or games
+    winner = random.choice(pool)
+
+    requests.post(f"{sb_url()}/rest/v1/{HL_GAME_HIST}",
+                  json={"kid_id": kid_id, "game_id": winner["id"], "method": "wheel"},
+                  headers=sb_headers(), timeout=5)
+    requests.post(f"{sb_url()}/rest/v1/{HL_COMPLETIONS}?on_conflict=task_id,kid_id,completion_date",
+                  json={"kid_id": kid_id, "task_id": task_id, "completion_date": on_date, "game_id": winner["id"]},
+                  headers={**sb_headers(), "Prefer": "resolution=merge-duplicates,return=representation"},
+                  timeout=5)
+
+    return jsonify({"ok": True, "game": winner})
+
+
+@app.route("/api/homelab/games/pick-manual", methods=["POST"])
+def hl_pick_manual_game():
+    data = request.get_json() or {}
+    kid_id = data.get("kid_id", "")
+    task_id = data.get("task_id", "")
+    game_id = data.get("game_id", "")
+    on_date = data.get("date") or _hl_today()
+    if not kid_id or not task_id or not game_id:
+        return jsonify({"ok": False, "error": "kid_id, task_id and game_id required"}), 400
+
+    requests.post(f"{sb_url()}/rest/v1/{HL_GAME_HIST}",
+                  json={"kid_id": kid_id, "game_id": game_id, "method": "manual"},
+                  headers=sb_headers(), timeout=5)
+    requests.post(f"{sb_url()}/rest/v1/{HL_COMPLETIONS}?on_conflict=task_id,kid_id,completion_date",
+                  json={"kid_id": kid_id, "task_id": task_id, "completion_date": on_date, "game_id": game_id},
+                  headers={**sb_headers(), "Prefer": "resolution=merge-duplicates,return=representation"},
+                  timeout=5)
+    return jsonify({"ok": True})
+# ── End Home Lab ──────────────────────────────────────────────────────
+
 
 @app.route("/platform-settings")
 def platform_settings_page():

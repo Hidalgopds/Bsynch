@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Kids Checklist – BSynch</title>
+<script src="/static/theme.js"></script>
+<link rel="stylesheet" href="/static/themes.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none;}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;overflow-x:hidden;}
+header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #1e2533;background:#0f1117;flex-shrink:0;}
+.logo-badge{width:34px;height:34px;background:linear-gradient(135deg,#1e9484,#4f8ef7);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff;flex-shrink:0;}
+.hdr-title{font-size:16px;font-weight:700;}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.btn-back,.btn-settings,.btn-ghost{padding:7px 14px;background:none;border:1px solid #334155;border-radius:8px;color:#94a3b8;font-size:12px;cursor:pointer;text-decoration:none;line-height:1.4;font-weight:600;}
+.btn-back:hover,.btn-ghost:hover{border-color:#1e9484;color:#1e9484;}
+.btn-settings{background:rgba(30,148,132,.12);border-color:#1e9484;color:#1e9484;}
+.btn-settings:hover{background:rgba(30,148,132,.22);}
+.btn-primary{padding:10px 18px;background:#1e9484;border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;}
+.btn-primary:hover{background:#178274;}
+.btn-danger{padding:8px 14px;background:rgba(239,68,68,.12);border:1px solid #ef4444;border-radius:8px;color:#ef4444;font-size:12px;cursor:pointer;font-weight:600;}
+
+main{flex:1;padding:24px 16px 60px;max-width:900px;width:100%;margin:0 auto;}
+.screen{display:none;}
+.screen.active{display:block;}
+
+/* Profile picker */
+#profilePicker h2{text-align:center;font-size:22px;margin-bottom:24px;}
+.kid-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:18px;}
+.kid-card{background:#1a1d27;border:2px solid #2a2d3e;border-radius:20px;padding:22px 14px;text-align:center;cursor:pointer;transition:transform .15s,border-color .15s;}
+.kid-card:hover,.kid-card:active{transform:translateY(-3px) scale(1.02);border-color:#1e9484;}
+.kid-avatar{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 10px;}
+.kid-name{font-weight:700;font-size:15px;}
+.kid-empty{text-align:center;color:#64748b;padding:40px 20px;}
+
+/* Checklist view */
+.kid-banner{display:flex;align-items:center;gap:12px;margin-bottom:22px;}
+.kid-banner .kid-avatar{width:44px;height:44px;font-size:22px;margin:0;}
+.kid-banner .kid-name{font-size:18px;}
+.kid-banner button{margin-left:auto;}
+
+.block-card{background:#1a1d27;border:1px solid #2a2d3e;border-radius:18px;padding:20px;margin-bottom:18px;}
+.block-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.block-icon{font-size:22px;}
+.block-title{font-size:17px;font-weight:700;flex:1;}
+.block-pct{font-size:13px;font-weight:700;color:#1e9484;}
+.progress-track{height:12px;border-radius:8px;background:#0f1117;overflow:hidden;margin-bottom:16px;border:1px solid #2a2d3e;}
+.progress-fill{height:100%;background:linear-gradient(90deg,#1e9484,#4f8ef7);border-radius:8px;transition:width .4s ease;}
+.block-complete-banner{display:none;background:rgba(34,197,94,.12);border:1px solid #22c55e;color:#22c55e;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700;margin-bottom:14px;text-align:center;}
+.block-card.is-complete .block-complete-banner{display:block;}
+
+.task-row{display:flex;align-items:center;gap:14px;padding:13px 6px;border-bottom:1px solid #232838;cursor:pointer;}
+.task-row:last-child{border-bottom:none;}
+.checkbox{width:30px;height:30px;border-radius:9px;border:2px solid #334155;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;transition:all .15s;background:#0f1117;}
+.task-row.done .checkbox{background:#1e9484;border-color:#1e9484;color:#fff;}
+.task-title{flex:1;font-size:15px;}
+.task-row.done .task-title{color:#64748b;text-decoration:line-through;}
+.task-badge{font-size:11px;padding:2px 8px;border-radius:20px;background:rgba(245,158,11,.14);color:#f59e0b;font-weight:700;}
+.task-game-result{font-size:12px;color:#94a3b8;margin-top:2px;}
+
+/* Wheel modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:9999;padding:20px;}
+.modal-overlay.open{display:flex;}
+.modal{background:#1a1d27;border:1px solid #2a2d3e;border-radius:20px;padding:26px;max-width:420px;width:100%;max-height:88vh;overflow-y:auto;}
+.modal h3{font-size:18px;margin-bottom:16px;text-align:center;}
+.wheel-wrap{display:flex;flex-direction:column;align-items:center;gap:18px;}
+.wheel-pointer{font-size:28px;margin-bottom:-14px;z-index:2;}
+.wheel{width:240px;height:240px;border-radius:50%;position:relative;border:6px solid #0f1117;box-shadow:0 0 0 3px #2a2d3e;transition:transform 3.5s cubic-bezier(.17,.89,.24,1);}
+.wheel-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:50%;background:#0f1117;border:3px solid #2a2d3e;display:flex;align-items:center;justify-content:center;font-size:18px;}
+.wheel-labels{font-size:11px;color:#64748b;text-align:center;line-height:1.6;}
+.game-pick-list{display:flex;flex-direction:column;gap:8px;margin-top:6px;}
+.game-pick-btn{background:#0f1117;border:1px solid #2a2d3e;border-radius:12px;padding:12px 14px;text-align:left;color:#e2e8f0;cursor:pointer;font-size:14px;font-weight:600;}
+.game-pick-btn:hover{border-color:#1e9484;}
+.game-pick-desc{font-size:12px;color:#64748b;font-weight:400;margin-top:2px;}
+.mode-toggle{display:flex;gap:8px;margin-bottom:16px;}
+.mode-toggle button{flex:1;padding:9px;border-radius:10px;border:1px solid #2a2d3e;background:#0f1117;color:#94a3b8;font-weight:700;font-size:13px;cursor:pointer;}
+.mode-toggle button.active{background:#1e9484;border-color:#1e9484;color:#fff;}
+.game-result{text-align:center;padding:16px;}
+.game-result .emoji{font-size:44px;margin-bottom:8px;}
+.game-result h4{font-size:19px;margin-bottom:6px;}
+.game-result p{font-size:13px;color:#94a3b8;margin-bottom:18px;}
+
+/* PIN pad */
+.pin-display{display:flex;gap:10px;justify-content:center;margin-bottom:22px;}
+.pin-dot{width:16px;height:16px;border-radius:50%;border:2px solid #334155;}
+.pin-dot.filled{background:#1e9484;border-color:#1e9484;}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:260px;margin:0 auto;}
+.pin-key{aspect-ratio:1;border-radius:14px;background:#0f1117;border:1px solid #2a2d3e;color:#e2e8f0;font-size:20px;font-weight:700;cursor:pointer;}
+.pin-key:hover{border-color:#1e9484;}
+.pin-error{color:#ef4444;font-size:13px;text-align:center;margin-top:10px;min-height:18px;}
+
+/* Settings */
+.settings-tabs{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;}
+.settings-tabs button{padding:8px 14px;border-radius:9px;border:1px solid #2a2d3e;background:#1a1d27;color:#94a3b8;font-weight:700;font-size:12px;cursor:pointer;}
+.settings-tabs button.active{background:#1e9484;border-color:#1e9484;color:#fff;}
+.settings-pane{display:none;}
+.settings-pane.active{display:block;}
+.card{background:#1a1d27;border:1px solid #2a2d3e;border-radius:16px;padding:18px;margin-bottom:14px;}
+.card h4{font-size:14px;margin-bottom:12px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;}
+.field-row{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center;}
+.field-row input[type=text],.field-row input[type=number]{flex:1;min-width:120px;padding:9px 12px;border-radius:9px;border:1px solid #2a2d3e;background:#0f1117;color:#e2e8f0;font-size:14px;}
+.field-row input[type=color]{width:40px;height:38px;border-radius:9px;border:1px solid #2a2d3e;background:#0f1117;padding:2px;}
+.list-item{display:flex;align-items:center;gap:10px;padding:10px 8px;border-bottom:1px solid #232838;}
+.list-item:last-child{border-bottom:none;}
+.list-item .li-title{flex:1;font-size:14px;}
+.li-badges{display:flex;gap:6px;}
+.chip{font-size:10px;padding:2px 7px;border-radius:20px;background:#232838;color:#94a3b8;font-weight:700;}
+.icon-btn{background:none;border:none;color:#64748b;cursor:pointer;font-size:16px;padding:4px 6px;}
+.icon-btn:hover{color:#ef4444;}
+.checkbox-inline{display:flex;align-items:center;gap:6px;font-size:12px;color:#94a3b8;}
+
+footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1px solid #1e2533;}
+
+#confettiLayer{position:fixed;inset:0;pointer-events:none;z-index:99998;overflow:hidden;}
+.confetti-piece{position:absolute;top:-16px;border-radius:2px;animation:confetti-fall linear forwards;}
+@keyframes confetti-fall{
+  to{transform:translateY(110vh) rotate(720deg);opacity:.9;}
+}
+@media (max-width:480px){ .wheel{width:200px;height:200px;} }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo-badge">B</div>
+  <span class="hdr-title">🧒 Kids Checklist</span>
+  <div class="hdr-right">
+    <button class="btn-settings" id="settingsBtn" onclick="openSettingsGate()">⚙️ Settings</button>
+    <a href="/homelab-hub" class="btn-back">&#8592; Home Lab</a>
+  </div>
+</header>
+
+<main>
+  <!-- Profile picker -->
+  <section class="screen active" id="profilePicker">
+    <h2>¿Quién eres?</h2>
+    <div class="kid-grid" id="kidGrid"></div>
+  </section>
+
+  <!-- Checklist -->
+  <section class="screen" id="checklistView">
+    <div class="kid-banner">
+      <div class="kid-avatar" id="cvAvatar"></div>
+      <div class="kid-name" id="cvName"></div>
+      <button class="btn-ghost" onclick="showScreen('profilePicker'); loadKids();">Cambiar</button>
+    </div>
+    <div id="blocksWrap"></div>
+  </section>
+
+  <!-- Settings -->
+  <section class="screen" id="settingsView">
+    <div class="kid-banner">
+      <div class="kid-name" style="font-size:20px;">⚙️ Settings de padres</div>
+      <button class="btn-ghost" onclick="showScreen('profilePicker'); loadKids();">Salir</button>
+    </div>
+    <div class="settings-tabs">
+      <button class="active" data-tab="kids" onclick="switchSettingsTab('kids')">Niños</button>
+      <button data-tab="tasks" onclick="switchSettingsTab('tasks')">Bloques &amp; Tareas</button>
+      <button data-tab="games" onclick="switchSettingsTab('games')">Juegos mentales</button>
+      <button data-tab="general" onclick="switchSettingsTab('general')">General</button>
+    </div>
+
+    <div class="settings-pane active" id="pane-kids">
+      <div class="card">
+        <h4>Agregar niño</h4>
+        <div class="field-row">
+          <input type="text" id="newKidEmoji" placeholder="🧒" maxlength="2" style="max-width:56px;flex:none;">
+          <input type="text" id="newKidName" placeholder="Nombre">
+          <input type="color" id="newKidColor" value="#4f8ef7">
+          <button class="btn-primary" onclick="createKid()">Agregar</button>
+        </div>
+      </div>
+      <div class="card" id="kidsListCard"><h4>Niños</h4><div id="kidsList"></div></div>
+    </div>
+
+    <div class="settings-pane" id="pane-tasks">
+      <div class="card">
+        <h4>Agregar bloque</h4>
+        <div class="field-row">
+          <input type="text" id="newBlockIcon" placeholder="☀️" maxlength="2" style="max-width:56px;flex:none;">
+          <input type="text" id="newBlockName" placeholder="Nombre del bloque (ej. Morning)">
+          <button class="btn-primary" onclick="createBlock()">Agregar</button>
+        </div>
+      </div>
+      <div id="blocksSettingsList"></div>
+    </div>
+
+    <div class="settings-pane" id="pane-games">
+      <div class="card">
+        <h4>Agregar actividad</h4>
+        <div class="field-row">
+          <input type="text" id="newGameTitle" placeholder="Nombre de la actividad">
+        </div>
+        <div class="field-row">
+          <input type="text" id="newGameDesc" placeholder="Descripción corta (opcional)">
+          <button class="btn-primary" onclick="createGame()">Agregar</button>
+        </div>
+      </div>
+      <div class="card"><h4>Pool de actividades</h4><div id="gamesList"></div></div>
+    </div>
+
+    <div class="settings-pane" id="pane-general">
+      <div class="card">
+        <h4>PIN de padres</h4>
+        <div class="field-row">
+          <input type="text" id="newPin" placeholder="Nuevo PIN de 4 dígitos" maxlength="4">
+          <button class="btn-primary" onclick="changePin()">Cambiar PIN</button>
+        </div>
+        <div id="pinChangeMsg" style="font-size:12px;color:#94a3b8;"></div>
+      </div>
+      <div class="card">
+        <h4>Ruleta de juegos mentales</h4>
+        <div class="field-row">
+          <span style="font-size:13px;color:#94a3b8;">No repetir una actividad hasta que pasen</span>
+          <input type="number" id="cooldownInput" min="0" max="20" style="max-width:70px;">
+          <span style="font-size:13px;color:#94a3b8;">giros.</span>
+          <button class="btn-primary" onclick="saveCooldown()">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>BSynch · Home Lab · Kids Checklist</footer>
+
+<!-- PIN gate modal -->
+<div class="modal-overlay" id="pinGateModal">
+  <div class="modal">
+    <h3>🔒 PIN de padres</h3>
+    <div class="pin-display" id="pinDots"></div>
+    <div class="pin-pad">
+      <button class="pin-key" onclick="pinPress('1')">1</button>
+      <button class="pin-key" onclick="pinPress('2')">2</button>
+      <button class="pin-key" onclick="pinPress('3')">3</button>
+      <button class="pin-key" onclick="pinPress('4')">4</button>
+      <button class="pin-key" onclick="pinPress('5')">5</button>
+      <button class="pin-key" onclick="pinPress('6')">6</button>
+      <button class="pin-key" onclick="pinPress('7')">7</button>
+      <button class="pin-key" onclick="pinPress('8')">8</button>
+      <button class="pin-key" onclick="pinPress('9')">9</button>
+      <button class="pin-key" onclick="closePinGate()">✕</button>
+      <button class="pin-key" onclick="pinPress('0')">0</button>
+      <button class="pin-key" onclick="pinBackspace()">⌫</button>
+    </div>
+    <div class="pin-error" id="pinError"></div>
+  </div>
+</div>
+
+<!-- Mental game modal -->
+<div class="modal-overlay" id="gameModal">
+  <div class="modal">
+    <div id="gameModalPicker">
+      <h3>🧠 Juegos mentales</h3>
+      <div class="mode-toggle">
+        <button class="active" id="modeWheelBtn" onclick="setGameMode('wheel')">🎡 Ruleta</button>
+        <button id="modeManualBtn" onclick="setGameMode('manual')">👆 Elegir</button>
+      </div>
+      <div id="wheelPane" class="wheel-wrap">
+        <div class="wheel-pointer">🔻</div>
+        <div style="position:relative;">
+          <div class="wheel" id="wheelEl"><div class="wheel-center">🎯</div></div>
+        </div>
+        <button class="btn-primary" id="spinBtn" onclick="spinWheel()">Girar la ruleta</button>
+      </div>
+      <div id="manualPane" class="game-pick-list" style="display:none;"></div>
+    </div>
+    <div id="gameModalResult" class="game-result" style="display:none;">
+      <div class="emoji">🎉</div>
+      <h4 id="resultTitle"></h4>
+      <p id="resultDesc"></p>
+      <button class="btn-primary" onclick="closeGameModal()">Listo</button>
+    </div>
+  </div>
+</div>
+
+<div id="confettiLayer"></div>
+
+<script>
+var API = '/api/homelab';
+var state = { kids: [], selectedKid: null, checklist: null, pinInput: '', pinPurpose: 'settings',
+              blocksCache: [], gamesCache: [], activeGameTaskId: null, gameMode: 'wheel' };
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
+  document.getElementById(id).classList.add('active');
+}
+
+// ── Profile picker ──────────────────────────────────────────────
+function loadKids(){
+  fetch(API + '/kids').then(function(r){ return r.json(); }).then(function(kids){
+    state.kids = kids;
+    var grid = document.getElementById('kidGrid');
+    if(!kids.length){
+      grid.innerHTML = '<div class="kid-empty">Todavía no hay niños agregados.<br>Entra a Settings (con el PIN) para agregar el primero.</div>';
+      return;
+    }
+    grid.innerHTML = kids.map(function(k){
+      return '<div class="kid-card" onclick="selectKid(\'' + k.id + '\')">' +
+        '<div class="kid-avatar" style="background:' + k.color + '33;">' + k.avatar_emoji + '</div>' +
+        '<div class="kid-name">' + escapeHtml(k.name) + '</div></div>';
+    }).join('');
+  });
+}
+
+function selectKid(kidId){
+  var kid = state.kids.find(function(k){ return k.id === kidId; });
+  if(!kid) return;
+  state.selectedKid = kid;
+  document.getElementById('cvAvatar').textContent = kid.avatar_emoji;
+  document.getElementById('cvAvatar').style.background = kid.color + '33';
+  document.getElementById('cvName').textContent = kid.name;
+  showScreen('checklistView');
+  loadChecklist();
+}
+
+// ── Checklist ────────────────────────────────────────────────────
+function loadChecklist(){
+  if(!state.selectedKid) return;
+  Promise.all([
+    fetch(API + '/checklist?kid_id=' + state.selectedKid.id).then(function(r){ return r.json(); }),
+    fetch(API + '/games').then(function(r){ return r.json(); })
+  ]).then(function(results){
+    state.checklist = results[0];
+    state.gamesCache = results[1];
+    renderChecklist();
+  });
+}
+
+function renderChecklist(){
+  var wrap = document.getElementById('blocksWrap');
+  wrap.innerHTML = state.checklist.blocks.map(function(b){
+    var tasksHtml = b.tasks.map(function(t){
+      var doneCls = t.completed ? ' done' : '';
+      var badge = t.is_premium ? '<span class="task-badge">🔒 Premium</span>' : '';
+      var extra = '';
+      if(t.is_mental_game && t.completed && t.completed_game_id){
+        var g = state.gamesCache.find(function(gg){ return gg.id === t.completed_game_id; });
+        if(g) extra = '<div class="task-game-result">🎲 ' + escapeHtml(g.title) + '</div>';
+      }
+      return '<div class="task-row' + doneCls + '" onclick="handleTaskTap(\'' + t.id + '\', ' + !!t.is_mental_game + ', ' + !!t.completed + ')">' +
+        '<div class="checkbox">' + (t.completed ? '✓' : '') + '</div>' +
+        '<div style="flex:1;"><div class="task-title">' + escapeHtml(t.title) + (t.is_mental_game ? ' 🧠' : '') + '</div>' + extra + '</div>' + badge +
+        '</div>';
+    }).join('');
+    return '<div class="block-card' + (b.complete ? ' is-complete' : '') + '">' +
+      '<div class="block-head"><span class="block-icon">' + b.icon + '</span><span class="block-title">' + escapeHtml(b.name) + '</span>' +
+      '<span class="block-pct">' + b.done + '/' + b.total + '</span></div>' +
+      '<div class="progress-track"><div class="progress-fill" style="width:' + b.progress_pct + '%;"></div></div>' +
+      '<div class="block-complete-banner">🎉 ¡Bloque completo! Screen time desbloqueado.</div>' +
+      tasksHtml +
+      '</div>';
+  }).join('');
+}
+
+function handleTaskTap(taskId, isMentalGame, isCompleted){
+  if(isMentalGame){
+    if(isCompleted) return; // already played today
+    openGameModal(taskId);
+    return;
+  }
+  toggleTask(taskId);
+}
+
+function toggleTask(taskId){
+  var wasDone = false;
+  state.checklist.blocks.forEach(function(b){ b.tasks.forEach(function(t){ if(t.id === taskId) wasDone = t.completed; }); });
+  fetch(API + '/checklist/toggle', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ kid_id: state.selectedKid.id, task_id: taskId })
+  }).then(function(r){ return r.json(); }).then(function(res){
+    if(res.ok && res.completed && !wasDone){ celebrate(false); }
+    loadChecklistAndCheckBlocks();
+  });
+}
+
+function loadChecklistAndCheckBlocks(){
+  fetch(API + '/checklist?kid_id=' + state.selectedKid.id).then(function(r){ return r.json(); }).then(function(data){
+    var wasComplete = {};
+    (state.checklist ? state.checklist.blocks : []).forEach(function(b){ wasComplete[b.id] = b.complete; });
+    state.checklist = data;
+    renderChecklist();
+    data.blocks.forEach(function(b){
+      if(b.complete && !wasComplete[b.id]) celebrate(true);
+    });
+  });
+}
+
+// ── Mental games: wheel + manual ────────────────────────────────
+function openGameModal(taskId){
+  state.activeGameTaskId = taskId;
+  document.getElementById('gameModalPicker').style.display = '';
+  document.getElementById('gameModalResult').style.display = 'none';
+  setGameMode('wheel');
+  fetch(API + '/games').then(function(r){ return r.json(); }).then(function(games){
+    state.gamesCache = games;
+    buildWheel(games);
+    buildManualList(games);
+    document.getElementById('gameModal').classList.add('open');
+  });
+}
+function closeGameModal(){
+  document.getElementById('gameModal').classList.remove('open');
+  loadChecklistAndCheckBlocks();
+}
+function setGameMode(mode){
+  state.gameMode = mode;
+  document.getElementById('modeWheelBtn').classList.toggle('active', mode === 'wheel');
+  document.getElementById('modeManualBtn').classList.toggle('active', mode === 'manual');
+  document.getElementById('wheelPane').style.display = mode === 'wheel' ? '' : 'none';
+  document.getElementById('manualPane').style.display = mode === 'manual' ? '' : 'none';
+}
+var WHEEL_COLORS = ['#1e9484','#4f8ef7','#f59e0b','#a855f7','#ef4444','#22c55e','#eab308','#ec4899'];
+function buildWheel(games){
+  var wheel = document.getElementById('wheelEl');
+  wheel.style.transition = 'none';
+  wheel.style.transform = 'rotate(0deg)';
+  if(!games.length){
+    wheel.style.background = '#232838';
+    return;
+  }
+  var seg = 360 / games.length;
+  var stops = games.map(function(g, i){
+    var c = WHEEL_COLORS[i % WHEEL_COLORS.length];
+    return c + ' ' + (i*seg) + 'deg ' + ((i+1)*seg) + 'deg';
+  }).join(', ');
+  wheel.style.background = 'conic-gradient(' + stops + ')';
+  void wheel.offsetWidth;
+  wheel.style.transition = 'transform 3.5s cubic-bezier(.17,.89,.24,1)';
+}
+function buildManualList(games){
+  var pane = document.getElementById('manualPane');
+  pane.innerHTML = games.map(function(g){
+    return '<button class="game-pick-btn" onclick="pickManual(\'' + g.id + '\')">' + escapeHtml(g.title) +
+      (g.description ? '<div class="game-pick-desc">' + escapeHtml(g.description) + '</div>' : '') + '</button>';
+  }).join('');
+}
+function spinWheel(){
+  var games = state.gamesCache;
+  if(!games.length) return;
+  document.getElementById('spinBtn').disabled = true;
+  fetch(API + '/games/spin', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ kid_id: state.selectedKid.id, task_id: state.activeGameTaskId })
+  }).then(function(r){ return r.json(); }).then(function(res){
+    document.getElementById('spinBtn').disabled = false;
+    if(!res.ok) return;
+    var idx = games.findIndex(function(g){ return g.id === res.game.id; });
+    var seg = 360 / games.length;
+    var targetDeg = 360 - (idx * seg + seg/2); // align winner under top pointer
+    var spins = 5 * 360;
+    var wheel = document.getElementById('wheelEl');
+    wheel.style.transform = 'rotate(' + (spins + targetDeg) + 'deg)';
+    setTimeout(function(){ showGameResult(res.game); }, 3600);
+  });
+}
+function pickManual(gameId){
+  fetch(API + '/games/pick-manual', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ kid_id: state.selectedKid.id, task_id: state.activeGameTaskId, game_id: gameId })
+  }).then(function(r){ return r.json(); }).then(function(res){
+    var g = state.gamesCache.find(function(gg){ return gg.id === gameId; });
+    if(res.ok && g) showGameResult(g);
+  });
+}
+function showGameResult(game){
+  document.getElementById('gameModalPicker').style.display = 'none';
+  document.getElementById('gameModalResult').style.display = '';
+  document.getElementById('resultTitle').textContent = game.title;
+  document.getElementById('resultDesc').textContent = game.description || '';
+  celebrate(true);
+}
+
+// ── Confetti + sound ────────────────────────────────────────────
+function celebrate(big){
+  var layer = document.getElementById('confettiLayer');
+  var n = big ? 70 : 30;
+  var colors = ['#1e9484','#4f8ef7','#f59e0b','#a855f7','#ef4444','#22c55e'];
+  for(var i=0;i<n;i++){
+    var p = document.createElement('div');
+    p.className = 'confetti-piece';
+    var size = 6 + Math.random()*6;
+    p.style.width = size + 'px';
+    p.style.height = (size*0.4) + 'px';
+    p.style.left = (Math.random()*100) + 'vw';
+    p.style.background = colors[Math.floor(Math.random()*colors.length)];
+    p.style.animationDuration = (2 + Math.random()*1.5) + 's';
+    p.style.animationDelay = (Math.random()*0.3) + 's';
+    layer.appendChild(p);
+    (function(el){ setTimeout(function(){ el.remove(); }, 4000); })(p);
+  }
+  playChime(big);
+}
+function playChime(big){
+  try{
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    var ctx = new Ctx();
+    var notes = big ? [523.25,659.25,783.99,1046.5] : [523.25,659.25,783.99];
+    notes.forEach(function(freq, i){
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      var start = ctx.currentTime + i*0.11;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.22, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.35);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(start); osc.stop(start + 0.4);
+    });
+  }catch(e){}
+}
+
+// ── PIN gate ──────────────────────────────────────────────────────
+function openSettingsGate(){
+  state.pinInput = '';
+  state.pinPurpose = 'settings';
+  document.getElementById('pinError').textContent = '';
+  renderPinDots();
+  document.getElementById('pinGateModal').classList.add('open');
+}
+function closePinGate(){
+  document.getElementById('pinGateModal').classList.remove('open');
+}
+function renderPinDots(){
+  var dots = '';
+  for(var i=0;i<4;i++){ dots += '<div class="pin-dot' + (i < state.pinInput.length ? ' filled' : '') + '"></div>'; }
+  document.getElementById('pinDots').innerHTML = dots;
+}
+function pinPress(d){
+  if(state.pinInput.length >= 4) return;
+  state.pinInput += d;
+  renderPinDots();
+  if(state.pinInput.length === 4) submitPin();
+}
+function pinBackspace(){
+  state.pinInput = state.pinInput.slice(0, -1);
+  renderPinDots();
+}
+function submitPin(){
+  fetch(API + '/verify-pin', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ pin: state.pinInput })
+  }).then(function(r){ return r.json(); }).then(function(res){
+    if(res.ok){
+      closePinGate();
+      showScreen('settingsView');
+      loadSettingsData();
+    } else {
+      document.getElementById('pinError').textContent = 'PIN incorrecto';
+      state.pinInput = '';
+      renderPinDots();
+    }
+  });
+}
+
+// ── Settings ────────────────────────────────────────────────────
+function switchSettingsTab(tab){
+  document.querySelectorAll('.settings-tabs button').forEach(function(b){ b.classList.toggle('active', b.dataset.tab === tab); });
+  document.querySelectorAll('.settings-pane').forEach(function(p){ p.classList.remove('active'); });
+  document.getElementById('pane-' + tab).classList.add('active');
+}
+function loadSettingsData(){
+  loadKidsSettings();
+  loadBlocksSettings();
+  loadGamesSettings();
+  fetch(API + '/settings').then(function(r){ return r.json(); }).then(function(s){
+    document.getElementById('cooldownInput').value = s.game_repeat_cooldown;
+  });
+}
+function loadKidsSettings(){
+  fetch(API + '/kids').then(function(r){ return r.json(); }).then(function(kids){
+    state.kids = kids;
+    document.getElementById('kidsList').innerHTML = kids.map(function(k){
+      return '<div class="list-item"><span style="font-size:20px;">' + k.avatar_emoji + '</span>' +
+        '<span class="li-title">' + escapeHtml(k.name) + '</span>' +
+        '<button class="icon-btn" onclick="deleteKid(\'' + k.id + '\')">🗑</button></div>';
+    }).join('') || '<div style="color:#64748b;font-size:13px;">Sin niños todavía.</div>';
+  });
+}
+function createKid(){
+  var name = document.getElementById('newKidName').value.trim();
+  if(!name) return;
+  var emoji = document.getElementById('newKidEmoji').value.trim() || '🧒';
+  var color = document.getElementById('newKidColor').value;
+  fetch(API + '/kids', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ name: name, avatar_emoji: emoji, color: color })
+  }).then(function(r){ return r.json(); }).then(function(){
+    document.getElementById('newKidName').value = '';
+    document.getElementById('newKidEmoji').value = '';
+    loadKidsSettings();
+  });
+}
+function deleteKid(id){
+  if(!confirm('¿Eliminar este perfil?')) return;
+  fetch(API + '/kids/' + id, { method: 'DELETE' }).then(function(){ loadKidsSettings(); });
+}
+
+function loadBlocksSettings(){
+  fetch(API + '/blocks').then(function(r){ return r.json(); }).then(function(blocks){
+    state.blocksCache = blocks;
+    document.getElementById('blocksSettingsList').innerHTML = blocks.map(function(b){
+      var tasksHtml = b.tasks.map(function(t){
+        return '<div class="list-item"><span class="li-title">' + escapeHtml(t.title) + '</span>' +
+          '<div class="li-badges">' +
+          (t.is_mental_game ? '<span class="chip">🧠 juego</span>' : '') +
+          (t.is_premium ? '<span class="chip">🔒 premium</span>' : '') +
+          '</div><button class="icon-btn" onclick="deleteTask(\'' + t.id + '\')">🗑</button></div>';
+      }).join('');
+      return '<div class="card"><h4>' + b.icon + ' ' + escapeHtml(b.name) + '</h4>' + tasksHtml +
+        '<div class="field-row" style="margin-top:10px;">' +
+        '<input type="text" placeholder="Nueva tarea" id="newTask_' + b.id + '">' +
+        '<label class="checkbox-inline"><input type="checkbox" id="newTaskGame_' + b.id + '"> Juego mental</label>' +
+        '<label class="checkbox-inline"><input type="checkbox" id="newTaskPremium_' + b.id + '"> Premium</label>' +
+        '<button class="btn-primary" onclick="createTask(\'' + b.id + '\')">Agregar</button>' +
+        '</div><button class="btn-danger" style="margin-top:8px;" onclick="deleteBlock(\'' + b.id + '\')">Eliminar bloque</button></div>';
+    }).join('');
+  });
+}
+function createTask(blockId){
+  var input = document.getElementById('newTask_' + blockId);
+  var title = input.value.trim();
+  if(!title) return;
+  var isGame = document.getElementById('newTaskGame_' + blockId).checked;
+  var isPremium = document.getElementById('newTaskPremium_' + blockId).checked;
+  fetch(API + '/tasks', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ block_id: blockId, title: title, is_mental_game: isGame, is_premium: isPremium })
+  }).then(function(r){ return r.json(); }).then(function(){ loadBlocksSettings(); });
+}
+function deleteTask(taskId){
+  fetch(API + '/tasks/' + taskId, { method: 'DELETE' }).then(function(){ loadBlocksSettings(); });
+}
+function createBlock(){
+  var name = document.getElementById('newBlockName').value.trim();
+  if(!name) return;
+  var icon = document.getElementById('newBlockIcon').value.trim() || '⭐';
+  fetch(API + '/blocks', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ name: name, icon: icon })
+  }).then(function(r){ return r.json(); }).then(function(){
+    document.getElementById('newBlockName').value = '';
+    document.getElementById('newBlockIcon').value = '';
+    loadBlocksSettings();
+  });
+}
+function deleteBlock(id){
+  if(!confirm('¿Eliminar este bloque y todas sus tareas?')) return;
+  fetch(API + '/blocks/' + id, { method: 'DELETE' }).then(function(){ loadBlocksSettings(); });
+}
+
+function loadGamesSettings(){
+  fetch(API + '/games').then(function(r){ return r.json(); }).then(function(games){
+    state.gamesCache = games;
+    document.getElementById('gamesList').innerHTML = games.map(function(g){
+      return '<div class="list-item"><span class="li-title">' + escapeHtml(g.title) +
+        (g.description ? '<div class="game-pick-desc">' + escapeHtml(g.description) + '</div>' : '') + '</span>' +
+        '<button class="icon-btn" onclick="deleteGame(\'' + g.id + '\')">🗑</button></div>';
+    }).join('') || '<div style="color:#64748b;font-size:13px;">Sin actividades todavía.</div>';
+  });
+}
+function createGame(){
+  var title = document.getElementById('newGameTitle').value.trim();
+  if(!title) return;
+  var desc = document.getElementById('newGameDesc').value.trim();
+  fetch(API + '/games', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ title: title, description: desc })
+  }).then(function(r){ return r.json(); }).then(function(){
+    document.getElementById('newGameTitle').value = '';
+    document.getElementById('newGameDesc').value = '';
+    loadGamesSettings();
+  });
+}
+function deleteGame(id){
+  fetch(API + '/games/' + id, { method: 'DELETE' }).then(function(){ loadGamesSettings(); });
+}
+
+function changePin(){
+  var newPin = document.getElementById('newPin').value.trim();
+  var msg = document.getElementById('pinChangeMsg');
+  if(!/^\d{4}$/.test(newPin)){ msg.textContent = 'El PIN debe ser de 4 dígitos.'; msg.style.color = '#ef4444'; return; }
+  fetch(API + '/settings', {
+    method: 'PATCH', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ current_pin: state.pinInput, new_pin: newPin })
+  }).then(function(r){ return r.json(); }).then(function(res){
+    msg.textContent = res.ok ? 'PIN actualizado ✓' : (res.error || 'Error');
+    msg.style.color = res.ok ? '#22c55e' : '#ef4444';
+    if(res.ok) document.getElementById('newPin').value = '';
+  });
+}
+function saveCooldown(){
+  var val = document.getElementById('cooldownInput').value;
+  fetch(API + '/settings', {
+    method: 'PATCH', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ current_pin: state.pinInput, game_repeat_cooldown: val })
+  }).then(function(r){ return r.json(); });
+}
+
+function escapeHtml(s){
+  var d = document.createElement('div');
+  d.textContent = s == null ? '' : s;
+  return d.innerHTML;
+}
+
+loadKids();
+</script>
+</body>
+</html>
