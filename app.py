@@ -574,6 +574,8 @@ def hl_create_block():
         "name": name,
         "icon": data.get("icon", "⭐"),
         "order_num": data.get("order_num", 0),
+        "start_time": data.get("start_time") or None,
+        "end_time": data.get("end_time") or None,
     }
     r = requests.post(f"{sb_url()}/rest/v1/{HL_BLOCKS}", json=payload,
                        headers={**sb_headers(), "Prefer": "return=representation"}, timeout=5)
@@ -585,8 +587,11 @@ def hl_create_block():
 @app.route("/api/homelab/blocks/<block_id>", methods=["PATCH"])
 def hl_update_block(block_id):
     data = request.get_json() or {}
-    allowed = ["name", "icon", "order_num"]
+    allowed = ["name", "icon", "order_num", "start_time", "end_time"]
     payload = {k: data[k] for k in allowed if k in data}
+    for k in ("start_time", "end_time"):
+        if k in payload and not payload[k]:
+            payload[k] = None
     if not payload:
         return jsonify({"ok": False, "error": "nothing to update"}), 400
     r = requests.patch(f"{sb_url()}/rest/v1/{HL_BLOCKS}?id=eq.{block_id}", json=payload,
@@ -615,6 +620,7 @@ def hl_create_task():
         "order_num": data.get("order_num", 0),
         "is_premium": bool(data.get("is_premium", False)),
         "is_mental_game": bool(data.get("is_mental_game", False)),
+        "task_image": data.get("task_image") or None,
     }
     r = requests.post(f"{sb_url()}/rest/v1/{HL_TASKS}", json=payload,
                        headers={**sb_headers(), "Prefer": "return=representation"}, timeout=5)
@@ -626,7 +632,7 @@ def hl_create_task():
 @app.route("/api/homelab/tasks/<task_id>", methods=["PATCH"])
 def hl_update_task(task_id):
     data = request.get_json() or {}
-    allowed = ["title", "order_num", "is_premium", "is_mental_game", "block_id"]
+    allowed = ["title", "order_num", "is_premium", "is_mental_game", "block_id", "task_image"]
     payload = {k: data[k] for k in allowed if k in data}
     if not payload:
         return jsonify({"ok": False, "error": "nothing to update"}), 400
