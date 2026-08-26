@@ -154,7 +154,7 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
       <button class="btn-ghost" onclick="showScreen('profilePicker'); loadKids();">Salir</button>
     </div>
     <div class="settings-tabs">
-      <button class="active" data-tab="kids" onclick="switchSettingsTab('kids')">Niños</button>
+      <button class="active" data-tab="kids" onclick="switchSettingsTab('kids')">Jóvenes</button>
       <button data-tab="tasks" onclick="switchSettingsTab('tasks')">Bloques &amp; Tareas</button>
       <button data-tab="games" onclick="switchSettingsTab('games')">Juegos mentales</button>
       <button data-tab="general" onclick="switchSettingsTab('general')">General</button>
@@ -162,7 +162,7 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
 
     <div class="settings-pane active" id="pane-kids">
       <div class="card">
-        <h4>Agregar niño</h4>
+        <h4>Agregar Joven</h4>
         <div class="field-row">
           <input type="text" id="newKidEmoji" placeholder="🧒" maxlength="2" style="max-width:56px;flex:none;">
           <input type="text" id="newKidName" placeholder="Nombre">
@@ -170,7 +170,7 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
           <button class="btn-primary" onclick="createKid()">Agregar</button>
         </div>
       </div>
-      <div class="card" id="kidsListCard"><h4>Niños</h4><div id="kidsList"></div></div>
+      <div class="card" id="kidsListCard"><h4>Jóvenes</h4><div id="kidsList"></div></div>
     </div>
 
     <div class="settings-pane" id="pane-tasks">
@@ -291,11 +291,11 @@ function loadKids(){
     state.kids = kids;
     var grid = document.getElementById('kidGrid');
     if(!kids.length){
-      grid.innerHTML = '<div class="kid-empty">Todavía no hay niños agregados.<br>Entra a Settings (con el PIN) para agregar el primero.</div>';
+      grid.innerHTML = '<div class="kid-empty">Todavía no hay jóvenes agregados.<br>Entra a Settings (con el PIN) para agregar el primero.</div>';
       return;
     }
     grid.innerHTML = kids.map(function(k){
-      return '<div class="kid-card" onclick="selectKid(\'' + k.id + '\')">' +
+      return '<div class="kid-card card" onclick="selectKid(\'' + k.id + '\')">' +
         '<div class="kid-avatar" style="background:' + k.color + '33;">' + k.avatar_emoji + '</div>' +
         '<div class="kid-name">' + escapeHtml(k.name) + '</div></div>';
     }).join('');
@@ -342,7 +342,7 @@ function renderChecklist(){
         '<div style="flex:1;"><div class="task-title">' + escapeHtml(t.title) + (t.is_mental_game ? ' 🧠' : '') + '</div>' + extra + '</div>' + badge +
         '</div>';
     }).join('');
-    return '<div class="block-card' + (b.complete ? ' is-complete' : '') + '">' +
+    return '<div class="block-card card' + (b.complete ? ' is-complete' : '') + '">' +
       '<div class="block-head"><span class="block-icon">' + b.icon + '</span><span class="block-title">' + escapeHtml(b.name) + '</span>' +
       '<span class="block-pct">' + b.done + '/' + b.total + '</span></div>' +
       '<div class="progress-track"><div class="progress-fill" style="width:' + b.progress_pct + '%;"></div></div>' +
@@ -574,7 +574,7 @@ function loadKidsSettings(){
       return '<div class="list-item"><span style="font-size:20px;">' + k.avatar_emoji + '</span>' +
         '<span class="li-title">' + escapeHtml(k.name) + '</span>' +
         '<button class="icon-btn" onclick="deleteKid(\'' + k.id + '\')">🗑</button></div>';
-    }).join('') || '<div style="color:#64748b;font-size:13px;">Sin niños todavía.</div>';
+    }).join('') || '<div style="color:#64748b;font-size:13px;">Sin jóvenes todavía.</div>';
   });
 }
 function createKid(){
