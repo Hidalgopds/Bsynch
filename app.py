@@ -197,7 +197,7 @@ def _refresh_co_cache():
     global _co_cache, _co_cache_ts
     try:
         r = requests.get(
-            f"{_MASTER_URL}/rest/v1/bsynch_companies?status=eq.active&select=slug,supabase_url,supabase_key",
+            f"{_MASTER_URL}/rest/v1/bsynch_companies?status=eq.active&select=id,slug,supabase_url,supabase_key",
             headers={"apikey": _MASTER_KEY, "Authorization": f"Bearer {_MASTER_KEY}", "Content-Type": "application/json"}
         )
         if r.ok:
@@ -223,6 +223,19 @@ def _get_client_co():
     except Exception:
         pass
     return None
+
+def _hl_scope_id():
+    """bsynch_companies.id for the current family's subdomain, or None for the
+    master domain (bsynch.com direct). Used to isolate Home Lab data per family."""
+    co = _get_client_co()
+    return co.get("id") if co else None
+
+
+def _hl_scope_filter(param="company_id"):
+    """PostgREST filter fragment scoping a query to the current family."""
+    scope = _hl_scope_id()
+    return f"{param}=eq.{scope}" if scope else f"{param}=is.null"
+
 
 def sb_url():
     """Supabase URL for current request (client or master)."""
@@ -378,14 +391,14 @@ def _hl_check_and_notify_block_complete(kid_id, block_id, on_date):
     if claim.ok and claim.json():
         # Resolve request-scoped values now; the SMTP send happens off-thread
         # (can take 300ms-1s) so it doesn't add latency to the checkbox tap.
-        base_url, headers = sb_url(), sb_headers()
+        base_url, headers, scope_filter = sb_url(), sb_headers(), _hl_scope_filter()
         _threading.Thread(
-            target=_hl_send_approval_email, args=(base_url, headers, kid_id, block_id), daemon=True
+            target=_hl_send_approval_email, args=(base_url, headers, scope_filter, kid_id, block_id), daemon=True
         ).start()
 
 
-def _hl_send_approval_email(base_url, headers, kid_id, block_id):
-    settings_r = requests.get(f"{base_url}/rest/v1/{HL_SETTINGS}?select=key,value", headers=headers, timeout=5)
+def _hl_send_approval_email(base_url, headers, scope_filter, kid_id, block_id):
+    settings_r = requests.get(f"{base_url}/rest/v1/{HL_SETTINGS}?{scope_filter}&select=key,value", headers=headers, timeout=5)
     settings = {row["key"]: row["value"] for row in (settings_r.json() if settings_r.ok else [])}
     to_email = settings.get("parent_email", "")
     if not to_email or not SMTP_EMAIL or not SMTP_PASSWORD:
@@ -416,17 +429,39 @@ def _hl_send_approval_email(base_url, headers, kid_id, block_id):
 
 
 def _hl_get_settings():
-    r = requests.get(f"{sb_url()}/rest/v1/{HL_SETTINGS}?select=key,value", headers=sb_headers(), timeout=5)
+    r = requests.get(f"{sb_url()}/rest/v1/{HL_SETTINGS}?{_hl_scope_filter()}&select=key,value",
+                      headers=sb_headers(), timeout=5)
     rows = r.json() if r.ok else []
     return {row["key"]: row["value"] for row in rows}
 
 
+def _hl_set_setting(key, value):
+    """Upsert one homelab_settings row scoped to the current family. Explicit
+    read-then-write (instead of a Prefer: merge-duplicates upsert) because the
+    table's uniqueness is enforced by two partial indexes (master vs. per-
+    company), which PostgREST's on_conflict can't target generically."""
+    existing = requests.get(
+        f"{sb_url()}/rest/v1/{HL_SETTINGS}?key=eq.{key}&{_hl_scope_filter()}&select=id",
+        headers=sb_headers(), timeout=5
+    )
+    rows = existing.json() if existing.ok else []
+    if rows:
+        requests.patch(f"{sb_url()}/rest/v1/{HL_SETTINGS}?id=eq.{rows[0]['id']}",
+                        json={"value": value}, headers=sb_headers(), timeout=5)
+    else:
+        requests.post(f"{sb_url()}/rest/v1/{HL_SETTINGS}",
+                       json={"key": key, "value": value, "company_id": _hl_scope_id()},
+                       headers=sb_headers(), timeout=5)
+
+
 def _hl_find_guardian_by_pin(pin):
-    """Return {id, name, relationship} for the guardian owning this PIN, or None."""
+    """Return {id, name, relationship} for the guardian owning this PIN within
+    the current family's scope, or None. Scoped so one family's PIN can never
+    authenticate as another family's guardian."""
     pin = str(pin or "").strip()
     if not pin:
         return None
-    r = requests.get(f"{sb_url()}/rest/v1/{HL_GUARDIANS}?pin=eq.{pin}&select=id,name,relationship",
+    r = requests.get(f"{sb_url()}/rest/v1/{HL_GUARDIANS}?pin=eq.{pin}&{_hl_scope_filter()}&select=id,name,relationship",
                       headers=sb_headers(), timeout=5)
     rows = r.json() if r.ok else []
     return rows[0] if rows else None
@@ -449,7 +484,7 @@ def _hl_kid_age(kid_id):
 def _hl_games_for_kid(kid_id):
     """Active games, filtered to the kid's age when both the kid's DOB and the
     game's age range are set. A game with no min/max age is always included."""
-    r = requests.get(f"{sb_url()}/rest/v1/{HL_GAMES}?active=eq.true&select=*&order=order_num.asc",
+    r = requests.get(f"{sb_url()}/rest/v1/{HL_GAMES}?active=eq.true&{_hl_scope_filter()}&select=*&order=order_num.asc",
                       headers=sb_headers(), timeout=10)
     games = r.json() if r.ok else []
     age = _hl_kid_age(kid_id) if kid_id else None
@@ -470,7 +505,8 @@ def _hl_games_for_kid(kid_id):
 @app.route("/api/homelab/kids", methods=["GET"])
 def hl_get_kids():
     r = requests.get(
-        f"{sb_url()}/rest/v1/{HL_KIDS}?active=eq.true&select=*,{HL_KID_PHOTOS}(id)&order=order_num.asc,created_at.asc",
+        f"{sb_url()}/rest/v1/{HL_KIDS}?active=eq.true&{_hl_scope_filter()}"
+        f"&select=*,{HL_KID_PHOTOS}(id)&order=order_num.asc,created_at.asc",
         headers=sb_headers(), timeout=10
     )
     kids = r.json() if r.ok else []
@@ -560,6 +596,7 @@ def hl_create_kid():
         "order_num": data.get("order_num", 0),
         "sexo": data.get("sexo") or None,
         "fecha_nacimiento": data.get("fecha_nacimiento") or None,
+        "company_id": _hl_scope_id(),
     }
     r = requests.post(f"{sb_url()}/rest/v1/{HL_KIDS}", json=payload,
                        headers={**sb_headers(), "Prefer": "return=representation"}, timeout=5)
@@ -578,14 +615,14 @@ def hl_update_kid(kid_id):
             payload[k] = None
     if not payload:
         return jsonify({"ok": False, "error": "nothing to update"}), 400
-    r = requests.patch(f"{sb_url()}/rest/v1/{HL_KIDS}?id=eq.{kid_id}", json=payload,
+    r = requests.patch(f"{sb_url()}/rest/v1/{HL_KIDS}?id=eq.{kid_id}&{_hl_scope_filter()}", json=payload,
                         headers=sb_headers(), timeout=5)
     return jsonify({"ok": r.ok})
 
 
 @app.route("/api/homelab/kids/<kid_id>", methods=["DELETE"])
 def hl_delete_kid(kid_id):
-    r = requests.patch(f"{sb_url()}/rest/v1/{HL_KIDS}?id=eq.{kid_id}", json={"active": False},
+    r = requests.patch(f"{sb_url()}/rest/v1/{HL_KIDS}?id=eq.{kid_id}&{_hl_scope_filter()}", json={"active": False},
                         headers=sb_headers(), timeout=5)
     return jsonify({"ok": r.ok})
 
@@ -594,7 +631,7 @@ def hl_delete_kid(kid_id):
 @app.route("/api/homelab/blocks", methods=["GET"])
 def hl_get_blocks():
     r = requests.get(
-        f"{sb_url()}/rest/v1/{HL_BLOCKS}?active=eq.true&select=*,{HL_TASKS}(*)"
+        f"{sb_url()}/rest/v1/{HL_BLOCKS}?active=eq.true&{_hl_scope_filter()}&select=*,{HL_TASKS}(*)"
         f"&order=order_num.asc",
         headers=sb_headers(), timeout=10
     )
@@ -617,6 +654,7 @@ def hl_create_block():
         "order_num": data.get("order_num", 0),
         "start_time": data.get("start_time") or None,
         "end_time": data.get("end_time") or None,
+        "company_id": _hl_scope_id(),
     }
     r = requests.post(f"{sb_url()}/rest/v1/{HL_BLOCKS}", json=payload,
                        headers={**sb_headers(), "Prefer": "return=representation"}, timeout=5)
@@ -635,14 +673,14 @@ def hl_update_block(block_id):
             payload[k] = None
     if not payload:
         return jsonify({"ok": False, "error": "nothing to update"}), 400
-    r = requests.patch(f"{sb_url()}/rest/v1/{HL_BLOCKS}?id=eq.{block_id}", json=payload,
+    r = requests.patch(f"{sb_url()}/rest/v1/{HL_BLOCKS}?id=eq.{block_id}&{_hl_scope_filter()}", json=payload,
                         headers=sb_headers(), timeout=5)
     return jsonify({"ok": r.ok})
 
 
 @app.route("/api/homelab/blocks/<block_id>", methods=["DELETE"])
 def hl_delete_block(block_id):
-    r = requests.patch(f"{sb_url()}/rest/v1/{HL_BLOCKS}?id=eq.{block_id}", json={"active": False},
+    r = requests.patch(f"{sb_url()}/rest/v1/{HL_BLOCKS}?id=eq.{block_id}&{_hl_scope_filter()}", json={"active": False},
                         headers=sb_headers(), timeout=5)
     return jsonify({"ok": r.ok})
 
@@ -655,6 +693,10 @@ def hl_create_task():
     title = data.get("title", "").strip()
     if not block_id or not title:
         return jsonify({"ok": False, "error": "block_id and title required"}), 400
+    owns = requests.get(f"{sb_url()}/rest/v1/{HL_BLOCKS}?id=eq.{block_id}&{_hl_scope_filter()}&select=id",
+                         headers=sb_headers(), timeout=5)
+    if not (owns.ok and owns.json()):
+        return jsonify({"ok": False, "error": "block not found"}), 404
     payload = {
         "block_id": block_id,
         "title": title,
@@ -719,7 +761,7 @@ def hl_get_games():
     if kid_id:
         return jsonify(_hl_games_for_kid(kid_id))
     r = requests.get(
-        f"{sb_url()}/rest/v1/{HL_GAMES}?active=eq.true&select=*&order=order_num.asc",
+        f"{sb_url()}/rest/v1/{HL_GAMES}?active=eq.true&{_hl_scope_filter()}&select=*&order=order_num.asc",
         headers=sb_headers(), timeout=10
     )
     return jsonify(r.json() if r.ok else [])
@@ -737,6 +779,7 @@ def hl_create_game():
         "order_num": data.get("order_num", 0),
         "min_age": data.get("min_age") if data.get("min_age") not in ("", None) else None,
         "max_age": data.get("max_age") if data.get("max_age") not in ("", None) else None,
+        "company_id": _hl_scope_id(),
     }
     r = requests.post(f"{sb_url()}/rest/v1/{HL_GAMES}", json=payload,
                        headers={**sb_headers(), "Prefer": "return=representation"}, timeout=5)
@@ -755,14 +798,14 @@ def hl_update_game(game_id):
             payload[k] = None
     if not payload:
         return jsonify({"ok": False, "error": "nothing to update"}), 400
-    r = requests.patch(f"{sb_url()}/rest/v1/{HL_GAMES}?id=eq.{game_id}", json=payload,
+    r = requests.patch(f"{sb_url()}/rest/v1/{HL_GAMES}?id=eq.{game_id}&{_hl_scope_filter()}", json=payload,
                         headers=sb_headers(), timeout=5)
     return jsonify({"ok": r.ok})
 
 
 @app.route("/api/homelab/games/<game_id>", methods=["DELETE"])
 def hl_delete_game(game_id):
-    r = requests.patch(f"{sb_url()}/rest/v1/{HL_GAMES}?id=eq.{game_id}", json={"active": False},
+    r = requests.patch(f"{sb_url()}/rest/v1/{HL_GAMES}?id=eq.{game_id}&{_hl_scope_filter()}", json={"active": False},
                         headers=sb_headers(), timeout=5)
     return jsonify({"ok": r.ok})
 
@@ -770,7 +813,7 @@ def hl_delete_game(game_id):
 # — Guardians ("responsables"): each has their own name + PIN —
 @app.route("/api/homelab/guardians", methods=["GET"])
 def hl_get_guardians():
-    r = requests.get(f"{sb_url()}/rest/v1/{HL_GUARDIANS}?select=id,name,relationship,created_at&order=created_at.asc",
+    r = requests.get(f"{sb_url()}/rest/v1/{HL_GUARDIANS}?{_hl_scope_filter()}&select=id,name,relationship,created_at&order=created_at.asc",
                       headers=sb_headers(), timeout=10)
     return jsonify(r.json() if r.ok else [])
 
@@ -785,9 +828,10 @@ def hl_create_guardian():
     if not pin.isdigit() or len(pin) != 4:
         return jsonify({"ok": False, "error": "El PIN debe ser de 4 dígitos"}), 400
 
-    # First guardian ever: no auth needed (cold start). Otherwise any existing
-    # guardian's PIN authorizes adding another one.
-    existing = requests.get(f"{sb_url()}/rest/v1/{HL_GUARDIANS}?select=id&limit=1",
+    # First guardian ever for this family: no auth needed (cold start).
+    # Otherwise any existing guardian's PIN (within this family) authorizes
+    # adding another one.
+    existing = requests.get(f"{sb_url()}/rest/v1/{HL_GUARDIANS}?{_hl_scope_filter()}&select=id&limit=1",
                              headers=sb_headers(), timeout=5)
     has_guardians = bool(existing.ok and existing.json())
     if has_guardians:
@@ -795,7 +839,7 @@ def hl_create_guardian():
         if not _hl_find_guardian_by_pin(current_pin):
             return jsonify({"ok": False, "error": "PIN incorrecto"}), 403
 
-    payload = {"name": name, "relationship": data.get("relationship", ""), "pin": pin}
+    payload = {"name": name, "relationship": data.get("relationship", ""), "pin": pin, "company_id": _hl_scope_id()}
     r = requests.post(f"{sb_url()}/rest/v1/{HL_GUARDIANS}", json=payload,
                        headers={**sb_headers(), "Prefer": "return=representation"}, timeout=5)
     if r.ok and r.json():
@@ -825,7 +869,7 @@ def hl_update_guardian(guardian_id):
     if not payload:
         return jsonify({"ok": False, "error": "nothing to update"}), 400
 
-    r = requests.patch(f"{sb_url()}/rest/v1/{HL_GUARDIANS}?id=eq.{guardian_id}", json=payload,
+    r = requests.patch(f"{sb_url()}/rest/v1/{HL_GUARDIANS}?id=eq.{guardian_id}&{_hl_scope_filter()}", json=payload,
                         headers=sb_headers(), timeout=5)
     if r.status_code == 409:
         return jsonify({"ok": False, "error": "Ese PIN ya lo usa otro responsable"}), 409
@@ -839,11 +883,11 @@ def hl_delete_guardian(guardian_id):
     if not _hl_find_guardian_by_pin(current_pin):
         return jsonify({"ok": False, "error": "PIN incorrecto"}), 403
 
-    count_r = requests.get(f"{sb_url()}/rest/v1/{HL_GUARDIANS}?select=id", headers=sb_headers(), timeout=5)
+    count_r = requests.get(f"{sb_url()}/rest/v1/{HL_GUARDIANS}?{_hl_scope_filter()}&select=id", headers=sb_headers(), timeout=5)
     if count_r.ok and len(count_r.json()) <= 1:
         return jsonify({"ok": False, "error": "Debe quedar al menos un responsable"}), 400
 
-    r = requests.delete(f"{sb_url()}/rest/v1/{HL_GUARDIANS}?id=eq.{guardian_id}",
+    r = requests.delete(f"{sb_url()}/rest/v1/{HL_GUARDIANS}?id=eq.{guardian_id}&{_hl_scope_filter()}",
                          headers=sb_headers(), timeout=5)
     return jsonify({"ok": r.ok})
 
@@ -882,12 +926,7 @@ def hl_update_settings():
         updates["parent_email"] = str(data["parent_email"]).strip()
 
     for key, value in updates.items():
-        requests.post(
-            f"{sb_url()}/rest/v1/{HL_SETTINGS}",
-            json={"key": key, "value": value},
-            headers={**sb_headers(), "Prefer": "resolution=merge-duplicates"},
-            timeout=5
-        )
+        _hl_set_setting(key, value)
     return jsonify({"ok": True})
 
 
@@ -907,7 +946,7 @@ def hl_get_checklist():
         return jsonify({"ok": False, "error": "kid_id required"}), 400
 
     br = requests.get(
-        f"{sb_url()}/rest/v1/{HL_BLOCKS}?active=eq.true&select=*,{HL_TASKS}(*)&order=order_num.asc",
+        f"{sb_url()}/rest/v1/{HL_BLOCKS}?active=eq.true&{_hl_scope_filter()}&select=*,{HL_TASKS}(*)&order=order_num.asc",
         headers=sb_headers(), timeout=10
     )
     blocks = br.json() if br.ok else []
