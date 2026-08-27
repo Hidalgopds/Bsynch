@@ -285,6 +285,16 @@ def homelab_hub():
 def homelab_kids_checklist_page():
     return render_template("homelab-kids-checklist.html")
 
+@app.route("/homelab/kids-checklist/qr.png")
+def homelab_kids_checklist_qr():
+    import qrcode
+    url = request.host_url.rstrip("/") + "/homelab/kids-checklist"
+    img = qrcode.make(url)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return Response(buf.read(), mimetype="image/png")
+
 @app.route("/sw.js")
 def homelab_service_worker():
     # Served from the root (not /static/) so its scope covers the whole

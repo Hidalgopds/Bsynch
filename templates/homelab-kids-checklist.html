@@ -266,6 +266,12 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
     </div>
 
     <div class="settings-pane" id="pane-general">
+      <div class="card" style="text-align:center;">
+        <h4>📱 Instalar en la tablet</h4>
+        <p style="font-size:12px;color:#94a3b8;margin-bottom:14px;">Escanea el código (o abre el link en Safari), toca Compartir → "Agregar a pantalla de inicio". Queda como una app aparte, a pantalla completa.</p>
+        <img src="/homelab/kids-checklist/qr.png" alt="QR" style="width:160px;height:160px;border-radius:12px;background:#fff;padding:8px;">
+        <p style="font-size:13px;margin-top:10px;word-break:break-all;" id="installLinkText"></p>
+      </div>
       <div class="card">
         <h4>Ruleta de juegos mentales</h4>
         <div class="field-row">
@@ -455,6 +461,29 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
   </div>
 </div>
 
+<!-- Edit mental game modal -->
+<div class="modal-overlay" id="editGameModal">
+  <div class="modal">
+    <h3>✏️ Editar actividad</h3>
+    <div class="field-row">
+      <input type="text" id="editGameTitle" placeholder="Nombre de la actividad">
+    </div>
+    <div class="field-row">
+      <input type="text" id="editGameDesc" placeholder="Descripción corta (opcional)">
+    </div>
+    <div class="field-row">
+      <span style="font-size:13px;color:#94a3b8;">Edad</span>
+      <input type="number" id="editGameMinAge" placeholder="mín" min="0" max="99" style="max-width:70px;">
+      <span style="font-size:13px;color:#94a3b8;">–</span>
+      <input type="number" id="editGameMaxAge" placeholder="máx" min="0" max="99" style="max-width:70px;">
+    </div>
+    <div class="field-row">
+      <button class="btn-primary" style="flex:1;" onclick="saveEditGame()">Guardar</button>
+      <button class="btn-ghost" onclick="closeEditGame()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <div id="confettiLayer"></div>
 
 <script>
@@ -462,7 +491,7 @@ var API = '/api/homelab';
 var state = { kids: [], selectedKid: null, checklist: null, pinInput: '', pinPurpose: 'settings',
               blocksCache: [], gamesCache: [], guardiansCache: [], activeGameTaskId: null, gameMode: 'wheel',
               approvingBlockId: null, currentGuardian: null, uncheckingTaskId: null, newKidColor: '#4f8ef7',
-              editKidColor: '#4f8ef7', editingKidId: null, editingTaskId: null, cropTargetKidId: null, editingGuardianId: null };
+              editKidColor: '#4f8ef7', editingKidId: null, editingTaskId: null, cropTargetKidId: null, editingGuardianId: null, editingGameId: null };
 var KID_COLOR_PRESETS = ['#ef4444','#f59e0b','#22c55e','#4f8ef7','#a855f7','#ec4899'];
 
 function renderColorSwatches(containerId, inputId, stateKey){
@@ -997,6 +1026,7 @@ function loadSettingsData(){
   loadBlocksSettings();
   loadGamesSettings();
   loadGuardiansSettings();
+  document.getElementById('installLinkText').textContent = location.origin + '/homelab/kids-checklist';
   fetch(API + '/settings').then(function(r){ return r.json(); }).then(function(s){
     document.getElementById('cooldownInput').value = s.game_repeat_cooldown;
     document.getElementById('parentEmailInput').value = s.parent_email || '';
@@ -1378,6 +1408,7 @@ function loadGamesSettings(){
       return '<div class="list-item"><span class="li-title">' + escapeHtml(g.title) +
         (g.description ? '<div class="game-pick-desc">' + escapeHtml(g.description) + '</div>' : '') +
         '<div class="game-pick-desc">' + ageLabel + '</div></span>' +
+        '<button class="icon-btn" onclick="openEditGame(\'' + g.id + '\')" title="Editar" style="color:#94a3b8;">✏️</button>' +
         '<button class="icon-btn" onclick="deleteGame(\'' + g.id + '\')">🗑</button></div>';
     }).join('') || '<div style="color:#64748b;font-size:13px;">Sin actividades todavía.</div>';
   });
@@ -1401,6 +1432,36 @@ function createGame(){
 }
 function deleteGame(id){
   fetch(API + '/games/' + id, { method: 'DELETE' }).then(function(){ loadGamesSettings(); });
+}
+function openEditGame(id){
+  var g = state.gamesCache.find(function(x){ return x.id === id; });
+  if(!g) return;
+  state.editingGameId = id;
+  document.getElementById('editGameTitle').value = g.title || '';
+  document.getElementById('editGameDesc').value = g.description || '';
+  document.getElementById('editGameMinAge').value = g.min_age != null ? g.min_age : '';
+  document.getElementById('editGameMaxAge').value = g.max_age != null ? g.max_age : '';
+  document.getElementById('editGameModal').classList.add('open');
+}
+function closeEditGame(){
+  document.getElementById('editGameModal').classList.remove('open');
+  state.editingGameId = null;
+}
+function saveEditGame(){
+  var title = document.getElementById('editGameTitle').value.trim();
+  if(!title) return;
+  fetch(API + '/games/' + state.editingGameId, {
+    method: 'PATCH', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      title: title,
+      description: document.getElementById('editGameDesc').value.trim(),
+      min_age: document.getElementById('editGameMinAge').value,
+      max_age: document.getElementById('editGameMaxAge').value
+    })
+  }).then(function(){
+    closeEditGame();
+    loadGamesSettings();
+  });
 }
 
 function loadGuardiansSettings(){
