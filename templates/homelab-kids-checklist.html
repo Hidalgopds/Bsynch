@@ -178,7 +178,7 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
       <button class="btn-ghost" onclick="goToProfilePicker()">Salir</button>
     </div>
     <div class="settings-tabs">
-      <button class="active" data-tab="kids" onclick="switchSettingsTab('kids')">Jóvenes</button>
+      <button class="active" data-tab="kids" onclick="switchSettingsTab('kids')">Cuentas</button>
       <button data-tab="tasks" onclick="switchSettingsTab('tasks')">Bloques &amp; Tareas</button>
       <button data-tab="games" onclick="switchSettingsTab('games')">Juegos mentales</button>
       <button data-tab="guardians" onclick="switchSettingsTab('guardians')">Responsables</button>
@@ -212,7 +212,7 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
         <div id="newKidPhotoPreview" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;"></div>
         <p style="font-size:11px;color:#64748b;">La fecha de nacimiento decide qué juegos mentales le tocan según su edad. Hasta 5 fotos — se van alternando solas en su perfil.</p>
       </div>
-      <div class="card" id="kidsListCard"><h4>Jóvenes</h4><div id="kidsList"></div></div>
+      <div class="card" id="kidsListCard"><h4>Cuentas</h4><div id="kidsList"></div></div>
     </div>
 
     <div class="settings-pane" id="pane-tasks">
@@ -379,29 +379,81 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
   </div>
 </div>
 
+<!-- Edit kid account modal -->
+<div class="modal-overlay" id="editKidModal">
+  <div class="modal">
+    <h3>✏️ Editar cuenta</h3>
+    <div class="field-row">
+      <input type="text" id="editKidEmoji" maxlength="2" style="max-width:56px;flex:none;">
+      <input type="text" id="editKidName" placeholder="Nombre">
+    </div>
+    <div class="field-row" style="align-items:center;">
+      <span style="font-size:12px;color:#94a3b8;">Fondo:</span>
+      <div id="editKidColorSwatches" style="display:flex;gap:8px;"></div>
+      <input type="color" id="editKidColor" title="Personalizado" style="width:34px;height:34px;padding:2px;">
+    </div>
+    <div class="field-row">
+      <select id="editKidSexo">
+        <option value="">Sexo</option>
+        <option value="Hombre">Hombre</option>
+        <option value="Mujer">Mujer</option>
+      </select>
+      <input type="date" id="editKidDob">
+    </div>
+    <div class="field-row">
+      <span style="font-size:12px;color:#94a3b8;">Fotos (máx 5):</span>
+      <input type="file" id="editKidPhotoInput" accept="image/*" multiple onchange="handleEditKidPhotoPick(event)">
+    </div>
+    <div id="editKidPhotoList" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;"></div>
+    <div class="field-row">
+      <button class="btn-primary" style="flex:1;" onclick="saveEditKid()">Guardar</button>
+      <button class="btn-ghost" onclick="closeEditKid()">Cerrar</button>
+    </div>
+    <div id="editKidMsg" class="pin-error"></div>
+  </div>
+</div>
+
+<!-- Edit task name modal -->
+<div class="modal-overlay" id="editTaskModal">
+  <div class="modal">
+    <h3>✏️ Editar tarea</h3>
+    <div class="field-row">
+      <input type="text" id="editTaskTitle" placeholder="Nombre de la tarea">
+    </div>
+    <div class="field-row">
+      <button class="btn-primary" style="flex:1;" onclick="saveEditTask()">Guardar</button>
+      <button class="btn-ghost" onclick="closeEditTask()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <div id="confettiLayer"></div>
 
 <script>
 var API = '/api/homelab';
 var state = { kids: [], selectedKid: null, checklist: null, pinInput: '', pinPurpose: 'settings',
               blocksCache: [], gamesCache: [], guardiansCache: [], activeGameTaskId: null, gameMode: 'wheel',
-              approvingBlockId: null, currentGuardian: null, uncheckingTaskId: null, newKidColor: '#4f8ef7' };
+              approvingBlockId: null, currentGuardian: null, uncheckingTaskId: null, newKidColor: '#4f8ef7',
+              editKidColor: '#4f8ef7', editingKidId: null, editingTaskId: null, cropTargetKidId: null };
 var KID_COLOR_PRESETS = ['#ef4444','#f59e0b','#22c55e','#4f8ef7','#a855f7','#ec4899'];
 
-function renderKidColorSwatches(){
-  var wrap = document.getElementById('kidColorSwatches');
+function renderColorSwatches(containerId, inputId, stateKey){
+  var wrap = document.getElementById(containerId);
   if(!wrap) return;
   wrap.innerHTML = KID_COLOR_PRESETS.map(function(c){
-    var active = state.newKidColor === c;
-    return '<button type="button" onclick="pickKidColor(\'' + c + '\')" style="width:28px;height:28px;border-radius:50%;background:' + c +
+    var active = state[stateKey] === c;
+    return '<button type="button" onclick="pickColor(\'' + containerId + '\',\'' + inputId + '\',\'' + stateKey + '\',\'' + c + '\')" ' +
+      'style="width:28px;height:28px;border-radius:50%;background:' + c +
       ';border:' + (active ? '3px solid #fff' : '2px solid transparent') + ';box-shadow:0 0 0 1px #2a2d3e;cursor:pointer;"></button>';
   }).join('');
 }
-function pickKidColor(c){
-  state.newKidColor = c;
-  document.getElementById('newKidColor').value = c;
-  renderKidColorSwatches();
+function pickColor(containerId, inputId, stateKey, c){
+  state[stateKey] = c;
+  document.getElementById(inputId).value = c;
+  renderColorSwatches(containerId, inputId, stateKey);
 }
+function renderKidColorSwatches(){ renderColorSwatches('kidColorSwatches', 'newKidColor', 'newKidColor'); }
+function pickKidColor(c){ pickColor('kidColorSwatches', 'newKidColor', 'newKidColor', c); }
 renderKidColorSwatches();
 
 function showScreen(id){
@@ -922,8 +974,9 @@ function loadKidsSettings(){
       var detail = [k.sexo, age != null ? (age + ' años') : null, photoNote].filter(Boolean).join(' · ');
       return '<div class="list-item">' + kidAvatarHtml(k, '', 'width:32px;height:32px;font-size:16px;margin:0;') +
         '<span class="li-title">' + escapeHtml(k.name) + (detail ? '<div class="game-pick-desc">' + escapeHtml(detail) + '</div>' : '') + '</span>' +
+        '<button class="icon-btn" onclick="openEditKid(\'' + k.id + '\')" title="Editar" style="color:#94a3b8;">✏️</button>' +
         '<button class="icon-btn" onclick="deleteKid(\'' + k.id + '\')">🗑</button></div>';
-    }).join('') || '<div style="color:#64748b;font-size:13px;">Sin jóvenes todavía.</div>';
+    }).join('') || '<div style="color:#64748b;font-size:13px;">Sin cuentas todavía.</div>';
   });
 }
 var newKidPhotoDataUrls = [];
@@ -933,6 +986,7 @@ var CROP_VIEWPORT = 260;
 var CROP_OUTPUT = 400;
 
 function handleKidPhotoPick(evt){
+  state.cropTargetKidId = null;
   var room = 5 - newKidPhotoDataUrls.length;
   cropQueue = Array.prototype.slice.call(evt.target.files).slice(0, Math.max(room, 0));
   evt.target.value = '';
@@ -983,10 +1037,18 @@ function confirmCrop(){
   var ctx = canvas.getContext('2d');
   ctx.drawImage(img, cropState.offsetX * k, cropState.offsetY * k,
     cropState.natW * cropState.scale * k, cropState.natH * cropState.scale * k);
-  newKidPhotoDataUrls.push(canvas.toDataURL('image/jpeg', 0.85));
+  var dataUrl = canvas.toDataURL('image/jpeg', 0.85);
   document.getElementById('cropModal').classList.remove('open');
-  renderKidPhotoPreview();
-  processNextCropQueueItem();
+  if(state.cropTargetKidId){
+    fetch(API + '/kids/' + state.cropTargetKidId + '/photos', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ photo_data: dataUrl })
+    }).then(function(){ loadEditKidPhotos(state.cropTargetKidId); processNextCropQueueItem(); });
+  } else {
+    newKidPhotoDataUrls.push(dataUrl);
+    renderKidPhotoPreview();
+    processNextCropQueueItem();
+  }
 }
 (function(){
   var vp = document.getElementById('cropViewport');
@@ -1066,6 +1128,69 @@ function deleteKid(id){
   fetch(API + '/kids/' + id, { method: 'DELETE' }).then(function(){ loadKidsSettings(); });
 }
 
+// — Edit kid account —
+function openEditKid(kidId){
+  var kid = state.kids.find(function(k){ return k.id === kidId; });
+  if(!kid) return;
+  state.editingKidId = kidId;
+  document.getElementById('editKidName').value = kid.name || '';
+  document.getElementById('editKidEmoji').value = kid.avatar_emoji || '';
+  document.getElementById('editKidSexo').value = kid.sexo || '';
+  document.getElementById('editKidDob').value = kid.fecha_nacimiento || '';
+  document.getElementById('editKidColor').value = kid.color || '#4f8ef7';
+  pickColor('editKidColorSwatches', 'editKidColor', 'editKidColor', kid.color || '#4f8ef7');
+  document.getElementById('editKidMsg').textContent = '';
+  loadEditKidPhotos(kidId);
+  document.getElementById('editKidModal').classList.add('open');
+}
+function closeEditKid(){
+  document.getElementById('editKidModal').classList.remove('open');
+  state.editingKidId = null;
+}
+function loadEditKidPhotos(kidId){
+  fetch(API + '/kids/' + kidId + '/photos').then(function(r){ return r.json(); }).then(function(photos){
+    document.getElementById('editKidPhotoList').innerHTML = photos.map(function(p){
+      return '<div style="position:relative;"><img src="' + API + '/kids/' + kidId + '/photos/' + p.id + '/img" ' +
+        'style="width:48px;height:48px;border-radius:10px;object-fit:cover;">' +
+        '<button type="button" onclick="deleteEditKidPhoto(\'' + p.id + '\')" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:#ef4444;color:#fff;border:none;font-size:11px;cursor:pointer;line-height:1;">✕</button></div>';
+    }).join('');
+    var input = document.getElementById('editKidPhotoInput');
+    input.disabled = photos.length >= 5;
+  });
+}
+function handleEditKidPhotoPick(evt){
+  state.cropTargetKidId = state.editingKidId;
+  cropQueue = Array.prototype.slice.call(evt.target.files);
+  evt.target.value = '';
+  processNextCropQueueItem();
+}
+function deleteEditKidPhoto(photoId){
+  fetch(API + '/kids/' + state.editingKidId + '/photos/' + photoId, { method: 'DELETE' })
+    .then(function(){ loadEditKidPhotos(state.editingKidId); });
+}
+function saveEditKid(){
+  var name = document.getElementById('editKidName').value.trim();
+  var msg = document.getElementById('editKidMsg');
+  if(!name){ msg.textContent = 'El nombre es obligatorio.'; return; }
+  fetch(API + '/kids/' + state.editingKidId, {
+    method: 'PATCH', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      name: name,
+      avatar_emoji: document.getElementById('editKidEmoji').value.trim() || '🧒',
+      color: document.getElementById('editKidColor').value,
+      sexo: document.getElementById('editKidSexo').value,
+      fecha_nacimiento: document.getElementById('editKidDob').value
+    })
+  }).then(function(r){ return r.json(); }).then(function(res){
+    if(res.ok){
+      closeEditKid();
+      loadKidsSettings();
+    } else {
+      msg.textContent = res.error || 'Error';
+    }
+  });
+}
+
 function loadBlocksSettings(){
   fetch(API + '/blocks').then(function(r){ return r.json(); }).then(function(blocks){
     state.blocksCache = blocks;
@@ -1076,7 +1201,8 @@ function loadBlocksSettings(){
           '<div class="li-badges">' +
           (t.is_mental_game ? '<span class="chip">🧠 juego</span>' : '') +
           (t.is_premium ? '<span class="chip">🔒 premium</span>' : '') +
-          '</div><button class="icon-btn" onclick="deleteTask(\'' + t.id + '\')">🗑</button></div>';
+          '</div><button class="icon-btn" onclick="openEditTask(\'' + t.id + '\', \'' + escapeHtml(t.title).replace(/'/g,"\\'") + '\')" title="Editar" style="color:#94a3b8;">✏️</button>' +
+          '<button class="icon-btn" onclick="deleteTask(\'' + t.id + '\')">🗑</button></div>';
       }).join('');
       return '<div class="card"><h4>' + b.icon + ' ' + escapeHtml(b.name) + '</h4>' +
         '<div class="field-row">' +
@@ -1134,6 +1260,26 @@ function createTask(blockId){
 }
 function deleteTask(taskId){
   fetch(API + '/tasks/' + taskId, { method: 'DELETE' }).then(function(){ loadBlocksSettings(); });
+}
+function openEditTask(taskId, currentTitle){
+  state.editingTaskId = taskId;
+  document.getElementById('editTaskTitle').value = currentTitle;
+  document.getElementById('editTaskModal').classList.add('open');
+}
+function closeEditTask(){
+  document.getElementById('editTaskModal').classList.remove('open');
+  state.editingTaskId = null;
+}
+function saveEditTask(){
+  var title = document.getElementById('editTaskTitle').value.trim();
+  if(!title) return;
+  fetch(API + '/tasks/' + state.editingTaskId, {
+    method: 'PATCH', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ title: title })
+  }).then(function(){
+    closeEditTask();
+    loadBlocksSettings();
+  });
 }
 function createBlock(){
   var name = document.getElementById('newBlockName').value.trim();
