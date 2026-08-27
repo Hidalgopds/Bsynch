@@ -404,20 +404,42 @@ def _hl_today():
     return date.today().isoformat()
 
 
-def _hl_task_block_id(task_id):
-    r = requests.get(f"{sb_url()}/rest/v1/{HL_TASKS}?id=eq.{task_id}&select=block_id",
+def _hl_kid_in_scope(kid_id):
+    """True if kid_id belongs to the current family's scope. homelab_kids has
+    its own company_id, so this is a direct check — used to stop a kid_id
+    from another family (guessed or leaked) being used against any endpoint
+    that takes one as a plain request param."""
+    if not kid_id:
+        return False
+    r = requests.get(f"{sb_url()}/rest/v1/{HL_KIDS}?id=eq.{kid_id}&{_hl_scope_filter()}&select=id",
                       headers=sb_headers(), timeout=5)
-    rows = r.json() if r.ok else []
-    return rows[0]["block_id"] if rows else None
+    return bool(r.ok and r.json())
+
+
+def _hl_block_in_scope(block_id):
+    if not block_id:
+        return False
+    r = requests.get(f"{sb_url()}/rest/v1/{HL_BLOCKS}?id=eq.{block_id}&{_hl_scope_filter()}&select=id",
+                      headers=sb_headers(), timeout=5)
+    return bool(r.ok and r.json())
 
 
 def _hl_task_info(task_id):
-    """{block_id, is_premium} for a task, or None. Used to pick the right
-    games pool (Ruleta vs. Premium) when spinning/picking a mental game."""
+    """{block_id, is_premium} for a task, or None if the task doesn't exist
+    OR its block isn't in the current family's scope. homelab_tasks has no
+    company_id of its own, so this checks scope through the owning block —
+    used to stop a task_id from another family being toggled/spun/picked."""
+    if not task_id:
+        return None
     r = requests.get(f"{sb_url()}/rest/v1/{HL_TASKS}?id=eq.{task_id}&select=block_id,is_premium",
                       headers=sb_headers(), timeout=5)
     rows = r.json() if r.ok else []
-    return rows[0] if rows else None
+    if not rows:
+        return None
+    info = rows[0]
+    if not _hl_block_in_scope(info.get("block_id")):
+        return None
+    return info
 
 
 def _hl_revoke_block_approval(kid_id, block_id, on_date):
@@ -587,6 +609,8 @@ def hl_get_kids():
 # — Kid photos (up to HL_MAX_PHOTOS_PER_KID, stored as data URIs) —
 @app.route("/api/homelab/kids/<kid_id>/photos", methods=["GET"])
 def hl_get_kid_photos(kid_id):
+    if not _hl_kid_in_scope(kid_id):
+        return jsonify([]), 404
     r = requests.get(
         f"{sb_url()}/rest/v1/{HL_KID_PHOTOS}?kid_id=eq.{kid_id}&select=id,order_num,created_at&order=order_num.asc",
         headers=sb_headers(), timeout=5
@@ -596,6 +620,8 @@ def hl_get_kid_photos(kid_id):
 
 @app.route("/api/homelab/kids/<kid_id>/photos", methods=["POST"])
 def hl_add_kid_photo(kid_id):
+    if not _hl_kid_in_scope(kid_id):
+        return jsonify({"ok": False, "error": "kid not found"}), 404
     data = request.get_json() or {}
     photo_data = data.get("photo_data", "").strip()
     if not photo_data:
@@ -619,6 +645,8 @@ def hl_add_kid_photo(kid_id):
 
 @app.route("/api/homelab/kids/<kid_id>/photos/<photo_id>", methods=["DELETE"])
 def hl_delete_kid_photo(kid_id, photo_id):
+    if not _hl_kid_in_scope(kid_id):
+        return jsonify({"ok": False, "error": "kid not found"}), 404
     r = requests.delete(
         f"{sb_url()}/rest/v1/{HL_KID_PHOTOS}?id=eq.{photo_id}&kid_id=eq.{kid_id}",
         headers=sb_headers(), timeout=5
@@ -631,6 +659,8 @@ def hl_serve_kid_photo(kid_id, photo_id):
     """Serve a kid photo as a binary image response (for <img> src)."""
     from flask import Response
     import base64, re
+    if not _hl_kid_in_scope(kid_id):
+        return ("", 404)
     r = requests.get(
         f"{sb_url()}/rest/v1/{HL_KID_PHOTOS}?id=eq.{photo_id}&kid_id=eq.{kid_id}&select=photo_data&limit=1",
         headers=sb_headers(), timeout=8
@@ -761,9 +791,7 @@ def hl_create_task():
     title = data.get("title", "").strip()
     if not block_id or not title:
         return jsonify({"ok": False, "error": "block_id and title required"}), 400
-    owns = requests.get(f"{sb_url()}/rest/v1/{HL_BLOCKS}?id=eq.{block_id}&{_hl_scope_filter()}&select=id",
-                         headers=sb_headers(), timeout=5)
-    if not (owns.ok and owns.json()):
+    if not _hl_block_in_scope(block_id):
         return jsonify({"ok": False, "error": "block not found"}), 404
     payload = {
         "block_id": block_id,
@@ -782,9 +810,13 @@ def hl_create_task():
 
 @app.route("/api/homelab/tasks/<task_id>", methods=["PATCH"])
 def hl_update_task(task_id):
+    if not _hl_task_info(task_id):
+        return jsonify({"ok": False, "error": "task not found"}), 404
     data = request.get_json() or {}
     allowed = ["title", "order_num", "is_premium", "is_mental_game", "block_id", "task_image"]
     payload = {k: data[k] for k in allowed if k in data}
+    if "block_id" in payload and not _hl_block_in_scope(payload["block_id"]):
+        return jsonify({"ok": False, "error": "block not found"}), 404
     if not payload:
         return jsonify({"ok": False, "error": "nothing to update"}), 400
     r = requests.patch(f"{sb_url()}/rest/v1/{HL_TASKS}?id=eq.{task_id}", json=payload,
@@ -794,6 +826,8 @@ def hl_update_task(task_id):
 
 @app.route("/api/homelab/tasks/<task_id>", methods=["DELETE"])
 def hl_delete_task(task_id):
+    if not _hl_task_info(task_id):
+        return jsonify({"ok": False, "error": "task not found"}), 404
     r = requests.patch(f"{sb_url()}/rest/v1/{HL_TASKS}?id=eq.{task_id}", json={"active": False},
                         headers=sb_headers(), timeout=5)
     return jsonify({"ok": r.ok})
@@ -805,6 +839,8 @@ def hl_serve_task_image(task_id):
     keeps it out of the checklist JSON that gets re-fetched on every check."""
     from flask import Response
     import base64, re
+    if not _hl_task_info(task_id):
+        return ("", 404)
     r = requests.get(f"{sb_url()}/rest/v1/{HL_TASKS}?id=eq.{task_id}&select=task_image&limit=1",
                       headers=sb_headers(), timeout=8)
     rows = r.json() if r.ok else []
@@ -1042,6 +1078,8 @@ def hl_get_checklist():
     on_date = request.args.get("date") or _hl_today()
     if not kid_id:
         return jsonify({"ok": False, "error": "kid_id required"}), 400
+    if not _hl_kid_in_scope(kid_id):
+        return jsonify({"ok": False, "error": "kid not found"}), 404
 
     br = requests.get(
         f"{sb_url()}/rest/v1/{HL_BLOCKS}?active=eq.true&{_hl_scope_filter()}&select=*,{HL_TASKS}(*)&order=order_num.asc",
@@ -1097,6 +1135,11 @@ def hl_toggle_task():
     on_date = data.get("date") or _hl_today()
     if not kid_id or not task_id:
         return jsonify({"ok": False, "error": "kid_id and task_id required"}), 400
+    if not _hl_kid_in_scope(kid_id):
+        return jsonify({"ok": False, "error": "kid not found"}), 404
+    task_info = _hl_task_info(task_id)
+    if not task_info:
+        return jsonify({"ok": False, "error": "task not found"}), 404
 
     existing = requests.get(
         f"{sb_url()}/rest/v1/{HL_COMPLETIONS}"
@@ -1104,8 +1147,14 @@ def hl_toggle_task():
         headers=sb_headers(), timeout=5
     )
     rows = existing.json() if existing.ok else []
-    block_id = _hl_task_block_id(task_id)
+    block_id = task_info.get("block_id")
     if rows:
+        # Undoing a completed task requires a guardian PIN — the client shows
+        # a PIN pad before calling this, but that's UX only; enforce it here
+        # too so the endpoint can't be called directly to skip it.
+        pin = str(data.get("pin", "")).strip()
+        if not _hl_find_guardian_by_pin(pin):
+            return jsonify({"ok": False, "error": "PIN incorrecto"}), 403
         requests.delete(
             f"{sb_url()}/rest/v1/{HL_COMPLETIONS}?id=eq.{rows[0]['id']}",
             headers=sb_headers(), timeout=5
@@ -1136,6 +1185,8 @@ def hl_spin_game():
     on_date = data.get("date") or _hl_today()
     if not kid_id or not task_id:
         return jsonify({"ok": False, "error": "kid_id and task_id required"}), 400
+    if not _hl_kid_in_scope(kid_id):
+        return jsonify({"ok": False, "error": "kid not found"}), 404
 
     task_info = _hl_task_info(task_id)
     if not task_info:
@@ -1183,6 +1234,8 @@ def hl_pick_manual_game():
     on_date = data.get("date") or _hl_today()
     if not kid_id or not task_id or not game_id:
         return jsonify({"ok": False, "error": "kid_id, task_id and game_id required"}), 400
+    if not _hl_kid_in_scope(kid_id):
+        return jsonify({"ok": False, "error": "kid not found"}), 404
 
     task_info = _hl_task_info(task_id)
     if not task_info:
@@ -1217,6 +1270,10 @@ def hl_approve_block(block_id):
     on_date = data.get("date") or _hl_today()
     if not kid_id or not pin:
         return jsonify({"ok": False, "error": "kid_id and pin required"}), 400
+    if not _hl_kid_in_scope(kid_id):
+        return jsonify({"ok": False, "error": "kid not found"}), 404
+    if not _hl_block_in_scope(block_id):
+        return jsonify({"ok": False, "error": "block not found"}), 404
 
     guardian = _hl_find_guardian_by_pin(pin)
     if not guardian:

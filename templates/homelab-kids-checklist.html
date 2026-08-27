@@ -1046,7 +1046,7 @@ function submitUncheckPin(){
     }
     fetch(API + '/checklist/toggle', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ kid_id: state.selectedKid.id, task_id: state.uncheckingTaskId })
+      body: JSON.stringify({ kid_id: state.selectedKid.id, task_id: state.uncheckingTaskId, pin: state.pinInput })
     }).then(function(){
       closePinGate();
       loadChecklistAndCheckBlocks();
