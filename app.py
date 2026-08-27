@@ -285,28 +285,69 @@ def login_page():
         return render_template("company-login.html")
     return render_template("login.html")
 
+HL_MODULE_PATHS = {"erp": "/erp", "contractor": "/contractor-hub", "marketing": "/marketing-hub", "homelab": "/homelab-hub"}
+
+def _client_modules():
+    """modules dict for the current client subdomain's company, or {} on the
+    master domain / if not found."""
+    co = _get_client_co()
+    if not co:
+        return {}
+    r = requests.get(
+        f"{_MASTER_URL}/rest/v1/bsynch_companies?slug=eq.{co['slug']}&select=modules&limit=1",
+        headers={"apikey": _MASTER_KEY, "Authorization": f"Bearer {_MASTER_KEY}"}
+    )
+    return (r.json()[0].get("modules") or {}) if r.ok and r.json() else {}
+
+def _client_can_access_module(module_name):
+    """True on the master domain (Daniel's own login, sees everything). On a
+    client subdomain, true only if that module is enabled for that company —
+    so a family can't reach hubs (ERP, Contractor, Marketing...) that aren't
+    theirs just by guessing the URL."""
+    if not _get_client_co():
+        return True
+    return bool(_client_modules().get(module_name))
+
 @app.route("/home")
 def home_page():
+    co = _get_client_co()
+    if co:
+        # Client subdomains only ever see their own enabled modules (never the
+        # Settings tile). If exactly one is enabled, skip the picker entirely
+        # and land them straight on the hub they're actually going to use.
+        enabled = [m for m in HL_MODULE_PATHS if _client_modules().get(m)]
+        if len(enabled) == 1:
+            return redirect(HL_MODULE_PATHS[enabled[0]])
     return render_template("home.html")
 
 @app.route("/erp")
 def erp_page():
+    if not _client_can_access_module("erp"):
+        return redirect("/home")
     return render_template("landing.html")
 
 @app.route("/contractor-hub")
 def contractor_hub():
+    if not _client_can_access_module("contractor"):
+        return redirect("/home")
     return render_template("contractor-hub.html")
 
 @app.route("/marketing-hub")
 def marketing_hub():
+    if not _client_can_access_module("marketing"):
+        return redirect("/home")
     return render_template("marketing-hub.html")
 
 @app.route("/homelab-hub")
 def homelab_hub():
+    if not _client_can_access_module("homelab"):
+        return redirect("/home")
     return render_template("homelab-hub.html")
 
 @app.route("/homelab/kids-checklist")
 def homelab_kids_checklist_page():
+    if not _client_can_access_module("homelab"):
+        return redirect("/home")
     return render_template("homelab-kids-checklist.html")
 
 @app.route("/homelab/legal")
