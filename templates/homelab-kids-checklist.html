@@ -166,7 +166,7 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
     <div class="kid-banner">
       <div class="kid-avatar" id="cvAvatar"></div>
       <div class="kid-name" id="cvName"></div>
-      <button class="btn-ghost" onclick="goToProfilePicker()">Cambiar</button>
+      <button class="btn-ghost" onclick="showSharedPicker()">Cambiar</button>
     </div>
     <div id="blocksWrap"></div>
   </section>
@@ -283,6 +283,15 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
           <button class="btn-primary" onclick="saveParentEmail()">Guardar</button>
         </div>
         <div id="parentEmailMsg" style="font-size:12px;color:#94a3b8;"></div>
+      </div>
+      <div class="card">
+        <h4>Este dispositivo</h4>
+        <p style="font-size:12px;color:#94a3b8;margin-bottom:10px;">Si asignas esta tablet a un joven, abre directo su checklist (sin selector) y el tiempo de inactividad regresa ahí en vez de al selector compartido. Útil si cada quien tiene su propia tablet.</p>
+        <div class="field-row">
+          <select id="devicePinnedKid"></select>
+          <button class="btn-primary" onclick="saveDevicePinnedKid()">Guardar</button>
+        </div>
+        <div id="devicePinnedMsg" style="font-size:12px;color:#94a3b8;"></div>
       </div>
     </div>
   </section>
@@ -427,6 +436,25 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
   </div>
 </div>
 
+<!-- Edit guardian modal -->
+<div class="modal-overlay" id="editGuardianModal">
+  <div class="modal">
+    <h3>✏️ Editar responsable</h3>
+    <div class="field-row">
+      <input type="text" id="editGuardianName" placeholder="Nombre">
+      <input type="text" id="editGuardianRelation" placeholder="Papá / Mamá / Abuela...">
+    </div>
+    <div class="field-row">
+      <input type="text" id="editGuardianPin" placeholder="Nuevo PIN (opcional)" maxlength="4">
+    </div>
+    <div class="field-row">
+      <button class="btn-primary" style="flex:1;" onclick="saveEditGuardian()">Guardar</button>
+      <button class="btn-ghost" onclick="closeEditGuardian()">Cancelar</button>
+    </div>
+    <div id="editGuardianMsg" class="pin-error"></div>
+  </div>
+</div>
+
 <div id="confettiLayer"></div>
 
 <script>
@@ -434,7 +462,7 @@ var API = '/api/homelab';
 var state = { kids: [], selectedKid: null, checklist: null, pinInput: '', pinPurpose: 'settings',
               blocksCache: [], gamesCache: [], guardiansCache: [], activeGameTaskId: null, gameMode: 'wheel',
               approvingBlockId: null, currentGuardian: null, uncheckingTaskId: null, newKidColor: '#4f8ef7',
-              editKidColor: '#4f8ef7', editingKidId: null, editingTaskId: null, cropTargetKidId: null };
+              editKidColor: '#4f8ef7', editingKidId: null, editingTaskId: null, cropTargetKidId: null, editingGuardianId: null };
 var KID_COLOR_PRESETS = ['#ef4444','#f59e0b','#22c55e','#4f8ef7','#a855f7','#ec4899'];
 
 function renderColorSwatches(containerId, inputId, stateKey){
@@ -471,9 +499,27 @@ function startIdleTimer(){
 function clearIdleTimer(){
   if(idleTimer){ clearTimeout(idleTimer); idleTimer = null; }
 }
+function getPinnedKidId(){
+  try{ return localStorage.getItem('homelab_pinned_kid_id') || ''; }catch(e){ return ''; }
+}
+function showSharedPicker(){
+  clearIdleTimer();
+  state.selectedKid = null;
+  showScreen('profilePicker');
+  loadKids();
+}
 function goToProfilePicker(){
   clearIdleTimer();
   state.selectedKid = null;
+  var pinned = getPinnedKidId();
+  if(pinned){
+    fetch(API + '/kids').then(function(r){ return r.json(); }).then(function(kids){
+      state.kids = kids;
+      if(kids.some(function(k){ return k.id === pinned; })){ selectKid(pinned); }
+      else { showScreen('profilePicker'); loadKids(); }
+    });
+    return;
+  }
   showScreen('profilePicker');
   loadKids();
 }
@@ -977,7 +1023,30 @@ function loadKidsSettings(){
         '<button class="icon-btn" onclick="openEditKid(\'' + k.id + '\')" title="Editar" style="color:#94a3b8;">✏️</button>' +
         '<button class="icon-btn" onclick="deleteKid(\'' + k.id + '\')">🗑</button></div>';
     }).join('') || '<div style="color:#64748b;font-size:13px;">Sin cuentas todavía.</div>';
+    renderDevicePinnedSelect();
   });
+}
+function renderDevicePinnedSelect(){
+  var sel = document.getElementById('devicePinnedKid');
+  if(!sel) return;
+  var pinned = getPinnedKidId();
+  sel.innerHTML = '<option value="">Sin asignar (mostrar selector)</option>' +
+    state.kids.map(function(k){
+      return '<option value="' + k.id + '"' + (k.id === pinned ? ' selected' : '') + '>' + escapeHtml(k.name) + '</option>';
+    }).join('');
+}
+function saveDevicePinnedKid(){
+  var val = document.getElementById('devicePinnedKid').value;
+  var msg = document.getElementById('devicePinnedMsg');
+  try{
+    if(val) localStorage.setItem('homelab_pinned_kid_id', val);
+    else localStorage.removeItem('homelab_pinned_kid_id');
+    msg.textContent = 'Guardado ✓ (aplica la próxima vez que se abra la app en esta tablet)';
+    msg.style.color = '#22c55e';
+  }catch(e){
+    msg.textContent = 'No se pudo guardar en este navegador.';
+    msg.style.color = '#ef4444';
+  }
 }
 var newKidPhotoDataUrls = [];
 var cropQueue = [];
@@ -1340,6 +1409,7 @@ function loadGuardiansSettings(){
     document.getElementById('guardiansList').innerHTML = guardians.map(function(g){
       return '<div class="list-item"><span class="li-title">' + escapeHtml(g.name) +
         (g.relationship ? '<div class="game-pick-desc">' + escapeHtml(g.relationship) + '</div>' : '') + '</span>' +
+        '<button class="icon-btn" onclick="openEditGuardian(\'' + g.id + '\', \'' + escapeHtml(g.name).replace(/'/g,"\\'") + '\', \'' + escapeHtml(g.relationship||'').replace(/'/g,"\\'") + '\')" title="Editar" style="color:#94a3b8;">✏️</button>' +
         '<button class="icon-btn" onclick="deleteGuardian(\'' + g.id + '\')">🗑</button></div>';
     }).join('') || '<div style="color:#64748b;font-size:13px;">Sin responsables todavía.</div>';
   });
@@ -1374,6 +1444,39 @@ function deleteGuardian(id){
     loadGuardiansSettings();
   });
 }
+function openEditGuardian(id, name, relation){
+  state.editingGuardianId = id;
+  document.getElementById('editGuardianName').value = name;
+  document.getElementById('editGuardianRelation').value = relation;
+  document.getElementById('editGuardianPin').value = '';
+  document.getElementById('editGuardianMsg').textContent = '';
+  document.getElementById('editGuardianModal').classList.add('open');
+}
+function closeEditGuardian(){
+  document.getElementById('editGuardianModal').classList.remove('open');
+  state.editingGuardianId = null;
+}
+function saveEditGuardian(){
+  var name = document.getElementById('editGuardianName').value.trim();
+  var relation = document.getElementById('editGuardianRelation').value.trim();
+  var newPin = document.getElementById('editGuardianPin').value.trim();
+  var msg = document.getElementById('editGuardianMsg');
+  if(!name){ msg.textContent = 'El nombre es obligatorio.'; return; }
+  if(newPin && !/^\d{4}$/.test(newPin)){ msg.textContent = 'El PIN debe ser de 4 dígitos.'; return; }
+  var body = { name: name, relationship: relation, current_pin: state.pinInput };
+  if(newPin) body.new_pin = newPin;
+  fetch(API + '/guardians/' + state.editingGuardianId, {
+    method: 'PATCH', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  }).then(function(r){ return r.json(); }).then(function(res){
+    if(res.ok){
+      closeEditGuardian();
+      loadGuardiansSettings();
+    } else {
+      msg.textContent = res.error || 'Error';
+    }
+  });
+}
 function saveCooldown(){
   var val = document.getElementById('cooldownInput').value;
   fetch(API + '/settings', {
@@ -1399,7 +1502,19 @@ function escapeHtml(s){
   return d.innerHTML;
 }
 
-loadKids();
+function initApp(){
+  var pinned = getPinnedKidId();
+  if(pinned){
+    fetch(API + '/kids').then(function(r){ return r.json(); }).then(function(kids){
+      state.kids = kids;
+      if(kids.some(function(k){ return k.id === pinned; })){ selectKid(pinned); }
+      else { loadKids(); }
+    });
+  } else {
+    loadKids();
+  }
+}
+initApp();
 if('serviceWorker' in navigator){
   window.addEventListener('load', function(){ navigator.serviceWorker.register('/sw.js').catch(function(){}); });
 }
