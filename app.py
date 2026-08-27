@@ -197,7 +197,7 @@ def _refresh_co_cache():
     global _co_cache, _co_cache_ts
     try:
         r = requests.get(
-            f"{_MASTER_URL}/rest/v1/bsynch_companies?status=eq.active&select=id,slug,supabase_url,supabase_key",
+            f"{_MASTER_URL}/rest/v1/bsynch_companies?status=eq.active&select=id,slug,supabase_url,supabase_key,homelab_plan",
             headers={"apikey": _MASTER_KEY, "Authorization": f"Bearer {_MASTER_KEY}", "Content-Type": "application/json"}
         )
         if r.ok:
@@ -235,6 +235,17 @@ def _hl_scope_filter(param="company_id"):
     """PostgREST filter fragment scoping a query to the current family."""
     scope = _hl_scope_id()
     return f"{param}=eq.{scope}" if scope else f"{param}=is.null"
+
+
+HL_FREE_GAME_LIMIT = 4
+
+def _hl_account_is_premium():
+    """True if the current family's Home Lab account is on the premium plan.
+    Daniel's own family (master domain, no company) is always unlimited."""
+    co = _get_client_co()
+    if not co:
+        return True
+    return co.get("homelab_plan") == "premium"
 
 
 def sb_url():
@@ -298,6 +309,10 @@ def homelab_hub():
 def homelab_kids_checklist_page():
     return render_template("homelab-kids-checklist.html")
 
+@app.route("/homelab/legal")
+def homelab_legal_page():
+    return render_template("homelab-legal.html")
+
 @app.route("/homelab/kids-checklist/qr.png")
 def homelab_kids_checklist_qr():
     import qrcode
@@ -353,6 +368,15 @@ def _hl_task_block_id(task_id):
                       headers=sb_headers(), timeout=5)
     rows = r.json() if r.ok else []
     return rows[0]["block_id"] if rows else None
+
+
+def _hl_task_info(task_id):
+    """{block_id, is_premium} for a task, or None. Used to pick the right
+    games pool (Ruleta vs. Premium) when spinning/picking a mental game."""
+    r = requests.get(f"{sb_url()}/rest/v1/{HL_TASKS}?id=eq.{task_id}&select=block_id,is_premium",
+                      headers=sb_headers(), timeout=5)
+    rows = r.json() if r.ok else []
+    return rows[0] if rows else None
 
 
 def _hl_revoke_block_approval(kid_id, block_id, on_date):
@@ -481,11 +505,14 @@ def _hl_kid_age(kid_id):
     return age
 
 
-def _hl_games_for_kid(kid_id):
-    """Active games, filtered to the kid's age when both the kid's DOB and the
-    game's age range are set. A game with no min/max age is always included."""
-    r = requests.get(f"{sb_url()}/rest/v1/{HL_GAMES}?active=eq.true&{_hl_scope_filter()}&select=*&order=order_num.asc",
-                      headers=sb_headers(), timeout=10)
+def _hl_games_for_kid(kid_id, is_premium=False):
+    """Active games from the Ruleta or Premium pool, filtered to the kid's age
+    when both the kid's DOB and the game's age range are set. A game with no
+    min/max age is always included."""
+    premium_flag = "true" if is_premium else "false"
+    r = requests.get(
+        f"{sb_url()}/rest/v1/{HL_GAMES}?active=eq.true&is_premium=eq.{premium_flag}&{_hl_scope_filter()}&select=*&order=order_num.asc",
+        headers=sb_headers(), timeout=10)
     games = r.json() if r.ok else []
     age = _hl_kid_age(kid_id) if kid_id else None
     if age is None:
@@ -758,10 +785,12 @@ def hl_serve_task_image(task_id):
 @app.route("/api/homelab/games", methods=["GET"])
 def hl_get_games():
     kid_id = request.args.get("kid_id", "")
+    is_premium = request.args.get("is_premium", "false").lower() == "true"
     if kid_id:
-        return jsonify(_hl_games_for_kid(kid_id))
+        return jsonify(_hl_games_for_kid(kid_id, is_premium))
     r = requests.get(
-        f"{sb_url()}/rest/v1/{HL_GAMES}?active=eq.true&{_hl_scope_filter()}&select=*&order=order_num.asc",
+        f"{sb_url()}/rest/v1/{HL_GAMES}?active=eq.true&is_premium=eq.{'true' if is_premium else 'false'}"
+        f"&{_hl_scope_filter()}&select=*&order=order_num.asc",
         headers=sb_headers(), timeout=10
     )
     return jsonify(r.json() if r.ok else [])
@@ -773,12 +802,29 @@ def hl_create_game():
     title = data.get("title", "").strip()
     if not title:
         return jsonify({"ok": False, "error": "title required"}), 400
+    is_premium = bool(data.get("is_premium", False))
+
+    if not _hl_account_is_premium():
+        if is_premium:
+            return jsonify({"ok": False, "error": "Las actividades Premium requieren una cuenta Premium"}), 403
+        count_r = requests.get(
+            f"{sb_url()}/rest/v1/{HL_GAMES}?active=eq.true&is_premium=eq.false&{_hl_scope_filter()}&select=id",
+            headers=sb_headers(), timeout=5
+        )
+        existing_n = len(count_r.json()) if count_r.ok else 0
+        if existing_n >= HL_FREE_GAME_LIMIT:
+            return jsonify({
+                "ok": False,
+                "error": f"Las cuentas gratuitas permiten hasta {HL_FREE_GAME_LIMIT} actividades de Ruleta. Actualiza a Premium para agregar más."
+            }), 403
+
     payload = {
         "title": title,
         "description": data.get("description", ""),
         "order_num": data.get("order_num", 0),
         "min_age": data.get("min_age") if data.get("min_age") not in ("", None) else None,
         "max_age": data.get("max_age") if data.get("max_age") not in ("", None) else None,
+        "is_premium": is_premium,
         "company_id": _hl_scope_id(),
     }
     r = requests.post(f"{sb_url()}/rest/v1/{HL_GAMES}", json=payload,
@@ -791,11 +837,13 @@ def hl_create_game():
 @app.route("/api/homelab/games/<game_id>", methods=["PATCH"])
 def hl_update_game(game_id):
     data = request.get_json() or {}
-    allowed = ["title", "description", "order_num", "min_age", "max_age"]
+    allowed = ["title", "description", "order_num", "min_age", "max_age", "is_premium"]
     payload = {k: data[k] for k in allowed if k in data}
     for k in ("min_age", "max_age"):
         if k in payload and payload[k] in ("", None):
             payload[k] = None
+    if payload.get("is_premium") and not _hl_account_is_premium():
+        return jsonify({"ok": False, "error": "Las actividades Premium requieren una cuenta Premium"}), 403
     if not payload:
         return jsonify({"ok": False, "error": "nothing to update"}), 400
     r = requests.patch(f"{sb_url()}/rest/v1/{HL_GAMES}?id=eq.{game_id}&{_hl_scope_filter()}", json=payload,
@@ -838,8 +886,15 @@ def hl_create_guardian():
         current_pin = str(data.get("current_pin", "")).strip()
         if not _hl_find_guardian_by_pin(current_pin):
             return jsonify({"ok": False, "error": "PIN incorrecto"}), 403
+    else:
+        # Creating the family's first guardian = creating the account. Require
+        # explicit acceptance of the terms/data-protection notice.
+        if not data.get("accept_terms"):
+            return jsonify({"ok": False, "error": "Debes aceptar los Términos y el aviso de privacidad"}), 400
 
     payload = {"name": name, "relationship": data.get("relationship", ""), "pin": pin, "company_id": _hl_scope_id()}
+    if not has_guardians:
+        payload["terms_accepted_at"] = datetime.now(timezone.utc).isoformat()
     r = requests.post(f"{sb_url()}/rest/v1/{HL_GUARDIANS}", json=payload,
                        headers={**sb_headers(), "Prefer": "return=representation"}, timeout=5)
     if r.ok and r.json():
@@ -899,6 +954,8 @@ def hl_get_settings_route():
     return jsonify({
         "game_repeat_cooldown": int(s.get("game_repeat_cooldown", 3)),
         "parent_email": s.get("parent_email", ""),
+        "is_premium": _hl_account_is_premium(),
+        "free_game_limit": HL_FREE_GAME_LIMIT,
     })
 
 
@@ -1039,7 +1096,11 @@ def hl_spin_game():
     if not kid_id or not task_id:
         return jsonify({"ok": False, "error": "kid_id and task_id required"}), 400
 
-    games = _hl_games_for_kid(kid_id)
+    task_info = _hl_task_info(task_id)
+    if not task_info:
+        return jsonify({"ok": False, "error": "task not found"}), 404
+
+    games = _hl_games_for_kid(kid_id, task_info.get("is_premium", False))
     if not games:
         return jsonify({"ok": False, "error": "no hay juegos configurados para su edad"}), 400
 
@@ -1065,7 +1126,7 @@ def hl_spin_game():
                   json={"kid_id": kid_id, "task_id": task_id, "completion_date": on_date, "game_id": winner["id"]},
                   headers={**sb_headers(), "Prefer": "resolution=merge-duplicates,return=representation"},
                   timeout=5)
-    block_id = _hl_task_block_id(task_id)
+    block_id = task_info.get("block_id")
     if block_id:
         _hl_check_and_notify_block_complete(kid_id, block_id, on_date)
 
@@ -1082,6 +1143,17 @@ def hl_pick_manual_game():
     if not kid_id or not task_id or not game_id:
         return jsonify({"ok": False, "error": "kid_id, task_id and game_id required"}), 400
 
+    task_info = _hl_task_info(task_id)
+    if not task_info:
+        return jsonify({"ok": False, "error": "task not found"}), 404
+    game_r = requests.get(
+        f"{sb_url()}/rest/v1/{HL_GAMES}?id=eq.{game_id}&is_premium=eq.{'true' if task_info.get('is_premium') else 'false'}"
+        f"&{_hl_scope_filter()}&select=id",
+        headers=sb_headers(), timeout=5
+    )
+    if not (game_r.ok and game_r.json()):
+        return jsonify({"ok": False, "error": "game not in this task's pool"}), 400
+
     requests.post(f"{sb_url()}/rest/v1/{HL_GAME_HIST}",
                   json={"kid_id": kid_id, "game_id": game_id, "method": "manual"},
                   headers=sb_headers(), timeout=5)
@@ -1089,7 +1161,7 @@ def hl_pick_manual_game():
                   json={"kid_id": kid_id, "task_id": task_id, "completion_date": on_date, "game_id": game_id},
                   headers={**sb_headers(), "Prefer": "resolution=merge-duplicates,return=representation"},
                   timeout=5)
-    block_id = _hl_task_block_id(task_id)
+    block_id = task_info.get("block_id")
     if block_id:
         _hl_check_and_notify_block_complete(kid_id, block_id, on_date)
     return jsonify({"ok": True})
@@ -1149,6 +1221,7 @@ def create_company():
         "supabase_key":  data.get("supabase_key", ""),
         "status":        data.get("status", "active"),
         "logo_url":      data.get("logo_url", "") or None,
+        "homelab_plan":  data.get("homelab_plan", "free"),
     }
     if not payload["name"] or not payload["slug"]:
         return jsonify({"ok": False, "error": "name and slug required"}), 400

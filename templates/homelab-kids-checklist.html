@@ -229,23 +229,46 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
 
     <div class="settings-pane" id="pane-games">
       <div class="card">
-        <h4>Agregar actividad</h4>
+        <h4>🎡 Ruleta</h4>
+        <p id="ruletaLimitMsg" style="font-size:11px;color:#64748b;margin-bottom:8px;"></p>
         <div class="field-row">
-          <input type="text" id="newGameTitle" placeholder="Nombre de la actividad">
+          <input type="text" id="newGameTitle_ruleta" placeholder="Nombre de la actividad">
         </div>
         <div class="field-row">
-          <input type="text" id="newGameDesc" placeholder="Descripción corta (opcional)">
+          <input type="text" id="newGameDesc_ruleta" placeholder="Descripción corta (opcional)">
         </div>
         <div class="field-row">
           <span style="font-size:13px;color:#94a3b8;">Edad</span>
-          <input type="number" id="newGameMinAge" placeholder="mín" min="0" max="99" style="max-width:70px;">
+          <input type="number" id="newGameMinAge_ruleta" placeholder="mín" min="0" max="99" style="max-width:70px;">
           <span style="font-size:13px;color:#94a3b8;">–</span>
-          <input type="number" id="newGameMaxAge" placeholder="máx" min="0" max="99" style="max-width:70px;">
+          <input type="number" id="newGameMaxAge_ruleta" placeholder="máx" min="0" max="99" style="max-width:70px;">
           <span style="font-size:11px;color:#64748b;">(vacío = todas las edades)</span>
-          <button class="btn-primary" onclick="createGame()">Agregar</button>
+          <button class="btn-primary" onclick="createGame(false)">Agregar</button>
         </div>
       </div>
-      <div class="card"><h4>Pool de actividades</h4><div id="gamesList"></div></div>
+      <div class="card"><h4>Pool Ruleta</h4><div id="gamesList_ruleta"></div></div>
+
+      <div class="card" id="premiumAddCard">
+        <h4>⭐ Premium</h4>
+        <p id="premiumLockMsg" style="font-size:11px;color:#64748b;margin-bottom:8px;display:none;">Las actividades Premium requieren una cuenta Premium.</p>
+        <div id="premiumAddFields">
+          <div class="field-row">
+            <input type="text" id="newGameTitle_premium" placeholder="Nombre de la actividad">
+          </div>
+          <div class="field-row">
+            <input type="text" id="newGameDesc_premium" placeholder="Descripción corta (opcional)">
+          </div>
+          <div class="field-row">
+            <span style="font-size:13px;color:#94a3b8;">Edad</span>
+            <input type="number" id="newGameMinAge_premium" placeholder="mín" min="0" max="99" style="max-width:70px;">
+            <span style="font-size:13px;color:#94a3b8;">–</span>
+            <input type="number" id="newGameMaxAge_premium" placeholder="máx" min="0" max="99" style="max-width:70px;">
+            <span style="font-size:11px;color:#64748b;">(vacío = todas las edades)</span>
+            <button class="btn-primary" onclick="createGame(true)">Agregar</button>
+          </div>
+        </div>
+      </div>
+      <div class="card"><h4>Pool Premium</h4><div id="gamesList_premium"></div></div>
     </div>
 
     <div class="settings-pane" id="pane-guardians">
@@ -299,6 +322,12 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
         </div>
         <div id="devicePinnedMsg" style="font-size:12px;color:#94a3b8;"></div>
       </div>
+      <div class="card">
+        <h4>Legal</h4>
+        <p style="font-size:12px;color:#94a3b8;">
+          <a href="/homelab/legal" target="_blank" style="color:#4f8ef7;">Términos de uso y aviso de privacidad →</a>
+        </p>
+      </div>
     </div>
   </section>
 </main>
@@ -336,6 +365,12 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
       </div>
       <div class="field-row">
         <input type="text" id="fgPin" placeholder="PIN de 4 dígitos" maxlength="4">
+      </div>
+      <div class="field-row" style="align-items:flex-start;">
+        <label class="checkbox-inline" style="font-size:12px;color:#94a3b8;">
+          <input type="checkbox" id="fgAcceptTerms">
+          Acepto los <a href="/homelab/legal" target="_blank" style="color:#4f8ef7;">Términos y el aviso de privacidad</a>
+        </label>
       </div>
       <div class="field-row">
         <button class="btn-primary" style="flex:1;" onclick="createFirstGuardian()">Crear cuenta</button>
@@ -491,7 +526,8 @@ var API = '/api/homelab';
 var state = { kids: [], selectedKid: null, checklist: null, pinInput: '', pinPurpose: 'settings',
               blocksCache: [], gamesCache: [], guardiansCache: [], activeGameTaskId: null, gameMode: 'wheel',
               approvingBlockId: null, currentGuardian: null, uncheckingTaskId: null, newKidColor: '#4f8ef7',
-              editKidColor: '#4f8ef7', editingKidId: null, editingTaskId: null, cropTargetKidId: null, editingGuardianId: null, editingGameId: null };
+              editKidColor: '#4f8ef7', editingKidId: null, editingTaskId: null, cropTargetKidId: null, editingGuardianId: null, editingGameId: null,
+              isPremiumAccount: false, freeGameLimit: 4 };
 var KID_COLOR_PRESETS = ['#ef4444','#f59e0b','#22c55e','#4f8ef7','#a855f7','#ec4899'];
 
 function renderColorSwatches(containerId, inputId, stateKey){
@@ -610,10 +646,11 @@ function loadChecklist(){
   if(!state.selectedKid) return;
   Promise.all([
     fetch(API + '/checklist?kid_id=' + state.selectedKid.id).then(function(r){ return r.json(); }),
-    fetch(API + '/games').then(function(r){ return r.json(); })
+    fetch(API + '/games?is_premium=false').then(function(r){ return r.json(); }),
+    fetch(API + '/games?is_premium=true').then(function(r){ return r.json(); })
   ]).then(function(results){
     state.checklist = results[0];
-    state.gamesCache = results[1];
+    state.gamesCache = results[1].concat(results[2]);
     renderChecklist();
   });
 }
@@ -646,7 +683,7 @@ function renderChecklist(){
         var g = state.gamesCache.find(function(gg){ return gg.id === t.completed_game_id; });
         if(g) extra = '<div class="task-game-result">🎲 ' + escapeHtml(g.title) + '</div>';
       }
-      return '<div class="task-row' + doneCls + '" onclick="handleTaskTap(\'' + t.id + '\', ' + !!t.is_mental_game + ', ' + !!t.completed + ')">' +
+      return '<div class="task-row' + doneCls + '" onclick="handleTaskTap(\'' + t.id + '\', ' + !!t.is_mental_game + ', ' + !!t.completed + ', ' + !!t.is_premium + ')">' +
         '<div class="checkbox">' + (t.completed ? '✓' : '') + '</div>' + img +
         '<div style="flex:1;"><div class="task-title">' + escapeHtml(t.title) + (t.is_mental_game ? ' 🧠' : '') + '</div>' + extra + '</div>' + badge +
         (t.completed ? '<span class="edit-hint" title="Un adulto puede deschequear esto">✏️</span>' : '') +
@@ -671,13 +708,13 @@ function renderChecklist(){
   }).join('');
 }
 
-function handleTaskTap(taskId, isMentalGame, isCompleted){
+function handleTaskTap(taskId, isMentalGame, isCompleted, isPremium){
   if(isCompleted){
     openUncheckPin(taskId); // undoing a check needs a guardian PIN
     return;
   }
   if(isMentalGame){
-    openGameModal(taskId);
+    openGameModal(taskId, isPremium);
     return;
   }
   toggleTask(taskId);
@@ -708,12 +745,12 @@ function loadChecklistAndCheckBlocks(){
 }
 
 // ── Mental games: wheel + manual ────────────────────────────────
-function openGameModal(taskId){
+function openGameModal(taskId, isPremium){
   state.activeGameTaskId = taskId;
   document.getElementById('gameModalPicker').style.display = '';
   document.getElementById('gameModalResult').style.display = 'none';
   setGameMode('wheel');
-  fetch(API + '/games?kid_id=' + state.selectedKid.id).then(function(r){ return r.json(); }).then(function(games){
+  fetch(API + '/games?kid_id=' + state.selectedKid.id + '&is_premium=' + (isPremium ? 'true' : 'false')).then(function(r){ return r.json(); }).then(function(games){
     state.gamesCache = games;
     buildWheel(games);
     buildManualList(games);
@@ -921,11 +958,13 @@ function createFirstGuardian(){
   var name = document.getElementById('fgName').value.trim();
   var relation = document.getElementById('fgRelation').value.trim();
   var pin = document.getElementById('fgPin').value.trim();
+  var acceptTerms = document.getElementById('fgAcceptTerms').checked;
   var msg = document.getElementById('fgMsg');
   if(!name || !/^\d{4}$/.test(pin)){ msg.textContent = 'Nombre y PIN de 4 dígitos son obligatorios.'; return; }
+  if(!acceptTerms){ msg.textContent = 'Debes aceptar los Términos y el aviso de privacidad.'; return; }
   fetch(API + '/guardians', {
     method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ name: name, relationship: relation, pin: pin })
+    body: JSON.stringify({ name: name, relationship: relation, pin: pin, accept_terms: acceptTerms })
   }).then(function(r){ return r.json(); }).then(function(res){
     if(res.ok){
       state.pinInput = pin;
@@ -1298,8 +1337,7 @@ function loadBlocksSettings(){
         var thumb = t.task_image ? '<img src="' + t.task_image + '" style="width:32px;height:32px;border-radius:8px;object-fit:cover;">' : '';
         return '<div class="list-item">' + thumb + '<span class="li-title">' + escapeHtml(t.title) + '</span>' +
           '<div class="li-badges">' +
-          (t.is_mental_game ? '<span class="chip">🧠 juego</span>' : '') +
-          (t.is_premium ? '<span class="chip">🔒 premium</span>' : '') +
+          (t.is_mental_game ? (t.is_premium ? '<span class="chip">⭐ Premium</span>' : '<span class="chip">🎡 Ruleta</span>') : '') +
           '</div><button class="icon-btn" onclick="openEditTask(\'' + t.id + '\', \'' + escapeHtml(t.title).replace(/'/g,"\\'") + '\')" title="Editar" style="color:#94a3b8;">✏️</button>' +
           '<button class="icon-btn" onclick="deleteTask(\'' + t.id + '\')">🗑</button></div>';
       }).join('');
@@ -1315,8 +1353,11 @@ function loadBlocksSettings(){
         tasksHtml +
         '<div class="field-row" style="margin-top:10px;">' +
         '<input type="text" placeholder="Nueva tarea" id="newTask_' + b.id + '">' +
-        '<label class="checkbox-inline"><input type="checkbox" id="newTaskGame_' + b.id + '"> Juego mental</label>' +
-        '<label class="checkbox-inline"><input type="checkbox" id="newTaskPremium_' + b.id + '"> Premium</label>' +
+        '<select id="newTaskType_' + b.id + '">' +
+        '<option value="normal">Normal</option>' +
+        '<option value="ruleta">🎡 Ruleta</option>' +
+        '<option value="premium">⭐ Premium</option>' +
+        '</select>' +
         '</div>' +
         '<div class="field-row">' +
         '<span style="font-size:12px;color:#94a3b8;">Imagen (opcional, para que la reconozcan sin leer):</span>' +
@@ -1339,8 +1380,9 @@ function createTask(blockId){
   var input = document.getElementById('newTask_' + blockId);
   var title = input.value.trim();
   if(!title) return;
-  var isGame = document.getElementById('newTaskGame_' + blockId).checked;
-  var isPremium = document.getElementById('newTaskPremium_' + blockId).checked;
+  var taskType = document.getElementById('newTaskType_' + blockId).value;
+  var isGame = taskType === 'ruleta' || taskType === 'premium';
+  var isPremium = taskType === 'premium';
   var fileInput = document.getElementById('newTaskImage_' + blockId);
   var file = fileInput.files[0];
   function submit(imageDataUrl){
@@ -1398,35 +1440,57 @@ function deleteBlock(id){
   fetch(API + '/blocks/' + id, { method: 'DELETE' }).then(function(){ loadBlocksSettings(); });
 }
 
+function renderGamesList(elId, games){
+  document.getElementById(elId).innerHTML = games.map(function(g){
+    var ageLabel = (g.min_age != null || g.max_age != null)
+      ? ('Edad ' + (g.min_age != null ? g.min_age : '0') + '–' + (g.max_age != null ? g.max_age : '∞'))
+      : 'Todas las edades';
+    return '<div class="list-item"><span class="li-title">' + escapeHtml(g.title) +
+      (g.description ? '<div class="game-pick-desc">' + escapeHtml(g.description) + '</div>' : '') +
+      '<div class="game-pick-desc">' + ageLabel + '</div></span>' +
+      '<button class="icon-btn" onclick="openEditGame(\'' + g.id + '\')" title="Editar" style="color:#94a3b8;">✏️</button>' +
+      '<button class="icon-btn" onclick="deleteGame(\'' + g.id + '\')">🗑</button></div>';
+  }).join('') || '<div style="color:#64748b;font-size:13px;">Sin actividades todavía.</div>';
+}
 function loadGamesSettings(){
-  fetch(API + '/games').then(function(r){ return r.json(); }).then(function(games){
-    state.gamesCache = games;
-    document.getElementById('gamesList').innerHTML = games.map(function(g){
-      var ageLabel = (g.min_age != null || g.max_age != null)
-        ? ('Edad ' + (g.min_age != null ? g.min_age : '0') + '–' + (g.max_age != null ? g.max_age : '∞'))
-        : 'Todas las edades';
-      return '<div class="list-item"><span class="li-title">' + escapeHtml(g.title) +
-        (g.description ? '<div class="game-pick-desc">' + escapeHtml(g.description) + '</div>' : '') +
-        '<div class="game-pick-desc">' + ageLabel + '</div></span>' +
-        '<button class="icon-btn" onclick="openEditGame(\'' + g.id + '\')" title="Editar" style="color:#94a3b8;">✏️</button>' +
-        '<button class="icon-btn" onclick="deleteGame(\'' + g.id + '\')">🗑</button></div>';
-    }).join('') || '<div style="color:#64748b;font-size:13px;">Sin actividades todavía.</div>';
+  fetch(API + '/settings').then(function(r){ return r.json(); }).then(function(s){
+    state.isPremiumAccount = !!s.is_premium;
+    state.freeGameLimit = s.free_game_limit || 4;
+    document.getElementById('premiumLockMsg').style.display = state.isPremiumAccount ? 'none' : '';
+    document.getElementById('premiumAddFields').style.display = state.isPremiumAccount ? '' : 'none';
+  });
+  Promise.all([
+    fetch(API + '/games?is_premium=false').then(function(r){ return r.json(); }),
+    fetch(API + '/games?is_premium=true').then(function(r){ return r.json(); })
+  ]).then(function(results){
+    var ruleta = results[0], premium = results[1];
+    state.gamesCache = ruleta.concat(premium);
+    renderGamesList('gamesList_ruleta', ruleta);
+    renderGamesList('gamesList_premium', premium);
+    var limitMsg = document.getElementById('ruletaLimitMsg');
+    if(state.isPremiumAccount){
+      limitMsg.textContent = 'Cuenta Premium: actividades ilimitadas.';
+    } else {
+      limitMsg.textContent = ruleta.length + ' de ' + (state.freeGameLimit || 4) + ' actividades usadas (cuenta gratuita).';
+    }
   });
 }
-function createGame(){
-  var title = document.getElementById('newGameTitle').value.trim();
+function createGame(isPremium){
+  var suffix = isPremium ? 'premium' : 'ruleta';
+  var title = document.getElementById('newGameTitle_' + suffix).value.trim();
   if(!title) return;
-  var desc = document.getElementById('newGameDesc').value.trim();
-  var minAge = document.getElementById('newGameMinAge').value;
-  var maxAge = document.getElementById('newGameMaxAge').value;
+  var desc = document.getElementById('newGameDesc_' + suffix).value.trim();
+  var minAge = document.getElementById('newGameMinAge_' + suffix).value;
+  var maxAge = document.getElementById('newGameMaxAge_' + suffix).value;
   fetch(API + '/games', {
     method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ title: title, description: desc, min_age: minAge, max_age: maxAge })
-  }).then(function(r){ return r.json(); }).then(function(){
-    document.getElementById('newGameTitle').value = '';
-    document.getElementById('newGameDesc').value = '';
-    document.getElementById('newGameMinAge').value = '';
-    document.getElementById('newGameMaxAge').value = '';
+    body: JSON.stringify({ title: title, description: desc, min_age: minAge, max_age: maxAge, is_premium: isPremium })
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if(d.ok === false){ alert(d.error || 'No se pudo agregar la actividad'); return; }
+    document.getElementById('newGameTitle_' + suffix).value = '';
+    document.getElementById('newGameDesc_' + suffix).value = '';
+    document.getElementById('newGameMinAge_' + suffix).value = '';
+    document.getElementById('newGameMaxAge_' + suffix).value = '';
     loadGamesSettings();
   });
 }

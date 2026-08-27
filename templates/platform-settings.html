@@ -133,6 +133,13 @@
       </div>
     </div>
     <div class="mfield">
+      <label>Home Lab Plan</label>
+      <select id="coHomelabPlan">
+        <option value="free">Free (4 actividades Ruleta, sin Premium)</option>
+        <option value="premium">Premium (ilimitado)</option>
+      </select>
+    </div>
+    <div class="mfield">
       <label>Supabase Connection</label>
       <div class="supabase-section">
         <p>Create a Supabase project for this client and paste the credentials here.</p>
@@ -202,6 +209,7 @@ function openModal(co){
   document.getElementById('coAdminUser').value = co ? (co.admin_username||'') : '';
   document.getElementById('coAdminPass').value = '';
   document.getElementById('coStatus').value = co ? (co.status||'active') : 'active';
+  document.getElementById('coHomelabPlan').value = co ? (co.homelab_plan||'free') : 'free';
   var mods = co ? (co.modules||{}) : {erp:true,contractor:false,marketing:false,homelab:false};
   _modules = {erp:!!mods.erp, contractor:!!mods.contractor, marketing:!!mods.marketing, homelab:!!mods.homelab};
   ['erp','contractor','marketing','homelab'].forEach(function(m){
@@ -240,7 +248,8 @@ async function saveCompany(){
     supabase_key: document.getElementById('coSupaKey').value.trim(),
     admin_username: document.getElementById('coAdminUser').value.trim() || undefined,
     admin_password: document.getElementById('coAdminPass').value.trim() || undefined,
-    status: document.getElementById('coStatus').value
+    status: document.getElementById('coStatus').value,
+    homelab_plan: document.getElementById('coHomelabPlan').value
   };
   var pwValidErr = validateAdminPassword(body.admin_password);
   if(pwValidErr){ alert(pwValidErr); return; }
@@ -284,6 +293,7 @@ function renderCompanies(list){
     var initial = co.name ? co.name.charAt(0).toUpperCase() : '?';
     var logoHtml = co.logo_url ? '<img src="'+co.logo_url+'" alt="">' : initial;
     var statusBadge = '<span class="co-status-'+(co.status==='active'?'active':'inactive')+'">'+(co.status||'active')+'</span>';
+    var planBadge = co.homelab_plan==='premium' ? '<span class="mod-chip mod-on">homelab: premium</span>' : '';
     var subdomain = co.subdomain || co.slug+'.bsynch.com';
     var id = co.id;
     return '<div class="company-card">'
@@ -291,7 +301,7 @@ function renderCompanies(list){
       +'<div class="co-info">'
         +'<div style="display:flex;align-items:center;gap:8px;"><span class="co-name">'+co.name+'</span>'+statusBadge+'</div>'
         +'<div class="co-slug">'+subdomain+'</div>'
-        +'<div class="co-modules">'+modChips+'</div>'
+        +'<div class="co-modules">'+modChips+planBadge+'</div>'
       +'</div>'
       +'<div class="co-actions">'
         +'<a href="https://'+subdomain+'" target="_blank"><button class="btn-ghost">Open</button></a>'
