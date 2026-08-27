@@ -563,6 +563,9 @@ def hl_update_kid(kid_id):
     data = request.get_json() or {}
     allowed = ["name", "avatar_emoji", "color", "order_num", "sexo", "fecha_nacimiento"]
     payload = {k: data[k] for k in allowed if k in data}
+    for k in ("sexo", "fecha_nacimiento"):
+        if k in payload and not payload[k]:
+            payload[k] = None
     if not payload:
         return jsonify({"ok": False, "error": "nothing to update"}), 400
     r = requests.patch(f"{sb_url()}/rest/v1/{HL_KIDS}?id=eq.{kid_id}", json=payload,
