@@ -354,6 +354,12 @@ def homelab_kids_checklist_page():
 def homelab_legal_page():
     return render_template("homelab-legal.html")
 
+@app.route("/homelab/games-hub")
+def homelab_games_hub():
+    if not _client_can_access_module("homelab"):
+        return redirect("/home")
+    return render_template("homelab-games-hub.html")
+
 @app.route("/homelab/kids-checklist/qr.png")
 def homelab_kids_checklist_qr():
     import qrcode
