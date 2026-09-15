@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1e9484">
+    <title>Stop — BSynch</title>
+    <link rel="icon" href="/static/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+    <script src="/static/theme.js"></script>
+    <link rel="stylesheet" href="/static/themes.css">
+    <style>
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;overflow-x:hidden;}
+    header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #1e2533;background:#0f1117;flex-shrink:0;}
+    .logo-badge{width:34px;height:34px;background:linear-gradient(135deg,#1e9484,#4f8ef7);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff;flex-shrink:0;}
+    .hdr-title{font-size:16px;font-weight:700;}
+    .hdr-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+    .btn-back{padding:7px 14px;background:none;border:1px solid #334155;border-radius:8px;color:#94a3b8;font-size:12px;cursor:pointer;text-decoration:none;line-height:1.4;font-weight:600;}
+    .btn-back:hover{border-color:#1e9484;color:#1e9484;}
+    main{flex:1;padding:24px 16px 60px;max-width:900px;width:100%;margin:0 auto;}
+    h1{font-size:26px;font-weight:700;text-align:center;margin-bottom:8px;}
+    #letraSeleccionada{font-size:48px;font-weight:900;color:#1e9484;text-align:center;display:block;margin:16px 0;}
+    #preguntas{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin:28px 0;}
+    .pregunta-card{background:#1a1d27;border:1px solid #2a2d3e;border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:10px;}
+    .pregunta-card p{font-size:14px;font-weight:700;color:#e2e8f0;}
+    .pregunta-card input{padding:10px 12px;border-radius:9px;border:1px solid #2a2d3e;background:#0f1117;color:#e2e8f0;font-size:14px;}
+    .pregunta-card input:focus{outline:none;border-color:#1e9484;}
+    .pregunta-card button{padding:10px 14px;background:#1e9484;border:none;border-radius:9px;color:#fff;font-weight:700;cursor:pointer;font-size:13px;}
+    .pregunta-card button:hover{background:#178274;}
+    .mensaje{font-size:12px;height:18px;min-height:18px;margin-top:4px;}
+    .mensaje.success{color:#22c55e;}
+    .mensaje.error{color:#ef4444;}
+    #resultado{text-align:center;font-size:18px;font-weight:700;margin-top:24px;padding:16px;background:#1a1d27;border-radius:12px;border:1px solid #2a2d3e;display:none;}
+    .btn-iniciar{display:block;margin:28px auto;padding:14px 28px;background:#1e9484;border:none;border-radius:10px;color:#fff;font-size:16px;font-weight:700;cursor:pointer;}
+    .btn-iniciar:hover{background:#178274;}
+    footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1px solid #1e2533;}
+    </style>
+</head>
+<body>
+<header>
+  <div class="logo-badge">B</div>
+  <span class="hdr-title">🛑 Stop</span>
+  <div class="hdr-right">
+    <a href="/homelab/games-hub" class="btn-back">← Back</a>
+  </div>
+</header>
+
+<main>
+    <h1>Juego Stop</h1>
+    <p style="text-align:center;color:#94a3b8;margin-bottom:16px;">La letra seleccionada es: <span id="letraSeleccionada">—</span></p>
+    <div id="preguntas"></div>
+    <p id="resultado"></p>
+    <button class="btn-iniciar" onclick="iniciarJuego()">🎮 Iniciar Juego</button>
+</main>
+
+<footer>BSynch · Stop · Juego de Palabras</footer>
+
+<script>
+let letraSeleccionada;
+let preguntas = [
+    "Escribe un nombre",
+    "Escribe un apellido",
+    "Escribe una ciudad",
+    "Escribe una marca comercial",
+    "Escribe una comida"
+];
+let respuestas = [];
+let startTime;
+
+function iniciarJuego() {
+    letraSeleccionada = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+    document.getElementById("letraSeleccionada").textContent = letraSeleccionada;
+    document.getElementById("preguntas").innerHTML = "";
+    respuestas = [];
+    startTime = new Date();
+    document.getElementById("resultado").style.display = "none";
+
+    preguntas.forEach((pregunta, index) => {
+        let preguntaHTML = `
+            <div class="pregunta-card">
+                <p>${pregunta} (con <strong>${letraSeleccionada}</strong>)</p>
+                <input type="text" id="respuesta${index}" placeholder="Respuesta" autofocus=${index === 0 ? "true" : "false"}>
+                <button onclick="verificarRespuesta(${index})">✓ Verificar</button>
+                <p id="mensaje${index}" class="mensaje"></p>
+            </div>
+        `;
+        document.getElementById("preguntas").insertAdjacentHTML("beforeend", preguntaHTML);
+    });
+
+    document.getElementById(`respuesta0`).focus();
+}
+
+function verificarRespuesta(index) {
+    const respuesta = document.getElementById(`respuesta${index}`).value.trim();
+    const mensaje = document.getElementById(`mensaje${index}`);
+
+    if (!respuesta) {
+        mensaje.className = "mensaje error";
+        mensaje.textContent = "Escribe una respuesta";
+        return;
+    }
+
+    if (respuesta[0].toUpperCase() === letraSeleccionada) {
+        mensaje.className = "mensaje success";
+        mensaje.textContent = "✓ ¡Correcto!";
+        respuestas[index] = respuesta;
+
+        const todasCompletas = respuestas.filter(r => r !== undefined).length === preguntas.length;
+        if (todasCompletas) {
+            finalizarJuego();
+        } else {
+            setTimeout(() => {
+                const siguienteInput = document.getElementById(`respuesta${(index + 1) % preguntas.length}`);
+                if (siguienteInput) siguienteInput.focus();
+            }, 300);
+        }
+    } else {
+        mensaje.className = "mensaje error";
+        mensaje.textContent = "Debe comenzar con " + letraSeleccionada;
+    }
+}
+
+function finalizarJuego() {
+    const endTime = new Date();
+    const timeDiff = ((endTime - startTime) / 1000).toFixed(2);
+    const resultado = document.getElementById("resultado");
+    resultado.innerHTML = `🎉 ¡Perfecto! Completaste en <strong>${timeDiff}</strong> segundos`;
+    resultado.style.display = "block";
+    resultado.scrollIntoView({ behavior: "smooth" });
+}
+</script>
+</body>
+</html>
