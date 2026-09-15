@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1e9484">
+<title>Sugar Quest — BSynch</title>
+<link rel="icon" href="/static/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+<script src="/static/theme.js"></script>
+<link rel="stylesheet" href="/static/themes.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #1e2533;background:#0f1117;flex-shrink:0;}
+.logo-badge{width:34px;height:34px;background:linear-gradient(135deg,#1e9484,#4f8ef7);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff;flex-shrink:0;}
+.hdr-title{font-size:16px;font-weight:700;}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.btn-back{padding:7px 14px;background:none;border:1px solid #334155;border-radius:8px;color:#94a3b8;font-size:12px;cursor:pointer;text-decoration:none;line-height:1.4;font-weight:600;}
+.btn-back:hover{border-color:#1e9484;color:#1e9484;}
+#gameContainer{flex:1;display:flex;align-items:center;justify-content:center;position:relative;width:100%;overflow:hidden;background:#0f1117;}
+#gameCanvas{display:block;width:100%;height:100%;max-width:100%;max-height:100%;}
+.game-placeholder{text-align:center;color:#64748b;}
+.game-placeholder h2{font-size:24px;margin-bottom:12px;color:#e2e8f0;}
+.game-placeholder p{font-size:14px;margin-bottom:20px;}
+.game-placeholder .spinner{display:inline-block;width:40px;height:40px;border:4px solid #2a2d3e;border-top:4px solid #1e9484;border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+footer{text-align:center;padding:12px;font-size:11px;color:#334155;border-top:1px solid #1e2533;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo-badge">B</div>
+  <span class="hdr-title">🍭 Sugar Quest</span>
+  <div class="hdr-right">
+    <a href="/homelab/games-hub" class="btn-back">← Back</a>
+  </div>
+</header>
+
+<div id="gameContainer">
+  <canvas id="gameCanvas"></canvas>
+  <div class="game-placeholder" id="placeholder">
+    <h2>🍭 Sugar Quest</h2>
+    <p>Match delicious candies and reach new levels!</p>
+    <div class="spinner"></div>
+    <p>Loading game...</p>
+  </div>
+</div>
+
+<footer>BSynch · Sugar Quest · Match-3 Puzzle Game</footer>
+
+<script>
+// Game state
+const gameState = {
+  level: localStorage.getItem('sq_level') ? parseInt(localStorage.getItem('sq_level')) : 1,
+  score: localStorage.getItem('sq_score') ? parseInt(localStorage.getItem('sq_score')) : 0,
+  moves: 0
+};
+
+// Placeholder: Game will load here
+// TODO: Implement match-3 game logic with Phaser 3 or Canvas API
+window.addEventListener('load', function() {
+  const placeholder = document.getElementById('placeholder');
+  // Remove placeholder when game loads
+  setTimeout(() => {
+    if(placeholder) placeholder.style.display = 'none';
+  }, 1000);
+});
+
+// Auto-save progress every 30 seconds
+setInterval(() => {
+  localStorage.setItem('sq_level', gameState.level);
+  localStorage.setItem('sq_score', gameState.score);
+}, 30000);
+</script>
+</body>
+</html>

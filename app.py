@@ -360,6 +360,12 @@ def homelab_games_hub():
         return redirect("/home")
     return render_template("homelab-games-hub.html")
 
+@app.route("/homelab/games/sugar-quest")
+def homelab_sugar_quest():
+    if not _client_can_access_module("homelab"):
+        return redirect("/home")
+    return render_template("homelab-sugar-quest.html")
+
 @app.route("/homelab/kids-checklist/qr.png")
 def homelab_kids_checklist_qr():
     import qrcode
