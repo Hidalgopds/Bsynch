@@ -21,8 +21,13 @@ header{padding:16px 24px;display:flex;align-items:center;gap:14px;border-bottom:
 .hub-header h1{font-size:22px;font-weight:700;margin-bottom:4px;}
 .hub-header p{font-size:14px;color:#94a3b8;}
 .games-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;max-width:680px;margin:0 auto;}
-.game-tile{background:#1a1d27;border:1px solid #2a2d3e;border-radius:16px;padding:24px 22px;cursor:pointer;text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:10px;transition:border-color .18s,transform .15s,box-shadow .18s;}
+.game-tile{background:#1a1d27;border:1px solid #2a2d3e;border-radius:16px;padding:24px 22px;cursor:pointer;text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:10px;transition:border-color .18s,transform .15s,box-shadow .18s,background .2s;}
 .game-tile:hover{border-color:#1e9484;transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.35);}
+.game-tile:nth-child(1){background:linear-gradient(135deg, #164e63 0%, #1a2e35 100%);}
+.game-tile:nth-child(2){background:linear-gradient(135deg, #78350f 0%, #3f2305 100%);}
+.game-tile:nth-child(3){background:linear-gradient(135deg, #831843 0%, #500724 100%);}
+.game-tile:nth-child(4){background:linear-gradient(135deg, #1e3a8a 0%, #172554 100%);}
+.game-tile:nth-child(5){background:linear-gradient(135deg, #4c1d95 0%, #2e1065 100%);}
 .game-tile.soon{cursor:default;opacity:.55;}
 .game-tile.soon:hover{border-color:#2a2d3e;transform:none;box-shadow:none;}
 .game-icon{width:48px;height:48px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:24px;}
