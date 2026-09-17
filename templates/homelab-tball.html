@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Patriots Practice — Home Lab — BSynch</title>
+<script src="/static/theme.js"></script>
+<link rel="stylesheet" href="/static/themes.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f8fafc;color:#1e293b;min-height:100vh;display:flex;flex-direction:column;}
+header{padding:16px 24px;display:flex;align-items:center;gap:14px;border-bottom:1px solid #e2e8f0;background:#fff;}
+.logo-badge{width:36px;height:36px;background:linear-gradient(135deg,#1e9484,#4f8ef7);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;flex-shrink:0;}
+.hdr-title{font-size:17px;font-weight:700;}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.btn-back{padding:6px 14px;background:none;border:1px solid #cbd5e1;border-radius:7px;color:#64748b;font-size:12px;cursor:pointer;text-decoration:none;line-height:1.4;}
+.btn-back:hover{border-color:#1e9484;color:#1e9484;}
+.container{flex:1;padding:32px 20px 60px;}
+.content{max-width:1000px;margin:0 auto;}
+.header{margin-bottom:32px;}
+.header h1{font-size:28px;font-weight:700;margin-bottom:8px;}
+.header p{font-size:14px;color:#64748b;}
+
+/* Workflow stages */
+.stage{display:none;}
+.stage.active{display:block;}
+.stage-title{font-size:20px;font-weight:700;margin-bottom:24px;color:#0f1117;}
+.stage-subtitle{font-size:14px;color:#64748b;margin-bottom:20px;}
+
+/* Attendance section */
+.attendance-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px;}
+.kid-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all .2s;}
+.kid-card:hover{border-color:#1e9484;box-shadow:0 2px 8px rgba(30,148,132,.1);}
+.kid-card.present{background:#f0fdf4;border-color:#22c55e;}
+.kid-checkbox{width:20px;height:20px;cursor:pointer;accent-color:#1e9484;}
+.kid-name{font-size:14px;font-weight:600;}
+
+/* Drills section */
+.drills-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-bottom:24px;}
+.drill-card{background:#fff;border:2px solid #e2e8f0;border-radius:12px;padding:16px;text-align:center;transition:all .2s;cursor:pointer;}
+.drill-card:hover{border-color:#1e9484;box-shadow:0 2px 8px rgba(30,148,132,.1);}
+.drill-card.selected{border-color:#22c55e;background:#f0fdf4;}
+.drill-icon{font-size:32px;margin-bottom:12px;display:block;}
+.drill-name{font-size:14px;font-weight:700;margin-bottom:8px;color:#0f1117;}
+.drill-duration{font-size:12px;color:#475569;}
+
+/* Modal for drill details */
+.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;}
+.modal.open{display:flex;}
+.modal-content{background:#fff;border-radius:16px;padding:32px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,.2);}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;}
+.modal-title{font-size:20px;font-weight:700;color:#0f1117;}
+.modal-close{background:none;border:none;font-size:24px;cursor:pointer;color:#64748b;}
+.modal-close:hover{color:#1e9484;}
+.modal-icon{font-size:48px;display:block;margin-bottom:16px;text-align:center;}
+.modal-body{color:#475569;line-height:1.6;}
+.modal-body strong{color:#0f1117;display:block;margin-top:12px;margin-bottom:6px;}
+
+/* Practice in progress */
+.practice-status{background:#f0fdf4;border:1px solid #22c55e;border-radius:12px;padding:16px;margin-bottom:24px;}
+.practice-status h3{font-size:14px;font-weight:700;color:#16a34a;margin-bottom:12px;}
+.selected-drills{display:flex;flex-wrap:wrap;gap:8px;}
+.drill-badge{background:#22c55e;color:#fff;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;}
+
+/* Practice log */
+.practice-log{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-top:24px;}
+.practice-log h3{font-size:14px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px;}
+.log-entry{padding:12px;background:#f8fafc;border-radius:8px;margin-bottom:8px;font-size:13px;color:#475569;}
+.log-entry strong{color:#0f1117;}
+
+/* Action buttons */
+.actions{display:flex;gap:12px;margin-top:24px;flex-wrap:wrap;}
+.btn{padding:10px 20px;background:#1e9484;border:none;border-radius:8px;color:#fff;font-weight:600;cursor:pointer;font-size:14px;transition:all .2s;}
+.btn:hover{background:#178274;}
+.btn-secondary{background:#e2e8f0;color:#1e293b;}
+.btn-secondary:hover{background:#cbd5e1;}
+.btn:disabled{background:#cbd5e1;cursor:not-allowed;color:#94a3b8;}
+
+footer{text-align:center;padding:16px;font-size:12px;color:#94a3b8;border-top:1px solid #e2e8f0;background:#fff;}
+
+/* Responsive */
+@media(max-width:640px){
+.header h1{font-size:22px;}
+.drills-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));}
+.modal-content{width:95%;}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo-badge">B</div>
+  <span class="hdr-title">⚾ Patriots Practice</span>
+  <div style="margin-left:auto;">
+    <a href="/homelab-hub" class="btn-back">← Back</a>
+  </div>
+</header>
+
+<div class="container">
+  <div class="content">
+    <div class="header">
+      <h1>⚾ Patriots Practice Manager</h1>
+      <p>Manage your team's practice sessions with interactive workflow.</p>
+    </div>
+
+    <!-- STAGE 1: ATTENDANCE -->
+    <div id="stageAttendance" class="stage active">
+      <h2 class="stage-title">Step 1: Take Attendance</h2>
+      <p class="stage-subtitle">Check off the kids present for today's practice.</p>
+      <div class="attendance-grid" id="attendanceGrid"></div>
+      <div class="actions">
+        <button class="btn" onclick="proceedToSelectDrills()">Next: Select Drills →</button>
+        <button class="btn btn-secondary" onclick="resetAttendance()">Clear All</button>
+      </div>
+    </div>
+
+    <!-- STAGE 2: SELECT DRILLS -->
+    <div id="stageSelectDrills" class="stage">
+      <h2 class="stage-title">Step 2: Select Today's Drills</h2>
+      <p class="stage-subtitle">Choose which drills to run today. Click any drill to see details.</p>
+      <div class="drills-grid" id="drillsGrid"></div>
+      <div class="actions">
+        <button class="btn" id="btnStartPractice" onclick="startPractice()" disabled>Start Practice →</button>
+        <button class="btn btn-secondary" onclick="backToAttendance()">← Back to Attendance</button>
+      </div>
+    </div>
+
+    <!-- STAGE 3: PRACTICE IN PROGRESS -->
+    <div id="stagePracticeInProgress" class="stage">
+      <h2 class="stage-title">Practice In Progress</h2>
+      <div class="practice-status">
+        <h3>Today's Drills (Cannot Change)</h3>
+        <div class="selected-drills" id="selectedDrillsList"></div>
+      </div>
+      <div class="practice-log" id="practiceNotes">
+        <h3>Practice Notes</h3>
+        <textarea id="notesArea" style="width:100%;height:120px;padding:12px;border:1px solid #e2e8f0;border-radius:8px;font-family:inherit;font-size:14px;resize:vertical;" placeholder="Add notes about today's practice..."></textarea>
+      </div>
+      <div class="actions">
+        <button class="btn" onclick="endPractice()">End Practice & Save</button>
+        <button class="btn btn-secondary" onclick="cancelPractice()">Cancel Practice</button>
+      </div>
+    </div>
+
+    <!-- STAGE 4: PRACTICE HISTORY -->
+    <div id="stagePracticeHistory" class="stage">
+      <h2 class="stage-title">Practice History</h2>
+      <div class="practice-log">
+        <h3>Recent Practices</h3>
+        <div id="logEntries" style="min-height:100px;"></div>
+      </div>
+      <div class="actions">
+        <button class="btn" onclick="startNewPractice()">Start New Practice</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal for drill details -->
+<div id="drillModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modalDrillName"></h2>
+      <button class="modal-close" onclick="closeDrillModal()">&times;</button>
+    </div>
+    <div class="modal-icon" id="modalDrillIcon"></div>
+    <div class="modal-body" id="modalDrillBody"></div>
+  </div>
+</div>
+
+<footer>BSynch · Patriots Practice Management</footer>
+
+<script>
+const kids = ['Tiago', 'Alejandro', 'Mateo', 'Sofia', 'Diego', 'Lucas', 'Emma'];
+
+const drills = [
+  {
+    icon: '🎯',
+    name: 'Tee Hitting',
+    duration: '10-15 min',
+    description: 'Kids hit balls off the tee. Focus on proper stance and swing.',
+    details: '<strong>Objective:</strong> Develop hand-eye coordination and batting skills.<br><strong>Setup:</strong> Place tee at chest height. Line kids up single file.<br><strong>Example:</strong> Each kid gets 5-10 swings. Focus on keeping eyes on the ball and following through on the swing.<br><strong>Safety:</strong> Ensure helmets are on and bats are held correctly.'
+  },
+  {
+    icon: '🧤',
+    name: 'Fielding Practice',
+    duration: '12 min',
+    description: 'Practice catching and ground balls. Kids in a circle.',
+    details: '<strong>Objective:</strong> Build defensive skills and hand-eye coordination.<br><strong>Setup:</strong> Kids stand in a circle. Coach or parent rolls/throws balls.<br><strong>Example:</strong> Start with slow ground balls, progress to chest-height throws. Emphasize proper glove position and footwork.<br><strong>Focus:</strong> Getting in front of the ball and using two hands.'
+  },
+  {
+    icon: '🏃',
+    name: 'Base Running',
+    duration: '8 min',
+    description: 'Practice running around bases. Focus on form and speed.',
+    details: '<strong>Objective:</strong> Teach proper base running technique and build speed.<br><strong>Setup:</strong> Mark bases with cones or bags. Kids run one at a time or in pairs.<br><strong>Example:</strong> Start slow and focus on proper form. Have kids touch each base firmly and take wide turns.<br><strong>Progression:</strong> Gradually increase speed as comfort improves.'
+  },
+  {
+    icon: '🎪',
+    name: 'Balance & Coordination',
+    duration: '10 min',
+    description: 'Cone drills, balance beams, and agility exercises.',
+    details: '<strong>Objective:</strong> Improve overall athletic coordination and agility.<br><strong>Setup:</strong> Create stations with cones, ladder drills, or balance beams.<br><strong>Example:</strong> Cone weaving drills, ladder footwork patterns, hop and skip exercises.<br><strong>Fun Element:</strong> Make it playful and encourage kids to challenge themselves.'
+  },
+  {
+    icon: '🚀',
+    name: 'Throwing Practice',
+    duration: '8 min',
+    description: 'Simple short tosses between partners. Grip and follow-through.',
+    details: '<strong>Objective:</strong> Develop accurate and strong throwing technique.<br><strong>Setup:</strong> Kids pair up about 10-15 feet apart.<br><strong>Example:</strong> Start close and progress to longer distances. Emphasize proper grip (fingers on seams), step toward target, and complete follow-through.<br><strong>Key Focus:</strong> Accuracy over distance at this age.'
+  },
+  {
+    icon: '🎉',
+    name: 'Warm-up Games',
+    duration: '10 min',
+    description: 'Tag, relay races, or simple game activities to get energy up.',
+    details: '<strong>Objective:</strong> Get kids energized and focused on practice.<br><strong>Setup:</strong> Choose 1-2 high-energy games to start practice.<br><strong>Examples:</strong> Musical bases, relay races, tag with a ball, Simon Says baseball edition.<br><strong>Benefit:</strong> Builds team spirit and makes practice fun.'
+  },
+  {
+    icon: '🤝',
+    name: 'Team Building',
+    duration: '5 min',
+    description: 'Group activities that build camaraderie and celebration.',
+    details: '<strong>Objective:</strong> Foster team bonding and positive team culture.<br><strong>Setup:</strong> Gather team in a circle at end of drills.<br><strong>Examples:</strong> Team chant, high-fives, celebration circles, team shout-out where each kid says something positive about a teammate.<br><strong>Timing:</strong> Great for end of practice.'
+  },
+  {
+    icon: '⚾',
+    name: 'Ground Ball Practice',
+    duration: '10 min',
+    description: 'Focus on fielding ground balls with proper technique.',
+    details: '<strong>Objective:</strong> Master ground ball handling and positioning.<br><strong>Setup:</strong> Coaches roll ground balls from varying distances and angles.<br><strong>Example:</strong> Kids get in athletic stance, field the ball cleanly, and throw to a target.<br><strong>Progression:</strong> Start slow, gradually increase ball speed. Practice both side-to-side and charging the ball.'
+  },
+  {
+    icon: '🔀',
+    name: 'Cutoff & Relay Throws',
+    duration: '12 min',
+    description: 'Practice relay throws and cutoff positioning for outfield.',
+    details: '<strong>Objective:</strong> Build communication and relay throw accuracy.<br><strong>Setup:</strong> Simulate game situations with multiple fielders.<br><strong>Example:</strong> One kid throws from outfield, another intercepts (cutoff), and throws to base. Rotate positions.<br><strong>Focus:</strong> Communication and quick transitions.'
+  },
+  {
+    icon: '💨',
+    name: 'Running Between Bases',
+    duration: '8 min',
+    description: 'Practice quick starts and aggressive base running.',
+    details: '<strong>Objective:</strong> Develop speed and baserunning confidence.<br><strong>Setup:</strong> Timed drills from home to first, or full circuit.<br><strong>Example:</strong> Practice explosive starts, hard running, and controlled slides (or stops for younger kids).<br><strong>Key Point:</strong> Emphasize listening to coach signals and running hard all the way.'
+  },
+  {
+    icon: '☁️',
+    name: 'Catching Pop-Ups',
+    duration: '10 min',
+    description: 'Practice tracking and catching high fly balls.',
+    details: '<strong>Objective:</strong> Build confidence catching fly balls and improve tracking skills.<br><strong>Setup:</strong> Coach hits or tosses pop-ups to small groups.<br><strong>Example:</strong> Kids track ball with eyes, move feet to get under it, use glove and hands to catch safely.<br><strong>Progression:</strong> Start with short pops, progress to longer, deeper flies.'
+  },
+  {
+    icon: '😄',
+    name: 'Fun Cool-Down Games',
+    duration: '8 min',
+    description: 'Light games and stretching to end practice on a positive note.',
+    details: '<strong>Objective:</strong> Cool down kids while maintaining enthusiasm.<br><strong>Setup:</strong> Choose a low-intensity game or stretching activity.<br><strong>Examples:</strong> Slow-motion tag, walk-and-stretch challenge, gentle ball toss, or partner stretches.<br><strong>Benefit:</strong> Leaves kids happy and wanting to come back next practice.'
+  }
+];
+
+// Initialize
+function initAttendance() {
+  const grid = document.getElementById('attendanceGrid');
+  grid.innerHTML = kids.map((kid, idx) => `
+    <div class="kid-card" id="kid-${idx}" onclick="toggleKid(${idx})">
+      <input type="checkbox" class="kid-checkbox" id="check-${idx}">
+      <span class="kid-name">${kid}</span>
+    </div>
+  `).join('');
+}
+
+function initDrills() {
+  const grid = document.getElementById('drillsGrid');
+  grid.innerHTML = drills.map((drill, idx) => `
+    <div class="drill-card" id="drill-${idx}" onclick="toggleDrill(${idx})">
+      <span class="drill-icon">${drill.icon}</span>
+      <div class="drill-name">${drill.name}</div>
+      <div class="drill-duration">⏱️ ${drill.duration}</div>
+    </div>
+  `).join('');
+}
+
+function toggleKid(idx) {
+  const card = document.getElementById(`kid-${idx}`);
+  const check = document.getElementById(`check-${idx}`);
+  check.checked = !check.checked;
+  card.classList.toggle('present', check.checked);
+}
+
+function toggleDrill(idx) {
+  const card = document.getElementById(`drill-${idx}`);
+  card.classList.toggle('selected');
+  updateStartButton();
+}
+
+function updateStartButton() {
+  const selectedDrills = document.querySelectorAll('.drill-card.selected').length;
+  const btn = document.getElementById('btnStartPractice');
+  btn.disabled = selectedDrills === 0;
+}
+
+function getAttendedKids() {
+  return kids.filter((_, idx) => document.getElementById(`check-${idx}`).checked);
+}
+
+function getSelectedDrills() {
+  const selected = [];
+  document.querySelectorAll('.drill-card.selected').forEach((card, idx) => {
+    const index = Array.from(document.getElementById('drillsGrid').children).indexOf(card);
+    if(index >= 0) selected.push(drills[index]);
+  });
+  return selected;
+}
+
+function proceedToSelectDrills() {
+  const attended = getAttendedKids();
+  if(attended.length === 0) {
+    alert('Please mark at least one kid present');
+    return;
+  }
+  switchStage('stageSelectDrills');
+}
+
+function backToAttendance() {
+  switchStage('stageAttendance');
+}
+
+function startPractice() {
+  const attended = getAttendedKids();
+  const selectedDrills = getSelectedDrills();
+  if(attended.length === 0 || selectedDrills.length === 0) {
+    alert('Please select attendance and drills');
+    return;
+  }
+  switchStage('stagePracticeInProgress');
+  displaySelectedDrills();
+}
+
+function displaySelectedDrills() {
+  const selectedDrills = getSelectedDrills();
+  const html = selectedDrills.map(drill => `<span class="drill-badge">${drill.icon} ${drill.name}</span>`).join('');
+  document.getElementById('selectedDrillsList').innerHTML = html;
+}
+
+function endPractice() {
+  const attended = getAttendedKids();
+  const selectedDrills = getSelectedDrills();
+  const notes = document.getElementById('notesArea').value;
+
+  const entry = {
+    date: new Date().toLocaleDateString(),
+    kids: attended.join(', '),
+    drills: selectedDrills.map(d => d.name).join(', '),
+    notes: notes,
+    coach: prompt('Who coached this practice?', 'Head Coach') || 'Head Coach'
+  };
+
+  let log = JSON.parse(localStorage.getItem('patriotsLog') || '[]');
+  log.unshift(entry);
+  localStorage.setItem('patriotsLog', JSON.stringify(log));
+
+  alert('Practice saved successfully!');
+  switchStage('stagePracticeHistory');
+  loadPracticeHistory();
+}
+
+function cancelPractice() {
+  if(confirm('Are you sure you want to cancel this practice? It will not be saved.')) {
+    switchStage('stageAttendance');
+    resetAttendance();
+  }
+}
+
+function startNewPractice() {
+  switchStage('stageAttendance');
+  resetAttendance();
+  document.querySelectorAll('.drill-card').forEach(card => card.classList.remove('selected'));
+  document.getElementById('notesArea').value = '';
+  updateStartButton();
+}
+
+function resetAttendance() {
+  kids.forEach((_, idx) => {
+    document.getElementById(`check-${idx}`).checked = false;
+    document.getElementById(`kid-${idx}`).classList.remove('present');
+  });
+}
+
+function switchStage(stageName) {
+  document.querySelectorAll('.stage').forEach(el => el.classList.remove('active'));
+  document.getElementById(stageName).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function showDrillModal(idx) {
+  const drill = drills[idx];
+  document.getElementById('modalDrillName').textContent = drill.name;
+  document.getElementById('modalDrillIcon').textContent = drill.icon;
+  document.getElementById('modalDrillBody').innerHTML = drill.details;
+  document.getElementById('drillModal').classList.add('open');
+}
+
+function closeDrillModal() {
+  document.getElementById('drillModal').classList.remove('open');
+}
+
+function loadPracticeHistory() {
+  const log = JSON.parse(localStorage.getItem('patriotsLog') || '[]');
+  const logDiv = document.getElementById('logEntries');
+  if(log.length === 0) {
+    logDiv.innerHTML = '<p style="color:#94a3b8;font-size:13px;">No practices recorded yet.</p>';
+    return;
+  }
+  logDiv.innerHTML = log.slice(0, 15).map(entry => `
+    <div class="log-entry">
+      <strong>${entry.date}</strong> - Kids: ${entry.kids}<br>
+      <small>Drills: ${entry.drills}</small><br>
+      <small>Coach: ${entry.coach}</small>
+      ${entry.notes ? `<br><small><em>Notes: ${entry.notes}</em></small>` : ''}
+    </div>
+  `).join('');
+}
+
+// Attach drill modal click handler dynamically
+document.addEventListener('click', function(e) {
+  if(e.target.closest('.drill-card') && e.target.closest('.stage.active') === document.getElementById('stageSelectDrills')) {
+    const card = e.target.closest('.drill-card');
+    const idx = Array.from(document.getElementById('drillsGrid').children).indexOf(card);
+    if(idx >= 0 && !e.target.closest('.drill-card').classList.contains('selected')) {
+      showDrillModal(idx);
+    }
+  }
+});
+
+// Initialize on load
+initAttendance();
+initDrills();
+loadPracticeHistory();
+</script>
+</body>
+</html>
