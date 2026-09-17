@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tball Coaching — Home Lab — BSynch</title>
+<script src="/static/theme.js"></script>
+<link rel="stylesheet" href="/static/themes.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f8fafc;color:#1e293b;min-height:100vh;display:flex;flex-direction:column;}
+header{padding:16px 24px;display:flex;align-items:center;gap:14px;border-bottom:1px solid #e2e8f0;background:#fff;}
+.logo-badge{width:36px;height:36px;background:linear-gradient(135deg,#1e9484,#4f8ef7);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;flex-shrink:0;}
+.hdr-title{font-size:17px;font-weight:700;}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.btn-back{padding:6px 14px;background:none;border:1px solid #cbd5e1;border-radius:7px;color:#64748b;font-size:12px;cursor:pointer;text-decoration:none;line-height:1.4;}
+.btn-back:hover{border-color:#1e9484;color:#1e9484;}
+.container{flex:1;padding:32px 20px 60px;}
+.content{max-width:1000px;margin:0 auto;}
+.header{margin-bottom:32px;}
+.header h1{font-size:28px;font-weight:700;margin-bottom:8px;}
+.header p{font-size:14px;color:#64748b;}
+.tabs{display:flex;gap:16px;margin-bottom:28px;border-bottom:1px solid #e2e8f0;padding-bottom:0;}
+.tab-btn{padding:12px 20px;background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;font-size:14px;font-weight:600;color:#64748b;transition:all .2s;}
+.tab-btn.active{color:#1e9484;border-bottom-color:#1e9484;}
+.tab-btn:hover{color:#1e9484;}
+.tab-content{display:none;}
+.tab-content.active{display:block;}
+.attendance-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px;}
+.kid-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all .2s;}
+.kid-card:hover{border-color:#1e9484;box-shadow:0 2px 8px rgba(30,148,132,.1);}
+.kid-card.present{background:#f0fdf4;border-color:#22c55e;}
+.kid-checkbox{width:20px;height:20px;cursor:pointer;accent-color:#1e9484;}
+.kid-name{font-size:14px;font-weight:600;}
+.drills-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;}
+.drill-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;transition:all .2s;}
+.drill-card:hover{border-color:#1e9484;box-shadow:0 4px 12px rgba(30,148,132,.12);}
+.drill-icon{font-size:32px;margin-bottom:12px;}
+.drill-name{font-size:16px;font-weight:700;margin-bottom:8px;color:#0f1117;}
+.drill-desc{font-size:13px;color:#64748b;line-height:1.6;margin-bottom:12px;}
+.drill-duration{font-size:12px;background:#f1f5f9;color:#475569;padding:6px 10px;border-radius:6px;display:inline-block;}
+.actions{display:flex;gap:12px;margin-top:24px;}
+.btn{padding:10px 20px;background:#1e9484;border:none;border-radius:8px;color:#fff;font-weight:600;cursor:pointer;font-size:14px;transition:all .2s;}
+.btn:hover{background:#178274;}
+.btn-secondary{background:#e2e8f0;color:#1e293b;}
+.btn-secondary:hover{background:#cbd5e1;}
+.practice-log{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-top:24px;}
+.practice-log h3{font-size:14px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px;}
+.log-entry{padding:12px;background:#f8fafc;border-radius:8px;margin-bottom:8px;font-size:13px;color:#475569;}
+.log-entry strong{color:#0f1117;}
+footer{text-align:center;padding:16px;font-size:12px;color:#94a3b8;border-top:1px solid #e2e8f0;background:#fff;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo-badge">B</div>
+  <span class="hdr-title">⚾ Tball Coaching</span>
+  <div style="margin-left:auto;">
+    <a href="/homelab-hub" class="btn-back">← Back</a>
+  </div>
+</header>
+
+<div class="container">
+  <div class="content">
+    <div class="header">
+      <h1>⚾ Tball Coaching - Tiago's Team</h1>
+      <p>Track attendance and manage practice drills for the team.</p>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('attendance')">📋 Attendance</button>
+      <button class="tab-btn" onclick="switchTab('drills')">🏋️ Drills</button>
+      <button class="tab-btn" onclick="switchTab('log')">📝 Practice Log</button>
+    </div>
+
+    <!-- ATTENDANCE TAB -->
+    <div id="attendance" class="tab-content active">
+      <h2 style="font-size:18px;margin-bottom:16px;">Today's Attendance</h2>
+      <div class="attendance-grid" id="attendanceGrid"></div>
+      <div class="actions">
+        <button class="btn" onclick="saveTodayPractice()">💾 Save Practice</button>
+        <button class="btn btn-secondary" onclick="resetAttendance()">🔄 Reset</button>
+      </div>
+    </div>
+
+    <!-- DRILLS TAB -->
+    <div id="drills" class="tab-content">
+      <h2 style="font-size:18px;margin-bottom:16px;">Practice Drills</h2>
+      <div class="drills-grid" id="drillsGrid"></div>
+    </div>
+
+    <!-- PRACTICE LOG TAB -->
+    <div id="log" class="tab-content">
+      <h2 style="font-size:18px;margin-bottom:16px;">Practice History</h2>
+      <div class="practice-log" id="practiceLog">
+        <h3>Recent Practices</h3>
+        <div id="logEntries" style="min-height:100px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>BSynch · Tball Coaching · Team Management</footer>
+
+<script>
+const kids = ['Tiago', 'Alejandro', 'Mateo', 'Sofia', 'Diego', 'Lucas', 'Emma'];
+const drills = [
+  {icon:'🎯', name:'Tee Hitting', desc:'Kids hit balls off the tee. Focus on proper stance and swing. Great for hand-eye coordination.', duration:'10-15 min'},
+  {icon:'🧤', name:'Fielding Practice', desc:'Practice catching and ground balls. Have kids in a circle rolling balls to each other.', duration:'12 min'},
+  {icon:'🏃', name:'Base Running', desc:'Practice running around bases. Start slow and focus on form. Make it fun!', duration:'8 min'},
+  {icon:'🎪', name:'Balance & Coordination', desc:'Cone drills, balance beams, and agility exercises. Keep it playful for 4-year-olds.', duration:'10 min'},
+  {icon:'🚀', name:'Throwing Practice', desc:'Simple short tosses between partners. Emphasis on grip and follow-through.', duration:'8 min'},
+  {icon:'🎉', name:'Warm-up Games', desc:'Tag, relay races, or simple game activities to get energy up before drills.', duration:'10 min'},
+  {icon:'🤝', name:'Team Building', desc:'Group activities that build camaraderie. Celebration circles and high-fives.', duration:'5 min'}
+];
+
+function initAttendance() {
+  const grid = document.getElementById('attendanceGrid');
+  grid.innerHTML = kids.map((kid, idx) => `
+    <div class="kid-card" id="kid-${idx}" onclick="toggleKid(${idx})">
+      <input type="checkbox" class="kid-checkbox" id="check-${idx}" onchange="toggleKid(${idx})">
+      <span class="kid-name">${kid}</span>
+    </div>
+  `).join('');
+}
+
+function toggleKid(idx) {
+  const card = document.getElementById(`kid-${idx}`);
+  const check = document.getElementById(`check-${idx}`);
+  check.checked = !check.checked;
+  card.classList.toggle('present', check.checked);
+}
+
+function initDrills() {
+  const grid = document.getElementById('drillsGrid');
+  grid.innerHTML = drills.map((drill, idx) => `
+    <div class="drill-card">
+      <div class="drill-icon">${drill.icon}</div>
+      <div class="drill-name">${drill.name}</div>
+      <div class="drill-desc">${drill.desc}</div>
+      <span class="drill-duration">⏱️ ${drill.duration}</span>
+    </div>
+  `).join('');
+}
+
+function switchTab(tabName) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById(tabName).classList.add('active');
+  event.target.classList.add('active');
+}
+
+function saveTodayPractice() {
+  const attended = kids.filter((_, idx) => document.getElementById(`check-${idx}`).checked);
+  if (attended.length === 0) {
+    alert('Please mark at least one kid present');
+    return;
+  }
+  const entry = {
+    date: new Date().toLocaleDateString(),
+    kids: attended.join(', '),
+    coach: prompt('Who is coaching today?', 'Head Coach')
+  };
+  let log = JSON.parse(localStorage.getItem('tballLog') || '[]');
+  log.unshift(entry);
+  localStorage.setItem('tballLog', JSON.stringify(log));
+  alert('Practice saved!');
+  resetAttendance();
+  loadPracticeLog();
+}
+
+function resetAttendance() {
+  kids.forEach((_, idx) => {
+    document.getElementById(`check-${idx}`).checked = false;
+    document.getElementById(`kid-${idx}`).classList.remove('present');
+  });
+}
+
+function loadPracticeLog() {
+  const log = JSON.parse(localStorage.getItem('tballLog') || '[]');
+  const logDiv = document.getElementById('logEntries');
+  if (log.length === 0) {
+    logDiv.innerHTML = '<p style="color:#94a3b8;font-size:13px;">No practices recorded yet.</p>';
+    return;
+  }
+  logDiv.innerHTML = log.slice(0, 10).map(entry => `
+    <div class="log-entry">
+      <strong>${entry.date}</strong> - Attended: ${entry.kids}<br>
+      <small>Coached by: ${entry.coach}</small>
+    </div>
+  `).join('');
+}
+
+// Initialize on load
+initAttendance();
+initDrills();
+loadPracticeLog();
+
+// Expose switchTab to onclick
+window.switchTab = switchTab;
+window.toggleKid = toggleKid;
+window.saveTodayPractice = saveTodayPractice;
+window.resetAttendance = resetAttendance;
+</script>
+</body>
+</html>

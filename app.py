@@ -372,6 +372,12 @@ def homelab_stop():
         return redirect("/home")
     return render_template("homelab-stop.html")
 
+@app.route("/homelab/tball")
+def homelab_tball():
+    if not _client_can_access_module("homelab"):
+        return redirect("/home")
+    return render_template("homelab-tball.html")
+
 @app.route("/homelab/kids-checklist/qr.png")
 def homelab_kids_checklist_qr():
     import qrcode
