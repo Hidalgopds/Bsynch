@@ -505,6 +505,7 @@ def create_stop_room():
     # Get admin settings
     categories = request.json.get("categories", ["First Name", "Last Name", "City", "Animal", "Food"])
     time_limit = request.json.get("time_limit", 120)
+    victory_message = request.json.get("victory_message", "¡ERES MALÍSIMOOOO!")
 
     # Validate time limit (30-300 seconds)
     time_limit = max(30, min(300, int(time_limit)))
@@ -515,6 +516,7 @@ def create_stop_room():
         "admin_id": player_id,
         "categories": categories,
         "time_limit": time_limit,
+        "victory_message": victory_message,
         "players": {player_id: {"name": player_name, "is_admin": True, "status": "waiting", "score": 0, "completed": False, "completion_time": None}},
         "status": "waiting",
         "letter": None,
@@ -716,12 +718,17 @@ def get_stop_results(room_code):
         for pid, data in sorted_rankings
     ]
 
+    # Get winner (first in rankings)
+    winner_name = rankings[0]["name"] if rankings else None
+
     return jsonify({
         "room_code": room_code,
         "letter": room["letter"],
         "status": room["status"],
         "rankings": rankings,
-        "all_completed": all(p["completed"] for p in room["players"].values())
+        "all_completed": all(p["completed"] for p in room["players"].values()),
+        "winner_name": winner_name,
+        "victory_message": room.get("victory_message", "¡ERES MALÍSIMOOOO!")
     })
 
 @app.route("/homelab/kids-checklist/qr.png")

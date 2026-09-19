@@ -122,6 +122,12 @@
                     <textarea id="categories" placeholder="First Name, Last Name, City, Animal, Food" style="padding:12px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#1e293b;font-size:14px;font-family:inherit;resize:none;height:60px;">First Name, Last Name, City, Animal, Food</textarea>
                     <small style="color:#64748b;font-size:12px;">Customize the categories for your game</small>
                 </div>
+
+                <div class="input-group">
+                    <label>🏆 Victory Message</label>
+                    <textarea id="victoryMessage" placeholder="e.g., ¡ERES MALÍSIMOOOO!" style="padding:12px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#1e293b;font-size:14px;font-family:inherit;resize:none;height:50px;">¡ERES MALÍSIMOOOO!</textarea>
+                    <small style="color:#64748b;font-size:12px;">This message shows to others when you win!</small>
+                </div>
             </div>
 
             <div class="button-group">
@@ -236,6 +242,7 @@ async function createRoom() {
 
     const timeLimit = parseInt(document.getElementById("timeLimit").value) || 120;
     const categoriesText = document.getElementById("categories").value.trim();
+    const victoryMessage = document.getElementById("victoryMessage").value.trim();
     const categories = categoriesText.split(',').map(c => c.trim()).filter(c => c.length > 0);
 
     if (categories.length === 0) {
@@ -250,7 +257,8 @@ async function createRoom() {
             body: JSON.stringify({
                 admin_name: adminName,
                 categories: categories,
-                time_limit: timeLimit
+                time_limit: timeLimit,
+                victory_message: victoryMessage || "¡ERES MALÍSIMOOOO!"
             })
         });
         const data = await response.json();
@@ -532,7 +540,7 @@ function pollResultsStatus() {
 
             if (data.all_completed || data.rankings.length > 0) {
                 clearInterval(resultsInterval);
-                showResults(data.rankings);
+                showResults(data.rankings, data.winner_name, data.victory_message);
             }
         } catch (error) {
             console.error("Results poll error:", error);
@@ -540,13 +548,25 @@ function pollResultsStatus() {
     }, 1000);
 }
 
-function showResults(rankings) {
+function showResults(rankings, winnerName, victoryMessage) {
     document.getElementById("gameState").style.display = "none";
     document.getElementById("resultado").style.display = "none";
     document.getElementById("resultsState").style.display = "block";
 
     const rankingsList = document.getElementById("rankingsList");
     rankingsList.innerHTML = "";
+
+    // Show victory message if there's a winner
+    if (winnerName && victoryMessage) {
+        const victoryBanner = document.createElement("div");
+        victoryBanner.style.cssText = "text-align:center;padding:20px;background:linear-gradient(135deg,#1e9484,#4f8ef7);border-radius:12px;margin-bottom:20px;color:#fff;";
+        victoryBanner.innerHTML = `
+            <div style="font-size:48px;margin-bottom:8px;">🏆</div>
+            <div style="font-size:24px;font-weight:700;margin-bottom:12px;">${winnerName} WINS!</div>
+            <div style="font-size:20px;font-weight:600;letter-spacing:2px;text-transform:uppercase;">${victoryMessage}</div>
+        `;
+        rankingsList.appendChild(victoryBanner);
+    }
 
     rankings.forEach((player, index) => {
         const card = document.createElement("div");
@@ -555,6 +575,7 @@ function showResults(rankings) {
         let medal = "🥇";
         if (index === 1) medal = "🥈";
         if (index === 2) medal = "🥉";
+        if (index >= 3) medal = `#${index + 1}`;
 
         card.innerHTML = `
             <div class="rank-num">${medal}</div>
