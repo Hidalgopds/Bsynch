@@ -418,6 +418,20 @@
             return colors[Math.abs(hash) % colors.length];
         }
 
+        function formatPlayerNames(players) {
+            // Convert array of player objects to "LastName I., LastName I." format
+            if (!players || players.length === 0) return '';
+            return players.map(p => {
+                const parts = p.name.split(' ');
+                if (parts.length >= 2) {
+                    const lastName = parts[parts.length - 1];
+                    const firstInitial = parts[0][0].toUpperCase();
+                    return `${lastName} ${firstInitial}.`;
+                }
+                return p.name;
+            }).join(', ');
+        }
+
         function displayPlayers() {
             const list = document.getElementById('playersList');
             list.innerHTML = '';
@@ -445,6 +459,10 @@
         }
 
         function selectPlayerForDraft(player) {
+            if (gameState.currentPickerId !== gameState.playerId) {
+                alert('Not your turn! Waiting for ' + (gameState.currentPickerName || 'next player'));
+                return;
+            }
             gameState.selectedPlayer = player;
             document.querySelectorAll('.player-card').forEach(c => c.classList.remove('selected'));
             event.currentTarget.classList.add('selected');
@@ -453,6 +471,10 @@
 
         function addPlayerToTeam() {
             if (!gameState.selectedPlayer) return;
+            if (gameState.currentPickerId !== gameState.playerId) {
+                alert('Not your turn!');
+                return;
+            }
 
             fetch(`/api/hermaniland/draft-player/${gameState.roomCode}`, {
                 method: 'POST',
@@ -480,6 +502,9 @@
                     clearInterval(gameState.timerInterval);
                     alert('Draft complete! Proceeding to formation selection...');
                     showSection('formationSection');
+                } else {
+                    // Auto-advance to next player after 500ms
+                    setTimeout(() => skipPick(), 500);
                 }
             });
         }
@@ -508,21 +533,24 @@
             fetch(`/api/hermaniland/room/${gameState.roomCode}`)
                 .then(r => r.json())
                 .then(room => {
+                    gameState.currentPickerId = room.pick_order[room.current_pick_index];
                     const tbody = document.getElementById('teamsTableBody');
                     tbody.innerHTML = '';
 
                     Object.entries(room.participants).forEach(([_, p]) => {
                         const row = document.createElement('tr');
+                        const playersList = formatPlayerNames(p.players);
+                        const isCurrentPicker = _ === gameState.currentPickerId;
                         row.innerHTML = `
-                            <td><strong>${p.team_name}</strong></td>
-                            <td>${p.players.length}/11</td>
+                            <td><strong>${p.team_name}</strong> ${isCurrentPicker ? '🎯' : ''}</td>
+                            <td>${playersList || '(none yet)'}</td>
                             <td>${p.coach || '-'}</td>
                             <td>${p.formation || '-'}</td>
                         `;
                         tbody.appendChild(row);
                     });
 
-                    const currentPickerId = room.pick_order[room.current_pick_index];
+                    const currentPickerId = gameState.currentPickerId;
                     const currentPlayer = room.participants[currentPickerId];
                     document.getElementById('currentPickText').textContent = `🎯 ${currentPlayer.name} is picking... (Round ${room.current_round})`;
                 });
@@ -558,6 +586,7 @@
                         } else {
                             gameState.draftedPlayers = new Set(room.drafted_players);
                             displayPlayers();
+                            updateTeamsTable();
                         }
                     });
             }, 2000);
