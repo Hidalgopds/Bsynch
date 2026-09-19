@@ -5,259 +5,59 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hermaniland - Football Draft Game</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             color: #333;
         }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        header {
-            text-align: center;
-            color: white;
-            margin-bottom: 30px;
-        }
-
-        h1 {
-            font-size: 3em;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
-
-        .section {
-            display: none;
-            background: white;
-            border-radius: 12px;
-            padding: 30px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-        }
-
-        .section.active {
-            display: block;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: #333;
-        }
-
-        input, select, textarea {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
-            font-size: 1em;
-            font-family: inherit;
-        }
-
-        input:focus, select:focus, textarea:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        button {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 12px 30px;
-            border-radius: 6px;
-            font-size: 1em;
-            cursor: pointer;
-            font-weight: 600;
-            transition: transform 0.2s;
-        }
-
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-
-        button:active {
-            transform: translateY(0);
-        }
-
-        .two-column {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-        }
-
-        @media (max-width: 768px) {
-            .two-column {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .room-code-display {
-            background: #f5f5f5;
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
-            margin: 20px 0;
-        }
-
-        .room-code-display h3 {
-            color: #999;
-            font-size: 0.9em;
-            margin-bottom: 5px;
-        }
-
-        .room-code-display .code {
-            font-size: 2em;
-            font-weight: bold;
-            color: #667eea;
-            font-family: 'Courier New', monospace;
-            letter-spacing: 3px;
-        }
-
-        .player-list {
-            background: #f9f9f9;
-            border-radius: 8px;
-            padding: 15px;
-            margin: 20px 0;
-        }
-
-        .player-item {
-            padding: 10px;
-            margin: 8px 0;
-            background: white;
-            border-left: 4px solid #667eea;
-            border-radius: 4px;
-        }
-
-        .player-item strong {
-            color: #667eea;
-        }
-
-        .timer {
-            font-size: 3em;
-            font-weight: bold;
-            text-align: center;
-            color: #667eea;
-            margin: 20px 0;
-        }
-
-        .timer.warning {
-            color: #ff9800;
-        }
-
-        .timer.danger {
-            color: #f44336;
-        }
-
-        .player-card {
-            background: #f5f5f5;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-            border: 2px solid #e0e0e0;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .player-card:hover {
-            border-color: #667eea;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
-        }
-
-        .player-card.selected {
-            border-color: #667eea;
-            background: #e8eaf6;
-            font-weight: 600;
-        }
-
-        .player-stats {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            font-size: 0.85em;
-            margin-top: 8px;
-        }
-
-        .stat {
-            background: white;
-            padding: 5px;
-            border-radius: 4px;
-            text-align: center;
-        }
-
-        .stat-label {
-            font-weight: 600;
-            color: #666;
-            font-size: 0.8em;
-        }
-
-        .stat-value {
-            color: #667eea;
-            font-weight: bold;
-        }
-
-        .leaderboard {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-
-        .leaderboard th {
-            background: #667eea;
-            color: white;
-            padding: 12px;
-            text-align: left;
-        }
-
-        .leaderboard td {
-            padding: 12px;
-            border-bottom: 1px solid #e0e0e0;
-        }
-
-        .leaderboard tr:hover {
-            background: #f5f5f5;
-        }
-
-        .medal {
-            font-size: 1.5em;
-            margin-right: 5px;
-        }
-
-        .result-winner {
-            background: #fff3e0;
-            border: 2px solid #ff9800;
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
-            margin: 20px 0;
-        }
-
-        .result-winner h2 {
-            color: #ff9800;
-            margin: 10px 0;
-        }
-
-        .copy-btn {
-            background: #4CAF50;
-            margin-left: 10px;
-            padding: 8px 16px;
-            font-size: 0.9em;
-        }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        header { text-align: center; color: white; margin-bottom: 30px; }
+        h1 { font-size: 3em; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        .section { display: none; background: white; border-radius: 12px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .section.active { display: block; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; color: #333; }
+        input, select, textarea { width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 1em; font-family: inherit; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
+        button { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 12px 30px; border-radius: 6px; font-size: 1em; cursor: pointer; font-weight: 600; transition: transform 0.2s; margin-right: 10px; }
+        button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4); }
+        button:active { transform: translateY(0); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .two-column { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+        @media (max-width: 768px) { .two-column { grid-template-columns: 1fr; } }
+        .room-code-display { background: #f5f5f5; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0; }
+        .room-code-display .code { font-size: 2em; font-weight: bold; color: #667eea; font-family: 'Courier New', monospace; letter-spacing: 3px; }
+        .player-list { background: #f9f9f9; border-radius: 8px; padding: 15px; margin: 20px 0; }
+        .player-item { padding: 10px; margin: 8px 0; background: white; border-left: 4px solid #667eea; border-radius: 4px; }
+        .timer { font-size: 4em; font-weight: bold; text-align: center; color: #667eea; margin: 20px 0; }
+        .timer.warning { color: #ff9800; }
+        .timer.danger { color: #f44336; }
+        .player-card { background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 2px solid #e0e0e0; cursor: pointer; transition: all 0.2s; }
+        .player-card:hover:not(.drafted) { border-color: #667eea; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2); }
+        .player-card.selected { border-color: #667eea; background: #e8eaf6; font-weight: 600; }
+        .player-card.drafted { opacity: 0.5; cursor: not-allowed; background: #f0f0f0; }
+        .player-stats { display: flex; gap: 12px; font-size: 0.8em; margin-top: 8px; justify-content: flex-start; flex-wrap: wrap; }
+        .stat { background: white; padding: 4px 8px; border-radius: 4px; text-align: center; white-space: nowrap; }
+        .stat-label { font-weight: 600; color: #666; font-size: 0.75em; }
+        .stat-value { color: #667eea; font-weight: bold; margin-left: 3px; }
+        .stat { display: inline-flex; flex-direction: column; align-items: center; }
+        .teams-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        .teams-table th { background: #667eea; color: white; padding: 12px; text-align: left; }
+        .teams-table td { padding: 10px; border-bottom: 1px solid #e0e0e0; }
+        .teams-table tr:hover { background: #f5f5f5; }
+        .leaderboard { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .leaderboard th { background: #667eea; color: white; padding: 12px; text-align: left; }
+        .leaderboard td { padding: 12px; border-bottom: 1px solid #e0e0e0; }
+        .leaderboard tr:hover { background: #f5f5f5; }
+        .medal { font-size: 1.5em; margin-right: 5px; }
+        .result-winner { background: #fff3e0; border: 2px solid #ff9800; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0; }
+        .result-winner h2 { color: #ff9800; margin: 10px 0; }
+        .copy-btn { background: #4CAF50; margin-left: 10px; padding: 8px 16px; font-size: 0.9em; }
+        .draft-controls { display: flex; gap: 10px; margin-top: 20px; }
+        .draft-controls button { flex: 1; }
+        .current-info { background: #e8eaf6; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: 600; }
     </style>
 </head>
 <body>
@@ -317,10 +117,10 @@
                     <div class="form-group">
                         <label>Time per Pick (seconds)</label>
                         <select id="timePerPick">
-                            <option value="5">5 seconds</option>
-                            <option value="8" selected>8 seconds</option>
-                            <option value="10">10 seconds</option>
-                            <option value="15">15 seconds</option>
+                            <option value="20" selected>20 seconds</option>
+                            <option value="30">30 seconds</option>
+                            <option value="45">45 seconds</option>
+                            <option value="60">60 seconds</option>
                         </select>
                     </div>
                 </div>
@@ -375,18 +175,38 @@
         <div id="draftSection" class="section">
             <h2>Player Draft</h2>
 
-            <div class="timer" id="timer">8</div>
-
-            <div style="margin-bottom: 20px;">
-                <strong id="currentPicker">Current: Player 1</strong>
-                <p id="roundInfo" style="color: #999; font-size: 0.9em;">Round 1</p>
+            <!-- LIVE TEAMS TABLE -->
+            <h3>Live Teams</h3>
+            <div style="overflow-x: auto;">
+                <table class="teams-table" id="teamsTable">
+                    <thead>
+                        <tr>
+                            <th>Team</th>
+                            <th>Players Selected</th>
+                            <th>Coach</th>
+                            <th>Formation</th>
+                        </tr>
+                    </thead>
+                    <tbody id="teamsTableBody"></tbody>
+                </table>
             </div>
+
+            <div class="current-info" id="currentPickInfo">
+                <span id="currentPickText">Waiting for draft to start...</span>
+            </div>
+
+            <div class="timer" id="timer">20</div>
 
             <div style="margin-bottom: 20px;">
                 <input type="text" id="playerSearch" placeholder="Search player..." onkeyup="searchPlayers()">
             </div>
 
-            <div id="playersList" style="max-height: 400px; overflow-y: auto; margin-bottom: 20px;"></div>
+            <div id="playersList" style="max-height: 350px; overflow-y: auto; margin-bottom: 20px;"></div>
+
+            <div class="draft-controls">
+                <button id="addToTeamBtn" onclick="addPlayerToTeam()" disabled>✓ Add to My Team</button>
+                <button onclick="skipPick()" id="skipBtn">Skip / Next Player</button>
+            </div>
 
             <h3>Your Selected Players</h3>
             <div id="selectedPlayersList" class="player-list"></div>
@@ -435,10 +255,13 @@
             coaches: [],
             formations: [],
             selectedPlayers: [],
-            timerInterval: null
+            selectedPlayer: null,
+            timerInterval: null,
+            draftedPlayers: new Set(),
+            timePerPick: 20,
+            participants: {}
         };
 
-        // Check if joining from URL parameter
         window.addEventListener('load', function() {
             const params = new URLSearchParams(window.location.search);
             const room = params.get('room');
@@ -446,8 +269,6 @@
                 document.getElementById('roomCodeInput').value = room;
                 showSection('joinSection');
             }
-
-            // Load players and coaches
             loadGameData();
         });
 
@@ -470,6 +291,7 @@
 
         function populateCoaches() {
             const select = document.getElementById('coachSelect');
+            select.innerHTML = '';
             gameState.coaches.forEach(coach => {
                 const option = document.createElement('option');
                 option.value = coach.name;
@@ -538,6 +360,9 @@
             fetch(`/api/hermaniland/room/${gameState.roomCode}`)
                 .then(r => r.json())
                 .then(room => {
+                    gameState.timePerPick = room.time_per_pick;
+                    gameState.participants = room.participants;
+
                     const list = document.getElementById('participantsList');
                     list.innerHTML = '';
 
@@ -549,11 +374,11 @@
                     });
 
                     const startBtn = document.getElementById('startDraftBtn');
-                    if (Object.values(room.participants).some(p => p.is_admin) && gameState.playerId === Object.keys(room.participants)[0]) {
+                    const adminId = Object.entries(room.participants).find(([_, p]) => p.is_admin)?.[0];
+                    if (gameState.playerId === adminId && room.status === 'waiting') {
                         startBtn.style.display = 'block';
                     }
 
-                    // Auto-refresh
                     if (room.status === 'waiting') {
                         setTimeout(updateLobby, 2000);
                     }
@@ -570,18 +395,22 @@
             fetch(`/api/hermaniland/start-draft/${gameState.roomCode}`, {method: 'POST'})
                 .then(r => r.json())
                 .then(data => {
+                    gameState.draftedPlayers = new Set();
                     showSection('draftSection');
                     displayPlayers();
-                    startTimer();
+                    updateTeamsTable();
+                    startPickTimer();
+                    pollDraftStatus();
                 });
         }
 
         function displayPlayers() {
             const list = document.getElementById('playersList');
             list.innerHTML = '';
-            gameState.players.slice(0, 100).forEach(player => {
+            gameState.players.slice(0, 150).forEach(player => {
+                const isDrafted = gameState.draftedPlayers.has(player.name);
                 const div = document.createElement('div');
-                div.className = 'player-card';
+                div.className = `player-card ${isDrafted ? 'drafted' : ''}`;
                 div.innerHTML = `
                     <strong>${player.name}</strong> - ${player.position}
                     <div class="player-stats">
@@ -591,59 +420,138 @@
                         <div class="stat"><span class="stat-label">Def</span><span class="stat-value">${player.defense}</span></div>
                     </div>
                 `;
-                div.onclick = () => selectPlayer(player);
+                if (!isDrafted) {
+                    div.onclick = () => selectPlayerForDraft(player);
+                }
                 list.appendChild(div);
             });
         }
 
-        function selectPlayer(player) {
-            gameState.selectedPlayers.push(player);
+        function selectPlayerForDraft(player) {
+            gameState.selectedPlayer = player;
+            document.querySelectorAll('.player-card').forEach(c => c.classList.remove('selected'));
+            event.currentTarget.classList.add('selected');
+            document.getElementById('addToTeamBtn').disabled = false;
+        }
 
-            const selected = document.getElementById('selectedPlayersList');
-            const div = document.createElement('div');
-            div.className = 'player-item';
-            div.textContent = `${gameState.selectedPlayers.length}. ${player.name} (${player.position})`;
-            selected.appendChild(div);
+        function addPlayerToTeam() {
+            if (!gameState.selectedPlayer) return;
 
-            // Send to server
             fetch(`/api/hermaniland/draft-player/${gameState.roomCode}`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({player_name: player.name, player_id: player.name})
+                body: JSON.stringify({
+                    player_name: gameState.selectedPlayer.name,
+                    player_id: gameState.playerId
+                })
             })
             .then(r => r.json())
             .then(data => {
+                if (!data.success && data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+
+                gameState.selectedPlayers.push(gameState.selectedPlayer);
+                gameState.draftedPlayers.add(gameState.selectedPlayer.name);
+                updateSelectedList();
+                displayPlayers();
+                gameState.selectedPlayer = null;
+                document.getElementById('addToTeamBtn').disabled = true;
+
                 if (data.draft_complete) {
                     clearInterval(gameState.timerInterval);
+                    alert('Draft complete! Proceeding to formation selection...');
                     showSection('formationSection');
                 }
             });
         }
 
-        function searchPlayers() {
-            const query = document.getElementById('playerSearch').value.toLowerCase();
-            const cards = document.querySelectorAll('.player-card');
-            cards.forEach(card => {
-                const name = card.textContent.toLowerCase();
-                card.style.display = name.includes(query) ? 'block' : 'none';
+        function skipPick() {
+            fetch(`/api/hermaniland/next-pick/${gameState.roomCode}`, {method: 'POST'})
+                .then(r => r.json())
+                .then(data => {
+                    updateTeamsTable();
+                    startPickTimer();
+                });
+        }
+
+        function updateSelectedList() {
+            const selected = document.getElementById('selectedPlayersList');
+            selected.innerHTML = '';
+            gameState.selectedPlayers.forEach((p, i) => {
+                const div = document.createElement('div');
+                div.className = 'player-item';
+                div.textContent = `${i + 1}. ${p.name} (${p.position})`;
+                selected.appendChild(div);
             });
         }
 
-        function startTimer() {
-            let seconds = 8;
+        function updateTeamsTable() {
+            fetch(`/api/hermaniland/room/${gameState.roomCode}`)
+                .then(r => r.json())
+                .then(room => {
+                    const tbody = document.getElementById('teamsTableBody');
+                    tbody.innerHTML = '';
+
+                    Object.entries(room.participants).forEach(([_, p]) => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td><strong>${p.team_name}</strong></td>
+                            <td>${p.players.length}/11</td>
+                            <td>${p.coach || '-'}</td>
+                            <td>${p.formation || '-'}</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+
+                    const currentPickerId = room.pick_order[room.current_pick_index];
+                    const currentPlayer = room.participants[currentPickerId];
+                    document.getElementById('currentPickText').textContent = `🎯 ${currentPlayer.name} is picking... (Round ${room.current_round})`;
+                });
+        }
+
+        function startPickTimer() {
+            clearInterval(gameState.timerInterval);
+            let seconds = gameState.timePerPick;
+            document.getElementById('timer').textContent = seconds;
+            document.getElementById('timer').classList.remove('warning', 'danger');
+
             gameState.timerInterval = setInterval(() => {
                 seconds--;
-                const timer = document.getElementById('timer');
-                timer.textContent = seconds;
+                document.getElementById('timer').textContent = seconds;
 
-                if (seconds <= 3) timer.classList.add('danger');
-                else if (seconds <= 5) timer.classList.add('warning');
+                if (seconds <= 5) document.getElementById('timer').classList.add('danger');
+                else if (seconds <= 10) document.getElementById('timer').classList.add('warning');
 
                 if (seconds <= 0) {
                     clearInterval(gameState.timerInterval);
-                    seconds = 8;
+                    skipPick();
                 }
             }, 1000);
+        }
+
+        function pollDraftStatus() {
+            const poll = setInterval(() => {
+                fetch(`/api/hermaniland/room/${gameState.roomCode}`)
+                    .then(r => r.json())
+                    .then(room => {
+                        if (room.status !== 'drafting') {
+                            clearInterval(poll);
+                        } else {
+                            gameState.draftedPlayers = new Set(room.drafted_players);
+                            displayPlayers();
+                        }
+                    });
+            }, 2000);
+        }
+
+        function searchPlayers() {
+            const query = document.getElementById('playerSearch').value.toLowerCase();
+            document.querySelectorAll('.player-card').forEach(card => {
+                const name = card.textContent.toLowerCase();
+                card.style.display = name.includes(query) ? 'block' : 'none';
+            });
         }
 
         function confirmFormation() {
