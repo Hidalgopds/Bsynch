@@ -3,6 +3,7 @@ import csv
 import io
 import logging
 import smtplib
+import random
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import date, datetime, timezone, timedelta
@@ -6715,6 +6716,23 @@ def create_hermaniland_room():
         }
     }
 
+    # If only 1 player selected, automatically add AI opponent
+    if num_players == 1:
+        ai_id = str(uuid.uuid4())
+        HERMANILAND_GAMES[room_code]["participants"][ai_id] = {
+            "id": ai_id,
+            "name": "AI " + ai_difficulty.capitalize(),
+            "team_name": "IA Equipo",
+            "is_admin": False,
+            "is_ai": True,
+            "ai_level": ai_difficulty,
+            "players": [],
+            "coach": None,
+            "formation": None
+        }
+        # Update num_players to 2 since we added AI
+        HERMANILAND_GAMES[room_code]["num_players"] = 2
+
     return jsonify({"room_code": room_code, "admin_id": admin_id}), 201
 
 @app.route("/api/hermaniland/join-room", methods=["POST"])
@@ -6787,6 +6805,20 @@ def get_hermaniland_room(code):
         "drafted_players": list(room.get("drafted_players", set()))
     })
 
+def ai_pick_player(room, ai_player_id):
+    """AI automatically selects a random available player"""
+    ai_player = room["participants"][ai_player_id]
+    available = [p for p in room["available_players"] if p["name"] not in room["drafted_players"]]
+
+    if not available:
+        return False
+
+    # AI picks randomly
+    picked = random.choice(available)
+    ai_player["players"].append(picked)
+    room["drafted_players"].add(picked["name"])
+    return True
+
 @app.route("/api/hermaniland/start-draft/<code>", methods=["POST"])
 def start_hermaniland_draft(code):
     """Start the draft phase"""
@@ -6807,10 +6839,33 @@ def start_hermaniland_draft(code):
     room["available_players"] = generate_players(3000)
     room["drafted_players"] = set()
 
+    # Handle AI picks at start if needed
+    max_ai_iterations = len(room["pick_order"]) * 2
+    iterations = 0
+    while iterations < max_ai_iterations:
+        current_player_id = room["pick_order"][room["current_pick_index"]]
+        current_player = room["participants"][current_player_id]
+
+        if not current_player.get("is_ai"):
+            break
+
+        # AI picks a player
+        if not ai_pick_player(room, current_player_id):
+            break
+
+        # Move to next pick
+        room["current_pick_index"] += 1
+        if room["current_pick_index"] >= len(room["pick_order"]):
+            room["current_pick_index"] = 0
+            room["current_round"] += 1
+            random.shuffle(room["pick_order"])
+
+        iterations += 1
+
     return jsonify({
         "status": "Drafting started",
         "pick_order": room["pick_order"],
-        "current_player_id": room["pick_order"][0]
+        "current_player_id": room["pick_order"][room["current_pick_index"]]
     })
 
 @app.route("/api/hermaniland/draft-player/<code>", methods=["POST"])
@@ -6860,7 +6915,7 @@ def draft_hermaniland_player(code):
 
 @app.route("/api/hermaniland/next-pick/<code>", methods=["POST"])
 def next_hermaniland_pick(code):
-    """Move to next player's turn"""
+    """Move to next player's turn, handle AI picks automatically"""
     code = code.upper()
     if code not in HERMANILAND_GAMES:
         return jsonify({"error": "Room not found"}), 404
@@ -6875,6 +6930,30 @@ def next_hermaniland_pick(code):
         room["current_pick_index"] = 0
         room["current_round"] += 1
         random.shuffle(room["pick_order"])  # Randomize for next round
+
+    # Handle AI picks automatically
+    max_ai_iterations = len(room["pick_order"]) * 2  # Safety limit
+    iterations = 0
+    while iterations < max_ai_iterations:
+        next_player_id = room["pick_order"][room["current_pick_index"]]
+        next_player = room["participants"][next_player_id]
+
+        if not next_player.get("is_ai"):
+            break
+
+        # AI picks a player
+        if not ai_pick_player(room, next_player_id):
+            # No more players available
+            break
+
+        # Move to next pick for next AI/human
+        room["current_pick_index"] += 1
+        if room["current_pick_index"] >= len(room["pick_order"]):
+            room["current_pick_index"] = 0
+            room["current_round"] += 1
+            random.shuffle(room["pick_order"])
+
+        iterations += 1
 
     next_player_id = room["pick_order"][room["current_pick_index"]]
     next_player = room["participants"][next_player_id]
