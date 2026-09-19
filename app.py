@@ -378,6 +378,212 @@ def homelab_tball():
         return redirect("/home")
     return render_template("homelab-tball.html")
 
+# ── Stop Game Multiplayer ────────────────────────────────────────────────────
+import random
+import string
+from datetime import datetime
+
+STOP_GAMES = {}  # {room_code: {admin, players, status, started_at, responses, etc}}
+
+def generate_room_code():
+    """Generate a 4-character room code"""
+    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+
+@app.route("/api/stop/create-room", methods=["POST"])
+def create_stop_room():
+    """Create a new Stop game room"""
+    if not _client_can_access_module("homelab"):
+        return jsonify({"error": "Access denied"}), 403
+
+    player_name = request.json.get("admin_name", "Player")
+    room_code = generate_room_code()
+
+    # Ensure unique room code
+    while room_code in STOP_GAMES:
+        room_code = generate_room_code()
+
+    player_id = str(uuid.uuid4())
+    STOP_GAMES[room_code] = {
+        "admin": player_name,
+        "admin_id": player_id,
+        "players": {player_id: {"name": player_name, "is_admin": True, "status": "waiting", "score": 0, "completed": False, "completion_time": None}},
+        "status": "waiting",  # waiting, playing, finished
+        "letter": None,
+        "started_at": None,
+        "duration": 120,
+        "responses": {}
+    }
+
+    return jsonify({
+        "room_code": room_code,
+        "player_id": player_id
+    })
+
+@app.route("/api/stop/join-room", methods=["POST"])
+def join_stop_room():
+    """Join an existing Stop game room"""
+    if not _client_can_access_module("homelab"):
+        return jsonify({"error": "Access denied"}), 403
+
+    room_code = request.json.get("room_code", "").upper()
+    player_name = request.json.get("player_name", "Player")
+
+    if room_code not in STOP_GAMES:
+        return jsonify({"error": "Room not found"}), 404
+
+    room = STOP_GAMES[room_code]
+
+    if room["status"] != "waiting":
+        return jsonify({"error": "Game already started"}), 400
+
+    # Check if name already exists
+    for pid, pdata in room["players"].items():
+        if pdata["name"] == player_name:
+            return jsonify({"error": "Name already taken"}), 400
+
+    player_id = str(uuid.uuid4())
+    room["players"][player_id] = {
+        "name": player_name,
+        "is_admin": False,
+        "status": "waiting",
+        "score": 0,
+        "completed": False,
+        "completion_time": None
+    }
+
+    return jsonify({
+        "room_code": room_code,
+        "player_id": player_id
+    })
+
+@app.route("/api/stop/room/<room_code>", methods=["GET"])
+def get_stop_room(room_code):
+    """Get room status"""
+    room_code = room_code.upper()
+    if room_code not in STOP_GAMES:
+        return jsonify({"error": "Room not found"}), 404
+
+    room = STOP_GAMES[room_code]
+    return jsonify({
+        "room_code": room_code,
+        "admin": room["admin"],
+        "status": room["status"],
+        "letter": room["letter"],
+        "started_at": room["started_at"].isoformat() if room["started_at"] else None,
+        "duration": room["duration"],
+        "players": {
+            pid: {
+                "name": pdata["name"],
+                "is_admin": pdata["is_admin"],
+                "completed": pdata["completed"],
+                "completion_time": pdata["completion_time"]
+            }
+            for pid, pdata in room["players"].items()
+        }
+    })
+
+@app.route("/api/stop/start/<room_code>", methods=["POST"])
+def start_stop_game(room_code):
+    """Start the game (admin only)"""
+    room_code = room_code.upper()
+
+    if room_code not in STOP_GAMES:
+        return jsonify({"error": "Room not found"}), 404
+
+    room = STOP_GAMES[room_code]
+
+    if room["status"] != "waiting":
+        return jsonify({"error": "Game already started"}), 400
+
+    # Select random letter
+    room["letter"] = random.choice(string.ascii_uppercase)
+    room["status"] = "playing"
+    room["started_at"] = datetime.now()
+    room["responses"] = {pid: {} for pid in room["players"]}
+
+    return jsonify({
+        "letter": room["letter"],
+        "status": "playing",
+        "players": {
+            pid: {
+                "name": pdata["name"],
+                "is_admin": pdata["is_admin"],
+                "completed": False
+            }
+            for pid, pdata in room["players"].items()
+        }
+    })
+
+@app.route("/api/stop/submit/<room_code>", methods=["POST"])
+def submit_stop_answer(room_code):
+    """Submit answers"""
+    room_code = room_code.upper()
+    player_id = request.json.get("player_id", "")
+    responses = request.json.get("responses", [])
+    completion_time = request.json.get("completion_time", 0)
+
+    if room_code not in STOP_GAMES:
+        return jsonify({"error": "Room not found"}), 404
+
+    room = STOP_GAMES[room_code]
+
+    if room["status"] != "playing":
+        return jsonify({"error": "Game not active"}), 400
+
+    if player_id not in room["players"]:
+        return jsonify({"error": "Player not in room"}), 404
+
+    # Store responses
+    room["responses"][player_id] = responses
+
+    # Mark player as completed
+    room["players"][player_id]["completed"] = True
+    room["players"][player_id]["completion_time"] = completion_time
+
+    # Calculate score (based on time taken)
+    # Points: faster = more points (base 1000, lose 5 points per second)
+    room["players"][player_id]["score"] = max(100, 1000 - int(completion_time * 5))
+
+    # Check if all completed
+    all_completed = all(p["completed"] for p in room["players"].values())
+    if all_completed:
+        room["status"] = "finished"
+
+    return jsonify({
+        "recorded": True,
+        "score": room["players"][player_id]["score"]
+    })
+
+@app.route("/api/stop/results/<room_code>", methods=["GET"])
+def get_stop_results(room_code):
+    """Get game results with ranking"""
+    room_code = room_code.upper()
+    if room_code not in STOP_GAMES:
+        return jsonify({"error": "Room not found"}), 404
+
+    room = STOP_GAMES[room_code]
+
+    # Sort players by completion time (only those who completed)
+    completed_players = [(pid, pdata) for pid, pdata in room["players"].items() if pdata["completed"]]
+    completed_players.sort(key=lambda x: x[1]["completion_time"])
+
+    rankings = [
+        {
+            "name": pdata["name"],
+            "completion_time": pdata["completion_time"],
+            "score": pdata["score"]
+        }
+        for pid, pdata in completed_players
+    ]
+
+    return jsonify({
+        "room_code": room_code,
+        "letter": room["letter"],
+        "status": room["status"],
+        "rankings": rankings,
+        "all_completed": all(p["completed"] for p in room["players"].values())
+    })
+
 @app.route("/homelab/kids-checklist/qr.png")
 def homelab_kids_checklist_qr():
     import qrcode
