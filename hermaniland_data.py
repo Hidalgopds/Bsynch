@@ -170,12 +170,17 @@ def generate_players(count=3000):
                 "team": random.choice(list(TEAM_COLORS.keys()))
             })
 
-    # Generate remaining with unique combinations
-    while len(players) < count:
-        first = random.choice(first_names)
-        last = random.choice(last_names)
-        name = f"{first} {last}"
+    # Generate remaining with unique combinations (pre-generate to avoid collisions)
+    candidates = []
+    for f in first_names:
+        for l in last_names:
+            candidates.append(f"{f} {l}")
 
+    random.shuffle(candidates)
+
+    for name in candidates:
+        if len(players) >= count:
+            break
         if name not in used_names:
             used_names.add(name)
             position = random.choice(POSITIONS)
