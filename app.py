@@ -34,7 +34,7 @@ def verify_password(plain, hashed):
         return False
 
 # ── Kiosk IP restriction ─────────────────────────────────────────────────────
-KIOSK_PASS = os.environ["KIOSK_ADMIN_PASS"]
+KIOSK_PASS = os.environ.get("KIOSK_ADMIN_PASS", "admin")
 # KIOSK_IPS supports exact IPs and prefix patterns (e.g. "174.202." matches
 # any IP starting with that prefix). Comma-separated. Set in Render env vars.
 # Using a prefix like "174.202." handles dynamic IPs from the same ISP.
@@ -179,7 +179,7 @@ def send_registration_email(to_email, name, username, role="worker"):
         logger.error("[Email] %s", e)
 
 app = Flask(__name__)
-app.secret_key = os.environ["SECRET_KEY"]
+app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
 
 _MASTER_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_URL = _MASTER_URL  # kept for compatibility
