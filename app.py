@@ -371,6 +371,11 @@ def homelab_stop():
     """Public Stop game - no authentication required"""
     return render_template("homelab-stop.html")
 
+@app.route("/health")
+def health_check():
+    """Simple health check endpoint - verifies app is running"""
+    return jsonify({"status": "ok", "app": "Bsynch Games Hub"}), 200
+
 @app.route("/games")
 def public_games_hub():
     """Public games hub - accessible to everyone without authentication"""
