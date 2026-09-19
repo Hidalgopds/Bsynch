@@ -371,6 +371,11 @@ def homelab_stop():
     """Public Stop game - no authentication required"""
     return render_template("homelab-stop.html")
 
+@app.route("/games")
+def public_games_hub():
+    """Public games hub - accessible to everyone without authentication"""
+    return render_template("homelab-games-hub.html")
+
 @app.route("/homelab/tball")
 def homelab_tball():
     if not _client_can_access_module("homelab"):
