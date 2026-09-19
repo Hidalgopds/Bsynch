@@ -368,8 +368,7 @@ def homelab_sugar_quest():
 
 @app.route("/homelab/games/stop")
 def homelab_stop():
-    if not _client_can_access_module("homelab"):
-        return redirect("/home")
+    """Public Stop game - no authentication required"""
     return render_template("homelab-stop.html")
 
 @app.route("/homelab/tball")
@@ -492,11 +491,6 @@ def calculate_smart_score(word, all_responses_for_category):
 
     final_score = int(base_points * uniqueness_multiplier)
     return max(5, final_score)  # Minimum 5 points for any valid word
-
-@app.route("/homelab/stop", methods=["GET"])
-def homelab_stop_public():
-    """Public Stop game hub - no authentication required"""
-    return render_template("homelab-stop.html")
 
 @app.route("/api/stop/create-room", methods=["POST"])
 def create_stop_room():
