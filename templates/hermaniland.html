@@ -34,20 +34,21 @@
         .timer { font-size: 4em; font-weight: bold; text-align: center; color: #667eea; margin: 20px 0; }
         .timer.warning { color: #ff9800; }
         .timer.danger { color: #f44336; }
-        .player-card { background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 2px solid #e0e0e0; cursor: pointer; transition: all 0.2s; }
-        .player-card:hover:not(.drafted) { border-color: #667eea; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2); }
-        .player-card.selected { border-color: #667eea; background: #e8eaf6; font-weight: 600; }
-        .player-card.drafted { opacity: 0.5; cursor: not-allowed; background: #f0f0f0; }
-        .player-stats { display: flex; gap: 12px; font-size: 0.8em; margin-top: 8px; justify-content: flex-start; flex-wrap: wrap; }
-        .stat { background: white; padding: 4px 8px; border-radius: 4px; text-align: center; white-space: nowrap; }
-        .stat-label { font-weight: 600; color: #666; font-size: 0.75em; }
-        .stat-value { color: #667eea; font-weight: bold; margin-left: 3px; }
+        .player-card { background: #f5f5f5; padding: 10px 12px; border-radius: 6px; margin-bottom: 8px; border-left: 4px solid #667eea; cursor: pointer; transition: all 0.2s; font-size: 0.9em; }
+        .player-card:hover:not(.drafted) { background: #efefef; box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15); }
+        .player-card.selected { background: #e8eaf6; font-weight: 600; }
+        .player-card.drafted { opacity: 0.4; cursor: not-allowed; background: #f0f0f0; }
+        .player-name { font-weight: 600; font-size: 0.95em; margin-bottom: 4px; }
+        .player-meta { font-size: 0.8em; color: #666; margin-bottom: 6px; }
+        .player-stats { display: flex; gap: 8px; font-size: 0.75em; justify-content: flex-start; flex-wrap: wrap; }
+        .stat { background: white; padding: 2px 6px; border-radius: 3px; text-align: center; white-space: nowrap; }
+        .stat-label { font-weight: 600; color: #666; font-size: 0.7em; }
+        .stat-value { color: #667eea; font-weight: bold; margin-left: 2px; }
         .stat { display: inline-flex; flex-direction: column; align-items: center; }
         .teams-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
         .teams-table th { background: #667eea; color: white; padding: 12px; text-align: left; }
         .teams-table td { padding: 10px; border-bottom: 1px solid #e0e0e0; }
         .teams-table tr:hover { background: #f5f5f5; }
-        .teams-table th:nth-child(2), .teams-table td:nth-child(2) { width: 40%; }
         .leaderboard { width: 100%; border-collapse: collapse; margin-top: 20px; }
         .leaderboard th { background: #667eea; color: white; padding: 12px; text-align: left; }
         .leaderboard td { padding: 12px; border-bottom: 1px solid #e0e0e0; }
@@ -86,6 +87,7 @@
                     <div class="form-group">
                         <label>Number of Players</label>
                         <select id="numPlayers">
+                            <option value="1">1 Player (+ AI)</option>
                             <option value="2">2 Players</option>
                             <option value="3">3 Players</option>
                             <option value="4" selected>4 Players</option>
@@ -93,7 +95,7 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>AI Difficulty (if odd players)</label>
+                        <label>AI Difficulty</label>
                         <select id="aiDifficulty">
                             <option value="easy">Easy</option>
                             <option value="medium" selected>Medium</option>
@@ -168,10 +170,6 @@
 
             <h3 style="margin-top: 30px;">Participants</h3>
             <div class="player-list" id="participantsList"></div>
-
-            <div id="draftReadyStatus" style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-top: 20px; border-left: 4px solid #667eea; display: none;">
-                <strong>Draft Status:</strong> <span id="draftStatusText"></span>
-            </div>
 
             <button id="startDraftBtn" onclick="startDraft()" style="width: 100%; margin-top: 20px; display: none;">Start Draft</button>
         </div>
@@ -264,8 +262,7 @@
             timerInterval: null,
             draftedPlayers: new Set(),
             timePerPick: 20,
-            participants: {},
-            currentPickerId: null
+            participants: {}
         };
 
         window.addEventListener('load', function() {
@@ -369,22 +366,6 @@
                     gameState.timePerPick = room.time_per_pick;
                     gameState.participants = room.participants;
 
-                    // If draft has started, switch to draft section
-                    if (room.status === 'drafting') {
-                        gameState.draftedPlayers = new Set(room.drafted_players);
-                        fetch('/api/hermaniland/players')
-                            .then(r => r.json())
-                            .then(data => {
-                                gameState.players = data.players;
-                                showSection('draftSection');
-                                displayPlayers();
-                                updateTeamsTable();
-                                startPickTimer();
-                                pollDraftStatus();
-                            });
-                        return;
-                    }
-
                     const list = document.getElementById('participantsList');
                     list.innerHTML = '';
 
@@ -399,16 +380,11 @@
                     const adminId = Object.entries(room.participants).find(([_, p]) => p.is_admin)?.[0];
                     if (gameState.playerId === adminId && room.status === 'waiting') {
                         startBtn.style.display = 'block';
-
-                        // Show status of who hasn't started draft
-                        const totalPlayers = Object.keys(room.participants).length;
-                        const statusDiv = document.getElementById('draftReadyStatus');
-                        statusDiv.style.display = 'block';
-                        document.getElementById('draftStatusText').textContent = `${totalPlayers}/room full - Waiting for everyone to be ready`;
                     }
 
-                    // Always continue polling while in lobby
-                    setTimeout(updateLobby, 2000);
+                    if (room.status === 'waiting') {
+                        setTimeout(updateLobby, 2000);
+                    }
                 });
         }
 
@@ -423,16 +399,6 @@
                 .then(r => r.json())
                 .then(data => {
                     gameState.draftedPlayers = new Set();
-                    // Load players if not already loaded
-                    if (!gameState.players || gameState.players.length === 0) {
-                        return fetch('/api/hermaniland/players')
-                            .then(r => r.json())
-                            .then(pdata => {
-                                gameState.players = pdata.players;
-                            });
-                    }
-                })
-                .then(() => {
                     showSection('draftSection');
                     displayPlayers();
                     updateTeamsTable();
@@ -441,15 +407,44 @@
                 });
         }
 
+        function getTeamColor(teamName) {
+            // Generate consistent color from team name hash
+            if (!teamName) return '#667eea';
+            let hash = 0;
+            for (let i = 0; i < teamName.length; i++) {
+                hash = ((hash << 5) - hash) + teamName.charCodeAt(i);
+                hash = hash & hash;
+            }
+            const colors = ['#667eea', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B739'];
+            return colors[Math.abs(hash) % colors.length];
+        }
+
+        function formatPlayerNames(players) {
+            // Convert array of player objects to "LastName I., LastName I." format
+            if (!players || players.length === 0) return '';
+            return players.map(p => {
+                const parts = p.name.split(' ');
+                if (parts.length >= 2) {
+                    const lastName = parts[parts.length - 1];
+                    const firstInitial = parts[0][0].toUpperCase();
+                    return `${lastName} ${firstInitial}.`;
+                }
+                return p.name;
+            }).join(', ');
+        }
+
         function displayPlayers() {
             const list = document.getElementById('playersList');
             list.innerHTML = '';
             gameState.players.slice(0, 150).forEach(player => {
                 const isDrafted = gameState.draftedPlayers.has(player.name);
                 const div = document.createElement('div');
+                const teamColor = getTeamColor(player.team);
                 div.className = `player-card ${isDrafted ? 'drafted' : ''}`;
+                div.style.borderLeftColor = teamColor;
                 div.innerHTML = `
-                    <strong>${player.name}</strong> - ${player.position}
+                    <div class="player-name">${player.name}</div>
+                    <div class="player-meta"><span style="background: ${teamColor}; color: white; padding: 1px 6px; border-radius: 3px; font-size: 0.75em;">${player.team || 'Unknown'}</span> • ${player.position}</div>
                     <div class="player-stats">
                         <div class="stat"><span class="stat-label">Spd</span><span class="stat-value">${player.speed}</span></div>
                         <div class="stat"><span class="stat-label">Drb</span><span class="stat-value">${player.dribbling}</span></div>
@@ -465,9 +460,8 @@
         }
 
         function selectPlayerForDraft(player) {
-            // Only allow selection if it's your turn
-            if (gameState.playerId !== gameState.currentPickerId) {
-                alert('It is not your turn yet!');
+            if (gameState.currentPickerId !== gameState.playerId) {
+                alert('Not your turn! Waiting for ' + (gameState.currentPickerName || 'next player'));
                 return;
             }
             gameState.selectedPlayer = player;
@@ -478,8 +472,8 @@
 
         function addPlayerToTeam() {
             if (!gameState.selectedPlayer) return;
-            if (gameState.playerId !== gameState.currentPickerId) {
-                alert('It is not your turn yet!');
+            if (gameState.currentPickerId !== gameState.playerId) {
+                alert('Not your turn!');
                 return;
             }
 
@@ -510,9 +504,8 @@
                     alert('Draft complete! Proceeding to formation selection...');
                     showSection('formationSection');
                 } else {
-                    // Auto-advance to next player after selection
-                    clearInterval(gameState.timerInterval);
-                    setTimeout(skipPick, 500);
+                    // Auto-advance to next player after 500ms
+                    setTimeout(() => skipPick(), 500);
                 }
             });
         }
@@ -537,50 +530,30 @@
             });
         }
 
-        function formatPlayerNames(players) {
-            return players.map(p => {
-                const parts = p.name.split(' ');
-                if (parts.length > 1) {
-                    const lastName = parts[parts.length - 1];
-                    const firstInitial = parts[0][0];
-                    return `${lastName} ${firstInitial}.`;
-                }
-                return p.name;
-            }).join(', ');
-        }
-
         function updateTeamsTable() {
             fetch(`/api/hermaniland/room/${gameState.roomCode}`)
                 .then(r => r.json())
                 .then(room => {
+                    gameState.currentPickerId = room.pick_order[room.current_pick_index];
                     const tbody = document.getElementById('teamsTableBody');
                     tbody.innerHTML = '';
 
                     Object.entries(room.participants).forEach(([_, p]) => {
                         const row = document.createElement('tr');
-                        const playersDisplay = p.players.length > 0 ? formatPlayerNames(p.players) : '-';
+                        const playersList = formatPlayerNames(p.players);
+                        const isCurrentPicker = _ === gameState.currentPickerId;
                         row.innerHTML = `
-                            <td><strong>${p.team_name}</strong></td>
-                            <td>${playersDisplay}</td>
+                            <td><strong>${p.team_name}</strong> ${isCurrentPicker ? '🎯' : ''}</td>
+                            <td>${playersList || '(none yet)'}</td>
                             <td>${p.coach || '-'}</td>
                             <td>${p.formation || '-'}</td>
                         `;
                         tbody.appendChild(row);
                     });
 
-                    const currentPickerId = room.pick_order[room.current_pick_index];
-                    gameState.currentPickerId = currentPickerId;
+                    const currentPickerId = gameState.currentPickerId;
                     const currentPlayer = room.participants[currentPickerId];
                     document.getElementById('currentPickText').textContent = `🎯 ${currentPlayer.name} is picking... (Round ${room.current_round})`;
-
-                    // Disable button if not your turn
-                    const addBtn = document.getElementById('addToTeamBtn');
-                    if (gameState.playerId !== currentPickerId) {
-                        addBtn.disabled = true;
-                        addBtn.textContent = 'Add to My Team (waiting...)';
-                    } else {
-                        addBtn.textContent = '✓ Add to My Team';
-                    }
                 });
         }
 

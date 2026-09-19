@@ -35,30 +35,45 @@ COACHES = [
 # Sample of best players with positions and attributes (need 3000, using templates)
 POSITIONS = ["GK", "CB", "LB", "RB", "CM", "CDM", "CAM", "LW", "RW", "ST", "CF"]
 
+# Team colors (primary, secondary) for visualization
+TEAM_COLORS = {
+    "Santos": {"bg": "#FFD700", "text": "#000000"},
+    "Argentina": {"bg": "#87CEEB", "text": "#000000"},
+    "Napoli": {"bg": "#0047AB", "text": "#FFFFFF"},
+    "Barcelona": {"bg": "#004B87", "text": "#FFC72C"},
+    "Manchester United": {"bg": "#DA291C", "text": "#FFFFFF"},
+    "Germany": {"bg": "#000000", "text": "#FFFFFF"},
+    "Bayern Munich": {"bg": "#DC052D", "text": "#FFFFFF"},
+    "Real Madrid": {"bg": "#FFFFFF", "text": "#000000"},
+    "Ajax": {"bg": "#DC143C", "text": "#FFFFFF"},
+    "France": {"bg": "#002395", "text": "#FFFFFF"},
+    "Juventus": {"bg": "#000000", "text": "#FFFFFF"},
+    "Liverpool": {"bg": "#C8102E", "text": "#FFFFFF"},
+    "England": {"bg": "#0A3161", "text": "#FFFFFF"},
+}
+
 TOP_PLAYERS_SAMPLE = [
     # Legendary strikers
-    {"name": "Pelé", "position": "ST", "era": "1950s-1970s", "speed": 90, "dribbling": 92, "shooting": 96, "defense": 45, "physical": 85, "iq": 88},
-    {"name": "Diego Maradona", "position": "LW", "era": "1980s-2000s", "speed": 92, "dribbling": 99, "shooting": 93, "defense": 50, "physical": 82, "iq": 96},
-    {"name": "Cristiano Ronaldo", "position": "ST", "era": "2000s-2020s", "speed": 89, "dribbling": 87, "shooting": 93, "defense": 35, "physical": 92, "iq": 85},
-    {"name": "Lionel Messi", "position": "LW", "era": "2000s-2020s", "speed": 86, "dribbling": 96, "shooting": 94, "defense": 38, "physical": 73, "iq": 95},
-    {"name": "Johan Cruyff", "position": "CF", "era": "1960s-1980s", "speed": 88, "dribbling": 94, "shooting": 90, "defense": 40, "physical": 84, "iq": 97},
-    {"name": "Gerd Müller", "position": "ST", "era": "1960s-1970s", "speed": 82, "dribbling": 80, "shooting": 97, "defense": 30, "physical": 88, "iq": 85},
-    {"name": "Ferenc Puskás", "position": "CF", "era": "1940s-1960s", "speed": 85, "dribbling": 88, "shooting": 95, "defense": 35, "physical": 82, "iq": 88},
-    {"name": "Zinedine Zidane", "position": "CAM", "era": "1990s-2000s", "speed": 85, "dribbling": 92, "shooting": 89, "defense": 60, "physical": 87, "iq": 94},
+    {"name": "Pelé", "position": "ST", "era": "1950s-1970s", "speed": 90, "dribbling": 92, "shooting": 96, "defense": 45, "physical": 85, "iq": 88, "team": "Santos"},
+    {"name": "Diego Maradona", "position": "LW", "era": "1980s-2000s", "speed": 92, "dribbling": 99, "shooting": 93, "defense": 50, "physical": 82, "iq": 96, "team": "Napoli"},
+    {"name": "Cristiano Ronaldo", "position": "ST", "era": "2000s-2020s", "speed": 89, "dribbling": 87, "shooting": 93, "defense": 35, "physical": 92, "iq": 85, "team": "Manchester United"},
+    {"name": "Lionel Messi", "position": "LW", "era": "2000s-2020s", "speed": 86, "dribbling": 96, "shooting": 94, "defense": 38, "physical": 73, "iq": 95, "team": "Barcelona"},
+    {"name": "Johan Cruyff", "position": "CF", "era": "1960s-1980s", "speed": 88, "dribbling": 94, "shooting": 90, "defense": 40, "physical": 84, "iq": 97, "team": "Barcelona"},
+    {"name": "Gerd Müller", "position": "ST", "era": "1960s-1970s", "speed": 82, "dribbling": 80, "shooting": 97, "defense": 30, "physical": 88, "iq": 85, "team": "Bayern Munich"},
+    {"name": "Ferenc Puskás", "position": "CF", "era": "1940s-1960s", "speed": 85, "dribbling": 88, "shooting": 95, "defense": 35, "physical": 82, "iq": 88, "team": "Real Madrid"},
+    {"name": "Zinedine Zidane", "position": "CAM", "era": "1990s-2000s", "speed": 85, "dribbling": 92, "shooting": 89, "defense": 60, "physical": 87, "iq": 94, "team": "Real Madrid"},
 
     # Legendary midfielders
-    {"name": "Michel Platini", "position": "CM", "era": "1970s-1980s", "speed": 82, "dribbling": 85, "shooting": 88, "defense": 65, "physical": 84, "iq": 90},
-    {"name": "Pelé", "position": "CF", "era": "1950s-1970s", "speed": 88, "dribbling": 90, "shooting": 94, "defense": 45, "physical": 85, "iq": 88},
+    {"name": "Michel Platini", "position": "CM", "era": "1970s-1980s", "speed": 82, "dribbling": 85, "shooting": 88, "defense": 65, "physical": 84, "iq": 90, "team": "Juventus"},
 
     # Defenders
-    {"name": "Franz Beckenbauer", "position": "CB", "era": "1960s-1980s", "speed": 85, "dribbling": 88, "shooting": 70, "defense": 95, "physical": 86, "iq": 96},
-    {"name": "Bobby Moore", "position": "CB", "era": "1960s-1970s", "speed": 80, "dribbling": 75, "shooting": 65, "defense": 94, "physical": 85, "iq": 95},
-    {"name": "Sergio Ramos", "position": "CB", "era": "2000s-2020s", "speed": 82, "dribbling": 75, "shooting": 75, "defense": 92, "physical": 89, "iq": 88},
-    {"name": "Virgil van Dijk", "position": "CB", "era": "2010s-2020s", "speed": 88, "dribbling": 70, "shooting": 68, "defense": 94, "physical": 95, "iq": 90},
+    {"name": "Franz Beckenbauer", "position": "CB", "era": "1960s-1980s", "speed": 85, "dribbling": 88, "shooting": 70, "defense": 95, "physical": 86, "iq": 96, "team": "Bayern Munich"},
+    {"name": "Bobby Moore", "position": "CB", "era": "1960s-1970s", "speed": 80, "dribbling": 75, "shooting": 65, "defense": 94, "physical": 85, "iq": 95, "team": "England"},
+    {"name": "Sergio Ramos", "position": "CB", "era": "2000s-2020s", "speed": 82, "dribbling": 75, "shooting": 75, "defense": 92, "physical": 89, "iq": 88, "team": "Real Madrid"},
+    {"name": "Virgil van Dijk", "position": "CB", "era": "2010s-2020s", "speed": 88, "dribbling": 70, "shooting": 68, "defense": 94, "physical": 95, "iq": 90, "team": "Liverpool"},
 
     # Goalkeepers
-    {"name": "Gianluigi Buffon", "position": "GK", "era": "1990s-2010s", "speed": 75, "dribbling": 40, "shooting": 30, "defense": 96, "physical": 88, "iq": 92},
-    {"name": "Edson Arantes do Nascimento", "position": "GK", "era": "1960s-1980s", "speed": 72, "dribbling": 35, "shooting": 25, "defense": 94, "physical": 85, "iq": 90},
+    {"name": "Gianluigi Buffon", "position": "GK", "era": "1990s-2010s", "speed": 75, "dribbling": 40, "shooting": 30, "defense": 96, "physical": 88, "iq": 92, "team": "Juventus"},
 ]
 
 def generate_players(count=3000):
@@ -118,6 +133,8 @@ def generate_players(count=3000):
             physical = random.randint(70, 92)
             iq = random.randint(75, 95)
 
+        team = random.choice(list(TEAM_COLORS.keys()))
+
         players.append({
             "name": name,
             "position": position,
@@ -127,7 +144,8 @@ def generate_players(count=3000):
             "shooting": shooting,
             "defense": defense,
             "physical": physical,
-            "iq": iq
+            "iq": iq,
+            "team": team
         })
 
     return players[:count]
