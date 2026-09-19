@@ -259,7 +259,8 @@
             timerInterval: null,
             draftedPlayers: new Set(),
             timePerPick: 20,
-            participants: {}
+            participants: {},
+            currentPickerId: null
         };
 
         window.addEventListener('load', function() {
@@ -363,6 +364,22 @@
                     gameState.timePerPick = room.time_per_pick;
                     gameState.participants = room.participants;
 
+                    // If draft has started, switch to draft section
+                    if (room.status === 'drafting') {
+                        gameState.draftedPlayers = new Set(room.drafted_players);
+                        fetch('/api/hermaniland/players')
+                            .then(r => r.json())
+                            .then(data => {
+                                gameState.players = data.players;
+                                showSection('draftSection');
+                                displayPlayers();
+                                updateTeamsTable();
+                                startPickTimer();
+                                pollDraftStatus();
+                            });
+                        return;
+                    }
+
                     const list = document.getElementById('participantsList');
                     list.innerHTML = '';
 
@@ -379,9 +396,8 @@
                         startBtn.style.display = 'block';
                     }
 
-                    if (room.status === 'waiting') {
-                        setTimeout(updateLobby, 2000);
-                    }
+                    // Always continue polling while in lobby
+                    setTimeout(updateLobby, 2000);
                 });
         }
 
@@ -396,6 +412,16 @@
                 .then(r => r.json())
                 .then(data => {
                     gameState.draftedPlayers = new Set();
+                    // Load players if not already loaded
+                    if (!gameState.players || gameState.players.length === 0) {
+                        return fetch('/api/hermaniland/players')
+                            .then(r => r.json())
+                            .then(pdata => {
+                                gameState.players = pdata.players;
+                            });
+                    }
+                })
+                .then(() => {
                     showSection('draftSection');
                     displayPlayers();
                     updateTeamsTable();
@@ -428,6 +454,11 @@
         }
 
         function selectPlayerForDraft(player) {
+            // Only allow selection if it's your turn
+            if (gameState.playerId !== gameState.currentPickerId) {
+                alert('It is not your turn yet!');
+                return;
+            }
             gameState.selectedPlayer = player;
             document.querySelectorAll('.player-card').forEach(c => c.classList.remove('selected'));
             event.currentTarget.classList.add('selected');
@@ -436,6 +467,10 @@
 
         function addPlayerToTeam() {
             if (!gameState.selectedPlayer) return;
+            if (gameState.playerId !== gameState.currentPickerId) {
+                alert('It is not your turn yet!');
+                return;
+            }
 
             fetch(`/api/hermaniland/draft-player/${gameState.roomCode}`, {
                 method: 'POST',
@@ -506,8 +541,18 @@
                     });
 
                     const currentPickerId = room.pick_order[room.current_pick_index];
+                    gameState.currentPickerId = currentPickerId;
                     const currentPlayer = room.participants[currentPickerId];
                     document.getElementById('currentPickText').textContent = `🎯 ${currentPlayer.name} is picking... (Round ${room.current_round})`;
+
+                    // Disable button if not your turn
+                    const addBtn = document.getElementById('addToTeamBtn');
+                    if (gameState.playerId !== currentPickerId) {
+                        addBtn.disabled = true;
+                        addBtn.textContent = 'Add to My Team (waiting...)';
+                    } else {
+                        addBtn.textContent = '✓ Add to My Team';
+                    }
                 });
         }
 
@@ -541,6 +586,7 @@
                         } else {
                             gameState.draftedPlayers = new Set(room.drafted_players);
                             displayPlayers();
+                            updateTeamsTable();
                         }
                     });
             }, 2000);
