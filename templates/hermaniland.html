@@ -47,6 +47,7 @@
         .teams-table th { background: #667eea; color: white; padding: 12px; text-align: left; }
         .teams-table td { padding: 10px; border-bottom: 1px solid #e0e0e0; }
         .teams-table tr:hover { background: #f5f5f5; }
+        .teams-table th:nth-child(2), .teams-table td:nth-child(2) { width: 40%; }
         .leaderboard { width: 100%; border-collapse: collapse; margin-top: 20px; }
         .leaderboard th { background: #667eea; color: white; padding: 12px; text-align: left; }
         .leaderboard td { padding: 12px; border-bottom: 1px solid #e0e0e0; }
@@ -167,6 +168,10 @@
 
             <h3 style="margin-top: 30px;">Participants</h3>
             <div class="player-list" id="participantsList"></div>
+
+            <div id="draftReadyStatus" style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-top: 20px; border-left: 4px solid #667eea; display: none;">
+                <strong>Draft Status:</strong> <span id="draftStatusText"></span>
+            </div>
 
             <button id="startDraftBtn" onclick="startDraft()" style="width: 100%; margin-top: 20px; display: none;">Start Draft</button>
         </div>
@@ -394,6 +399,12 @@
                     const adminId = Object.entries(room.participants).find(([_, p]) => p.is_admin)?.[0];
                     if (gameState.playerId === adminId && room.status === 'waiting') {
                         startBtn.style.display = 'block';
+
+                        // Show status of who hasn't started draft
+                        const totalPlayers = Object.keys(room.participants).length;
+                        const statusDiv = document.getElementById('draftReadyStatus');
+                        statusDiv.style.display = 'block';
+                        document.getElementById('draftStatusText').textContent = `${totalPlayers}/room full - Waiting for everyone to be ready`;
                     }
 
                     // Always continue polling while in lobby
@@ -498,6 +509,10 @@
                     clearInterval(gameState.timerInterval);
                     alert('Draft complete! Proceeding to formation selection...');
                     showSection('formationSection');
+                } else {
+                    // Auto-advance to next player after selection
+                    clearInterval(gameState.timerInterval);
+                    setTimeout(skipPick, 500);
                 }
             });
         }
@@ -522,6 +537,18 @@
             });
         }
 
+        function formatPlayerNames(players) {
+            return players.map(p => {
+                const parts = p.name.split(' ');
+                if (parts.length > 1) {
+                    const lastName = parts[parts.length - 1];
+                    const firstInitial = parts[0][0];
+                    return `${lastName} ${firstInitial}.`;
+                }
+                return p.name;
+            }).join(', ');
+        }
+
         function updateTeamsTable() {
             fetch(`/api/hermaniland/room/${gameState.roomCode}`)
                 .then(r => r.json())
@@ -531,9 +558,10 @@
 
                     Object.entries(room.participants).forEach(([_, p]) => {
                         const row = document.createElement('tr');
+                        const playersDisplay = p.players.length > 0 ? formatPlayerNames(p.players) : '-';
                         row.innerHTML = `
                             <td><strong>${p.team_name}</strong></td>
-                            <td>${p.players.length}/11</td>
+                            <td>${playersDisplay}</td>
                             <td>${p.coach || '-'}</td>
                             <td>${p.formation || '-'}</td>
                         `;
