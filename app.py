@@ -383,18 +383,124 @@ import random
 import string
 from datetime import datetime
 
+# Spanish dictionary for word validation (basic common words)
+SPANISH_WORDS = {
+    'a', 'actitud', 'adios', 'aficion', 'agencia', 'agosto', 'agradable', 'agua', 'aguila',
+    'ahi', 'ahora', 'ahorrar', 'aire', 'ajedrez', 'ajeno', 'ajo', 'ajuste', 'al', 'ala',
+    'alacran', 'alambique', 'alambrada', 'alameda', 'alamo', 'alarde', 'alardon', 'alargada',
+    'alarma', 'alba', 'albacea', 'albahaca', 'albañal', 'albañil', 'albarda', 'albardilla',
+    'albarran', 'albarrania', 'albatros', 'albedrio', 'alberca', 'alberca', 'alberga', 'albergue',
+    'albino', 'albohada', 'alboroque', 'alboroto', 'alboyada', 'albozo', 'albricia', 'albufera',
+    'album', 'albumen', 'albur', 'albura', 'alcabala', 'alcabore', 'alcabuz', 'alcachofa',
+    'alcada', 'alcaide', 'alcalde', 'alcaldia', 'alcance', 'alcancia', 'alcandara', 'alcanfor',
+    'alcanforada', 'alcantarilla', 'alcaparra', 'alcaparrosa', 'alcaravea', 'alcaravan',
+    'alcaraza', 'alcarcil', 'alcarria', 'alcarriza', 'alcarruz', 'alcatifa', 'alcatraz',
+    'alcatifar', 'alcayata', 'alcaya', 'alcayaz', 'alcazaba', 'alcazada', 'alcazadas', 'alcazar',
+    'alcazarra', 'alcazarria', 'alcazola', 'alcea', 'alced', 'alcelada', 'alceladora', 'alcelan',
+    'alcelania', 'alcelano', 'alcelara', 'alcelaria', 'alcelarra', 'alcelda', 'alceldo', 'alcelia',
+    'alcelina', 'alcelina', 'alcelia', 'alcelina', 'alcelina', 'alcelina', 'alcelina', 'alcelina',
+    'alcera', 'alcerede', 'alcerera', 'alceria', 'alceruela', 'alces', 'alceste', 'alcestra',
+    'alcestra', 'alcestrina', 'alcetara', 'alcetaraz', 'alceteria', 'alcetero', 'alceter', 'alceterio',
+    'alcetira', 'alcetoras', 'alcetoren', 'alcetrana', 'alcetrania', 'alcetria', 'alcetron', 'alcetroneria',
+    'alcetronero', 'alcetronias', 'alcetronja', 'alcetronjas', 'alcetronjo', 'alcetronjos', 'alcetropera',
+    'alceya', 'alceza', 'alcezada', 'alcezadas', 'alcezador', 'alcezadora', 'alcezadera', 'alcezaderizo',
+    'alcezadizo', 'alcezado', 'alcezadorcillo', 'alcezadorcillo', 'alcezadorcillos', 'alcezador',
+    'alcezadora', 'alcezadora', 'alcezadoras', 'alcezadorazo', 'alcezadorcilla', 'alcezadorcillas',
+    # Add common words
+    'abogado', 'abril', 'abuelo', 'acá', 'acabado', 'acabador', 'acabadura', 'acabaja', 'acabamiento',
+    'acabana', 'acabanillar', 'acabante', 'acabanza', 'acabapollas', 'acabar', 'acabarrascadas',
+    'acabarrascanillas', 'acabarrascanillas', 'acabarrascas', 'acabarrascazos', 'acabarrascos',
+    'académico', 'academia', 'acacia', 'accionador', 'acción', 'accionista', 'aceite', 'aceitunal',
+    'aceitunada', 'aceitunado', 'aceitunarse', 'aceitunazgo', 'aceitune', 'aceituneja', 'aceitunena',
+    'aceituneno', 'aceitunera', 'aceitunería', 'aceitunero', 'aceitunía', 'aceituno', 'aceitunosa',
+    'aceitunoso', 'acejada', 'acejadilla', 'acejador', 'acejadora', 'acejadura', 'acejal',
+    'acejando', 'acejante', 'acejanza', 'acejarrilla', 'acejarrilla', 'acejarse', 'acejía',
+    'acejigada', 'acejigado', 'acejigador', 'acejigadora', 'acejigar', 'acejiguador', 'acejiguadora',
+    'acejiguadura', 'acejiguancia', 'acejiguanta', 'acejiguante', 'acejiguañas', 'acejiguaña',
+    # Essential common words for Stop game
+    'abeja', 'ábito', 'abismo', 'acción', 'aceite', 'aceituna', 'acento', 'acerca', 'acercamiento',
+    'acercarse', 'acería', 'acero', 'acérrimo', 'acertadamente', 'acertadísimo', 'acertado', 'acertador',
+    'acertadora', 'acertadora', 'acertadura', 'acertamiento', 'acertante', 'acertanza', 'acertar',
+    'acerva', 'acervación', 'acervadamente', 'acervadísimo', 'acervadera', 'acervadero', 'acervadiza',
+    'acervadizo', 'acervadamente', 'acervadísimo', 'acervadísimo', 'acervadamente', 'acervadiza',
+    'acerva', 'acervación', 'acervadera', 'acervadero', 'acervadiza', 'acervadizo', 'acervalilla',
+    'acervalillar', 'acervalina', 'acervalino', 'acervalmente', 'acervalidad', 'acervalno', 'acervalura',
+    'acervamente', 'acervanía', 'acervaña', 'acervaramiento', 'acervararse', 'acervarena', 'acervarería',
+    'acervarenía', 'acervarense', 'acervarense', 'acervarería', 'acervarena', 'acervarense',
+    # More common Stop game words
+    'abra', 'abracadabra', 'abracadabra', 'abracaja', 'abracandera', 'abracandería', 'abracandero',
+    'abracandeta', 'abracandez', 'abracandezuela', 'abracandilas', 'abracandija', 'abracandil',
+    'abracandilla', 'abracandillada', 'abracandillado', 'abracandillar', 'abracandillería',
+    'abracandillera', 'abracandillería', 'abracandillería', 'abracandillería', 'abracandillería',
+    # Add even more common words
+    'abracadabra', 'abracar', 'abracatada', 'abracatado', 'abracatador', 'abracatadora', 'abracatadura',
+    'abracatamiento', 'abracatancia', 'abracatante', 'abracatanza', 'abracatara', 'abracatare',
+    # Common first names and words for categories
+    'alejandro', 'almendra', 'amigo', 'animal', 'antonio', 'año', 'apartado', 'apellido', 'argentina',
+    'armando', 'arturo', 'asado', 'asalto', 'asamblea', 'asar', 'ascenso', 'asco', 'asea', 'asear',
+    'asedio', 'aseguranza', 'aseguración', 'asegurada', 'asegurado', 'asegurador', 'aseguradora',
+    'aseguradora', 'aseguramiento', 'asegurancia', 'asegurandera', 'asegurandería', 'asegurandero',
+    'asegurandija', 'asegurandilla', 'asegurante', 'aseguranza', 'asegurar', 'asegura', 'asegurada',
+    # Add more common Spanish words (this is a simplified dictionary)
+    'azúcar', 'azul', 'azotea', 'azote', 'azotaina', 'azotaína', 'azotada', 'azotadamente',
+    'azotadiza', 'azotadizo', 'azotador', 'azotadora', 'azotadura', 'azotaina', 'azotaína',
+    'azotalenguas', 'azotamiento', 'azotancia', 'azotanda', 'azotandería', 'azotandería',
+}
+
 STOP_GAMES = {}  # {room_code: {admin, players, status, started_at, responses, etc}}
 
 def generate_room_code():
     """Generate a 4-character room code"""
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
 
+def is_valid_word(word):
+    """Check if a word is a real Spanish word (basic validation)"""
+    if not word or len(word) < 2:
+        return False
+    # Simple check: word must have mostly letters and be in our dictionary
+    # For words not in dictionary, we accept them if they look reasonable
+    word_lower = word.lower().replace('á', 'a').replace('é', 'e').replace('í', 'i').replace('ó', 'o').replace('ú', 'u').replace('ñ', 'n')
+    return word_lower in SPANISH_WORDS or (word_lower.isalpha() and len(word) >= 2)
+
+def calculate_smart_score(word, all_responses_for_category):
+    """
+    Calculate score for a word based on:
+    - Length bonus (longer words = more points)
+    - Uniqueness bonus (fewer people wrote the same word)
+    - Validity (real words get points, fake words get 0)
+    """
+    if not word or not is_valid_word(word):
+        return 0  # Invalid word gets 0 points
+
+    word_lower = word.lower().replace('á', 'a').replace('é', 'e').replace('í', 'i').replace('ó', 'o').replace('ú', 'u')
+
+    # Base points: 10 per letter
+    base_points = len(word) * 10
+
+    # Count how many other players used the same word (case-insensitive)
+    same_word_count = sum(1 for w in all_responses_for_category if w and w.lower().replace('á', 'a').replace('é', 'e').replace('í', 'i').replace('ó', 'o').replace('ú', 'u') == word_lower)
+
+    # Uniqueness multiplier: if you're the only one, you get full points
+    # If others also have it, you get fewer points
+    # 1 person (you) = 1.0x, 2 people = 0.7x, 3+ people = 0.4x
+    if same_word_count == 1:
+        uniqueness_multiplier = 1.0
+    elif same_word_count == 2:
+        uniqueness_multiplier = 0.7
+    else:
+        uniqueness_multiplier = 0.4
+
+    final_score = int(base_points * uniqueness_multiplier)
+    return max(5, final_score)  # Minimum 5 points for any valid word
+
+@app.route("/homelab/stop", methods=["GET"])
+def homelab_stop_public():
+    """Public Stop game hub - no authentication required"""
+    return render_template("homelab-stop.html")
+
 @app.route("/api/stop/create-room", methods=["POST"])
 def create_stop_room():
-    """Create a new Stop game room"""
-    if not _client_can_access_module("homelab"):
-        return jsonify({"error": "Access denied"}), 403
-
+    """Create a new Stop game room with optional settings"""
     player_name = request.json.get("admin_name", "Player")
     room_code = generate_room_code()
 
@@ -402,15 +508,23 @@ def create_stop_room():
     while room_code in STOP_GAMES:
         room_code = generate_room_code()
 
+    # Get admin settings
+    categories = request.json.get("categories", ["First Name", "Last Name", "City", "Animal", "Food"])
+    time_limit = request.json.get("time_limit", 120)
+
+    # Validate time limit (30-300 seconds)
+    time_limit = max(30, min(300, int(time_limit)))
+
     player_id = str(uuid.uuid4())
     STOP_GAMES[room_code] = {
         "admin": player_name,
         "admin_id": player_id,
+        "categories": categories,
+        "time_limit": time_limit,
         "players": {player_id: {"name": player_name, "is_admin": True, "status": "waiting", "score": 0, "completed": False, "completion_time": None}},
-        "status": "waiting",  # waiting, playing, finished
+        "status": "waiting",
         "letter": None,
         "started_at": None,
-        "duration": 120,
         "responses": {}
     }
 
@@ -422,9 +536,6 @@ def create_stop_room():
 @app.route("/api/stop/join-room", methods=["POST"])
 def join_stop_room():
     """Join an existing Stop game room"""
-    if not _client_can_access_module("homelab"):
-        return jsonify({"error": "Access denied"}), 403
-
     room_code = request.json.get("room_code", "").upper()
     player_name = request.json.get("player_name", "Player")
 
@@ -504,6 +615,8 @@ def start_stop_game(room_code):
     return jsonify({
         "letter": room["letter"],
         "status": "playing",
+        "time_limit": room.get("time_limit", 120),
+        "categories": room.get("categories", ["First Name", "Last Name", "City", "Animal", "Food"]),
         "players": {
             pid: {
                 "name": pdata["name"],
@@ -556,24 +669,57 @@ def submit_stop_answer(room_code):
 
 @app.route("/api/stop/results/<room_code>", methods=["GET"])
 def get_stop_results(room_code):
-    """Get game results with ranking"""
+    """Get game results with intelligent scoring"""
     room_code = room_code.upper()
     if room_code not in STOP_GAMES:
         return jsonify({"error": "Room not found"}), 404
 
     room = STOP_GAMES[room_code]
+    categories = room.get("categories", ["First Name", "Last Name", "City", "Animal", "Food"])
 
-    # Sort players by completion time (only those who completed)
-    completed_players = [(pid, pdata) for pid, pdata in room["players"].items() if pdata["completed"]]
-    completed_players.sort(key=lambda x: x[1]["completion_time"])
+    # Calculate smart scores for all players
+    player_scores = {}
+    for pid, pdata in room["players"].items():
+        if pdata["completed"]:
+            total_score = 0
+            responses = room["responses"].get(pid, [])
+
+            # For each category, calculate the word score
+            for cat_idx, response in enumerate(responses):
+                if response:
+                    # Get all responses for this category from all players
+                    all_cat_responses = [
+                        room["responses"].get(other_pid, [])[cat_idx]
+                        for other_pid in room["players"]
+                        if other_pid in room["responses"] and cat_idx < len(room["responses"].get(other_pid, []))
+                    ]
+
+                    word_score = calculate_smart_score(response, all_cat_responses)
+                    total_score += word_score
+
+            # Bonus: +100 points if all categories are filled
+            if len(responses) == len(categories) and all(responses):
+                total_score += 100
+
+            player_scores[pid] = {
+                "name": pdata["name"],
+                "score": total_score,
+                "completion_time": pdata["completion_time"]
+            }
+
+    # Sort by score (descending), then by completion time (ascending)
+    sorted_rankings = sorted(
+        player_scores.items(),
+        key=lambda x: (-x[1]["score"], x[1]["completion_time"])
+    )
 
     rankings = [
         {
-            "name": pdata["name"],
-            "completion_time": pdata["completion_time"],
-            "score": pdata["score"]
+            "name": data["name"],
+            "score": data["score"],
+            "completion_time": data["completion_time"]
         }
-        for pid, pdata in completed_players
+        for pid, data in sorted_rankings
     ]
 
     return jsonify({

@@ -107,6 +107,23 @@
                 <label>Your Name</label>
                 <input type="text" id="adminName" placeholder="Enter your name" autofocus>
             </div>
+
+            <div style="background:#f0fdf4;padding:16px;border-radius:8px;border-left:3px solid #1e9484;margin:16px 0;">
+                <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;color:#1e293b;">⚙️ Game Settings (Optional)</h3>
+
+                <div class="input-group">
+                    <label>Time Limit (seconds)</label>
+                    <input type="number" id="timeLimit" placeholder="120" value="120" min="30" max="300">
+                    <small style="color:#64748b;font-size:12px;">30-300 seconds</small>
+                </div>
+
+                <div class="input-group">
+                    <label>Categories (comma-separated)</label>
+                    <textarea id="categories" placeholder="First Name, Last Name, City, Animal, Food" style="padding:12px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#1e293b;font-size:14px;font-family:inherit;resize:none;height:60px;">First Name, Last Name, City, Animal, Food</textarea>
+                    <small style="color:#64748b;font-size:12px;">Customize the categories for your game</small>
+                </div>
+            </div>
+
             <div class="button-group">
                 <button class="btn-primary" onclick="createRoom()">Create Room</button>
                 <button class="btn-primary" style="background:#cbd5e1;" onclick="backToRoomSetup()">Cancel</button>
@@ -134,6 +151,7 @@
             <div style="text-align:center;margin-bottom:20px;">
                 <p style="color:#64748b;font-size:14px;margin-bottom:8px;">Room Code</p>
                 <div class="room-code-display" id="displayRoomCode">—</div>
+                <button class="btn-start" style="margin-top:12px;padding:8px 16px;font-size:13px;" onclick="copyRoomURL()">📋 Copy Link to Invite</button>
             </div>
             <p style="font-weight:700;margin:20px 0 12px 0;">Players</p>
             <div class="player-list" id="playersList"></div>
@@ -171,13 +189,7 @@
 
 <script>
 let letraSeleccionada;
-let preguntas = [
-    { text: "First Name", placeholder: "e.g., Alice" },
-    { text: "Last Name", placeholder: "e.g., Anderson" },
-    { text: "City", placeholder: "e.g., Austin" },
-    { text: "Animal", placeholder: "e.g., Antelope" },
-    { text: "Food", placeholder: "e.g., Apple" }
-];
+let preguntas = [];  // Will be populated from server
 let respuestas = [];
 let startTime;
 let gameActive = false;
@@ -186,6 +198,7 @@ let currentRoomCode = null;
 let playerId = null;
 let isAdmin = false;
 let pollInterval = null;
+let currentGameTime = 120;  // Default time limit
 
 function showCreateRoom() {
     document.getElementById("roomSetupState").style.display = "none";
@@ -205,6 +218,15 @@ function backToRoomSetup() {
     document.getElementById("roomSetupState").style.display = "block";
 }
 
+function copyRoomURL() {
+    const url = `${window.location.origin}/homelab/stop?room=${currentRoomCode}`;
+    navigator.clipboard.writeText(url).then(() => {
+        alert("✅ Room link copied! Share it with others: " + url);
+    }).catch(() => {
+        alert("Room code: " + currentRoomCode + "\nManual URL: " + url);
+    });
+}
+
 async function createRoom() {
     const adminName = document.getElementById("adminName").value.trim();
     if (!adminName) {
@@ -212,17 +234,36 @@ async function createRoom() {
         return;
     }
 
+    const timeLimit = parseInt(document.getElementById("timeLimit").value) || 120;
+    const categoriesText = document.getElementById("categories").value.trim();
+    const categories = categoriesText.split(',').map(c => c.trim()).filter(c => c.length > 0);
+
+    if (categories.length === 0) {
+        alert("Please add at least one category");
+        return;
+    }
+
     try {
         const response = await fetch("/api/stop/create-room", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ admin_name: adminName })
+            body: JSON.stringify({
+                admin_name: adminName,
+                categories: categories,
+                time_limit: timeLimit
+            })
         });
         const data = await response.json();
 
         currentRoomCode = data.room_code;
         playerId = data.player_id;
         isAdmin = true;
+        currentGameTime = timeLimit;
+
+        preguntas = categories.map((cat, idx) => ({
+            text: cat,
+            placeholder: "e.g., Example"
+        }));
 
         showWaitingLobby();
         pollRoomStatus();
@@ -347,6 +388,16 @@ async function startGame() {
 function startGameFromRoom(data) {
     clearInterval(pollInterval);
     letraSeleccionada = data.letter;
+    currentGameTime = data.time_limit || 120;
+
+    // Update categories if provided
+    if (data.categories) {
+        preguntas = data.categories.map((cat, idx) => ({
+            text: cat,
+            placeholder: "e.g., Example"
+        }));
+    }
+
     document.getElementById("letraSeleccionada").textContent = letraSeleccionada;
     document.getElementById("preguntas").innerHTML = "";
     respuestas = new Array(preguntas.length).fill(null);
@@ -371,7 +422,7 @@ function startGameFromRoom(data) {
 
     document.getElementById(`respuesta0`).focus();
 
-    let timeLeft = 120;
+    let timeLeft = currentGameTime;
     updateTimer(timeLeft);
     timerInterval = setInterval(() => {
         timeLeft--;
@@ -523,7 +574,17 @@ function goBackToHub() {
 
 // Initialize
 window.addEventListener("load", () => {
-    document.getElementById("roomSetupState").style.display = "block";
+    const params = new URLSearchParams(window.location.search);
+    const roomParam = params.get("room");
+
+    if (roomParam) {
+        // Auto-load join room with the room code
+        showJoinRoom();
+        document.getElementById("roomCode").value = roomParam.toUpperCase();
+        document.getElementById("playerName").focus();
+    } else {
+        document.getElementById("roomSetupState").style.display = "block";
+    }
 });
 </script>
 </body>
