@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hermaniland - Football Draft Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .section {
+            display: none;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 1em;
+            font-family: inherit;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 6px;
+            font-size: 1em;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .two-column {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .room-code-display {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .room-code-display h3 {
+            color: #999;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+
+        .room-code-display .code {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 3px;
+        }
+
+        .player-list {
+            background: #f9f9f9;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+
+        .player-item {
+            padding: 10px;
+            margin: 8px 0;
+            background: white;
+            border-left: 4px solid #667eea;
+            border-radius: 4px;
+        }
+
+        .player-item strong {
+            color: #667eea;
+        }
+
+        .timer {
+            font-size: 3em;
+            font-weight: bold;
+            text-align: center;
+            color: #667eea;
+            margin: 20px 0;
+        }
+
+        .timer.warning {
+            color: #ff9800;
+        }
+
+        .timer.danger {
+            color: #f44336;
+        }
+
+        .player-card {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border: 2px solid #e0e0e0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .player-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+
+        .player-card.selected {
+            border-color: #667eea;
+            background: #e8eaf6;
+            font-weight: 600;
+        }
+
+        .player-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            font-size: 0.85em;
+            margin-top: 8px;
+        }
+
+        .stat {
+            background: white;
+            padding: 5px;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-weight: 600;
+            color: #666;
+            font-size: 0.8em;
+        }
+
+        .stat-value {
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .leaderboard {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .leaderboard th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+        }
+
+        .leaderboard td {
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .leaderboard tr:hover {
+            background: #f5f5f5;
+        }
+
+        .medal {
+            font-size: 1.5em;
+            margin-right: 5px;
+        }
+
+        .result-winner {
+            background: #fff3e0;
+            border: 2px solid #ff9800;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .result-winner h2 {
+            color: #ff9800;
+            margin: 10px 0;
+        }
+
+        .copy-btn {
+            background: #4CAF50;
+            margin-left: 10px;
+            padding: 8px 16px;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⚽ HERMANILAND</h1>
+            <p>Football Draft Game</p>
+        </header>
+
+        <!-- CREATE ROOM SECTION -->
+        <div id="createSection" class="section active">
+            <h2>Create a New Game</h2>
+            <div class="two-column">
+                <div>
+                    <div class="form-group">
+                        <label>Your Name (Admin)</label>
+                        <input type="text" id="adminName" placeholder="Enter your name">
+                    </div>
+                    <div class="form-group">
+                        <label>Your Team Name</label>
+                        <input type="text" id="teamName1" placeholder="Enter team name">
+                    </div>
+                </div>
+                <div>
+                    <div class="form-group">
+                        <label>Number of Players</label>
+                        <select id="numPlayers">
+                            <option value="2">2 Players</option>
+                            <option value="3">3 Players</option>
+                            <option value="4" selected>4 Players</option>
+                            <option value="6">6 Players</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>AI Difficulty (if odd players)</label>
+                        <select id="aiDifficulty">
+                            <option value="easy">Easy</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="hard">Hard</option>
+                            <option value="legend">Legend</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="two-column">
+                <div>
+                    <div class="form-group">
+                        <label>Tournament Mode</label>
+                        <select id="tournamentMode">
+                            <option value="round_robin">Round Robin (All vs All)</option>
+                            <option value="knockout">Knockout (Brackets)</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <div class="form-group">
+                        <label>Time per Pick (seconds)</label>
+                        <select id="timePerPick">
+                            <option value="5">5 seconds</option>
+                            <option value="8" selected>8 seconds</option>
+                            <option value="10">10 seconds</option>
+                            <option value="15">15 seconds</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="createRoom()" style="width: 100%; margin-top: 20px;">Create Room</button>
+        </div>
+
+        <!-- JOIN ROOM SECTION -->
+        <div id="joinSection" class="section">
+            <h2>Join a Game</h2>
+            <div class="two-column">
+                <div>
+                    <div class="form-group">
+                        <label>Your Name</label>
+                        <input type="text" id="playerName" placeholder="Enter your name">
+                    </div>
+                </div>
+                <div>
+                    <div class="form-group">
+                        <label>Room Code</label>
+                        <input type="text" id="roomCodeInput" placeholder="e.g., ABC1" maxlength="4">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Your Team Name</label>
+                <input type="text" id="teamNameJoin" placeholder="Enter your team name">
+            </div>
+
+            <button onclick="joinRoom()" style="width: 100%;">Join Room</button>
+        </div>
+
+        <!-- LOBBY SECTION -->
+        <div id="lobbySection" class="section">
+            <h2>Game Lobby</h2>
+
+            <div class="room-code-display">
+                <h3>ROOM CODE</h3>
+                <div class="code" id="displayCode">----</div>
+                <button class="copy-btn" onclick="copyRoomURL()">📋 Copy URL</button>
+            </div>
+
+            <h3 style="margin-top: 30px;">Participants</h3>
+            <div class="player-list" id="participantsList"></div>
+
+            <button id="startDraftBtn" onclick="startDraft()" style="width: 100%; margin-top: 20px; display: none;">Start Draft</button>
+        </div>
+
+        <!-- DRAFT SECTION -->
+        <div id="draftSection" class="section">
+            <h2>Player Draft</h2>
+
+            <div class="timer" id="timer">8</div>
+
+            <div style="margin-bottom: 20px;">
+                <strong id="currentPicker">Current: Player 1</strong>
+                <p id="roundInfo" style="color: #999; font-size: 0.9em;">Round 1</p>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <input type="text" id="playerSearch" placeholder="Search player..." onkeyup="searchPlayers()">
+            </div>
+
+            <div id="playersList" style="max-height: 400px; overflow-y: auto; margin-bottom: 20px;"></div>
+
+            <h3>Your Selected Players</h3>
+            <div id="selectedPlayersList" class="player-list"></div>
+        </div>
+
+        <!-- FORMATION SECTION -->
+        <div id="formationSection" class="section">
+            <h2>Select Formation & Coach</h2>
+
+            <div class="form-group">
+                <label>Formation</label>
+                <select id="formationSelect">
+                    <option value="4-3-3">4-3-3 (Classic Balanced)</option>
+                    <option value="4-2-4">4-2-4 (Defensive Midfield)</option>
+                    <option value="3-5-2">3-5-2 (Wing-Heavy)</option>
+                    <option value="5-3-2">5-3-2 (Defensive)</option>
+                    <option value="4-4-2">4-4-2 (Classic)</option>
+                    <option value="3-4-3">3-4-3 (Attacking)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Coach / Manager</label>
+                <select id="coachSelect"></select>
+            </div>
+
+            <button onclick="confirmFormation()" style="width: 100%;">Confirm Formation</button>
+        </div>
+
+        <!-- RESULTS SECTION -->
+        <div id="resultsSection" class="section">
+            <h2>Final Results</h2>
+
+            <div class="result-winner" id="winnerDisplay"></div>
+
+            <h3>Leaderboard</h3>
+            <table class="leaderboard" id="leaderboard"></table>
+        </div>
+    </div>
+
+    <script>
+        let gameState = {
+            roomCode: null,
+            playerId: null,
+            players: [],
+            coaches: [],
+            formations: [],
+            selectedPlayers: [],
+            timerInterval: null
+        };
+
+        // Check if joining from URL parameter
+        window.addEventListener('load', function() {
+            const params = new URLSearchParams(window.location.search);
+            const room = params.get('room');
+            if (room) {
+                document.getElementById('roomCodeInput').value = room;
+                showSection('joinSection');
+            }
+
+            // Load players and coaches
+            loadGameData();
+        });
+
+        function loadGameData() {
+            fetch('/api/hermaniland/players')
+                .then(r => r.json())
+                .then(data => gameState.players = data.players);
+
+            fetch('/api/hermaniland/coaches')
+                .then(r => r.json())
+                .then(data => {
+                    gameState.coaches = data.coaches;
+                    populateCoaches();
+                });
+
+            fetch('/api/hermaniland/formations')
+                .then(r => r.json())
+                .then(data => gameState.formations = data.formations);
+        }
+
+        function populateCoaches() {
+            const select = document.getElementById('coachSelect');
+            gameState.coaches.forEach(coach => {
+                const option = document.createElement('option');
+                option.value = coach.name;
+                option.textContent = `${coach.name} (Atk: ${coach.attack}, Def: ${coach.defense})`;
+                select.appendChild(option);
+            });
+        }
+
+        function showSection(sectionId) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.getElementById(sectionId).classList.add('active');
+        }
+
+        function createRoom() {
+            const data = {
+                admin_name: document.getElementById('adminName').value,
+                team_name: document.getElementById('teamName1').value,
+                num_players: document.getElementById('numPlayers').value,
+                ai_difficulty: document.getElementById('aiDifficulty').value,
+                tournament_mode: document.getElementById('tournamentMode').value,
+                time_per_pick: document.getElementById('timePerPick').value
+            };
+
+            fetch('/api/hermaniland/create-room', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+            .then(r => r.json())
+            .then(data => {
+                gameState.roomCode = data.room_code;
+                gameState.playerId = data.admin_id;
+                document.getElementById('displayCode').textContent = gameState.roomCode;
+                updateLobby();
+                showSection('lobbySection');
+            });
+        }
+
+        function joinRoom() {
+            const data = {
+                room_code: document.getElementById('roomCodeInput').value,
+                player_name: document.getElementById('playerName').value,
+                team_name: document.getElementById('teamNameJoin').value
+            };
+
+            fetch('/api/hermaniland/join-room', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+            .then(r => {
+                if (!r.ok) throw new Error('Failed to join');
+                return r.json();
+            })
+            .then(data => {
+                gameState.roomCode = document.getElementById('roomCodeInput').value.toUpperCase();
+                gameState.playerId = data.player_id;
+                document.getElementById('displayCode').textContent = gameState.roomCode;
+                updateLobby();
+                showSection('lobbySection');
+            })
+            .catch(e => alert('Could not join room: ' + e.message));
+        }
+
+        function updateLobby() {
+            fetch(`/api/hermaniland/room/${gameState.roomCode}`)
+                .then(r => r.json())
+                .then(room => {
+                    const list = document.getElementById('participantsList');
+                    list.innerHTML = '';
+
+                    Object.entries(room.participants).forEach(([id, p]) => {
+                        const div = document.createElement('div');
+                        div.className = 'player-item';
+                        div.innerHTML = `<strong>${p.name}</strong> - ${p.team_name}${p.is_admin ? ' (Admin)' : ''}`;
+                        list.appendChild(div);
+                    });
+
+                    const startBtn = document.getElementById('startDraftBtn');
+                    if (Object.values(room.participants).some(p => p.is_admin) && gameState.playerId === Object.keys(room.participants)[0]) {
+                        startBtn.style.display = 'block';
+                    }
+
+                    // Auto-refresh
+                    if (room.status === 'waiting') {
+                        setTimeout(updateLobby, 2000);
+                    }
+                });
+        }
+
+        function copyRoomURL() {
+            const url = `${window.location.origin}/hermaniland?room=${gameState.roomCode}`;
+            navigator.clipboard.writeText(url);
+            alert('Room URL copied!');
+        }
+
+        function startDraft() {
+            fetch(`/api/hermaniland/start-draft/${gameState.roomCode}`, {method: 'POST'})
+                .then(r => r.json())
+                .then(data => {
+                    showSection('draftSection');
+                    displayPlayers();
+                    startTimer();
+                });
+        }
+
+        function displayPlayers() {
+            const list = document.getElementById('playersList');
+            list.innerHTML = '';
+            gameState.players.slice(0, 100).forEach(player => {
+                const div = document.createElement('div');
+                div.className = 'player-card';
+                div.innerHTML = `
+                    <strong>${player.name}</strong> - ${player.position}
+                    <div class="player-stats">
+                        <div class="stat"><span class="stat-label">Spd</span><span class="stat-value">${player.speed}</span></div>
+                        <div class="stat"><span class="stat-label">Drb</span><span class="stat-value">${player.dribbling}</span></div>
+                        <div class="stat"><span class="stat-label">Sht</span><span class="stat-value">${player.shooting}</span></div>
+                        <div class="stat"><span class="stat-label">Def</span><span class="stat-value">${player.defense}</span></div>
+                    </div>
+                `;
+                div.onclick = () => selectPlayer(player);
+                list.appendChild(div);
+            });
+        }
+
+        function selectPlayer(player) {
+            gameState.selectedPlayers.push(player);
+
+            const selected = document.getElementById('selectedPlayersList');
+            const div = document.createElement('div');
+            div.className = 'player-item';
+            div.textContent = `${gameState.selectedPlayers.length}. ${player.name} (${player.position})`;
+            selected.appendChild(div);
+
+            // Send to server
+            fetch(`/api/hermaniland/draft-player/${gameState.roomCode}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({player_name: player.name, player_id: player.name})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.draft_complete) {
+                    clearInterval(gameState.timerInterval);
+                    showSection('formationSection');
+                }
+            });
+        }
+
+        function searchPlayers() {
+            const query = document.getElementById('playerSearch').value.toLowerCase();
+            const cards = document.querySelectorAll('.player-card');
+            cards.forEach(card => {
+                const name = card.textContent.toLowerCase();
+                card.style.display = name.includes(query) ? 'block' : 'none';
+            });
+        }
+
+        function startTimer() {
+            let seconds = 8;
+            gameState.timerInterval = setInterval(() => {
+                seconds--;
+                const timer = document.getElementById('timer');
+                timer.textContent = seconds;
+
+                if (seconds <= 3) timer.classList.add('danger');
+                else if (seconds <= 5) timer.classList.add('warning');
+
+                if (seconds <= 0) {
+                    clearInterval(gameState.timerInterval);
+                    seconds = 8;
+                }
+            }, 1000);
+        }
+
+        function confirmFormation() {
+            const formation = document.getElementById('formationSelect').value;
+            const coach = document.getElementById('coachSelect').value;
+
+            fetch(`/api/hermaniland/select-formation/${gameState.roomCode}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({player_id: gameState.playerId, formation, coach_name: coach})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.all_ready) {
+                    setTimeout(() => {
+                        fetch(`/api/hermaniland/results/${gameState.roomCode}`)
+                            .then(r => r.json())
+                            .then(data => displayResults(data));
+                    }, 2000);
+                }
+            });
+        }
+
+        function displayResults(data) {
+            const winner = data.results[0];
+            const winnerDiv = document.getElementById('winnerDisplay');
+            winnerDiv.innerHTML = `
+                <h2>🎉 WINNER: ${winner.name}</h2>
+                <p><strong>${winner.team_name}</strong></p>
+                <p>Formation: ${winner.formation}</p>
+                <p>Goals: ${winner.goals}</p>
+            `;
+
+            const table = document.getElementById('leaderboard');
+            table.innerHTML = '<tr><th>Pos</th><th>Team</th><th>Goals</th><th>Formation</th></tr>';
+
+            data.results.forEach((r, i) => {
+                const medals = ['🥇', '🥈', '🥉'];
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${medals[i] || (i+1)}</td>
+                    <td><strong>${r.name}</strong><br><small>${r.team_name}</small></td>
+                    <td><strong>${r.goals}</strong></td>
+                    <td>${r.formation}</td>
+                `;
+                table.appendChild(row);
+            });
+
+            showSection('resultsSection');
+        }
+    </script>
+</body>
+</html>

@@ -6647,3 +6647,284 @@ def delete_all_job_steps(job_id):
     )
     return jsonify({"ok": r.ok})
 
+# ── Hermaniland: Football Draft Game ──────────────────────────────────────────
+from hermaniland_data import generate_players, COACHES, FORMATIONS
+
+HERMANILAND_GAMES = {}
+
+def generate_hermaniland_room_code():
+    """Generate unique 4-char room code for Hermaniland"""
+    import random, string
+    while True:
+        code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+        if code not in HERMANILAND_GAMES:
+            return code
+
+@app.route("/hermaniland")
+def hermaniland_hub():
+    """Public Hermaniland hub - football draft game"""
+    return render_template("hermaniland.html")
+
+@app.route("/api/hermaniland/players")
+def get_hermaniland_players():
+    """Get all available players for draft"""
+    players = generate_players(3000)
+    return jsonify({"players": players})
+
+@app.route("/api/hermaniland/coaches")
+def get_hermaniland_coaches():
+    """Get all available coaches"""
+    return jsonify({"coaches": COACHES})
+
+@app.route("/api/hermaniland/formations")
+def get_hermaniland_formations():
+    """Get available formations"""
+    return jsonify({"formations": FORMATIONS})
+
+@app.route("/api/hermaniland/create-room", methods=["POST"])
+def create_hermaniland_room():
+    """Create a new Hermaniland game room"""
+    data = request.json
+    admin_name = data.get("admin_name", "Admin")
+    team_name = data.get("team_name", "Equipo 1")
+    num_players = int(data.get("num_players", 2))
+    ai_difficulty = data.get("ai_difficulty", "medium")
+    tournament_mode = data.get("tournament_mode", "round_robin")  # round_robin or knockout
+    time_per_pick = int(data.get("time_per_pick", 8))
+
+    room_code = generate_hermaniland_room_code()
+
+    HERMANILAND_GAMES[room_code] = {
+        "code": room_code,
+        "admin_id": str(uuid.uuid4()),
+        "admin_name": admin_name,
+        "status": "waiting",
+        "num_players": num_players,
+        "ai_difficulty": ai_difficulty,
+        "tournament_mode": tournament_mode,
+        "time_per_pick": time_per_pick,
+        "created_at": datetime.utcnow().isoformat(),
+        "participants": {
+            str(uuid.uuid4()): {
+                "name": admin_name,
+                "team_name": team_name,
+                "is_admin": True,
+                "is_ai": False,
+                "players": [],
+                "coach": None,
+                "formation": None,
+                "joined_at": datetime.utcnow().isoformat()
+            }
+        }
+    }
+
+    return jsonify({
+        "room_code": room_code,
+        "admin_id": list(HERMANILAND_GAMES[room_code]["participants"].keys())[0]
+    }), 201
+
+@app.route("/api/hermaniland/join-room", methods=["POST"])
+def join_hermaniland_room():
+    """Join an existing Hermaniland room"""
+    data = request.json
+    room_code = data.get("room_code", "").upper()
+    player_name = data.get("player_name", "Player")
+    team_name = data.get("team_name", "Equipo")
+
+    if room_code not in HERMANILAND_GAMES:
+        return jsonify({"error": "Invalid room code"}), 404
+
+    room = HERMANILAND_GAMES[room_code]
+
+    if room["status"] != "waiting":
+        return jsonify({"error": "Room already started"}), 400
+
+    if len(room["participants"]) >= room["num_players"]:
+        return jsonify({"error": "Room is full"}), 400
+
+    player_id = str(uuid.uuid4())
+    room["participants"][player_id] = {
+        "name": player_name,
+        "team_name": team_name,
+        "is_admin": False,
+        "is_ai": False,
+        "players": [],
+        "coach": None,
+        "formation": None,
+        "joined_at": datetime.utcnow().isoformat()
+    }
+
+    # Add AI if needed
+    if len(room["participants"]) == room["num_players"] and room["num_players"] % 2 == 1:
+        ai_id = str(uuid.uuid4())
+        room["participants"][ai_id] = {
+            "name": "AI " + room["ai_difficulty"].capitalize(),
+            "team_name": "IA Equipo",
+            "is_admin": False,
+            "is_ai": True,
+            "ai_level": room["ai_difficulty"],
+            "players": [],
+            "coach": None,
+            "formation": None
+        }
+
+    return jsonify({"player_id": player_id}), 201
+
+@app.route("/api/hermaniland/room/<code>", methods=["GET"])
+def get_hermaniland_room(code):
+    """Get room status and participants"""
+    code = code.upper()
+    if code not in HERMANILAND_GAMES:
+        return jsonify({"error": "Room not found"}), 404
+
+    room = HERMANILAND_GAMES[code]
+    return jsonify({
+        "code": room["code"],
+        "status": room["status"],
+        "num_players": room["num_players"],
+        "tournament_mode": room["tournament_mode"],
+        "time_per_pick": room["time_per_pick"],
+        "participants": room["participants"]
+    })
+
+@app.route("/api/hermaniland/start-draft/<code>", methods=["POST"])
+def start_hermaniland_draft(code):
+    """Start the draft phase"""
+    code = code.upper()
+    if code not in HERMANILAND_GAMES:
+        return jsonify({"error": "Room not found"}), 404
+
+    room = HERMANILAND_GAMES[code]
+    room["status"] = "drafting"
+    room["draft_started_at"] = datetime.utcnow().isoformat()
+
+    # Randomize pick order for first round
+    participants = list(room["participants"].keys())
+    random.shuffle(participants)
+    room["pick_order"] = participants
+    room["current_round"] = 1
+    room["current_pick_index"] = 0
+    room["available_players"] = generate_players(3000)
+
+    return jsonify({"status": "Drafting started", "pick_order": room["pick_order"]})
+
+@app.route("/api/hermaniland/draft-player/<code>", methods=["POST"])
+def draft_hermaniland_player(code):
+    """Record a player pick during draft"""
+    code = code.upper()
+    if code not in HERMANILAND_GAMES:
+        return jsonify({"error": "Room not found"}), 404
+
+    data = request.json
+    player_name = data.get("player_name")
+    player_id_draft = data.get("player_id")
+
+    room = HERMANILAND_GAMES[code]
+    current_player_id = room["pick_order"][room["current_pick_index"]]
+
+    # Remove player from available
+    room["available_players"] = [p for p in room["available_players"] if p["name"] != player_name]
+
+    # Add to team
+    player = next((p for p in generate_players(3000) if p["name"] == player_name), None)
+    if player:
+        room["participants"][current_player_id]["players"].append(player)
+
+    # Move to next pick
+    room["current_pick_index"] += 1
+
+    # Check if round is complete
+    if room["current_pick_index"] >= len(room["pick_order"]):
+        room["current_pick_index"] = 0
+        room["current_round"] += 1
+        random.shuffle(room["pick_order"])  # Randomize for next round
+
+    # Check if draft is complete (11 players per team)
+    draft_complete = all(len(p["players"]) >= 11 for p in room["participants"].values())
+
+    if draft_complete:
+        room["status"] = "formation_selection"
+
+    next_player_id = room["pick_order"][room["current_pick_index"]]
+    return jsonify({
+        "success": True,
+        "round": room["current_round"],
+        "next_player_id": next_player_id,
+        "draft_complete": draft_complete
+    })
+
+@app.route("/api/hermaniland/select-formation/<code>", methods=["POST"])
+def select_hermaniland_formation(code):
+    """Select formation and coach for team"""
+    code = code.upper()
+    if code not in HERMANILAND_GAMES:
+        return jsonify({"error": "Room not found"}), 404
+
+    data = request.json
+    player_id = data.get("player_id")
+    formation = data.get("formation")  # e.g., "4-3-3"
+    coach_name = data.get("coach_name")
+
+    room = HERMANILAND_GAMES[code]
+    room["participants"][player_id]["formation"] = formation
+    room["participants"][player_id]["coach"] = coach_name
+
+    # Check if all selected formations
+    all_ready = all(p["formation"] and p["coach"] for p in room["participants"].values())
+
+    if all_ready:
+        room["status"] = "playing"
+        room["match_started_at"] = datetime.utcnow().isoformat()
+
+    return jsonify({"success": True, "all_ready": all_ready})
+
+@app.route("/api/hermaniland/results/<code>", methods=["GET"])
+def get_hermaniland_results(code):
+    """Get game results and leaderboard"""
+    code = code.upper()
+    if code not in HERMANILAND_GAMES:
+        return jsonify({"error": "Room not found"}), 404
+
+    room = HERMANILAND_GAMES[code]
+
+    if room["status"] != "playing":
+        return jsonify({"error": "Game not finished yet"}), 400
+
+    # Calculate match results
+    results = []
+    for player_id, participant in room["participants"].items():
+        # Simulate match based on players' attributes and formation
+        avg_shooting = sum(p.get("shooting", 70) for p in participant["players"]) / len(participant["players"]) if participant["players"] else 50
+        avg_defense = sum(p.get("defense", 70) for p in participant["players"]) / len(participant["players"]) if participant["players"] else 50
+
+        # Formation impact
+        formation_str = participant.get("formation", "4-3-3")
+        fwd_count = int(formation_str.split("-")[-1])
+        defense_count = int(formation_str.split("-")[0])
+
+        # Score calculation
+        base_score = avg_shooting * (fwd_count / 3) + avg_defense * (defense_count / 4)
+        goals = max(0, int(base_score / 20 + random.randint(0, 3)))
+
+        results.append({
+            "player_id": player_id,
+            "name": participant["name"],
+            "team_name": participant["team_name"],
+            "formation": participant.get("formation"),
+            "coach": participant.get("coach"),
+            "goals": goals,
+            "is_ai": participant.get("is_ai", False)
+        })
+
+    # Sort by goals
+    results.sort(key=lambda x: x["goals"], reverse=True)
+
+    # Determine winner
+    winner = results[0] if results else None
+
+    return jsonify({
+        "results": results,
+        "winner": winner,
+        "tournament_mode": room["tournament_mode"]
+    })
+
