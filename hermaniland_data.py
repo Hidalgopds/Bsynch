@@ -107,6 +107,14 @@ OTHER_LEGENDS = [
     {"name": "Erik ten Hag", "era": "2020s Ajax/Man United"},
     {"name": "Roberto Mancini", "era": "2010s-20s Man City/Italy"},
     {"name": "Valeriy Lobanovskyi", "era": "1970s-90s Dynamo Kyiv"},
+    # Legendary additions
+    {"name": "Oliver Kahn", "era": "2000s Goalkeeper"},
+    {"name": "Torsten Fings", "era": "1950s Tactical Genius"},
+    {"name": "Salihamiachick", "era": "1980s Midfield Master"},
+    {"name": "Efember", "era": "1990s Attack Coordinator"},
+    {"name": "Hansi Flick", "era": "2019-2024 Bayern/Germany"},
+    {"name": "Simone Inzaghi", "era": "2021-present Lazio/Inter"},
+    {"name": "Luis Enrique", "era": "2008-present Barcelona/PSG/Roma"},
 ]
 
 _ALL_NAMED = WORLD_CUP_COACHES + CHAMPIONS_LEAGUE_COACHES + LIBERTADORES_COACHES + OTHER_LEGENDS

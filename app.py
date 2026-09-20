@@ -6711,6 +6711,10 @@ def create_hermaniland_room():
     room_code = generate_hermaniland_room_code()
     admin_id = str(uuid.uuid4())
 
+    # Get selection mode and narration options from request
+    selection_mode = data.get("selection_mode", "timed")  # timed or free_for_all
+    narration_duration = int(data.get("narration_duration", 0))  # 0-60 seconds
+
     HERMANILAND_GAMES[room_code] = {
         "code": room_code,
         "admin_id": admin_id,
@@ -6721,6 +6725,8 @@ def create_hermaniland_room():
         "ai_difficulty": ai_difficulty,
         "tournament_mode": tournament_mode,
         "time_per_pick": time_per_pick,
+        "selection_mode": selection_mode,
+        "narration_duration": min(60, max(0, narration_duration)),
         "created_at": datetime.utcnow().isoformat(),
         "participants": {
             admin_id: {
@@ -6848,6 +6854,36 @@ def toggle_pause_hermaniland(code):
 
     room["paused"] = not room.get("paused", False)
     return jsonify({"paused": room["paused"]})
+
+@app.route("/api/hermaniland/team-setup-status/<code>", methods=["GET"])
+def get_hermaniland_team_setup_status(code):
+    """Get the status of all participants in team_setup phase.
+    Returns which participants are ready and overall readiness."""
+    code = code.upper()
+    if code not in HERMANILAND_GAMES:
+        return jsonify({"error": "Room not found"}), 404
+
+    room = HERMANILAND_GAMES[code]
+    participants_status = []
+
+    for pid, p in room["participants"].items():
+        participants_status.append({
+            "id": pid,
+            "name": p["name"],
+            "is_ready": bool(p.get("formation") and p.get("coach")),
+            "formation": p.get("formation"),
+            "coach": p.get("coach"),
+            "is_ai": p.get("is_ai", False)
+        })
+
+    all_ready = all(p["is_ready"] for p in participants_status)
+
+    return jsonify({
+        "participants": participants_status,
+        "all_ready": all_ready,
+        "selection_mode": room.get("selection_mode", "timed"),
+        "narration_duration": room.get("narration_duration", 0)
+    })
 
 @app.route("/api/hermaniland/begin-team-setup/<code>", methods=["POST"])
 def begin_hermaniland_team_setup(code):
