@@ -7055,3 +7055,6 @@ def get_hermaniland_results(code):
     winner = results[0] if results else None
 
     return jsonify({"results": results, "winner": winner, "tournament_mode": room["tournament_mode"]})
+
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0", port=5000)
