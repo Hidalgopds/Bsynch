@@ -6829,7 +6829,7 @@ def start_hermaniland_draft(code):
     room["pick_order"] = participants
     room["current_round"] = 1
     room["current_pick_index"] = 0
-    room["available_players"] = generate_players(3000)
+    room["available_players"] = get_hermaniland_players_cached()
     room["drafted_players"] = set()
 
     # Handle AI picks at start if needed
