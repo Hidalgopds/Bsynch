@@ -539,6 +539,7 @@
             fetch(`/api/hermaniland/room/${gameState.roomCode}`)
                 .then(r => r.json())
                 .then(room => {
+                    gameState.timePerPick = room.time_per_pick;
                     gameState.currentPickerId = room.pick_order[room.current_pick_index];
                     const tbody = document.getElementById('teamsTableBody');
                     tbody.innerHTML = '';
