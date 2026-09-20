@@ -534,8 +534,8 @@
                     alert('Draft complete! Proceeding to formation selection...');
                     showSection('formationSection');
                 } else {
-                    // Auto-advance to next player after 500ms
-                    setTimeout(() => skipPick(), 500);
+                    // Auto-advance to next player after 1.5 seconds
+                    setTimeout(() => skipPick(), 1500);
                 }
             });
         }
@@ -657,7 +657,7 @@
 
                     card.style.display = matchScore > 0 ? 'block' : 'none';
                 });
-            }, 300);
+            }, 50);
         }
 
         function confirmFormation() {
