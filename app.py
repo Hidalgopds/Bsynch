@@ -6644,16 +6644,17 @@ def delete_all_job_steps(job_id):
     return jsonify({"ok": r.ok})
 
 # ── Hermaniland: Football Draft Game ──────────────────────────────────────────
-from hermaniland_data import generate_players, COACHES, FORMATIONS
+from hermaniland_data_new import generate_players_new as generate_players
+from hermaniland_data import COACHES, FORMATIONS
 
 HERMANILAND_GAMES = {}
 _HERMANILAND_PLAYERS_CACHE = None
 
 def get_hermaniland_players_cached():
-    """Get cached players or generate them once"""
+    """Get cached players or generate them once - 366 verified real players"""
     global _HERMANILAND_PLAYERS_CACHE
     if _HERMANILAND_PLAYERS_CACHE is None:
-        _HERMANILAND_PLAYERS_CACHE = generate_players(7500)
+        _HERMANILAND_PLAYERS_CACHE = generate_players(366)
     return _HERMANILAND_PLAYERS_CACHE
 
 def generate_hermaniland_room_code():

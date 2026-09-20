@@ -1,0 +1,366 @@
+name,position,era,speed,dribbling,shooting,defense,physical,iq,team
+Cristian Benavente,ST,2006,87,94,82,58,89,80,Inter Milan
+Gabriel Magalhães,CB,2022,77,68,57,94,98,95,Barcelona
+Aaron Wan-Bissaka,LW,2010,86,84,90,34,82,92,Liverpool
+Jorginho,ST,2006,85,80,95,46,76,95,Arsenal
+Fabinho,RB,2018,80,79,47,85,98,88,Arsenal
+Sergio Busquets,LB,2010,75,72,64,88,78,98,Paris SG
+Andy Cole,CAM,2004,90,72,71,66,88,82,Bayern Munich
+Teófilo Cubillas,ST,2006,94,86,86,32,94,83,Barcelona
+Ruben Dias,CB,2018,79,65,68,92,80,92,Bayern Munich
+Maicon,CDM,2022,89,91,76,74,84,83,Chelsea
+Hidetoshi Nakata,CB,2010,84,72,67,93,90,91,Juventus
+Andrey Arshavin,GK,2018,80,55,40,99,81,83,Liverpool
+Benjamin Pavard,RB,2014,80,76,60,90,94,93,AC Milan
+Fernandinho,CAM,2006,86,91,82,77,80,96,Napoli
+Kazuyoshi Miura,LB,2018,80,68,47,91,89,96,Paris SG
+Eric Cantona,CM,2022,81,90,74,61,92,94,Bayern Munich
+Gonzalo Montiel,CM,2010,78,86,72,72,78,87,Chelsea
+Giorgian Meladze,CAM,2022,85,85,74,65,90,78,Paris SG
+Alexis Mac Allister,RB,2004,90,69,48,93,95,83,Juventus
+Frank Leboeuf,CM,2006,83,89,74,78,86,80,Napoli
+Nicolás Otamendi,CAM,2014,89,90,87,74,93,79,Chelsea
+Claudio Marchisio,CDM,2014,91,70,83,65,98,88,Arsenal
+Steve Mandanda,CAM,2018,91,75,80,85,92,91,Real Madrid
+Ángel Di María,ST,2010,93,90,96,47,86,98,Napoli
+Pedro,CM,2014,87,82,69,82,86,96,Juventus
+Sepp Maier,GK,2010,82,44,35,95,96,84,Liverpool
+Sergei Ignashevich,LB,2022,76,71,65,93,93,90,Napoli
+Francesco Totti,LB,2022,84,80,65,96,95,81,Real Madrid
+David Luiz,CM,2014,82,79,73,77,96,95,Napoli
+Kenny Dalglish,CM,2014,94,72,71,80,91,91,Juventus
+Dirk Kuyt,CAM,2006,82,78,84,69,91,90,Barcelona
+Kylian Mbappé,CM,2004,79,89,79,83,85,93,Manchester United
+Andrés Iniesta,ST,2010,95,75,97,25,88,84,Paris SG
+Nicolas De La Cruz,LW,2004,93,86,95,26,79,86,Napoli
+Ronaldo,CM,2004,88,92,79,65,85,97,Liverpool
+Lilian Thuram,CDM,2014,84,80,66,78,96,91,Inter Milan
+Lionel Messi,LB,2022,85,79,65,87,81,94,Paris SG
+Luis García,CB,2022,85,72,63,88,82,98,Bayern Munich
+Marco Verratti,LB,2004,87,62,59,97,80,92,Real Madrid
+Wim Kieft,CDM,2014,91,90,75,65,95,95,Inter Milan
+Arjen Robben,CM,2006,94,77,69,73,81,88,Liverpool
+Romário,CM,2004,85,72,66,72,90,88,AC Milan
+Kyle Walker,ST,2018,82,86,95,51,77,85,Liverpool
+Andy Robertson,LW,2018,86,88,96,29,83,95,Arsenal
+Kaka,CDM,2018,89,88,88,61,92,91,Bayern Munich
+Gattuso Gennaro,CB,2022,90,62,47,92,89,90,Manchester United
+Enzo Fernández,CAM,2014,92,78,69,81,81,94,Real Madrid
+Karim Benzema,LW,2010,93,87,90,57,84,79,Arsenal
+Erling Haaland,CAM,2018,81,85,72,75,82,85,Bayern Munich
+Ibrahimović Zlatan,GK,2018,81,48,44,99,75,84,Chelsea
+Curtis Jones,LB,2018,79,78,53,91,83,81,AC Milan
+Paul Pogba,ST,2006,92,92,96,37,90,94,Inter Milan
+Alessandro Nesta,CB,2004,88,67,62,92,91,85,Barcelona
+Sergio Livingstone,RB,2004,86,80,53,91,93,80,Liverpool
+Samuel Eto'o,GK,2018,79,34,22,95,79,98,Chelsea
+Michu,GK,2004,74,37,39,90,88,83,Real Madrid
+John Wark,GK,2018,79,42,22,88,93,82,Bayern Munich
+Ernst Happel,CM,2010,88,72,76,72,78,90,Paris SG
+David Silva,LW,2014,90,95,86,41,83,98,Liverpool
+Fabrice Barthez,CB,2006,87,64,67,90,82,82,Bayern Munich
+Antonio Rudiger,CDM,2010,85,79,78,80,75,81,Barcelona
+Fred,RB,2010,90,67,61,91,98,82,Napoli
+Achraf Hakimi,ST,2010,82,89,90,47,81,83,Barcelona
+Youri Tielemans,GK,2006,73,35,31,92,87,86,Liverpool
+Bruno Alves,CAM,2022,84,83,83,83,85,93,Inter Milan
+Lukas Podolski,CM,2004,81,70,68,62,79,93,Paris SG
+Pepe,LB,2006,87,63,70,93,92,92,AC Milan
+Jerome Boateng,CB,2004,81,73,47,98,82,88,Barcelona
+Shinji Ono,CDM,2014,80,72,70,79,89,90,Paris SG
+Juan Cuadrado,RB,2006,79,74,65,97,92,96,Liverpool
+David de Gea,CDM,2004,86,78,81,75,78,97,Chelsea
+Cristian Romero,RB,2006,87,78,46,85,79,80,Barcelona
+Dennis Bergkamp,CAM,2022,79,92,69,68,85,95,Chelsea
+Douglas Costa,CM,2018,92,71,69,63,84,82,Napoli
+Mohamed Salah,CM,2018,94,81,87,75,75,80,Juventus
+Robert Lewandowski,CAM,2018,84,77,83,75,90,78,Bayern Munich
+Ricardo Quaresma,LB,2018,86,72,59,93,89,95,Inter Milan
+Gianluca Zambrotta,CDM,2006,80,89,87,75,88,78,AC Milan
+Gianluigi Buffon,RB,2010,78,73,56,96,92,86,Barcelona
+Vinicius Jr,CAM,2018,82,92,70,84,89,83,Bayern Munich
+Jefferson Farfán,LB,2004,89,74,68,97,84,83,AC Milan
+Mattia De Sciglio,CM,2004,87,86,74,62,83,82,Napoli
+Harvey Elliott,LW,2004,83,80,93,59,85,94,Juventus
+Robinho,CM,2014,84,75,87,71,89,96,Bayern Munich
+Luke Shaw,RB,2022,88,67,59,94,90,86,Inter Milan
+Antony,GK,2010,75,41,33,91,84,91,Inter Milan
+Kevin Keegan,LW,2010,85,91,90,57,89,90,Chelsea
+Sandro Mazzola,GK,2014,81,45,24,88,78,84,Arsenal
+Hugo Lloris,ST,2018,90,77,96,51,77,93,AC Milan
+Xherdan Shaqiri,CM,2018,89,79,88,63,88,93,Chelsea
+Toni Kroos,RB,2004,82,77,61,94,96,81,Barcelona
+Diogo Jota,LW,2004,87,88,86,26,94,90,Paris SG
+José Luis Chilavert,CM,2004,82,91,86,74,82,88,Napoli
+Carlos Tévez,CAM,2006,83,84,66,66,93,95,Arsenal
+Gilberto Silva,ST,2010,87,92,88,30,75,92,Paris SG
+Pirlo Andrea,CAM,2022,92,85,66,65,84,90,Manchester United
+Mark Hughes,ST,2014,92,83,90,36,77,88,Chelsea
+Salvador Cabañas,CB,2010,75,62,65,93,93,98,Inter Milan
+Alexis Sánchez,CAM,2010,80,86,68,67,93,90,Barcelona
+Karl-Heinz Förster,ST,2014,91,75,94,45,86,83,AC Milan
+Nacho Fernández,RB,2018,83,62,46,89,75,90,Arsenal
+Joshua Kimmich,LB,2018,78,69,47,92,91,80,Paris SG
+Bastian Schweinsteiger,RB,2014,85,69,61,87,87,85,Manchester United
+Dedryck Boyata,RB,2010,90,62,59,86,80,83,Real Madrid
+Bruno Guimaraes,ST,2010,82,77,84,59,78,90,Arsenal
+Anthony Martial,CB,2004,83,71,70,96,77,81,Chelsea
+Hans-Jürgen Cramer,CAM,2004,83,70,73,81,78,87,Arsenal
+Bixente Lizarazu,CB,2006,80,74,50,99,92,95,Liverpool
+Alisson Becker,CB,2014,87,67,57,91,83,97,Paris SG
+Gonzalo Higuaín,ST,2022,96,82,94,39,85,90,Napoli
+Paul Scholes,CAM,2022,90,90,82,68,91,85,Bayern Munich
+Claudio Pizarro,LW,2018,86,87,93,52,88,86,Paris SG
+Joel Matip,CM,2010,86,74,68,82,75,78,Manchester United
+Rivaldo,RB,2004,78,70,50,98,90,94,Paris SG
+Ivan Rakitić,CM,2010,82,75,69,68,95,94,Bayern Munich
+Gianlluigi Buffon,CB,2004,85,66,59,95,89,93,Juventus
+Steve Heighway,CAM,2006,83,75,87,68,82,98,Chelsea
+Edwin van der Sar,ST,2018,96,87,94,58,98,89,AC Milan
+Sami Khedira,RB,2006,85,78,70,95,78,87,Arsenal
+Neymar Jr,CM,2014,90,74,79,61,85,87,Chelsea
+Ian Callaghan,CDM,2010,92,76,81,70,92,79,AC Milan
+Gabriel Jesus,CAM,2004,88,92,85,60,97,91,Arsenal
+Cesar Azpilicueta,ST,2010,93,92,89,51,89,85,Manchester United
+Isco Alarcón,CDM,2004,80,82,69,61,91,87,Barcelona
+Thilo Kehrer,CDM,2018,79,87,69,70,81,86,Manchester United
+Guido Rodríguez,LW,2004,84,80,95,59,98,80,Bayern Munich
+Pablo Sarabia,LB,2006,80,71,47,86,84,86,Bayern Munich
+Elías Figueroa,GK,2018,75,30,30,92,92,93,Liverpool
+Fabio Cannavaro,CAM,2006,90,79,81,80,78,80,Napoli
+Álvaro Morata,LB,2006,76,78,48,97,92,83,Liverpool
+Joan Capdevila,ST,2006,96,92,88,57,76,97,Napoli
+David Villa,ST,2014,88,77,95,49,96,90,Paris SG
+Paul Ince,ST,2014,91,81,91,55,91,83,Liverpool
+Willy Sagnol,RB,2006,79,68,52,88,89,81,Chelsea
+Juan Arango,CDM,2010,80,88,74,84,79,79,Barcelona
+Jordan Henderson,RB,2022,79,64,65,86,76,92,Real Madrid
+Kleberson,CDM,2014,83,85,85,62,85,88,Inter Milan
+John Terry,RB,2010,81,62,54,97,86,78,Chelsea
+Marco Materazzi,CB,2004,81,71,54,88,88,82,Real Madrid
+Oscar,GK,2018,73,52,20,96,97,84,Liverpool
+Alphonse Areola,CDM,2006,90,82,68,80,87,86,Napoli
+Valeriy Lobanovskyi,CDM,2004,87,82,78,65,92,82,Chelsea
+Ferenc Puskás,GK,2014,80,35,42,98,80,91,Liverpool
+Mesut Özil,CAM,2014,84,84,68,76,82,81,Inter Milan
+Juan Foyth,LW,2014,84,83,92,51,89,95,Napoli
+Paolo Guerrero,GK,2014,81,40,43,95,86,91,Juventus
+Shunsuke Nakamura,CM,2022,88,88,82,77,79,82,Manchester United
+Néstor Clausen,RB,2006,83,79,62,97,80,80,Manchester United
+Roger Milla,CM,2014,85,79,77,69,84,90,Inter Milan
+Alberto Gilardino,CAM,2004,82,85,78,61,90,85,Paris SG
+James Milner,CAM,2006,78,79,70,75,79,84,Bayern Munich
+Javier Mascherano,CM,2006,93,89,65,85,86,97,Liverpool
+Medhi Benatia,RB,2006,84,70,55,94,84,84,Paris SG
+Giorgian de Arrascaeta,CM,2022,94,74,83,60,93,81,Arsenal
+David Beckham,CM,2022,87,80,85,85,83,86,Real Madrid
+Phil Foden,CAM,2006,90,92,68,60,95,81,Inter Milan
+Eusébio,RB,2018,77,67,48,85,79,89,Real Madrid
+Raí,CDM,2022,80,91,84,85,92,82,Arsenal
+Steve McManaman,CAM,2014,87,86,71,70,95,85,Barcelona
+Naby Keita,LB,2022,85,71,59,86,79,91,Chelsea
+Naohiro Takahara,LB,2004,75,77,61,95,82,78,Barcelona
+Leon Goretzka,LB,2018,78,70,48,93,92,86,Chelsea
+Andrea Barzagli,CM,2006,79,89,81,76,96,98,Chelsea
+Ézer Garay,RB,2010,89,72,51,94,90,92,Liverpool
+Juan Román Riquelme,CAM,2010,92,70,72,78,89,93,Liverpool
+Matteo De Sciglio,CB,2014,77,75,57,90,93,89,Chelsea
+Yasuhito Endo,CAM,2010,94,74,70,78,89,91,Inter Milan
+Jiménez Juan,CDM,2004,81,75,76,66,77,84,Arsenal
+Marcus Rashford,CDM,2018,93,87,65,60,87,90,Napoli
+Bruno Fernandes,ST,2022,84,95,91,58,98,94,Juventus
+Alisson,CAM,2014,90,79,67,77,97,87,Napoli
+Emlyn Hughes,ST,2018,83,85,98,29,81,94,Real Madrid
+Rúben Neves,LW,2004,91,81,83,25,92,87,Real Madrid
+Harry Maguire,ST,2018,85,76,97,54,78,87,Arsenal
+Luis Suárez,CM,2022,79,85,87,70,88,91,AC Milan
+Lev Yashin,CAM,2018,93,84,70,77,89,82,Paris SG
+João Cancelo,RB,2022,75,62,56,91,79,82,Real Madrid
+Reece James,CM,2010,81,80,72,74,80,82,Chelsea
+Sandro,CM,2006,92,81,66,80,95,83,AC Milan
+Jackson Martínez,CAM,2018,88,73,83,71,90,91,Barcelona
+Lucas Paquetá,LB,2022,82,79,62,92,90,90,Paris SG
+Roberto Firmino,CAM,2010,86,70,71,66,94,96,Arsenal
+Claudio Bravo,CM,2010,89,88,86,77,87,86,AC Milan
+Danilo,CM,2014,93,80,74,80,93,94,AC Milan
+Berti Vogts,ST,2004,86,87,92,56,80,80,Chelsea
+N'Golo Kanté,CM,2022,85,89,69,76,78,89,Paris SG
+Richarlison,LW,2004,95,76,91,38,85,80,Napoli
+Cesc Fàbregas,LB,2014,76,66,61,90,87,83,Barcelona
+Rafael van der Vaart,ST,2010,92,80,93,36,97,80,Chelsea
+Cristiano Ronaldo,CM,2018,87,88,75,67,81,89,Barcelona
+Toby Alderweireld,RB,2004,78,60,51,98,89,89,Liverpool
+Nemanja Matić,LW,2010,82,91,88,30,93,91,AC Milan
+José Manuel Reina,CM,2010,90,81,67,73,98,86,Inter Milan
+Peter Schmeichel,ST,2004,85,77,87,45,90,85,Paris SG
+Jorge Campos,RB,2010,79,69,55,88,78,85,Barcelona
+Mikaël Silvestre,ST,2018,89,91,98,37,91,85,Arsenal
+Bernardo Silva,CAM,2004,94,92,67,72,84,81,Paris SG
+Samuel Umtiti,CM,2018,85,78,68,81,76,78,Inter Milan
+Henry Thierry,CDM,2014,87,79,77,83,95,90,Napoli
+Héctor Enrique,CB,2006,80,64,66,96,81,95,Juventus
+Ben Chilwell,CDM,2004,86,80,68,69,91,93,Juventus
+Andrea Pirlo,CDM,2006,80,83,88,82,84,97,Chelsea
+Georgie Best,CB,2022,80,71,54,96,82,89,Inter Milan
+Diego Forlán,CM,2018,91,70,68,68,91,95,Manchester United
+Claude Makélélé,ST,2022,84,84,92,42,97,85,Juventus
+Gerard Piqué,GK,2018,76,37,41,91,75,89,Chelsea
+João Moutinho,CB,2006,77,61,56,98,98,84,Chelsea
+Peter Beardsley,ST,2006,83,83,86,42,95,97,Real Madrid
+Nani,GK,2018,79,33,45,92,81,91,Juventus
+Juan Manuel Ibarbo,CB,2004,83,65,52,94,81,96,Real Madrid
+Alphonso Davies,CDM,2004,78,91,84,68,90,95,AC Milan
+Javi Martínez,RB,2018,84,69,63,87,86,95,Liverpool
+Ryan Giggs,CAM,2006,91,70,67,78,82,80,Liverpool
+Gonzalo Jara,ST,2006,85,75,95,51,88,86,Inter Milan
+Maldini Paolo,CAM,2014,90,71,70,70,78,81,Inter Milan
+Mark Lawrenson,CB,2004,80,69,70,95,78,93,Juventus
+Álvaro Recoba,CB,2006,81,78,63,98,79,98,Chelsea
+Diego Milito,CAM,2004,93,70,76,68,80,82,Juventus
+Mark van Bommel,ST,2018,89,93,96,60,98,96,Inter Milan
+Leonardo Bonucci,CDM,2006,81,92,88,60,94,81,Real Madrid
+Jesús Navas,CAM,2006,81,84,76,64,91,95,Manchester United
+Julio Cesar,CAM,2018,78,73,76,83,88,96,Liverpool
+Youri Djorkaeff,GK,2004,79,45,43,97,80,93,Barcelona
+Frederic Kanoute,LB,2014,90,74,49,93,81,92,Bayern Munich
+Mario Mandžukić,LB,2022,83,78,50,85,79,93,Paris SG
+Rodri,CM,2010,88,87,69,65,93,95,Manchester United
+William Carvalho,GK,2010,70,42,25,89,96,93,Manchester United
+Serge Gnabry,CDM,2010,94,92,80,77,85,96,Chelsea
+Gianluigi Donnarumma,GK,2006,75,40,25,98,88,84,Arsenal
+Gianni Rivera,LW,2014,95,84,82,38,89,88,Bayern Munich
+Juan Mata,GK,2004,70,43,45,89,87,93,Chelsea
+Leandro Paredes,CDM,2006,90,76,75,81,93,97,Paris SG
+Antonio Candreva,LB,2004,79,68,70,86,82,82,Real Madrid
+Lucas Hernández,LW,2004,85,81,82,26,89,89,Manchester United
+Edinson Cavani,CDM,2014,85,87,69,77,94,92,Real Madrid
+Olivier Kapo,GK,2022,82,45,44,96,87,81,Juventus
+Lucio,CDM,2004,78,78,86,60,86,97,Juventus
+Adriano,ST,2018,94,82,93,47,90,91,Inter Milan
+Casemiro,LB,2010,88,66,68,87,89,84,Inter Milan
+Luka Modrić,ST,2004,89,84,84,27,95,87,Paris SG
+Johan Neeskens,CAM,2022,90,87,85,83,77,89,Juventus
+Makoto Hasebe,GK,2004,73,46,27,93,86,88,Inter Milan
+Raphaël Varane,ST,2010,87,83,89,36,85,85,Barcelona
+Eder Militão,CAM,2004,80,86,81,85,89,81,Barcelona
+Gennaro Gattuso,CDM,2004,81,81,66,80,91,98,Barcelona
+Paulo Dybala,CDM,2018,88,87,65,80,90,94,Barcelona
+Kevin De Bruyne,ST,2014,83,76,87,43,78,84,Arsenal
+Christian Benavente,GK,2014,78,50,29,91,93,86,Manchester United
+Holger Badstuber,LB,2006,84,64,66,87,91,98,Napoli
+Ray Clemence,RB,2022,78,76,54,93,97,81,Paris SG
+Andriy Shevchenko,GK,2014,71,49,24,95,95,97,Liverpool
+Peter Crouch,LB,2010,83,68,57,88,78,92,AC Milan
+Roberto Carlos,CM,2010,90,71,80,75,98,81,Liverpool
+Sylvain Wiltord,ST,2006,82,80,85,30,92,84,Manchester United
+Julián Álvarez,GK,2004,73,33,41,94,83,94,Liverpool
+Graeme Souness,CM,2018,92,82,67,78,85,79,AC Milan
+Aurélien Tchouaméni,CDM,2006,80,88,81,70,77,96,Juventus
+Yuri Zhirkov,RB,2022,80,63,66,96,79,84,Manchester United
+Sergio Batista,CB,2014,89,76,47,86,78,97,Chelsea
+Boubakary Soumaré,CAM,2010,94,77,74,82,89,80,Liverpool
+Mats Hummels,CDM,2014,81,79,76,76,96,87,Arsenal
+Leroy Sané,CM,2022,78,77,71,65,80,93,AC Milan
+Diego Costa,LW,2006,95,77,82,35,82,85,Juventus
+Marcus Tutte,RB,2018,88,66,54,93,94,85,Inter Milan
+Trevor Brooking,GK,2014,75,52,24,88,91,91,Barcelona
+Jan Vertonghen,RB,2022,81,63,70,86,75,80,Paris SG
+Jaap Stam,CB,2022,84,67,69,92,98,84,Barcelona
+Xavi Hernández,RB,2018,85,65,52,94,91,83,Barcelona
+Ilkay Gündogan,CDM,2022,78,70,79,77,91,94,Real Madrid
+Sergio Ramos,CDM,2006,88,71,74,77,96,87,Inter Milan
+Nigel de Jong,CDM,2014,92,82,88,61,76,98,AC Milan
+Giacinto Facchetti,LB,2004,82,78,51,92,97,79,Inter Milan
+Jorge Valdano,CDM,2018,82,86,70,79,89,96,Manchester United
+Roque Santa Cruz,CDM,2014,90,81,88,83,80,88,Real Madrid
+Frank Lampard,CAM,2022,82,87,84,75,76,83,Arsenal
+Iker Casillas,CAM,2004,85,87,85,80,83,82,Arsenal
+George Weah,CAM,2010,94,81,88,85,94,78,Juventus
+Ali Daei,CB,2022,87,71,50,99,93,79,Inter Milan
+John Toshack,CDM,2006,87,92,84,74,77,95,Inter Milan
+Gerd Müller,CB,2014,77,73,61,98,84,98,Bayern Munich
+Maarten Stekelenburg,CM,2010,93,74,70,69,83,78,Paris SG
+Wesley Sneijder,ST,2022,87,88,93,26,94,88,Barcelona
+Teddy Sheringham,LW,2004,90,80,84,32,95,91,Real Madrid
+Craig Johnston,LW,2004,96,95,90,52,98,85,Manchester United
+Sadio Mané,ST,2004,96,93,90,32,79,90,Bayern Munich
+Blaise Matuidi,CDM,2004,88,81,76,70,80,92,Manchester United
+Alan Dzagoev,CDM,2022,81,82,87,64,79,78,Arsenal
+Florian Thauvin,ST,2010,95,85,92,52,81,82,Juventus
+Stan Collymore,LB,2004,77,67,69,99,98,93,Juventus
+Dani Alves,CB,2014,86,73,55,88,78,98,Barcelona
+David Alaba,RB,2014,88,77,67,86,90,87,Manchester United
+Fredy Guarín,CM,2014,81,87,78,67,76,88,Napoli
+Karl-Heinz Rummenigge,CM,2006,93,79,76,80,95,90,Bayern Munich
+Robert Pires,LW,2010,86,95,85,40,96,88,Paris SG
+Dayot Upamecano,ST,2010,95,78,87,49,86,85,Juventus
+Paul Breitner,CB,2018,89,62,58,91,95,79,Liverpool
+Jaime Moreno,CAM,2006,90,92,88,67,89,98,Chelsea
+Carles Puyol,CDM,2022,78,82,78,84,95,81,Chelsea
+Giorgio Chiellini,ST,2014,95,90,89,54,78,91,Napoli
+Olivier Giroud,CAM,2006,81,78,80,61,95,91,Bayern Munich
+Sergio Agüero,CAM,2022,90,77,80,76,90,81,Manchester United
+Manuel Neuer,CDM,2018,85,74,68,80,90,90,AC Milan
+Emiliano Martínez,ST,2006,96,91,97,33,79,98,Manchester United
+Marco Asensio,CDM,2004,93,77,66,82,98,89,Manchester United
+Neymar,CDM,2022,88,92,76,69,96,93,Barcelona
+Filippo Inzaghi,RB,2010,81,64,52,86,80,81,Paris SG
+Ronaldinho,CB,2010,77,62,64,97,84,95,Arsenal
+Frank de Boer,CM,2004,93,84,71,75,89,85,Liverpool
+Kepa Arrizabalaga,RB,2006,76,79,69,93,95,89,Juventus
+Didier Drogba,ST,2006,87,77,85,55,84,89,Manchester United
+Marco van Basten,ST,2018,92,76,87,60,78,94,Paris SG
+Igor Akinfeev,ST,2022,89,75,93,39,83,82,Juventus
+Fernando Torres,CDM,2014,89,90,87,60,97,78,Arsenal
+Frank Rijkaard,CAM,2010,83,88,66,78,88,80,Paris SG
+Raphael Varane,RB,2006,81,68,53,90,94,92,Manchester United
+Christian Vieri,GK,2004,82,38,35,91,85,87,Chelsea
+Juan Riquelme,ST,2004,94,79,89,38,81,85,Inter Milan
+Kingsley Coman,LW,2010,87,93,96,56,76,80,Napoli
+Lisandro Martínez,CDM,2014,83,74,70,77,82,96,Liverpool
+Antoine Griezmann,ST,2018,91,94,97,39,79,84,Arsenal
+Mario Kempes,RB,2014,87,76,70,96,83,94,Bayern Munich
+Nahuel Molina,LW,2014,96,80,93,56,85,98,Juventus
+Gary Medel,LW,2010,87,87,82,46,88,96,Juventus
+Uli Hoeness,CAM,2022,88,81,85,85,87,91,Barcelona
+Alan Hansen,LW,2006,96,77,95,41,83,86,Chelsea
+Dwight Yorke,CM,2018,88,75,81,72,94,82,Bayern Munich
+Thomas Müller,LW,2006,87,82,84,55,86,83,Liverpool
+Ruud Gullit,RB,2022,76,66,65,98,86,80,Arsenal
+Maxwell,RB,2014,82,65,58,86,89,95,Real Madrid
+Jordi Alba,CB,2010,85,61,62,86,79,94,Real Madrid
+Thiago Silva,ST,2022,94,79,93,57,84,92,Liverpool
+Nicolas Anelka,CAM,2006,94,92,88,72,98,88,Bayern Munich
+Aleksandr Smertin,CM,2014,91,78,84,69,79,94,Real Madrid
+Rodrygo Goes,CB,2014,83,65,67,89,79,81,Paris SG
+Hennes Weisweiler,LW,2010,86,80,95,52,97,86,Bayern Munich
+Ederson,LW,2022,85,75,93,34,81,79,Real Madrid
+Ronald de Boer,CB,2004,86,72,65,94,91,82,Napoli
+Philipp Lahm,RB,2022,88,74,57,92,97,97,Liverpool
+Carlos Valderrama,CM,2010,94,86,79,83,80,89,Juventus
+Patrick Vieira,CM,2018,78,89,75,78,85,88,AC Milan
+Ivan Perisic,LW,2004,95,90,96,59,95,94,Napoli
+Mason Mount,ST,2004,95,75,90,40,79,86,Real Madrid
+Petr Čech,LB,2006,83,67,56,88,93,92,Real Madrid
+Laurent Blanc,GK,2004,73,53,45,88,76,87,Juventus
+Marquinhos,RB,2004,90,70,59,99,82,86,Bayern Munich
+Daniele De Rossi,RB,2006,84,74,65,88,82,97,Barcelona
+Alfredo Di Stéfano,CB,2018,80,62,55,86,89,95,AC Milan
+Bobby Charlton,ST,2010,95,89,86,58,98,83,Bayern Munich
+Virgil van Dijk,CDM,2018,88,90,74,66,94,82,Paris SG
+Trent Alexander-Arnold,CAM,2006,78,89,85,69,87,92,Inter Milan
+Jérôme Boateng,CDM,2010,86,78,77,78,98,88,Real Madrid
+Therry Henry,CAM,2014,78,91,69,65,89,79,Paris SG
+Juan Pablo Sorín,RB,2004,86,60,47,87,79,87,Manchester United
+Franck Ribéry,CAM,2010,87,82,82,65,97,93,Barcelona
+Barry Davies,CB,2022,81,73,59,95,86,86,Bayern Munich
+Cicinho,CDM,2018,94,71,67,77,76,81,Real Madrid
+Roman Shirokov,CM,2006,90,80,82,65,86,81,Inter Milan
+Renan Lodi,ST,2006,90,88,93,30,77,95,Liverpool
+Radamel Falcao,CDM,2006,78,82,66,85,78,92,Paris SG
+Abedi Pelé,CB,2018,75,70,46,97,98,80,Juventus
+Ivan Varadin,GK,2014,82,46,29,91,91,80,Napoli
+Eden Hazard,ST,2004,84,90,84,57,83,96,Manchester United
+Arturo Vidal,LW,2022,84,83,91,39,97,92,Napoli
+Cafu,LB,2006,84,79,51,88,83,84,Napoli
+Ronnie Whelan,CB,2022,83,67,53,96,77,94,Real Madrid
