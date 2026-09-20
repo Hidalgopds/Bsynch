@@ -405,9 +405,10 @@
                         gameState.draftedPlayers = new Set();
                         showSection('draftSection');
                         displayPlayers();
-                        updateTeamsTable();
-                        startPickTimer();
-                        pollDraftStatus();
+                        updateTeamsTable().then(() => {
+                            startPickTimer();
+                            pollDraftStatus();
+                        });
                     });
             });
         }
@@ -536,7 +537,7 @@
         }
 
         function updateTeamsTable() {
-            fetch(`/api/hermaniland/room/${gameState.roomCode}`)
+            return fetch(`/api/hermaniland/room/${gameState.roomCode}`)
                 .then(r => r.json())
                 .then(room => {
                     gameState.timePerPick = room.time_per_pick;
