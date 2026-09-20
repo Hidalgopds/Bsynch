@@ -6646,6 +6646,14 @@ def delete_all_job_steps(job_id):
 from hermaniland_data import generate_players, COACHES, FORMATIONS
 
 HERMANILAND_GAMES = {}
+_HERMANILAND_PLAYERS_CACHE = None
+
+def get_hermaniland_players_cached():
+    """Get cached players or generate them once"""
+    global _HERMANILAND_PLAYERS_CACHE
+    if _HERMANILAND_PLAYERS_CACHE is None:
+        _HERMANILAND_PLAYERS_CACHE = generate_players(3000)
+    return _HERMANILAND_PLAYERS_CACHE
 
 def generate_hermaniland_room_code():
     """Generate unique 4-char room code for Hermaniland"""
@@ -6662,8 +6670,8 @@ def hermaniland_hub():
 
 @app.route("/api/hermaniland/players")
 def get_hermaniland_players():
-    """Get all available players for draft"""
-    players = generate_players(3000)
+    """Get all available players for draft (cached)"""
+    players = get_hermaniland_players_cached()
     return jsonify({"players": players})
 
 @app.route("/api/hermaniland/coaches")

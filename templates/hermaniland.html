@@ -200,12 +200,6 @@
 
             <div class="timer" id="timer">20</div>
 
-            <div style="margin-bottom: 20px;">
-                <input type="text" id="playerSearch" placeholder="Search player..." onkeyup="searchPlayers()">
-            </div>
-
-            <div id="playersList" style="max-height: 350px; overflow-y: auto; margin-bottom: 20px;"></div>
-
             <div class="draft-controls">
                 <button id="addToTeamBtn" onclick="addPlayerToTeam()" disabled>✓ Add to My Team</button>
                 <button onclick="skipPick()" id="skipBtn">Skip / Next Player</button>
@@ -213,6 +207,12 @@
 
             <h3>Your Selected Players</h3>
             <div id="selectedPlayersList" class="player-list"></div>
+
+            <div style="margin-bottom: 20px; margin-top: 30px;">
+                <input type="text" id="playerSearch" placeholder="Search player..." onkeyup="searchPlayers()">
+            </div>
+
+            <div id="playersList" style="max-height: 350px; overflow-y: auto; margin-bottom: 20px;"></div>
         </div>
 
         <!-- FORMATION SECTION -->
@@ -276,10 +276,6 @@
         });
 
         function loadGameData() {
-            fetch('/api/hermaniland/players')
-                .then(r => r.json())
-                .then(data => gameState.players = data.players);
-
             fetch('/api/hermaniland/coaches')
                 .then(r => r.json())
                 .then(data => {
@@ -290,6 +286,13 @@
             fetch('/api/hermaniland/formations')
                 .then(r => r.json())
                 .then(data => gameState.formations = data.formations);
+        }
+
+        function loadPlayers() {
+            if (gameState.players.length > 0) return;
+            return fetch('/api/hermaniland/players')
+                .then(r => r.json())
+                .then(data => gameState.players = data.players);
         }
 
         function populateCoaches() {
@@ -395,16 +398,18 @@
         }
 
         function startDraft() {
-            fetch(`/api/hermaniland/start-draft/${gameState.roomCode}`, {method: 'POST'})
-                .then(r => r.json())
-                .then(data => {
-                    gameState.draftedPlayers = new Set();
-                    showSection('draftSection');
-                    displayPlayers();
-                    updateTeamsTable();
-                    startPickTimer();
-                    pollDraftStatus();
-                });
+            loadPlayers().then(() => {
+                fetch(`/api/hermaniland/start-draft/${gameState.roomCode}`, {method: 'POST'})
+                    .then(r => r.json())
+                    .then(data => {
+                        gameState.draftedPlayers = new Set();
+                        showSection('draftSection');
+                        displayPlayers();
+                        updateTeamsTable();
+                        startPickTimer();
+                        pollDraftStatus();
+                    });
+            });
         }
 
         function getTeamColor(teamName) {
