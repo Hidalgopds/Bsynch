@@ -1,19 +1,141 @@
 """
-Hermaniland: Football Draft Game - Professional Real Players Database
-7500 unique professional players from all eras and regions
+Hermaniland: Football Draft Game - Coaches & Formations Database
+Coaches list: real, verifiable managers (1950-2026), covering World Cup winners,
+European Cup / Champions League winners, and Copa Libertadores winners, plus other
+widely recognized legendary managers. Kept to names that can be verified rather than
+padded to an arbitrary count with invented figures.
 """
 
 import random
 
-COACHES = [
-    {"name": "Pep Guardiola", "era": "2000s-2020s", "attack": 92, "defense": 88, "adaptability": 95, "motivation": 90},
-    {"name": "Carlo Ancelotti", "era": "1990s-2020s", "attack": 85, "defense": 88, "adaptability": 90, "motivation": 88},
-    {"name": "Sir Alex Ferguson", "era": "1980s-2010s", "attack": 88, "defense": 85, "adaptability": 92, "motivation": 95},
-] + [
-    {"name": f"Coach {i}", "era": "Various", "attack": random.randint(75, 92),
-     "defense": random.randint(75, 92), "adaptability": random.randint(75, 92),
-     "motivation": random.randint(75, 92)} for i in range(4, 101)
+# ── World Cup winning head coaches (1950-2026) ────────────────────────────────
+WORLD_CUP_COACHES = [
+    {"name": "Juan López Fontana", "era": "1950 Uruguay"},
+    {"name": "Sepp Herberger", "era": "1954 West Germany"},
+    {"name": "Vicente Feola", "era": "1958 Brazil"},
+    {"name": "Aymoré Moreira", "era": "1962 Brazil"},
+    {"name": "Alf Ramsey", "era": "1966 England"},
+    {"name": "Mário Zagallo", "era": "1970 Brazil"},
+    {"name": "Helmut Schön", "era": "1974 West Germany"},
+    {"name": "César Luis Menotti", "era": "1978 Argentina"},
+    {"name": "Enzo Bearzot", "era": "1982 Italy"},
+    {"name": "Carlos Bilardo", "era": "1986 Argentina"},
+    {"name": "Franz Beckenbauer", "era": "1990 West Germany"},
+    {"name": "Carlos Alberto Parreira", "era": "1994 Brazil"},
+    {"name": "Aimé Jacquet", "era": "1998 France"},
+    {"name": "Luiz Felipe Scolari", "era": "2002 Brazil"},
+    {"name": "Marcello Lippi", "era": "2006 Italy"},
+    {"name": "Vicente del Bosque", "era": "2010 Spain"},
+    {"name": "Joachim Löw", "era": "2014 Germany"},
+    {"name": "Didier Deschamps", "era": "2018 France"},
+    {"name": "Lionel Scaloni", "era": "2022 Argentina"},
 ]
+
+# ── European Cup / UEFA Champions League winning coaches ──────────────────────
+CHAMPIONS_LEAGUE_COACHES = [
+    {"name": "Miguel Muñoz", "era": "1960s Real Madrid"},
+    {"name": "Béla Guttmann", "era": "1960s Benfica"},
+    {"name": "Helenio Herrera", "era": "1960s Inter Milan"},
+    {"name": "Jock Stein", "era": "1960s Celtic"},
+    {"name": "Sir Matt Busby", "era": "1960s Man United"},
+    {"name": "Rinus Michels", "era": "1970s Ajax"},
+    {"name": "Ştefan Kovács", "era": "1970s Ajax"},
+    {"name": "Bob Paisley", "era": "1970s-80s Liverpool"},
+    {"name": "Joe Fagan", "era": "1980s Liverpool"},
+    {"name": "Brian Clough", "era": "1970s-80s Nottingham Forest"},
+    {"name": "Tony Barton", "era": "1980s Aston Villa"},
+    {"name": "Ernst Happel", "era": "1970s-80s Feyenoord/Hamburg"},
+    {"name": "Giovanni Trapattoni", "era": "1980s Juventus"},
+    {"name": "Arrigo Sacchi", "era": "1980s-90s AC Milan"},
+    {"name": "Fabio Capello", "era": "1990s AC Milan/Real Madrid"},
+    {"name": "Johan Cruyff", "era": "1990s Barcelona"},
+    {"name": "Louis van Gaal", "era": "1990s Ajax/Bayern"},
+    {"name": "Ottmar Hitzfeld", "era": "1990s-2000s Dortmund/Bayern"},
+    {"name": "Jupp Heynckes", "era": "1990s-2010s Real Madrid/Bayern"},
+    {"name": "Marcello Lippi", "era": "1990s-2000s Juventus"},
+    {"name": "Vicente del Bosque", "era": "2000s Real Madrid"},
+    {"name": "Artur Jorge", "era": "1980s Porto"},
+    {"name": "Raymond Goethals", "era": "1990s Marseille"},
+    {"name": "Ljubko Petrović", "era": "1990s Red Star Belgrade"},
+    {"name": "Emerich Jenei", "era": "1980s Steaua București"},
+    {"name": "Udo Lattek", "era": "1970s Bayern Munich"},
+    {"name": "Dettmar Cramer", "era": "1970s Bayern Munich"},
+    {"name": "Sir Bobby Robson", "era": "1990s-2000s Barcelona/PSV/Porto"},
+    {"name": "Guus Hiddink", "era": "1980s PSV"},
+    {"name": "Carlo Ancelotti", "era": "2000s-2020s Milan/Madrid"},
+    {"name": "Rafael Benítez", "era": "2000s Liverpool"},
+    {"name": "José Mourinho", "era": "2000s-2010s Porto/Inter"},
+    {"name": "Frank Rijkaard", "era": "2000s Barcelona"},
+    {"name": "Pep Guardiola", "era": "2000s-2020s Barcelona/City"},
+    {"name": "Roberto Di Matteo", "era": "2010s Chelsea"},
+    {"name": "Luis Enrique", "era": "2010s Barcelona"},
+    {"name": "Zinedine Zidane", "era": "2010s Real Madrid"},
+    {"name": "Jürgen Klopp", "era": "2010s Liverpool"},
+    {"name": "Hansi Flick", "era": "2020s Bayern Munich"},
+    {"name": "Thomas Tuchel", "era": "2020s Chelsea"},
+]
+
+# ── Copa Libertadores winning coaches ──────────────────────────────────────────
+LIBERTADORES_COACHES = [
+    {"name": "Osvaldo Zubeldía", "era": "1960s-70s Estudiantes"},
+    {"name": "Carlos Bianchi", "era": "1990s-2000s Vélez/Boca Juniors"},
+    {"name": "Ramón Díaz", "era": "1990s-2010s River Plate"},
+    {"name": "Marcelo Gallardo", "era": "2010s-20s River Plate"},
+    {"name": "Telê Santana", "era": "1990s São Paulo"},
+    {"name": "Muricy Ramalho", "era": "2000s São Paulo"},
+    {"name": "Cuca", "era": "2010s Atlético Mineiro"},
+    {"name": "Jorge Jesus", "era": "2019 Flamengo"},
+    {"name": "Abel Ferreira", "era": "2020s Palmeiras"},
+    {"name": "Fernando Diniz", "era": "2023 Fluminense"},
+    {"name": "Francisco Maturana", "era": "1989 Atlético Nacional"},
+    {"name": "Óscar Washington Tabárez", "era": "1980s-90s Uruguay/clubs"},
+    {"name": "Ricardo Gareca", "era": "1990s-2000s clubs"},
+]
+
+# ── Other widely recognized legendary managers ─────────────────────────────────
+OTHER_LEGENDS = [
+    {"name": "Sir Alex Ferguson", "era": "1980s-2010s Man United"},
+    {"name": "Arsène Wenger", "era": "1990s-2010s Arsenal"},
+    {"name": "Marcelo Bielsa", "era": "1990s-2020s Argentina/Leeds"},
+    {"name": "Diego Simeone", "era": "2010s-20s Atlético Madrid"},
+    {"name": "Massimiliano Allegri", "era": "2010s-20s Juventus"},
+    {"name": "Antonio Conte", "era": "2010s-20s Juventus/Chelsea"},
+    {"name": "Unai Emery", "era": "2010s-20s Sevilla/Villarreal"},
+    {"name": "Julian Nagelsmann", "era": "2020s Bayern/Germany"},
+    {"name": "Xavi Hernández", "era": "2020s Barcelona"},
+    {"name": "Mauricio Pochettino", "era": "2010s-20s Tottenham"},
+    {"name": "Erik ten Hag", "era": "2020s Ajax/Man United"},
+    {"name": "Roberto Mancini", "era": "2010s-20s Man City/Italy"},
+    {"name": "Valeriy Lobanovskyi", "era": "1970s-90s Dynamo Kyiv"},
+]
+
+_ALL_NAMED = WORLD_CUP_COACHES + CHAMPIONS_LEAGUE_COACHES + LIBERTADORES_COACHES + OTHER_LEGENDS
+
+def _build_coaches():
+    seen = set()
+    coaches = []
+    for entry in _ALL_NAMED:
+        name = entry["name"]
+        key = name.lower().strip()
+        if key in seen:
+            continue
+        seen.add(key)
+        # Deterministic, flavor-only ratings (not historical claims) - top-tier
+        # legends sit in the low-to-high 90s, others in the mid-high 80s.
+        base = 90 if entry in WORLD_CUP_COACHES or entry in CHAMPIONS_LEAGUE_COACHES else 86
+        # small deterministic spread based on name length so ratings aren't all identical
+        spread = len(name) % 8
+        coaches.append({
+            "name": name,
+            "era": entry["era"],
+            "attack": min(99, base + spread - 3),
+            "defense": min(99, base + (7 - spread) - 3),
+            "adaptability": min(99, base - 2 + (spread % 5)),
+            "motivation": min(99, base - 1 + ((spread + 3) % 5)),
+        })
+    return coaches
+
+COACHES = _build_coaches()
 
 POSITIONS = ["GK", "CB", "LB", "RB", "CM", "CDM", "CAM", "LW", "RW", "ST", "CF"]
 
@@ -32,128 +154,6 @@ TEAM_COLORS = {
     "Napoli": {"bg": "#0047AB", "text": "#FFFFFF"},
 }
 
-# Real professional first and last names from football history
-FIRST_NAMES = [
-    "Gianluigi", "Manuel", "Iker", "Lev", "Peter", "Edwin", "Petr", "Oliver", "David", "Alisson",
-    "Donnarumma", "De Gea", "Joe", "Samir", "Victor", "Julio", "Mark", "Carlo", "Francesco", "Massimo",
-    "Jose", "Dino", "Gilmar", "Castilho", "Rogerio", "Keylor", "Jasper", "Maarten", "Stefan", "Alphonse",
-    "Nick", "Aaron", "Dean", "Tomas", "Lend", "Ryan", "David", "Hugo", "Danijel", "Fernando",
-    "Claudio", "Sergio", "Vito", "Jan", "Bernd", "Matt", "David", "Hugo", "Danijel", "Fernando",
-    "Franz", "Sergio", "Virgil", "Bobby", "Fabio", "Paolo", "Rio", "John", "Giuseppe", "Tony",
-    "Jaap", "Mats", "Gerard", "Pepe", "Nemanja", "Thiago", "Vincent", "Wes", "Gianluca", "Bacary",
-    "Ashley", "Patrice", "Nery", "Ronald", "Marcel", "Claudio", "Mark", "Gaetano", "Antonio", "Giancarlo",
-    "Riccardo", "Walter", "Paolo", "Alessandro", "Billy", "Roy", "Patrick", "Zinedine", "Steven", "David",
-    "Paul", "Ryan", "Frank", "Andriy", "Dirk", "Didier", "Claude", "Sami", "Javi", "Bastian",
-    "Juan", "Eric", "Teddy", "Ian", "Dwight", "Frederic", "Cesc", "Mesut", "Luis", "Jose",
-    "Joaquin", "Andres", "Javier", "Sergio", "Xavi", "Luka", "Toni", "Casemiro", "David", "Joshua",
-    "Leroy", "Kevin", "Bernardo", "Ilkay", "Fernandinho", "Juan", "Angel", "Isco", "Marco", "Pablo",
-    "Christian", "Dele", "Harry", "Moussa", "Eric", "Nemanja", "Arturo", "Alexis", "Gary", "Charles",
-    "Jorge", "Matias", "Fabio", "Emerson", "Philippe", "Willian", "Douglas", "Kaka", "Robinho", "Alvaro",
-    "Neymar", "Vinicius", "Rodrygo", "Richarlison", "Antony", "Gabriel", "Firmino", "Carlos", "Tévez", "Javier",
-    "Maradona", "Cristiano", "Lionel", "Gerd", "Ferenc", "Karim", "Robert", "Erling", "Harry", "Sergio",
-    "Thierry", "Ronaldinho", "Ronaldo", "George", "Johan", "Alfredo", "Andy", "Sheringham", "Dwight", "Ole",
-    "Wayne", "Michael", "Robbie", "David", "Raul", "Fernando", "Torres", "Diego", "Didier", "Samuel",
-    "Kylian", "Richarlison", "Rodrygo", "Gabriel", "Neymar", "Lucas", "Paqueta", "Mohamed", "Sadio", "Roberto",
-    "Leroy", "Jadon", "Marcos", "Chris", "Luke", "Aaron", "Patrice", "Nani", "Antonio", "Rafael"
-]
-
-LAST_NAMES = [
-    "Buffon", "Neuer", "Casillas", "Yashin", "Shilton", "van der Sar", "Cech", "Kahn", "Ederson", "Becker",
-    "Donnarumma", "De Gea", "Hart", "Handanovic", "Valdes", "Cesar", "Schwarzer", "Cudicini", "Toldo", "Taibi",
-    "Chilavert", "Zoff", "Gilmar", "Castilho", "Ceni", "Navas", "Cillessen", "Stekelenburg", "Ortega", "Areola",
-    "Pope", "Ramsdale", "Henderson", "Vaclík", "Leno", "Ryan", "Ospina", "Lloris", "Subasic", "Muslera",
-    "Bravo", "Romero", "Mannone", "Oblak", "Mignolet", "Reina", "Sorensen", "Fährmann", "Adler", "Enke",
-    "Beckenbauer", "Ramos", "van Dijk", "Moore", "Cannavaro", "Maldini", "Ferdinand", "Terry", "Bergomi", "Adams",
-    "Stam", "Hummels", "Pique", "Pepe", "Vidic", "Silva", "Kompany", "Brown", "Zambrotta", "Sagna",
-    "Cole", "Evra", "Pumpido", "Koeman", "Desailly", "Gentile", "Hateley", "Scirea", "Cabrini", "Antognoni",
-    "Ferri", "Zenga", "Cannavaro", "Costacurta", "Bremner", "Keane", "Vieira", "Zidane", "Gerrard", "Beckham",
-    "Scholes", "Giggs", "Lampard", "Shevchenko", "Kuyt", "Drogba", "Makélélé", "Khedira", "Martínez", "Schweinsteiger",
-    "Valerón", "Cantona", "Sheringham", "Wright", "Yorke", "Ljungberg", "Fàbregas", "Özil", "Aragonés", "Camacho",
-    "Joaquín", "Iniesta", "Mascherano", "Busquets", "Hernández", "Modrić", "Kroos", "Casemiro", "Alaba", "Kimmich",
-    "Sané", "De Bruyne", "Silva", "Gündoğan", "Fernandinho", "Mata", "Di María", "Alarcón", "Asensio", "Sarabia",
-    "Eriksen", "Alli", "Winks", "Sissoko", "Dier", "Matić", "Vidić", "Icardi", "Vidal", "Sánchez",
-    "Medel", "Aránguiz", "Valdivia", "Fernández", "Simplício", "Aparecido", "Alcantara", "Coutinho", "Borges", "Costa",
-    "Morata", "da Silva", "Junior", "Goes", "de Andrade", "Barbosa", "Firmino", "Morales", "Arriola", "Dest",
-    "Loftus-Cheek", "Mount", "Saka", "Sancho", "Foden", "Bellingham", "Rice", "Ødegaard", "Rondón", "Córdoba",
-    "Borré", "Luis Fernando", "Zapata", "Macías", "Martín", "Jiménez", "Alba", "Roberto", "Piqué", "Busquets",
-    "Simons", "Gonzalez", "Páez", "Araujo", "Torres", "Depay", "Fati", "Puig", "González", "Torre",
-    "Chair", "Suárez", "Higuaín", "Tévez", "Mascherano", "Montoya", "Ibarra", "Heinze", "Zanetti", "Cambiasso",
-    "Saviola", "González", "Forlán", "De Arrascaeta", "Rodríguez", "Beltrán", "Moreno", "Romero", "Díaz", "Álvarez"
-]
-
-def generate_players(count=7500):
-    """Generate 7500 unique professional football players"""
-    
-    players = []
-    used_names = set()
-    
-    # Distribution targets
-    targets = {"GK": 500, "CB": 2000, "CM": 3000, "ST": 2000}
-    counts = {"GK": 0, "CB": 0, "CM": 0, "ST": 0}
-    
-    # Generate all combinations
-    all_combinations = []
-    for first in FIRST_NAMES:
-        for last in LAST_NAMES:
-            all_combinations.append(f"{first} {last}")
-    
-    random.shuffle(all_combinations)
-    
-    # Position sequence for distribution
-    position_sequence = (
-        ["GK"] * 500 + 
-        ["CB"] * 2000 + 
-        ["CM"] * 3000 + 
-        ["ST"] * 2000
-    )
-    random.shuffle(position_sequence)
-    
-    # Generate players
-    for i, name in enumerate(all_combinations):
-        if len(players) >= count:
-            break
-        if name not in used_names:
-            used_names.add(name)
-            position = position_sequence[i] if i < len(position_sequence) else "ST"
-            era = random.choice(["1950s-1970s", "1970s-1990s", "1980s-2000s", "1990s-2010s", "2000s-2020s"])
-            
-            # Attributes by position
-            if position == "GK":
-                speed = random.randint(70, 82)
-                dribbling = random.randint(30, 55)
-                shooting = random.randint(20, 45)
-                defense = random.randint(88, 99)
-            elif position == "CB":
-                speed = random.randint(75, 90)
-                dribbling = random.randint(60, 80)
-                shooting = random.randint(45, 70)
-                defense = random.randint(85, 99)
-            elif position == "CM":
-                speed = random.randint(78, 94)
-                dribbling = random.randint(70, 92)
-                shooting = random.randint(65, 88)
-                defense = random.randint(60, 85)
-            else:  # ST
-                speed = random.randint(82, 96)
-                dribbling = random.randint(75, 95)
-                shooting = random.randint(82, 98)
-                defense = random.randint(25, 60)
-            
-            players.append({
-                "name": name,
-                "position": position,
-                "era": era,
-                "speed": speed,
-                "dribbling": dribbling,
-                "shooting": shooting,
-                "defense": defense,
-                "physical": random.randint(75, 98),
-                "iq": random.randint(78, 98),
-                "team": random.choice(list(TEAM_COLORS.keys()))
-            })
-    
-    return players[:count]
-
 FORMATIONS = [
     {"name": "4-3-3", "description": "Classic balanced", "defenders": 4, "midfielders": 3, "forwards": 3},
     {"name": "4-2-4", "description": "Defensive midfield", "defenders": 4, "midfielders": 2, "forwards": 4},
@@ -163,9 +163,42 @@ FORMATIONS = [
     {"name": "3-4-3", "description": "Attacking", "defenders": 3, "midfielders": 4, "forwards": 3},
 ]
 
+# ── Position slot templates per formation ──────────────────────────────────────
+# Used to render "1 GK, 4 DEF, 3 MID, 3 FWD"-style boards that fill in with
+# drafted player names as each slot's position is picked.
+_DEF_SLOTS = {
+    3: ["CB", "CB", "CB"],
+    4: ["RB", "CB", "CB", "LB"],
+    5: ["RB", "CB", "CB", "CB", "LB"],
+}
+_MID_SLOTS = {
+    2: ["CDM", "CDM"],
+    3: ["CDM", "CM", "CAM"],
+    4: ["RW", "CM", "CM", "LW"],
+    5: ["RB", "CM", "CM", "CM", "LB"],
+}
+_FWD_SLOTS = {
+    2: ["ST", "ST"],
+    3: ["LW", "ST", "RW"],
+    4: ["LW", "ST", "ST", "RW"],
+}
+
+FORMATION_SLOTS = {
+    f["name"]: ["GK"] + _DEF_SLOTS[f["defenders"]] + _MID_SLOTS[f["midfielders"]] + _FWD_SLOTS[f["forwards"]]
+    for f in FORMATIONS
+}
+
+# Broad position groups, used to fall back a drafted player into the nearest
+# open slot when their exact position isn't in the formation's template.
+POSITION_GROUP = {
+    "GK": "GK",
+    "CB": "DEF", "LB": "DEF", "RB": "DEF",
+    "CM": "MID", "CDM": "MID", "CAM": "MID",
+    "LW": "FWD", "RW": "FWD", "ST": "FWD", "CF": "FWD",
+}
+
 if __name__ == "__main__":
-    print("Generating 7500 professional players...")
-    players = generate_players(7500)
-    print(f"Generated {len(players)} players")
-    print(f"Generated {len(COACHES)} coaches")
-    print(f"Available formations: {len(FORMATIONS)}")
+    print(f"Curated coaches: {len(COACHES)}")
+    print(f"Formations: {len(FORMATIONS)}")
+    for name, slots in FORMATION_SLOTS.items():
+        print(name, slots, len(slots))
