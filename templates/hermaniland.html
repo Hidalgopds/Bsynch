@@ -184,6 +184,30 @@
                 </div>
             </div>
 
+            <div class="two-column">
+                <div>
+                    <div class="form-group">
+                        <label>Selection Mode</label>
+                        <select id="selectionMode">
+                            <option value="timed" selected>Timed (All pick simultaneously)</option>
+                            <option value="free_for_all">Free for All (First come, first served)</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <div class="form-group">
+                        <label>Narration Duration (seconds) - 0 to skip</label>
+                        <select id="narrationDuration">
+                            <option value="0" selected>0 - No narration</option>
+                            <option value="15">15 seconds</option>
+                            <option value="30">30 seconds</option>
+                            <option value="45">45 seconds</option>
+                            <option value="60">60 seconds</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
             <button onclick="createRoom()" style="width: 100%; margin-top: 20px;">Create Room</button>
         </div>
 
@@ -241,7 +265,9 @@
 
             <div class="form-group">
                 <label>Coach / Manager</label>
-                <select id="coachSelect"></select>
+                <input type="text" id="coachSearch" placeholder="Search coach... (e.g., Kahn, Ferguson, Beckenbauer)" oninput="onCoachSearchInput()">
+                <div id="coachSearchResults" style="max-height: 200px; overflow-y: auto; margin-top: 8px; border: 1px solid #ddd; border-radius: 4px; display: none;"></div>
+                <select id="coachSelect" style="margin-top: 8px;"></select>
             </div>
 
             <div id="teamSetupSlotPreview" class="lineup-board"></div>
@@ -456,6 +482,64 @@
             });
         }
 
+        function onCoachSearchInput() {
+            const input = document.getElementById('coachSearch').value.toLowerCase();
+            const resultsDiv = document.getElementById('coachSearchResults');
+
+            if (!input.trim()) {
+                resultsDiv.style.display = 'none';
+                return;
+            }
+
+            const filtered = gameState.coaches.filter(c => c.name.toLowerCase().includes(input));
+
+            if (filtered.length === 0) {
+                resultsDiv.innerHTML = '<div style="padding: 8px; color: #999;">No coaches found</div>';
+                resultsDiv.style.display = 'block';
+                return;
+            }
+
+            resultsDiv.innerHTML = filtered.map(coach =>
+                `<div onclick="selectCoach('${coach.name}')" style="padding: 8px; cursor: pointer; border-bottom: 1px solid #eee; hover: {background: #f5f5f5}">
+                    ${coach.name} <small style="color: #999;">(Atk: ${coach.attack}, Def: ${coach.defense})</small>
+                </div>`
+            ).join('');
+            resultsDiv.style.display = 'block';
+        }
+
+        function selectCoach(coachName) {
+            const select = document.getElementById('coachSelect');
+            select.value = coachName;
+            document.getElementById('coachSearch').value = coachName;
+            document.getElementById('coachSearchResults').style.display = 'none';
+        }
+
+        function pollTeamSetupStatus() {
+            if (gameState.roomCode && gameState.playerId) {
+                fetch(`/api/hermaniland/team-setup-status/${gameState.roomCode}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        updateReadinessList(data.participants);
+                        if (data.all_ready && gameState.playerId === gameState.adminId) {
+                            document.getElementById('startDraftFromSetupBtn').style.display = 'block';
+                        }
+                    })
+                    .catch(e => console.error('Status poll error:', e));
+            }
+        }
+
+        function updateReadinessList(participants) {
+            const list = document.getElementById('readinessList');
+            list.innerHTML = participants.map(p => {
+                const check = p.is_ready ? '✅' : '⏳';
+                const formation = p.formation || '-';
+                const coach = p.coach || '-';
+                return `<div style="padding: 8px; border-bottom: 1px solid #ddd;">
+                    ${check} ${p.name} - Formation: ${formation}, Coach: ${coach}
+                </div>`;
+            }).join('');
+        }
+
         function populateFormations() {
             const select = document.getElementById('formationSelect');
             select.innerHTML = '';
@@ -480,7 +564,9 @@
                 num_players: document.getElementById('numPlayers').value,
                 ai_difficulty: document.getElementById('aiDifficulty').value,
                 tournament_mode: document.getElementById('tournamentMode').value,
-                time_per_pick: document.getElementById('timePerPick').value
+                time_per_pick: document.getElementById('timePerPick').value,
+                selection_mode: document.getElementById('selectionMode').value,
+                narration_duration: parseInt(document.getElementById('narrationDuration').value)
             };
 
             apiFetch('/api/hermaniland/create-room', {
