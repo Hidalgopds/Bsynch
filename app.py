@@ -6645,18 +6645,14 @@ def delete_all_job_steps(job_id):
 
 
 # ── Hermaniland: Football Draft Game ──────────────────────────────────────────
-from hermaniland_data_historic import generate_players_historic as generate_players
+from hermaniland_players import get_all_players, get_players_by_position, search_players, get_stats
 from hermaniland_data import COACHES, FORMATIONS, FORMATION_SLOTS, POSITION_GROUP
 
 HERMANILAND_GAMES = {}
-_HERMANILAND_PLAYERS_CACHE = None
 
 def get_hermaniland_players_cached():
-    """Get cached players - 621 verified real historical players (1930-2026)"""
-    global _HERMANILAND_PLAYERS_CACHE
-    if _HERMANILAND_PLAYERS_CACHE is None:
-        _HERMANILAND_PLAYERS_CACHE = generate_players(621)
-    return _HERMANILAND_PLAYERS_CACHE
+    """Get all available players from position-based database (621 verified real players)"""
+    return get_all_players()
 
 def generate_hermaniland_room_code():
     """Generate unique 4-char room code for Hermaniland"""
