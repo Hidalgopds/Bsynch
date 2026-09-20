@@ -621,13 +621,37 @@
         }
 
         let searchTimeout;
+        function normalizeText(text) {
+            return text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+        }
         function searchPlayers() {
             clearTimeout(searchTimeout);
-            const query = document.getElementById('playerSearch').value.toLowerCase();
+            const query = document.getElementById('playerSearch').value.trim();
+            if (!query) {
+                document.querySelectorAll('.player-card').forEach(card => card.style.display = 'block');
+                return;
+            }
+            const normalizedQuery = normalizeText(query);
+            const queryTerms = normalizedQuery.split(/\s+/);
+
             searchTimeout = setTimeout(() => {
                 document.querySelectorAll('.player-card').forEach(card => {
-                    const name = card.textContent.toLowerCase();
-                    card.style.display = name.includes(query) ? 'block' : 'none';
+                    const name = normalizeText(card.textContent);
+                    const position = card.querySelector('.player-meta')?.textContent.toLowerCase() || '';
+                    const team = card.querySelector('.player-meta')?.textContent.toLowerCase() || '';
+
+                    let matchScore = 0;
+                    queryTerms.forEach(term => {
+                        if (name.includes(term)) {
+                            if (name.startsWith(term)) matchScore += 3;
+                            else if (name.split(' ').some(w => w.startsWith(term))) matchScore += 2;
+                            else matchScore += 1;
+                        }
+                        if (position.includes(term)) matchScore += 0.5;
+                        if (team.includes(term)) matchScore += 0.5;
+                    });
+
+                    card.style.display = matchScore > 0 ? 'block' : 'none';
                 });
             }, 300);
         }
