@@ -289,10 +289,17 @@
         }
 
         function loadPlayers() {
-            if (gameState.players.length > 0) return;
+            if (gameState.players.length > 0) return Promise.resolve();
             return fetch('/api/hermaniland/players')
                 .then(r => r.json())
-                .then(data => gameState.players = data.players);
+                .then(data => {
+                    gameState.players = data.players;
+                    console.log('Loaded ' + gameState.players.length + ' players');
+                })
+                .catch(e => {
+                    console.error('Error loading players:', e);
+                    alert('Error loading players: ' + e.message);
+                });
         }
 
         function populateCoaches() {
@@ -408,8 +415,15 @@
                         updateTeamsTable().then(() => {
                             startPickTimer();
                             pollDraftStatus();
-                        });
+                        }).catch(e => console.error('Error updating teams table:', e));
+                    })
+                    .catch(e => {
+                        console.error('Error starting draft:', e);
+                        alert('Error starting draft: ' + e.message);
                     });
+            }).catch(e => {
+                console.error('Error loading players before draft:', e);
+                alert('Error loading players: ' + e.message);
             });
         }
 
@@ -442,7 +456,12 @@
         function displayPlayers() {
             const list = document.getElementById('playersList');
             list.innerHTML = '';
-            gameState.players.slice(0, 150).forEach(player => {
+            if (!gameState.players || gameState.players.length === 0) {
+                list.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No players available</div>';
+                console.warn('No players to display');
+                return;
+            }
+            gameState.players.forEach(player => {
                 const isDrafted = gameState.draftedPlayers.has(player.name);
                 const div = document.createElement('div');
                 const teamColor = getTeamColor(player.team);
@@ -463,6 +482,7 @@
                 }
                 list.appendChild(div);
             });
+            console.log('Displayed ' + gameState.players.length + ' players');
         }
 
         function selectPlayerForDraft(player) {
