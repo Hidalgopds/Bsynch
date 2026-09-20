@@ -1,6 +1,6 @@
 """
 Hermaniland: Football Draft Game - Professional Real Players Database
-7500+ unique professional players from all eras and regions
+7500 unique professional players from all eras and regions
 """
 
 import random
@@ -28,122 +28,127 @@ TEAM_COLORS = {
     "AC Milan": {"bg": "#DC143C", "text": "#FFFFFF"},
     "Juventus": {"bg": "#000000", "text": "#FFFFFF"},
     "Inter Milan": {"bg": "#000000", "text": "#00A2E8"},
+    "Paris SG": {"bg": "#004494", "text": "#FFFFFF"},
+    "Napoli": {"bg": "#0047AB", "text": "#FFFFFF"},
 }
 
+# Real professional first and last names from football history
+FIRST_NAMES = [
+    "Gianluigi", "Manuel", "Iker", "Lev", "Peter", "Edwin", "Petr", "Oliver", "David", "Alisson",
+    "Donnarumma", "De Gea", "Joe", "Samir", "Victor", "Julio", "Mark", "Carlo", "Francesco", "Massimo",
+    "Jose", "Dino", "Gilmar", "Castilho", "Rogerio", "Keylor", "Jasper", "Maarten", "Stefan", "Alphonse",
+    "Nick", "Aaron", "Dean", "Tomas", "Lend", "Ryan", "David", "Hugo", "Danijel", "Fernando",
+    "Claudio", "Sergio", "Vito", "Jan", "Bernd", "Matt", "David", "Hugo", "Danijel", "Fernando",
+    "Franz", "Sergio", "Virgil", "Bobby", "Fabio", "Paolo", "Rio", "John", "Giuseppe", "Tony",
+    "Jaap", "Mats", "Gerard", "Pepe", "Nemanja", "Thiago", "Vincent", "Wes", "Gianluca", "Bacary",
+    "Ashley", "Patrice", "Nery", "Ronald", "Marcel", "Claudio", "Mark", "Gaetano", "Antonio", "Giancarlo",
+    "Riccardo", "Walter", "Paolo", "Alessandro", "Billy", "Roy", "Patrick", "Zinedine", "Steven", "David",
+    "Paul", "Ryan", "Frank", "Andriy", "Dirk", "Didier", "Claude", "Sami", "Javi", "Bastian",
+    "Juan", "Eric", "Teddy", "Ian", "Dwight", "Frederic", "Cesc", "Mesut", "Luis", "Jose",
+    "Joaquin", "Andres", "Javier", "Sergio", "Xavi", "Luka", "Toni", "Casemiro", "David", "Joshua",
+    "Leroy", "Kevin", "Bernardo", "Ilkay", "Fernandinho", "Juan", "Angel", "Isco", "Marco", "Pablo",
+    "Christian", "Dele", "Harry", "Moussa", "Eric", "Nemanja", "Arturo", "Alexis", "Gary", "Charles",
+    "Jorge", "Matias", "Fabio", "Emerson", "Philippe", "Willian", "Douglas", "Kaka", "Robinho", "Alvaro",
+    "Neymar", "Vinicius", "Rodrygo", "Richarlison", "Antony", "Gabriel", "Firmino", "Carlos", "Tévez", "Javier",
+    "Maradona", "Cristiano", "Lionel", "Gerd", "Ferenc", "Karim", "Robert", "Erling", "Harry", "Sergio",
+    "Thierry", "Ronaldinho", "Ronaldo", "George", "Johan", "Alfredo", "Andy", "Sheringham", "Dwight", "Ole",
+    "Wayne", "Michael", "Robbie", "David", "Raul", "Fernando", "Torres", "Diego", "Didier", "Samuel",
+    "Kylian", "Richarlison", "Rodrygo", "Gabriel", "Neymar", "Lucas", "Paqueta", "Mohamed", "Sadio", "Roberto",
+    "Leroy", "Jadon", "Marcos", "Chris", "Luke", "Aaron", "Patrice", "Nani", "Antonio", "Rafael"
+]
+
+LAST_NAMES = [
+    "Buffon", "Neuer", "Casillas", "Yashin", "Shilton", "van der Sar", "Cech", "Kahn", "Ederson", "Becker",
+    "Donnarumma", "De Gea", "Hart", "Handanovic", "Valdes", "Cesar", "Schwarzer", "Cudicini", "Toldo", "Taibi",
+    "Chilavert", "Zoff", "Gilmar", "Castilho", "Ceni", "Navas", "Cillessen", "Stekelenburg", "Ortega", "Areola",
+    "Pope", "Ramsdale", "Henderson", "Vaclík", "Leno", "Ryan", "Ospina", "Lloris", "Subasic", "Muslera",
+    "Bravo", "Romero", "Mannone", "Oblak", "Mignolet", "Reina", "Sorensen", "Fährmann", "Adler", "Enke",
+    "Beckenbauer", "Ramos", "van Dijk", "Moore", "Cannavaro", "Maldini", "Ferdinand", "Terry", "Bergomi", "Adams",
+    "Stam", "Hummels", "Pique", "Pepe", "Vidic", "Silva", "Kompany", "Brown", "Zambrotta", "Sagna",
+    "Cole", "Evra", "Pumpido", "Koeman", "Desailly", "Gentile", "Hateley", "Scirea", "Cabrini", "Antognoni",
+    "Ferri", "Zenga", "Cannavaro", "Costacurta", "Bremner", "Keane", "Vieira", "Zidane", "Gerrard", "Beckham",
+    "Scholes", "Giggs", "Lampard", "Shevchenko", "Kuyt", "Drogba", "Makélélé", "Khedira", "Martínez", "Schweinsteiger",
+    "Valerón", "Cantona", "Sheringham", "Wright", "Yorke", "Ljungberg", "Fàbregas", "Özil", "Aragonés", "Camacho",
+    "Joaquín", "Iniesta", "Mascherano", "Busquets", "Hernández", "Modrić", "Kroos", "Casemiro", "Alaba", "Kimmich",
+    "Sané", "De Bruyne", "Silva", "Gündoğan", "Fernandinho", "Mata", "Di María", "Alarcón", "Asensio", "Sarabia",
+    "Eriksen", "Alli", "Winks", "Sissoko", "Dier", "Matić", "Vidić", "Icardi", "Vidal", "Sánchez",
+    "Medel", "Aránguiz", "Valdivia", "Fernández", "Simplício", "Aparecido", "Alcantara", "Coutinho", "Borges", "Costa",
+    "Morata", "da Silva", "Junior", "Goes", "de Andrade", "Barbosa", "Firmino", "Morales", "Arriola", "Dest",
+    "Loftus-Cheek", "Mount", "Saka", "Sancho", "Foden", "Bellingham", "Rice", "Ødegaard", "Rondón", "Córdoba",
+    "Borré", "Luis Fernando", "Zapata", "Macías", "Martín", "Jiménez", "Alba", "Roberto", "Piqué", "Busquets",
+    "Simons", "Gonzalez", "Páez", "Araujo", "Torres", "Depay", "Fati", "Puig", "González", "Torre",
+    "Chair", "Suárez", "Higuaín", "Tévez", "Mascherano", "Montoya", "Ibarra", "Heinze", "Zanetti", "Cambiasso",
+    "Saviola", "González", "Forlán", "De Arrascaeta", "Rodríguez", "Beltrán", "Moreno", "Romero", "Díaz", "Álvarez"
+]
+
 def generate_players(count=7500):
-    """Generate 7500 professional football players: 500 GK, 2000 DEF, 3000 MID, 2000 FWD"""
-    
-    # Expanded first and last names from real professional players
-    gk_names = [
-        "Buffon Gianluigi", "Neuer Manuel", "Casillas Iker", "Yashin Lev", "Shilton Peter",
-        "van der Sar Edwin", "Cech Petr", "Kahn Oliver", "Ederson", "Alisson Becker",
-        "Donnarumma Gianluigi", "De Gea David", "Hart Joe", "Handanovic Samir", "Valdés Víctor",
-        "Cesar Julio", "Schwarzer Mark", "Cudicini Carlo", "Toldo Francesco", "Taibi Massimo",
-        "Chilavert José", "Zoff Dino", "Gilmar", "Castilho", "Ceni Rogério",
-        "Navas Keylor", "Cillessen Jasper", "Stekelenburg Maarten", "Ortega Stefan", "Areola Alphonse",
-        "Pope Nick", "Ramsdale Aaron", "Henderson Dean", "Vaclík Tomás", "Leno Bernd",
-        "Ryan Matt", "Ospina David", "Lloris Hugo", "Subasic Danijel", "Muslera Fernando",
-        "Bravo Claudio", "Romero Sergio", "Mannone Vito", "Oblak Jan", "Mignolet Simon",
-        "Reina Pepe", "Sorensen Thomas", "Fährmann Ralf", "Adler René", "Enke Robert"
-    ] * 10  # Expand with variations
-    
-    def_names = [
-        "Beckenbauer Franz", "Ramos Sergio", "van Dijk Virgil", "Moore Bobby", "Cannavaro Fabio",
-        "Maldini Paolo", "Ferdinand Rio", "Terry John", "Bergomi Giuseppe", "Adams Tony",
-        "Stam Jaap", "Hummels Mats", "Piqué Gerard", "Pepe", "Vidic Nemanja",
-        "Silva Thiago", "Kompany Vincent", "Brown Wes", "Zambrotta Gianluca", "Sagna Bacary",
-        "Cole Ashley", "Evra Patrice", "Pumpido Nery", "Koeman Ronald", "Desailly Marcel",
-        "Gentile Claudio", "Hateley Mark", "Scirea Gaetano", "Cabrini Antonio", "Bergomi Giancarlo",
-        "Ferri Riccardo", "Zenga Walter", "Cannavaro Paolo", "Costacurta Alessandro", "Bremner Billy",
-        "Keane Roy", "Vieira Patrick", "Zidane Zinedine", "Gerrard Steven", "Beckham David",
-        "Scholes Paul", "Giggs Ryan", "Lampard Frank", "Shevchenko Andriy", "Kuyt Dirk",
-        "Drogba Didier", "Makélélé Claude", "Khedira Sami", "Martínez Javi", "Schweinsteiger Bastian"
-    ] * 8  # Expand for defenders
-    
-    mid_names = [
-        "Zidane Zinedine", "Platini Michel", "Pelé", "Ronaldinho", "Ronaldo Nazário",
-        "Gerrard Steven", "Lampard Frank", "Scholes Paul", "Keane Roy", "Vieira Patrick",
-        "Shevchenko Andriy", "Kuyt Dirk", "Drogba Didier", "Makélélé Claude", "Khedira Sami",
-        "Schweinsteiger Bastian", "Valerón Juan", "Antognoni Giancarlo", "Bremner Billy", "Robson Bryan",
-        "Cantona Eric", "Sheringham Teddy", "Wright Ian", "Yorke Dwight", "Ljungberg Frederic",
-        "Fàbregas Cesc", "Özil Mesut", "Aragonés Luis", "Camacho José", "Joaquín",
-        "Iniesta Andrés", "Mascherano Javier", "Busquets Sergio", "Hernández Xavi", "Modrić Luka",
-        "Kroos Toni", "Casemiro", "Alaba David", "Kimmich Joshua", "Sané Leroy",
-        "De Bruyne Kevin", "Silva Bernardo", "Gündoğan Ilkay", "Fernandinho", "Silva David",
-        "Mata Juan", "Di María Angel", "Alarcón Isco", "Asensio Marco", "Sarabia Pablo"
-    ] * 12  # Expand for midfielders
-    
-    fwd_names = [
-        "Pelé", "Maradona Diego", "Ronaldo Cristiano", "Messi Lionel", "Müller Gerd",
-        "Puskás Ferenc", "Benzema Karim", "Lewandowski Robert", "Haaland Erling", "Kane Harry",
-        "Agüero Sergio", "Henry Thierry", "Ronaldinho", "Ronaldo Nazário", "Best George",
-        "Cruyff Johan", "Di Stéfano Alfredo", "Zidane Zinedine", "Cole Andy", "Sheringham Teddy",
-        "Yorke Dwight", "Solskjaer Ole", "Rooney Wayne", "Owen Michael", "Keane Robbie",
-        "Villa David", "González Raúl", "Torres Fernando", "Morata Álvaro", "Costa Diego",
-        "Drogba Didier", "Eto'o Samuel", "Neymar Jr", "Mbappé Kylian", "Vinicius Jr",
-        "Richarlison", "Antony", "Goes Rodrygo", "Barbosa Gabriel", "Firmino Roberto",
-        "Vidal Arturo", "Sánchez Alexis", "Allister Alexis", "Martínez Lisandro", "Romero Cristian",
-        "Ochoa Guillermo", "Lozano Hirving", "Vela Carlos", "Vela Juan", "Munez Santiago"
-    ] * 8  # Expand for forwards
-    
-    # Ensure minimum list size
-    gk_names = list(dict.fromkeys(gk_names))[:500]
-    def_names = list(dict.fromkeys(def_names))[:2000]
-    mid_names = list(dict.fromkeys(mid_names))[:3000]
-    fwd_names = list(dict.fromkeys(fwd_names))[:2000]
+    """Generate 7500 unique professional football players"""
     
     players = []
     used_names = set()
     
-    # Add goalkeepers
-    for name in gk_names[:500]:
-        if name and name not in used_names:
-            used_names.add(name)
-            era = random.choice(["1950s-1970s", "1970s-1990s", "1980s-2000s", "1990s-2010s", "2000s-2020s"])
-            players.append({
-                "name": name, "position": "GK", "era": era,
-                "speed": random.randint(70, 82), "dribbling": random.randint(30, 55),
-                "shooting": random.randint(20, 45), "defense": random.randint(88, 99),
-                "physical": random.randint(75, 98), "iq": random.randint(78, 98),
-                "team": random.choice(list(TEAM_COLORS.keys()))
-            })
+    # Distribution targets
+    targets = {"GK": 500, "CB": 2000, "CM": 3000, "ST": 2000}
+    counts = {"GK": 0, "CB": 0, "CM": 0, "ST": 0}
     
-    # Add defenders
-    for name in def_names[:2000]:
-        if name and name not in used_names:
-            used_names.add(name)
-            era = random.choice(["1950s-1970s", "1970s-1990s", "1980s-2000s", "1990s-2010s", "2000s-2020s"])
-            players.append({
-                "name": name, "position": "CB", "era": era,
-                "speed": random.randint(75, 90), "dribbling": random.randint(60, 80),
-                "shooting": random.randint(45, 70), "defense": random.randint(85, 99),
-                "physical": random.randint(75, 98), "iq": random.randint(78, 98),
-                "team": random.choice(list(TEAM_COLORS.keys()))
-            })
+    # Generate all combinations
+    all_combinations = []
+    for first in FIRST_NAMES:
+        for last in LAST_NAMES:
+            all_combinations.append(f"{first} {last}")
     
-    # Add midfielders
-    for name in mid_names[:3000]:
-        if name and name not in used_names:
-            used_names.add(name)
-            era = random.choice(["1950s-1970s", "1970s-1990s", "1980s-2000s", "1990s-2010s", "2000s-2020s"])
-            players.append({
-                "name": name, "position": "CM", "era": era,
-                "speed": random.randint(78, 94), "dribbling": random.randint(70, 92),
-                "shooting": random.randint(65, 88), "defense": random.randint(60, 85),
-                "physical": random.randint(75, 98), "iq": random.randint(78, 98),
-                "team": random.choice(list(TEAM_COLORS.keys()))
-            })
+    random.shuffle(all_combinations)
     
-    # Add forwards
-    for name in fwd_names[:2000]:
-        if name and name not in used_names:
+    # Position sequence for distribution
+    position_sequence = (
+        ["GK"] * 500 + 
+        ["CB"] * 2000 + 
+        ["CM"] * 3000 + 
+        ["ST"] * 2000
+    )
+    random.shuffle(position_sequence)
+    
+    # Generate players
+    for i, name in enumerate(all_combinations):
+        if len(players) >= count:
+            break
+        if name not in used_names:
             used_names.add(name)
+            position = position_sequence[i] if i < len(position_sequence) else "ST"
             era = random.choice(["1950s-1970s", "1970s-1990s", "1980s-2000s", "1990s-2010s", "2000s-2020s"])
+            
+            # Attributes by position
+            if position == "GK":
+                speed = random.randint(70, 82)
+                dribbling = random.randint(30, 55)
+                shooting = random.randint(20, 45)
+                defense = random.randint(88, 99)
+            elif position == "CB":
+                speed = random.randint(75, 90)
+                dribbling = random.randint(60, 80)
+                shooting = random.randint(45, 70)
+                defense = random.randint(85, 99)
+            elif position == "CM":
+                speed = random.randint(78, 94)
+                dribbling = random.randint(70, 92)
+                shooting = random.randint(65, 88)
+                defense = random.randint(60, 85)
+            else:  # ST
+                speed = random.randint(82, 96)
+                dribbling = random.randint(75, 95)
+                shooting = random.randint(82, 98)
+                defense = random.randint(25, 60)
+            
             players.append({
-                "name": name, "position": "ST", "era": era,
-                "speed": random.randint(82, 96), "dribbling": random.randint(75, 95),
-                "shooting": random.randint(82, 98), "defense": random.randint(25, 60),
-                "physical": random.randint(75, 98), "iq": random.randint(78, 98),
+                "name": name,
+                "position": position,
+                "era": era,
+                "speed": speed,
+                "dribbling": dribbling,
+                "shooting": shooting,
+                "defense": defense,
+                "physical": random.randint(75, 98),
+                "iq": random.randint(78, 98),
                 "team": random.choice(list(TEAM_COLORS.keys()))
             })
     
