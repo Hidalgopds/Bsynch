@@ -6652,7 +6652,7 @@ def get_hermaniland_players_cached():
     """Get cached players or generate them once"""
     global _HERMANILAND_PLAYERS_CACHE
     if _HERMANILAND_PLAYERS_CACHE is None:
-        _HERMANILAND_PLAYERS_CACHE = generate_players(3000)
+        _HERMANILAND_PLAYERS_CACHE = generate_players(7500)
     return _HERMANILAND_PLAYERS_CACHE
 
 def generate_hermaniland_room_code():
