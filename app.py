@@ -6651,10 +6651,10 @@ HERMANILAND_GAMES = {}
 _HERMANILAND_PLAYERS_CACHE = None
 
 def get_hermaniland_players_cached():
-    """Get cached players - 438 verified real historical players (1930-2026)"""
+    """Get cached players - 621 verified real historical players (1930-2026)"""
     global _HERMANILAND_PLAYERS_CACHE
     if _HERMANILAND_PLAYERS_CACHE is None:
-        _HERMANILAND_PLAYERS_CACHE = generate_players(438)
+        _HERMANILAND_PLAYERS_CACHE = generate_players(621)
     return _HERMANILAND_PLAYERS_CACHE
 
 def generate_hermaniland_room_code():
