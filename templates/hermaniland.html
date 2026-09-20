@@ -24,7 +24,10 @@
         button { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 12px 30px; border-radius: 6px; font-size: 1em; cursor: pointer; font-weight: 600; transition: transform 0.2s; margin-right: 10px; }
         button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4); }
         button:active { transform: translateY(0); }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+        button.secondary { background: #757575; }
+        button.danger { background: linear-gradient(135deg, #f44336 0%, #c62828 100%); }
+        button.small { padding: 6px 14px; font-size: 0.85em; }
         .two-column { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
         @media (max-width: 768px) { .two-column { grid-template-columns: 1fr; } }
         .room-code-display { background: #f5f5f5; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0; }
@@ -34,9 +37,10 @@
         .timer { font-size: 4em; font-weight: bold; text-align: center; color: #667eea; margin: 20px 0; }
         .timer.warning { color: #ff9800; }
         .timer.danger { color: #f44336; }
+        .timer.paused { color: #9e9e9e; }
         .player-card { background: #f5f5f5; padding: 10px 12px; border-radius: 6px; margin-bottom: 8px; border-left: 4px solid #667eea; cursor: pointer; transition: all 0.2s; font-size: 0.9em; }
         .player-card:hover:not(.drafted) { background: #efefef; box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15); }
-        .player-card.selected { background: #e8eaf6; font-weight: 600; }
+        .player-card.selected { background: #e8eaf6; font-weight: 600; box-shadow: 0 0 0 2px #667eea; }
         .player-card.drafted { opacity: 0.4; cursor: not-allowed; background: #f0f0f0; }
         .player-name { font-weight: 600; font-size: 0.95em; margin-bottom: 4px; }
         .player-meta { font-size: 0.8em; color: #666; margin-bottom: 6px; }
@@ -59,10 +63,57 @@
         .copy-btn { background: #4CAF50; margin-left: 10px; padding: 8px 16px; font-size: 0.9em; }
         .draft-controls { display: flex; gap: 10px; margin-top: 20px; }
         .draft-controls button { flex: 1; }
-        .current-info { background: #e8eaf6; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: 600; }
+        .current-info { background: #e8eaf6; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+
+        /* Pause banner */
+        .paused-banner { display: none; background: #424242; color: white; text-align: center; padding: 14px; border-radius: 8px; font-weight: 700; font-size: 1.2em; margin-bottom: 15px; letter-spacing: 1px; }
+        .paused-banner.active { display: block; }
+
+        /* Position filter chips */
+        .position-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+        .pos-chip { background: #f0f0f0; color: #444; border: 2px solid #e0e0e0; padding: 6px 14px; border-radius: 20px; font-size: 0.85em; cursor: pointer; font-weight: 600; transition: all 0.15s; margin: 0; }
+        .pos-chip:hover { border-color: #667eea; transform: none; box-shadow: none; }
+        .pos-chip.active { background: #667eea; color: white; border-color: #667eea; }
+
+        /* Progress counter */
+        .progress-wrap { margin: 10px 0 6px; }
+        .progress-label { display: flex; justify-content: space-between; font-size: 0.9em; font-weight: 600; color: #555; margin-bottom: 4px; }
+        .progress-bar-bg { background: #eee; border-radius: 10px; height: 10px; overflow: hidden; }
+        .progress-bar-fill { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); height: 100%; width: 0%; transition: width 0.3s; }
+
+        /* Sticky selected-player bar */
+        .sticky-selection { display: none; position: sticky; top: 10px; z-index: 5; background: #e8eaf6; border: 2px solid #667eea; border-radius: 8px; padding: 12px 16px; margin-bottom: 14px; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+        .sticky-selection.active { display: flex; }
+        .sticky-selection .sel-info { font-weight: 600; }
+        .sticky-selection .sel-info small { display: block; font-weight: 400; color: #555; }
+
+        /* Lineup slot board */
+        .lineup-board { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin: 12px 0 20px; }
+        .lineup-slot { background: #f5f5f5; border: 2px dashed #ccc; border-radius: 6px; padding: 8px 6px; text-align: center; font-size: 0.8em; }
+        .lineup-slot.filled { background: #e8eaf6; border: 2px solid #667eea; }
+        .lineup-slot .slot-pos { font-size: 0.7em; color: #888; font-weight: 700; letter-spacing: 0.5px; }
+        .lineup-slot .slot-name { font-weight: 600; margin-top: 2px; word-break: break-word; }
+
+        /* Team setup / readiness */
+        .readiness-list { background: #f9f9f9; border-radius: 8px; padding: 12px; margin: 16px 0; }
+        .readiness-item { display: flex; justify-content: space-between; padding: 8px 10px; border-left: 4px solid #ccc; background: white; border-radius: 4px; margin-bottom: 6px; }
+        .readiness-item.ready { border-left-color: #4CAF50; }
+        .readiness-item .status { font-weight: 700; }
+
+        /* Loading spinner */
+        .spinner-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.25); z-index: 999; align-items: center; justify-content: center; }
+        .spinner-overlay.active { display: flex; }
+        .spinner { width: 54px; height: 54px; border: 6px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        .spinner-inline { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.5); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; margin-left: 8px; vertical-align: middle; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .review-banner { background: #fff3e0; border: 2px solid #ff9800; padding: 14px; border-radius: 8px; margin-bottom: 16px; font-weight: 600; }
     </style>
 </head>
 <body>
+    <div class="spinner-overlay" id="spinnerOverlay"><div class="spinner"></div></div>
+
     <div class="container">
         <header>
             <h1>⚽ HERMANILAND</h1>
@@ -120,10 +171,14 @@
                     <div class="form-group">
                         <label>Time per Pick (seconds)</label>
                         <select id="timePerPick">
-                            <option value="20" selected>20 seconds</option>
                             <option value="30">30 seconds</option>
                             <option value="45">45 seconds</option>
-                            <option value="60">60 seconds</option>
+                            <option value="60">1 minute</option>
+                            <option value="90">1.5 minutes</option>
+                            <option value="120" selected>2 minutes</option>
+                            <option value="180">3 minutes</option>
+                            <option value="240">4 minutes</option>
+                            <option value="300">5 minutes</option>
                         </select>
                     </div>
                 </div>
@@ -171,15 +226,44 @@
             <h3 style="margin-top: 30px;">Participants</h3>
             <div class="player-list" id="participantsList"></div>
 
-            <button id="startDraftBtn" onclick="startDraft()" style="width: 100%; margin-top: 20px; display: none;">Start Draft</button>
+            <button id="startDraftBtn" onclick="beginTeamSetup()" style="width: 100%; margin-top: 20px; display: none;">Continue to Formation &amp; Coach Setup</button>
+        </div>
+
+        <!-- TEAM SETUP SECTION (formation & coach, BEFORE the draft) -->
+        <div id="teamSetupSection" class="section">
+            <h2>Select Formation &amp; Coach</h2>
+            <p style="color:#666; margin-bottom: 16px;">Every team picks its formation and coach first. Once everyone is ready, the admin starts the draft.</p>
+
+            <div class="form-group">
+                <label>Formation</label>
+                <select id="formationSelect" onchange="renderTeamSetupSlotPreview()"></select>
+            </div>
+
+            <div class="form-group">
+                <label>Coach / Manager</label>
+                <select id="coachSelect"></select>
+            </div>
+
+            <div id="teamSetupSlotPreview" class="lineup-board"></div>
+
+            <button id="confirmFormationBtn" onclick="confirmFormation()" style="width: 100%;">Confirm My Formation</button>
+            <p id="teamSetupOwnStatus" style="margin-top: 10px; color: #4CAF50; font-weight: 600; display:none;">✅ Your formation is locked in. Waiting for the rest of the league...</p>
+
+            <h3 style="margin-top: 30px;">Team Readiness</h3>
+            <div class="readiness-list" id="readinessList"></div>
+
+            <button id="startDraftFromSetupBtn" onclick="startDraftNow()" style="width: 100%; margin-top: 10px; display: none;">🚀 Start Draft (Everyone Ready)</button>
         </div>
 
         <!-- DRAFT SECTION -->
         <div id="draftSection" class="section">
-            <h2>Player Draft</h2>
-
-            <!-- LIVE TEAMS TABLE -->
-            <h3>Live Teams</h3>
+            <div class="toolbar">
+                <h3 style="margin:0;">Live Teams</h3>
+                <div>
+                    <span id="pauseState" style="font-weight:600; margin-right: 10px; color:#f44336; display:none;">⏸ PAUSED</span>
+                    <button id="pauseBtn" class="secondary small" onclick="togglePause()" style="display:none;">⏸ Pause Game</button>
+                </div>
+            </div>
             <div style="overflow-x: auto;">
                 <table class="teams-table" id="teamsTable">
                     <thead>
@@ -194,6 +278,8 @@
                 </table>
             </div>
 
+            <div class="paused-banner" id="pausedBanner">⏸ GAME PAUSED BY ADMIN — hang tight</div>
+
             <div class="current-info" id="currentPickInfo">
                 <span id="currentPickText">Waiting for draft to start...</span>
             </div>
@@ -205,38 +291,53 @@
                 <button onclick="skipPick()" id="skipBtn">Skip / Next Player</button>
             </div>
 
-            <h3>Your Selected Players</h3>
-            <div id="selectedPlayersList" class="player-list"></div>
+            <h3 style="margin-top: 20px;">Your Lineup <span id="lineupCountLabel" style="font-weight:400; color:#666; font-size:0.8em;"></span></h3>
+            <div class="progress-wrap">
+                <div class="progress-label"><span id="progressText">0 / 11 selected</span></div>
+                <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBarFill"></div></div>
+            </div>
+            <div id="lineupBoard" class="lineup-board"></div>
 
-            <div style="margin-bottom: 20px; margin-top: 30px;">
-                <input type="text" id="playerSearch" placeholder="Search player..." onkeyup="searchPlayers()">
+            <div class="sticky-selection" id="stickySelection">
+                <div class="sel-info">
+                    <span id="stickySelName"></span>
+                    <small id="stickySelMeta"></small>
+                </div>
+                <button onclick="addPlayerToTeam()" style="margin:0;">✓ Add to My Team</button>
+            </div>
+
+            <div class="position-filters" id="positionFilters"></div>
+
+            <div style="margin-bottom: 20px;">
+                <input type="text" id="playerSearch" placeholder="Search player..." oninput="onSearchInput()">
             </div>
 
             <div id="playersList" style="max-height: 350px; overflow-y: auto; margin-bottom: 20px;"></div>
         </div>
 
-        <!-- FORMATION SECTION -->
-        <div id="formationSection" class="section">
-            <h2>Select Formation & Coach</h2>
+        <!-- FINAL REVIEW SECTION -->
+        <div id="reviewSection" class="section">
+            <h2>Final Review Round</h2>
+            <div class="review-banner" id="reviewBanner">Waiting for the review round...</div>
 
-            <div class="form-group">
-                <label>Formation</label>
-                <select id="formationSelect">
-                    <option value="4-3-3">4-3-3 (Classic Balanced)</option>
-                    <option value="4-2-4">4-2-4 (Defensive Midfield)</option>
-                    <option value="3-5-2">3-5-2 (Wing-Heavy)</option>
-                    <option value="5-3-2">5-3-2 (Defensive)</option>
-                    <option value="4-4-2">4-4-2 (Classic)</option>
-                    <option value="3-4-3">3-4-3 (Attacking)</option>
-                </select>
+            <h3>Your Squad</h3>
+            <div id="reviewMyTeam" class="lineup-board"></div>
+
+            <div id="reviewMyTurnControls" style="display:none; margin-top: 20px;">
+                <button onclick="reviewKeepTeam()">✅ Keep My Team</button>
+                <button class="secondary" onclick="startReviewSwap()">🔄 Swap a Player</button>
+
+                <div id="reviewSwapPanel" style="display:none; margin-top: 20px;">
+                    <p style="margin-bottom: 10px; font-weight:600;">1. Choose a player to drop:</p>
+                    <div id="reviewDropList" class="lineup-board" style="grid-template-columns: repeat(auto-fill, minmax(140px,1fr));"></div>
+
+                    <div id="reviewReplacementSearch" style="display:none;">
+                        <p style="margin: 16px 0 10px; font-weight:600;">2. Pick a replacement:</p>
+                        <input type="text" id="reviewSearch" placeholder="Search replacement..." oninput="onReviewSearchInput()" style="margin-bottom: 10px;">
+                        <div id="reviewReplacementList" style="max-height: 300px; overflow-y:auto;"></div>
+                    </div>
+                </div>
             </div>
-
-            <div class="form-group">
-                <label>Coach / Manager</label>
-                <select id="coachSelect"></select>
-            </div>
-
-            <button onclick="confirmFormation()" style="width: 100%;">Confirm Formation</button>
         </div>
 
         <!-- RESULTS SECTION -->
@@ -251,18 +352,33 @@
     </div>
 
     <script>
+        const POSITION_FILTER_GROUPS = [
+            { key: 'ALL', label: 'All', positions: null },
+            { key: 'GK',  label: '🧤 Goalkeeper', positions: ['GK'] },
+            { key: 'DEF', label: '🛡️ Defense', positions: ['CB'] },
+            { key: 'FB',  label: '↔️ Full-back', positions: ['LB', 'RB'] },
+            { key: 'MID', label: '⚙️ Midfield', positions: ['CM', 'CDM', 'CAM'] },
+            { key: 'FWD', label: '⚡ Forward', positions: ['ST', 'CF', 'LW', 'RW'] }
+        ];
+        const POSITION_GROUP = { GK: 'GK', CB: 'DEF', LB: 'DEF', RB: 'DEF', CM: 'MID', CDM: 'MID', CAM: 'MID', LW: 'FWD', RW: 'FWD', ST: 'FWD', CF: 'FWD' };
+
         let gameState = {
             roomCode: null,
             playerId: null,
+            adminId: null,
             players: [],
             coaches: [],
             formations: [],
+            formationSlots: {},
             selectedPlayers: [],
             selectedPlayer: null,
             timerInterval: null,
             draftedPlayers: new Set(),
             timePerPick: 20,
-            participants: {}
+            participants: {},
+            positionFilter: 'ALL',
+            paused: false,
+            reviewDropChoice: null
         };
 
         window.addEventListener('load', function() {
@@ -273,24 +389,51 @@
                 showSection('joinSection');
             }
             loadGameData();
+            buildPositionFilters();
         });
 
+        // ── Loading spinner helper: wraps fetch so any in-flight request shows a spinner ──
+        let activeRequests = 0;
+        function showSpinner() {
+            activeRequests++;
+            document.getElementById('spinnerOverlay').classList.add('active');
+        }
+        function hideSpinner() {
+            activeRequests = Math.max(0, activeRequests - 1);
+            if (activeRequests === 0) document.getElementById('spinnerOverlay').classList.remove('active');
+        }
+        function apiFetch(url, options) {
+            showSpinner();
+            return fetch(url, options).finally(hideSpinner);
+        }
+        // Background polling shouldn't flash the spinner on every 2s tick
+        function apiFetchQuiet(url, options) {
+            return fetch(url, options);
+        }
+
         function loadGameData() {
-            fetch('/api/hermaniland/coaches')
+            apiFetch('/api/hermaniland/coaches')
                 .then(r => r.json())
                 .then(data => {
                     gameState.coaches = data.coaches;
                     populateCoaches();
                 });
 
-            fetch('/api/hermaniland/formations')
+            apiFetch('/api/hermaniland/formations')
                 .then(r => r.json())
-                .then(data => gameState.formations = data.formations);
+                .then(data => {
+                    gameState.formations = data.formations;
+                    populateFormations();
+                });
+
+            apiFetch('/api/hermaniland/formation-slots')
+                .then(r => r.json())
+                .then(data => { gameState.formationSlots = data.slots; });
         }
 
         function loadPlayers() {
             if (gameState.players.length > 0) return Promise.resolve();
-            return fetch('/api/hermaniland/players')
+            return apiFetch('/api/hermaniland/players')
                 .then(r => r.json())
                 .then(data => {
                     gameState.players = data.players;
@@ -313,6 +456,18 @@
             });
         }
 
+        function populateFormations() {
+            const select = document.getElementById('formationSelect');
+            select.innerHTML = '';
+            gameState.formations.forEach(f => {
+                const option = document.createElement('option');
+                option.value = f.name;
+                option.textContent = `${f.name} (${f.description})`;
+                select.appendChild(option);
+            });
+            renderTeamSetupSlotPreview();
+        }
+
         function showSection(sectionId) {
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
             document.getElementById(sectionId).classList.add('active');
@@ -328,7 +483,7 @@
                 time_per_pick: document.getElementById('timePerPick').value
             };
 
-            fetch('/api/hermaniland/create-room', {
+            apiFetch('/api/hermaniland/create-room', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(data)
@@ -337,6 +492,7 @@
             .then(data => {
                 gameState.roomCode = data.room_code;
                 gameState.playerId = data.admin_id;
+                gameState.adminId = data.admin_id;
                 document.getElementById('displayCode').textContent = gameState.roomCode;
                 updateLobby();
                 showSection('lobbySection');
@@ -350,7 +506,7 @@
                 team_name: document.getElementById('teamNameJoin').value
             };
 
-            fetch('/api/hermaniland/join-room', {
+            apiFetch('/api/hermaniland/join-room', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(data)
@@ -370,11 +526,12 @@
         }
 
         function updateLobby() {
-            fetch(`/api/hermaniland/room/${gameState.roomCode}`)
+            apiFetchQuiet(`/api/hermaniland/room/${gameState.roomCode}`)
                 .then(r => r.json())
                 .then(room => {
                     gameState.timePerPick = room.time_per_pick;
                     gameState.participants = room.participants;
+                    gameState.adminId = room.admin_id;
 
                     const list = document.getElementById('participantsList');
                     list.innerHTML = '';
@@ -387,13 +544,14 @@
                     });
 
                     const startBtn = document.getElementById('startDraftBtn');
-                    const adminId = Object.entries(room.participants).find(([_, p]) => p.is_admin)?.[0];
-                    if (gameState.playerId === adminId && room.status === 'waiting') {
+                    if (gameState.playerId === room.admin_id && room.status === 'waiting') {
                         startBtn.style.display = 'block';
                     }
 
                     if (room.status === 'waiting') {
                         setTimeout(updateLobby, 2000);
+                    } else if (room.status === 'team_setup') {
+                        enterTeamSetup();
                     }
                 });
         }
@@ -404,26 +562,114 @@
             alert('Room URL copied!');
         }
 
-        function startDraft() {
+        // ── TEAM SETUP (formation & coach, BEFORE the draft) ─────────────────────
+        function beginTeamSetup() {
+            apiFetch(`/api/hermaniland/begin-team-setup/${gameState.roomCode}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({player_id: gameState.playerId})
+            })
+            .then(r => r.json())
+            .then(() => enterTeamSetup())
+            .catch(e => alert('Error: ' + e.message));
+        }
+
+        function enterTeamSetup() {
+            showSection('teamSetupSection');
+            renderTeamSetupSlotPreview();
+            pollTeamSetup();
+        }
+
+        function renderTeamSetupSlotPreview() {
+            const formation = document.getElementById('formationSelect').value;
+            const slots = (gameState.formationSlots && gameState.formationSlots[formation]) || [];
+            const board = document.getElementById('teamSetupSlotPreview');
+            board.innerHTML = '';
+            slots.forEach(pos => {
+                const div = document.createElement('div');
+                div.className = 'lineup-slot';
+                div.innerHTML = `<div class="slot-pos">${pos}</div><div class="slot-name">—</div>`;
+                board.appendChild(div);
+            });
+        }
+
+        function confirmFormation() {
+            const formation = document.getElementById('formationSelect').value;
+            const coach = document.getElementById('coachSelect').value;
+            const btn = document.getElementById('confirmFormationBtn');
+            btn.disabled = true;
+
+            apiFetch(`/api/hermaniland/select-formation/${gameState.roomCode}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({player_id: gameState.playerId, formation, coach_name: coach})
+            })
+            .then(r => r.json())
+            .then(() => {
+                document.getElementById('teamSetupOwnStatus').style.display = 'block';
+                document.getElementById('formationSelect').disabled = true;
+                document.getElementById('coachSelect').disabled = true;
+                pollTeamSetup();
+            })
+            .catch(e => { btn.disabled = false; alert('Error: ' + e.message); });
+        }
+
+        function pollTeamSetup() {
+            apiFetchQuiet(`/api/hermaniland/room/${gameState.roomCode}`)
+                .then(r => r.json())
+                .then(room => {
+                    if (room.status !== 'team_setup') {
+                        if (room.status === 'drafting' || room.status === 'review' || room.status === 'playing') {
+                            enterDraft();
+                        }
+                        return;
+                    }
+
+                    const list = document.getElementById('readinessList');
+                    list.innerHTML = '';
+                    Object.values(room.participants).forEach(p => {
+                        const ready = !!(p.formation && p.coach);
+                        const div = document.createElement('div');
+                        div.className = 'readiness-item' + (ready ? ' ready' : '');
+                        div.innerHTML = `<span>${p.name} — ${p.team_name}</span><span class="status">${ready ? '✅ Ready (' + p.formation + ')' : '⏳ Choosing...'}</span>`;
+                        list.appendChild(div);
+                    });
+
+                    const startBtn = document.getElementById('startDraftFromSetupBtn');
+                    if (gameState.playerId === room.admin_id && room.team_setup_all_ready) {
+                        startBtn.style.display = 'block';
+                    } else {
+                        startBtn.style.display = 'none';
+                    }
+
+                    setTimeout(pollTeamSetup, 1500);
+                });
+        }
+
+        function startDraftNow() {
             loadPlayers().then(() => {
-                fetch(`/api/hermaniland/start-draft/${gameState.roomCode}`, {method: 'POST'})
+                apiFetch(`/api/hermaniland/start-draft/${gameState.roomCode}`, {method: 'POST'})
                     .then(r => r.json())
                     .then(data => {
-                        gameState.draftedPlayers = new Set();
-                        showSection('draftSection');
-                        displayPlayers();
-                        updateTeamsTable().then(() => {
-                            startPickTimer();
-                            pollDraftStatus();
-                        }).catch(e => console.error('Error updating teams table:', e));
+                        if (data.error) { alert(data.error); return; }
+                        enterDraft();
                     })
-                    .catch(e => {
-                        console.error('Error starting draft:', e);
-                        alert('Error starting draft: ' + e.message);
-                    });
-            }).catch(e => {
-                console.error('Error loading players before draft:', e);
-                alert('Error loading players: ' + e.message);
+                    .catch(e => alert('Error starting draft: ' + e.message));
+            });
+        }
+
+        function enterDraft() {
+            loadPlayers().then(() => {
+                gameState.draftedPlayers = new Set();
+                showSection('draftSection');
+                const isAdmin = gameState.playerId === gameState.adminId;
+                document.getElementById('pauseBtn').style.display = isAdmin ? 'inline-block' : 'none';
+                displayPlayers();
+                renderLineupBoard();
+                updateTeamsTable().then(() => {
+                    startPickTimer();
+                    pollDraftStatus();
+                }).catch(e => console.error('Error updating teams table:', e));
             });
         }
 
@@ -440,7 +686,6 @@
         }
 
         function formatPlayerNames(players) {
-            // Convert array of player objects to "LastName I., LastName I." format
             if (!players || players.length === 0) return '';
             return players.map(p => {
                 const parts = p.name.split(' ');
@@ -453,19 +698,76 @@
             }).join(', ');
         }
 
+        // ── Position filter chips ─────────────────────────────────────────────────
+        function buildPositionFilters() {
+            const wrap = document.getElementById('positionFilters');
+            wrap.innerHTML = '';
+            POSITION_FILTER_GROUPS.forEach(group => {
+                const chip = document.createElement('button');
+                chip.type = 'button';
+                chip.className = 'pos-chip' + (group.key === gameState.positionFilter ? ' active' : '');
+                chip.textContent = group.label;
+                chip.onclick = () => {
+                    gameState.positionFilter = group.key;
+                    document.querySelectorAll('.pos-chip').forEach(c => c.classList.remove('active'));
+                    chip.classList.add('active');
+                    applyPlayerFilters();
+                };
+                wrap.appendChild(chip);
+            });
+        }
+
+        function normalizeText(text) {
+            return (text || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+        }
+
+        function matchesSearch(player, normalizedQuery) {
+            if (!normalizedQuery) return true;
+            const terms = normalizedQuery.split(/\s+/).filter(Boolean);
+            const name = normalizeText(player.name);
+            const position = normalizeText(player.position);
+            const team = normalizeText(player.team);
+            return terms.every(term => name.includes(term) || position.includes(term) || team.includes(term));
+        }
+
+        function matchesPositionFilter(player) {
+            const group = POSITION_FILTER_GROUPS.find(g => g.key === gameState.positionFilter);
+            if (!group || !group.positions) return true;
+            return group.positions.includes(player.position);
+        }
+
         function displayPlayers() {
+            applyPlayerFilters();
+        }
+
+        // Filters are applied against the underlying data array (not by toggling
+        // stale DOM nodes), and re-rendered in one pass, so typing quickly never
+        // shows a flash of mismatched results.
+        let searchDebounce;
+        function onSearchInput() {
+            clearTimeout(searchDebounce);
+            searchDebounce = setTimeout(applyPlayerFilters, 200);
+        }
+
+        function applyPlayerFilters() {
+            const query = normalizeText(document.getElementById('playerSearch').value.trim());
+            const filtered = gameState.players.filter(p => matchesPositionFilter(p) && matchesSearch(p, query));
+            renderPlayerList(filtered);
+        }
+
+        function renderPlayerList(players) {
             const list = document.getElementById('playersList');
             list.innerHTML = '';
-            if (!gameState.players || gameState.players.length === 0) {
-                list.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No players available</div>';
-                console.warn('No players to display');
+            if (!players || players.length === 0) {
+                list.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No players match this search/filter</div>';
                 return;
             }
-            gameState.players.forEach(player => {
+            players.forEach(player => {
                 const isDrafted = gameState.draftedPlayers.has(player.name);
+                const isSelected = gameState.selectedPlayer && gameState.selectedPlayer.name === player.name;
                 const div = document.createElement('div');
                 const teamColor = getTeamColor(player.team);
-                div.className = `player-card ${isDrafted ? 'drafted' : ''}`;
+                div.className = `player-card ${isDrafted ? 'drafted' : ''} ${isSelected ? 'selected' : ''}`;
                 div.style.borderLeftColor = teamColor;
                 div.innerHTML = `
                     <div class="player-name">${player.name}</div>
@@ -482,28 +784,43 @@
                 }
                 list.appendChild(div);
             });
-            console.log('Displayed ' + gameState.players.length + ' players');
         }
 
         function selectPlayerForDraft(player) {
+            if (gameState.paused) { alert('Game is paused.'); return; }
             if (gameState.currentPickerId !== gameState.playerId) {
                 alert('Not your turn! Waiting for ' + (gameState.currentPickerName || 'next player'));
                 return;
             }
             gameState.selectedPlayer = player;
-            document.querySelectorAll('.player-card').forEach(c => c.classList.remove('selected'));
-            event.currentTarget.classList.add('selected');
+            applyPlayerFilters();
+            updateStickySelection();
             document.getElementById('addToTeamBtn').disabled = false;
+        }
+
+        // Keeps the chosen player visible in a persistent bar so "Add to My Team"
+        // is always reachable, even after filtering/scrolling the list.
+        function updateStickySelection() {
+            const bar = document.getElementById('stickySelection');
+            if (!gameState.selectedPlayer) {
+                bar.classList.remove('active');
+                return;
+            }
+            const p = gameState.selectedPlayer;
+            document.getElementById('stickySelName').textContent = `Selected: ${p.name}`;
+            document.getElementById('stickySelMeta').textContent = `${p.position} • ${p.team} • Spd ${p.speed} / Drb ${p.dribbling} / Sht ${p.shooting} / Def ${p.defense}`;
+            bar.classList.add('active');
         }
 
         function addPlayerToTeam() {
             if (!gameState.selectedPlayer) return;
+            if (gameState.paused) { alert('Game is paused.'); return; }
             if (gameState.currentPickerId !== gameState.playerId) {
                 alert('Not your turn!');
                 return;
             }
 
-            fetch(`/api/hermaniland/draft-player/${gameState.roomCode}`, {
+            apiFetch(`/api/hermaniland/draft-player/${gameState.roomCode}`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
@@ -520,48 +837,85 @@
 
                 gameState.selectedPlayers.push(gameState.selectedPlayer);
                 gameState.draftedPlayers.add(gameState.selectedPlayer.name);
-                updateSelectedList();
-                displayPlayers();
+                renderLineupBoard();
+                applyPlayerFilters();
                 gameState.selectedPlayer = null;
+                updateStickySelection();
                 document.getElementById('addToTeamBtn').disabled = true;
 
                 if (data.draft_complete) {
                     clearInterval(gameState.timerInterval);
-                    alert('Draft complete! Proceeding to formation selection...');
-                    showSection('formationSection');
+                    enterReview();
                 } else {
-                    // Auto-advance to next player after 500ms
-                    setTimeout(() => skipPick(), 500);
+                    setTimeout(() => skipPick(), 1500);
                 }
             });
         }
 
         function skipPick() {
-            fetch(`/api/hermaniland/next-pick/${gameState.roomCode}`, {method: 'POST'})
+            if (gameState.paused) return;
+            apiFetch(`/api/hermaniland/next-pick/${gameState.roomCode}`, {method: 'POST'})
                 .then(r => r.json())
-                .then(data => {
+                .then(() => {
                     updateTeamsTable();
                     startPickTimer();
                 });
         }
 
-        function updateSelectedList() {
-            const selected = document.getElementById('selectedPlayersList');
-            selected.innerHTML = '';
-            gameState.selectedPlayers.forEach((p, i) => {
-                const div = document.createElement('div');
-                div.className = 'player-item';
-                div.textContent = `${i + 1}. ${p.name} (${p.position})`;
-                selected.appendChild(div);
+        // ── Lineup slot board: fills formation slots with player names as drafted ──
+        function renderLineupBoard() {
+            const formation = gameState.participants[gameState.playerId]?.formation
+                || document.getElementById('formationSelect')?.value
+                || '4-3-3';
+            const template = (gameState.formationSlots && gameState.formationSlots[formation]) || [];
+            const board = document.getElementById('lineupBoard');
+            board.innerHTML = '';
+
+            const remaining = gameState.selectedPlayers.slice();
+            const slotAssignments = template.map(pos => ({ pos, player: null }));
+
+            // Exact position match first
+            remaining.forEach((player, idx) => {
+                if (!player) return;
+                const slot = slotAssignments.find(s => !s.player && s.pos === player.position);
+                if (slot) { slot.player = player; remaining[idx] = null; }
             });
+            // Then same broad group (DEF/MID/FWD)
+            remaining.forEach((player, idx) => {
+                if (!player) return;
+                const group = POSITION_GROUP[player.position];
+                const slot = slotAssignments.find(s => !s.player && POSITION_GROUP[s.pos] === group);
+                if (slot) { slot.player = player; remaining[idx] = null; }
+            });
+            // Overflow: any leftover empty slot
+            remaining.forEach((player, idx) => {
+                if (!player) return;
+                const slot = slotAssignments.find(s => !s.player);
+                if (slot) { slot.player = player; remaining[idx] = null; }
+            });
+
+            slotAssignments.forEach(slot => {
+                const div = document.createElement('div');
+                div.className = 'lineup-slot' + (slot.player ? ' filled' : '');
+                div.innerHTML = `<div class="slot-pos">${slot.pos}</div><div class="slot-name">${slot.player ? slot.player.name : '—'}</div>`;
+                board.appendChild(div);
+            });
+
+            const total = gameState.selectedPlayers.length;
+            document.getElementById('progressText').textContent = `${total} / 11 selected`;
+            document.getElementById('progressBarFill').style.width = Math.min(100, (total / 11) * 100) + '%';
+            document.getElementById('lineupCountLabel').textContent = `(${11 - total} remaining)`;
         }
 
         function updateTeamsTable() {
-            return fetch(`/api/hermaniland/room/${gameState.roomCode}`)
+            return apiFetchQuiet(`/api/hermaniland/room/${gameState.roomCode}`)
                 .then(r => r.json())
                 .then(room => {
                     gameState.timePerPick = room.time_per_pick;
                     gameState.currentPickerId = room.pick_order[room.current_pick_index];
+                    gameState.paused = room.paused;
+                    updatePauseUI();
+
                     const tbody = document.getElementById('teamsTableBody');
                     tbody.innerHTML = '';
 
@@ -571,7 +925,7 @@
                         const isCurrentPicker = _ === gameState.currentPickerId;
                         row.innerHTML = `
                             <td><strong>${p.team_name}</strong> ${isCurrentPicker ? '🎯' : ''}</td>
-                            <td>${playersList || '(none yet)'}</td>
+                            <td>${playersList || '(none yet)'} <span style="color:#999;">(${p.players.length}/11)</span></td>
                             <td>${p.coach || '-'}</td>
                             <td>${p.formation || '-'}</td>
                         `;
@@ -584,6 +938,47 @@
                 });
         }
 
+        // ── Pause / resume ─────────────────────────────────────────────────────────
+        function togglePause() {
+            apiFetch(`/api/hermaniland/toggle-pause/${gameState.roomCode}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({player_id: gameState.playerId})
+            })
+            .then(r => r.json())
+            .then(data => {
+                gameState.paused = data.paused;
+                updatePauseUI();
+            })
+            .catch(e => alert('Error: ' + e.message));
+        }
+
+        function updatePauseUI() {
+            const banner = document.getElementById('pausedBanner');
+            const stateLabel = document.getElementById('pauseState');
+            const pauseBtn = document.getElementById('pauseBtn');
+            const addBtn = document.getElementById('addToTeamBtn');
+            const skipBtn = document.getElementById('skipBtn');
+            const timer = document.getElementById('timer');
+
+            if (gameState.paused) {
+                banner.classList.add('active');
+                stateLabel.style.display = 'inline';
+                pauseBtn.textContent = '▶️ Resume Game';
+                addBtn.disabled = true;
+                skipBtn.disabled = true;
+                timer.classList.add('paused');
+                clearInterval(gameState.timerInterval);
+            } else {
+                banner.classList.remove('active');
+                stateLabel.style.display = 'none';
+                pauseBtn.textContent = '⏸ Pause Game';
+                skipBtn.disabled = false;
+                addBtn.disabled = !gameState.selectedPlayer;
+                timer.classList.remove('paused');
+            }
+        }
+
         function startPickTimer() {
             clearInterval(gameState.timerInterval);
             let seconds = gameState.timePerPick;
@@ -591,6 +986,7 @@
             document.getElementById('timer').classList.remove('warning', 'danger');
 
             gameState.timerInterval = setInterval(() => {
+                if (gameState.paused) return;
                 seconds--;
                 document.getElementById('timer').textContent = seconds;
 
@@ -606,47 +1002,164 @@
 
         function pollDraftStatus() {
             const poll = setInterval(() => {
-                fetch(`/api/hermaniland/room/${gameState.roomCode}`)
+                apiFetchQuiet(`/api/hermaniland/room/${gameState.roomCode}`)
                     .then(r => r.json())
                     .then(room => {
-                        if (room.status !== 'drafting') {
+                        const wasPaused = gameState.paused;
+                        gameState.paused = room.paused;
+                        if (wasPaused !== gameState.paused) updatePauseUI();
+
+                        if (room.status === 'review') {
+                            clearInterval(poll);
+                            enterReview();
+                        } else if (room.status === 'playing') {
+                            clearInterval(poll);
+                            fetchAndShowResults();
+                        } else if (room.status !== 'drafting') {
                             clearInterval(poll);
                         } else {
                             gameState.draftedPlayers = new Set(room.drafted_players);
-                            displayPlayers();
+                            applyPlayerFilters();
                             updateTeamsTable();
                         }
                     });
             }, 2000);
         }
 
-        function searchPlayers() {
-            const query = document.getElementById('playerSearch').value.toLowerCase();
-            document.querySelectorAll('.player-card').forEach(card => {
-                const name = card.textContent.toLowerCase();
-                card.style.display = name.includes(query) ? 'block' : 'none';
+        // ── FINAL REVIEW ROUND ───────────────────────────────────────────────────
+        function enterReview() {
+            showSection('reviewSection');
+            renderReviewMyTeam();
+            pollReview();
+        }
+
+        function renderReviewMyTeam() {
+            const board = document.getElementById('reviewMyTeam');
+            board.innerHTML = '';
+            gameState.selectedPlayers.forEach(p => {
+                const div = document.createElement('div');
+                div.className = 'lineup-slot filled';
+                div.innerHTML = `<div class="slot-pos">${p.position}</div><div class="slot-name">${p.name}</div>`;
+                board.appendChild(div);
             });
         }
 
-        function confirmFormation() {
-            const formation = document.getElementById('formationSelect').value;
-            const coach = document.getElementById('coachSelect').value;
+        function pollReview() {
+            apiFetchQuiet(`/api/hermaniland/room/${gameState.roomCode}`)
+                .then(r => r.json())
+                .then(room => {
+                    if (room.status === 'playing') {
+                        fetchAndShowResults();
+                        return;
+                    }
+                    if (room.status !== 'review') {
+                        setTimeout(pollReview, 1500);
+                        return;
+                    }
 
-            fetch(`/api/hermaniland/select-formation/${gameState.roomCode}`, {
+                    // Keep our own roster and the drafted-pool in sync in case
+                    // another team swapped during their review turn
+                    const me = room.participants[gameState.playerId];
+                    if (me) gameState.selectedPlayers = me.players;
+                    gameState.draftedPlayers = new Set(room.drafted_players);
+                    renderReviewMyTeam();
+
+                    const order = room.review_pick_order || [];
+                    const idx = room.review_index || 0;
+                    const currentId = order[idx];
+                    const currentP = room.participants[currentId];
+
+                    const isMyTurn = currentId === gameState.playerId;
+                    document.getElementById('reviewBanner').textContent = isMyTurn
+                        ? "It's your turn — keep your squad or swap one player."
+                        : `Waiting for ${currentP ? currentP.name : '...'} to finish reviewing their team...`;
+
+                    document.getElementById('reviewMyTurnControls').style.display = isMyTurn ? 'block' : 'none';
+                    if (!isMyTurn) document.getElementById('reviewSwapPanel').style.display = 'none';
+
+                    setTimeout(pollReview, 1500);
+                });
+        }
+
+        function reviewKeepTeam() {
+            apiFetch(`/api/hermaniland/review-turn/${gameState.roomCode}`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({player_id: gameState.playerId, formation, coach_name: coach})
+                body: JSON.stringify({player_id: gameState.playerId, action: 'keep'})
+            }).then(r => r.json()).then(() => {
+                document.getElementById('reviewMyTurnControls').style.display = 'none';
+            });
+        }
+
+        function startReviewSwap() {
+            gameState.reviewDropChoice = null;
+            document.getElementById('reviewSwapPanel').style.display = 'block';
+            document.getElementById('reviewReplacementSearch').style.display = 'none';
+            const list = document.getElementById('reviewDropList');
+            list.innerHTML = '';
+            gameState.selectedPlayers.forEach(p => {
+                const div = document.createElement('div');
+                div.className = 'lineup-slot filled';
+                div.style.cursor = 'pointer';
+                div.innerHTML = `<div class="slot-pos">${p.position}</div><div class="slot-name">${p.name}</div>`;
+                div.onclick = () => {
+                    gameState.reviewDropChoice = p;
+                    document.querySelectorAll('#reviewDropList .lineup-slot').forEach(el => el.style.boxShadow = 'none');
+                    div.style.boxShadow = '0 0 0 3px #f44336';
+                    document.getElementById('reviewReplacementSearch').style.display = 'block';
+                    renderReviewReplacements();
+                };
+                list.appendChild(div);
+            });
+        }
+
+        let reviewSearchDebounce;
+        function onReviewSearchInput() {
+            clearTimeout(reviewSearchDebounce);
+            reviewSearchDebounce = setTimeout(renderReviewReplacements, 200);
+        }
+
+        function renderReviewReplacements() {
+            const query = normalizeText(document.getElementById('reviewSearch').value.trim());
+            const available = gameState.players.filter(p => !gameState.draftedPlayers.has(p.name) && matchesSearch(p, query));
+            const list = document.getElementById('reviewReplacementList');
+            list.innerHTML = '';
+            available.slice(0, 200).forEach(player => {
+                const div = document.createElement('div');
+                div.className = 'player-card';
+                div.innerHTML = `
+                    <div class="player-name">${player.name}</div>
+                    <div class="player-meta">${player.team || 'Unknown'} • ${player.position}</div>
+                `;
+                div.onclick = () => confirmReviewSwap(player);
+                list.appendChild(div);
+            });
+        }
+
+        function confirmReviewSwap(newPlayer) {
+            if (!gameState.reviewDropChoice) { alert('Choose a player to drop first.'); return; }
+            apiFetch(`/api/hermaniland/review-turn/${gameState.roomCode}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    player_id: gameState.playerId,
+                    action: 'swap',
+                    drop_player_name: gameState.reviewDropChoice.name,
+                    new_player_name: newPlayer.name
+                })
             })
             .then(r => r.json())
             .then(data => {
-                if (data.all_ready) {
-                    setTimeout(() => {
-                        fetch(`/api/hermaniland/results/${gameState.roomCode}`)
-                            .then(r => r.json())
-                            .then(data => displayResults(data));
-                    }, 2000);
-                }
+                if (data.error) { alert(data.error); return; }
+                document.getElementById('reviewMyTurnControls').style.display = 'none';
+                document.getElementById('reviewSwapPanel').style.display = 'none';
             });
+        }
+
+        function fetchAndShowResults() {
+            apiFetch(`/api/hermaniland/results/${gameState.roomCode}`)
+                .then(r => r.json())
+                .then(data => displayResults(data));
         }
 
         function displayResults(data) {
