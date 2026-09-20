@@ -77,67 +77,68 @@ TOP_PLAYERS_SAMPLE = [
 ]
 
 def generate_players(count=3000):
-    """Generate unique player database with realistic attributes from historical players"""
-    # Extended list of real historical football players (unique individuals)
-    historical_players = [
-        "Ronaldinho Gaucho", "Ronaldo Nazario", "Zinedine Zidane", "Steven Gerrard", "Frank Lampard",
-        "Pavel Nedved", "Patrick Vieira", "Roy Keane", "Paul Scholes", "Ricardo Kaka", "Luka Modric",
-        "Toni Kroos", "Sergio Busquets", "Andres Iniesta", "Xavi Hernandez", "Luis Suarez", "Thierry Henry",
-        "Karim Benzema", "Erling Haaland", "Harry Kane", "Robert Lewandowski", "Kylian Mbappe",
-        "Neymar Jr", "Vinicius Jr", "Mohamed Salah", "Raheem Sterling", "Antoine Griezmann",
-        "Gareth Bale", "Arjen Robben", "Franck Ribery", "Wesley Sneijder", "Bastian Schweinsteiger",
-        "Iker Casillas", "Manuel Neuer", "Lev Yashin", "Roy Makaay", "Edin Dzeko", "Fabio Quagliarella",
-        "Zlatan Ibrahimovic", "Edinson Cavani", "Fernando Torres", "David Villa", "Raul Gonzalez",
-        "Morientes", "Hernan Crespo", "Didier Drogba", "Samuel Eto'o", "Sergio Aguero", "Jamie Vardy",
-        "Riyad Mahrez", "David Beckham", "Ryan Giggs", "Carlos Tevez", "Javier Mascherano",
-        "Sergio Ramos", "Gerard Pique", "Thiago Silva", "Vincent Kompany", "Rio Ferdinand",
-        "Ashley Cole", "Patrice Evra", "Nery Pumpido", "Peter Shilton", "Dino Zoff",
-        "Antonio Cabrini", "Gaetano Scirea", "Claudio Gentile", "Mark Hateley", "Tony Adams",
-        "Desailly", "Maldini", "Costacurta", "Cannavaro", "Fabio Cannavaro", "Pablo Zabaleta",
-        "Jaap Stam", "John Terry", "Nemanja Vidic", "Wes Brown", "Mikael Silvestre",
-        "Juan Pablo Sorin", "Gianluca Zambrotta", "Sagna", "Sokratis", "Pepe",
-        "Thiago Alcantara", "Javi Martinez", "Sami Khedira", "Darren Fletcher", "Michael Carrick",
-        "Davor Suker", "Henrik Larsson", "Jimmy Floyd Hasselbaink", "Niall Quinn", "Peter Crouch",
-        "Didier Drogba", "Florian Thauvin", "Kingsley Coman", "Alphonso Davies", "Joshua Kimmich",
-        "Serge Gnabry", "Leroy Sane", "Marco Asensio", "Isco Alarcon", "Pablo Sarabia",
-        "Jordi Alba", "Alvaro Morata", "Diego Costa", "David Silva", "Juan Mata",
-        "Angel Di Maria", "Gonzalo Higuain", "Paulo Dybala", "Douglas Costa", "Medhi Benatia",
-        "Juan Cuadrado", "Sandro", "Mandzukic", "Perisic", "Rakitic", "Modric",
-        "Vidal", "Alexis Sanchez", "Danilo", "Marcelo", "Carvajal", "Varane",
-        "Nacho Fernandez", "Casemiro", "Toni Kroos", "Luka Modric", "Isco",
-        "Cristiano Ronaldo", "Benzema", "Di Maria", "Higuain", "Ozil",
-        "Khedira", "Pepe", "Ramos", "Pique", "Mascherano", "Busquets",
-        "Iniesta", "Xavi", "Messi", "Robben", "Ribery", "Muller",
-        "Mandzukic", "Gomez", "Klose", "Ballack", "Podolski", "Lahm",
-        "Boateng", "Badstuber", "Tasci", "Howedes", "Metzelder", "Dida",
-        "Dudek", "Valdez", "Lehmann", "Fabianski", "Szczesny", "Sorensen",
-        "Canizares", "Kalou", "Anelka", "Ballotelli", "Balzaretti", "Paletta",
-        "Emanuelson", "Nocerino", "Montolivo", "Constant", "Zambrotta", "Thiago Motta",
-        "Gattuso", "Pirlo", "Seedorf", "Ambrosini", "Nesta", "Stam",
-        "Maldini", "Costacurta", "Baresi", "Riccardo Ferri", "Walter Zenga",
-        "Abbiati", "Maignan", "Donnarumma", "Handanovic", "Samir Handanovic",
-        "De Sanctis", "Buffon", "Marchetti", "Storari", "Sorrentino",
-        "Chiellini", "Bonucci", "Barzagli", "Vidal", "Marchisio",
-        "Pogba", "Juve", "Bayern", "Real", "Barcelona", "Arsenal",
-        "Liverpool", "Manchester", "Chelsea", "Milan", "Inter",
-        "Roma", "Napoli", "Juventus", "Lazio", "Fiorentina"
-    ]
+    """Generate unique player database with realistic attributes by position"""
+    # Best players unique for each position
+    best_by_position = {
+        "GK": [
+            {"name": "Gianluigi Buffon", "speed": 75, "dribbling": 40, "shooting": 30, "defense": 96, "physical": 88, "iq": 92, "team": "Juventus"},
+            {"name": "Manuel Neuer", "speed": 80, "dribbling": 60, "shooting": 35, "defense": 95, "physical": 92, "iq": 93, "team": "Bayern Munich"},
+            {"name": "Iker Casillas", "speed": 77, "dribbling": 38, "shooting": 28, "defense": 94, "physical": 86, "iq": 90, "team": "Real Madrid"},
+            {"name": "Lev Yashin", "speed": 76, "dribbling": 35, "shooting": 25, "defense": 97, "physical": 89, "iq": 91, "team": "Dynamo Moscow"},
+            {"name": "Peter Shilton", "speed": 74, "dribbling": 32, "shooting": 20, "defense": 96, "physical": 88, "iq": 90, "team": "Nottingham Forest"},
+            {"name": "Donnarumma", "speed": 78, "dribbling": 50, "shooting": 32, "defense": 93, "physical": 90, "iq": 88, "team": "AC Milan"},
+            {"name": "De Gea", "speed": 76, "dribbling": 45, "shooting": 30, "defense": 92, "physical": 87, "iq": 87, "team": "Manchester United"},
+            {"name": "Ederson", "speed": 82, "dribbling": 65, "shooting": 40, "defense": 91, "physical": 88, "iq": 89, "team": "Manchester City"},
+        ],
+        "CB": [
+            {"name": "Franz Beckenbauer", "speed": 85, "dribbling": 88, "shooting": 70, "defense": 95, "physical": 86, "iq": 96, "team": "Bayern Munich"},
+            {"name": "Sergio Ramos", "speed": 82, "dribbling": 75, "shooting": 75, "defense": 92, "physical": 89, "iq": 88, "team": "Real Madrid"},
+            {"name": "Virgil van Dijk", "speed": 88, "dribbling": 70, "shooting": 68, "defense": 94, "physical": 95, "iq": 90, "team": "Liverpool"},
+            {"name": "Bobby Moore", "speed": 80, "dribbling": 75, "shooting": 65, "defense": 94, "physical": 85, "iq": 95, "team": "England"},
+            {"name": "Fabio Cannavaro", "speed": 80, "dribbling": 68, "shooting": 60, "defense": 96, "physical": 88, "iq": 91, "team": "Juventus"},
+            {"name": "Maldini", "speed": 85, "dribbling": 80, "shooting": 65, "defense": 94, "physical": 89, "iq": 94, "team": "AC Milan"},
+            {"name": "Rio Ferdinand", "speed": 82, "dribbling": 72, "shooting": 62, "defense": 93, "physical": 87, "iq": 92, "team": "Manchester United"},
+            {"name": "John Terry", "speed": 81, "dribbling": 70, "shooting": 60, "defense": 93, "physical": 88, "iq": 91, "team": "Chelsea"},
+        ],
+        "LW": [
+            {"name": "Diego Maradona", "speed": 92, "dribbling": 99, "shooting": 93, "defense": 50, "physical": 82, "iq": 96, "team": "Napoli"},
+            {"name": "Lionel Messi", "speed": 86, "dribbling": 96, "shooting": 94, "defense": 38, "physical": 73, "iq": 95, "team": "Barcelona"},
+            {"name": "Ronaldinho", "speed": 90, "dribbling": 97, "shooting": 92, "defense": 45, "physical": 85, "iq": 94, "team": "Barcelona"},
+            {"name": "Arjen Robben", "speed": 92, "dribbling": 95, "shooting": 90, "defense": 42, "physical": 83, "iq": 90, "team": "Bayern Munich"},
+            {"name": "Cristiano Ronaldo", "speed": 89, "dribbling": 87, "shooting": 93, "defense": 35, "physical": 92, "iq": 85, "team": "Manchester United"},
+            {"name": "Franck Ribery", "speed": 88, "dribbling": 93, "shooting": 88, "defense": 40, "physical": 84, "iq": 89, "team": "Bayern Munich"},
+            {"name": "Gareth Bale", "speed": 94, "dribbling": 88, "shooting": 89, "defense": 38, "physical": 90, "iq": 85, "team": "Real Madrid"},
+            {"name": "Neymar Jr", "speed": 91, "dribbling": 94, "shooting": 87, "defense": 42, "physical": 80, "iq": 88, "team": "Barcelona"},
+        ],
+        "RW": [
+            {"name": "Pelé", "speed": 90, "dribbling": 92, "shooting": 96, "defense": 45, "physical": 85, "iq": 88, "team": "Santos"},
+            {"name": "George Best", "speed": 88, "dribbling": 94, "shooting": 91, "defense": 48, "physical": 84, "iq": 87, "team": "Manchester United"},
+            {"name": "Stanley Matthews", "speed": 89, "dribbling": 96, "shooting": 88, "defense": 44, "physical": 82, "iq": 90, "team": "Blackpool"},
+            {"name": "Vinicius Jr", "speed": 95, "dribbling": 91, "shooting": 86, "defense": 40, "physical": 88, "iq": 81, "team": "Real Madrid"},
+            {"name": "Mohamed Salah", "speed": 89, "dribbling": 89, "shooting": 91, "defense": 35, "physical": 86, "iq": 87, "team": "Liverpool"},
+            {"name": "Kingsley Coman", "speed": 91, "dribbling": 87, "shooting": 85, "defense": 42, "physical": 82, "iq": 86, "team": "Bayern Munich"},
+            {"name": "Jadon Sancho", "speed": 90, "dribbling": 89, "shooting": 84, "defense": 41, "physical": 81, "iq": 85, "team": "Borussia Dortmund"},
+            {"name": "Rafael Leao", "speed": 94, "dribbling": 90, "shooting": 85, "defense": 39, "physical": 87, "iq": 82, "team": "AC Milan"},
+        ],
+        "ST": [
+            {"name": "Gerd Müller", "speed": 82, "dribbling": 80, "shooting": 97, "defense": 30, "physical": 88, "iq": 85, "team": "Bayern Munich"},
+            {"name": "Ferenc Puskás", "speed": 85, "dribbling": 88, "shooting": 95, "defense": 35, "physical": 82, "iq": 88, "team": "Real Madrid"},
+            {"name": "Karim Benzema", "speed": 84, "dribbling": 85, "shooting": 92, "defense": 32, "physical": 86, "iq": 89, "team": "Real Madrid"},
+            {"name": "Robert Lewandowski", "speed": 83, "dribbling": 82, "shooting": 96, "defense": 33, "physical": 92, "iq": 88, "team": "Bayern Munich"},
+            {"name": "Harry Kane", "speed": 81, "dribbling": 80, "shooting": 94, "defense": 35, "physical": 89, "iq": 90, "team": "Tottenham"},
+            {"name": "Erling Haaland", "speed": 96, "dribbling": 84, "shooting": 95, "defense": 32, "physical": 94, "iq": 81, "team": "Manchester City"},
+            {"name": "Sergio Aguero", "speed": 88, "dribbling": 85, "shooting": 93, "defense": 31, "physical": 84, "iq": 86, "team": "Manchester City"},
+            {"name": "Thierry Henry", "speed": 92, "dribbling": 90, "shooting": 91, "defense": 33, "physical": 87, "iq": 88, "team": "Arsenal"},
+        ],
+    }
 
-    # Add unique names by combining first and last names
     first_names = [
         "Alessandro", "Antonio", "Carlo", "Diego", "Enrique", "Fernando", "Giancarlo", "Gustavo",
         "Hernan", "Ignacio", "Javier", "Julio", "Klaus", "Leonardo", "Marcelo", "Nicolas",
         "Olivier", "Paulo", "Quentin", "Raul", "Santiago", "Tiago", "Ubaldo", "Vicente",
-        "Waldemar", "Xavier", "Yuri", "Zeljko", "Alberto", "Bruno", "Cristian", "Diego",
+        "Waldemar", "Xavier", "Yuri", "Zeljko", "Alberto", "Bruno", "Cristian", "Damian",
         "Emilio", "Federico", "Gustavo", "Hugo", "Ivan", "Jesus", "Klaus", "Luis",
         "Manuel", "Nestor", "Oscar", "Pablo", "Quirino", "Roberto", "Sergio", "Tomas",
-        "Adrian", "Andres", "Angel", "Arturo", "Aurelio", "Benito", "Blas", "Bolivar",
-        "Camilo", "Casimiro", "Cesareo", "Cipriano", "Claudio", "Clemente", "Colombo", "Conrado",
-        "Cornelio", "Cosme", "Cremencio", "Dagoberto", "Damaso", "Damian", "Danilo", "Dario",
-        "Davide", "Demetrio", "Dino", "Domingo", "Domitilo", "Dorian", "Doricio", "Dositeo",
-        "Duelio", "Dunix", "Durosino", "Edgardo", "Edmundo", "Eduardo", "Edwin", "Efraim",
-        "Egberto", "Egidio", "Egino", "Egon", "Eladio", "Elario", "Eleonor", "Eleoterio",
-        "Eleuterio", "Elias", "Elieo", "Elifas", "Eligio", "Elino", "Eliseo", "Elizardo"
     ]
 
     last_names = [
@@ -145,89 +146,65 @@ def generate_players(count=3000):
         "Iglesias", "Jimenez", "Kovalenko", "Lopez", "Martinez", "Nunez", "Ortiz", "Pacheco",
         "Quinones", "Ramirez", "Sanchez", "Torres", "Urbano", "Vargas", "Wagner", "Yanez",
         "Zamora", "Acosta", "Bernal", "Castro", "Duarte", "Esparza", "Flores", "Garza",
-        "Herrera", "Ibarra", "Jimenez", "Kimura", "Luna", "Molina", "Nava", "Ocampo",
-        "Peña", "Quintanilla", "Reyes", "Silva", "Trevino", "Uribe", "Valencia", "Vega"
     ]
 
-    players = TOP_PLAYERS_SAMPLE.copy()
-    used_names = {p["name"] for p in players}
+    players = []
+    used_names = set()
 
-    # Use historical players first
-    for player_name in historical_players:
-        if len(players) >= count:
-            break
-        if player_name not in used_names:
-            used_names.add(player_name)
-            position = random.choice(POSITIONS)
-            era = random.choice(["1950s-1970s", "1970s-1990s", "1980s-2000s", "1990s-2010s", "2000s-2020s"])
+    # Add best players first (unique, no duplicates)
+    for position, best_players in best_by_position.items():
+        for player in best_players:
+            used_names.add(player["name"])
+            players.append({**player, "position": position, "era": "Various"})
 
-            players.append({
-                "name": player_name,
-                "position": position,
-                "era": era,
-                "speed": random.randint(70, 96) if position not in ["GK"] else random.randint(70, 82),
-                "dribbling": random.randint(30, 98) if position != "GK" else random.randint(30, 50),
-                "shooting": random.randint(20, 98) if position != "GK" else random.randint(20, 40),
-                "defense": random.randint(25, 99),
-                "physical": random.randint(70, 98),
-                "iq": random.randint(75, 98),
-                "team": random.choice(list(TEAM_COLORS.keys()))
-            })
-
-    # Generate remaining with unique combinations (pre-generate to avoid collisions)
+    # Generate candidates
     candidates = []
     for f in first_names:
         for l in last_names:
             candidates.append(f"{f} {l}")
-
     random.shuffle(candidates)
 
+    # Distribution: GK=1000, CB=6000, LW=3000, RW=3000, ST=3000 (total 16000, but we take `count`)
+    # For 3000 total, we scale proportionally
+    distribution = {"GK": 0.063, "CB": 0.375, "LW": 0.188, "RW": 0.188, "ST": 0.188}
+    targets = {pos: int(count * pct) for pos, pct in distribution.items()}
+
+    position_counts = {pos: len(best_by_position[pos]) for pos in best_by_position}
+
+    # Generate remaining players by position
     for name in candidates:
         if len(players) >= count:
             break
         if name not in used_names:
             used_names.add(name)
-            position = random.choice(POSITIONS)
-            era = random.choice(["1950s-1970s", "1970s-1990s", "1980s-2000s", "1990s-2010s", "2000s-2020s"])
 
-            # Adjust attributes based on position
-            if position == "GK":
-                speed = random.randint(70, 82)
-                dribbling = random.randint(30, 50)
-                shooting = random.randint(20, 40)
-                defense = random.randint(85, 99)
-            elif position in ["CB", "LB", "RB"]:
-                speed = random.randint(75, 92)
-                dribbling = random.randint(60, 85)
-                shooting = random.randint(40, 70)
-                defense = random.randint(85, 99)
-            elif position in ["CM", "CDM", "CAM"]:
-                speed = random.randint(75, 92)
-                dribbling = random.randint(70, 95)
-                shooting = random.randint(65, 90)
-                defense = random.randint(55, 85)
-            else:  # LW, RW, ST, CF
-                speed = random.randint(80, 96)
-                dribbling = random.randint(75, 98)
-                shooting = random.randint(80, 98)
-                defense = random.randint(25, 60)
+            # Pick position with fewest generated yet
+            pos = min(distribution.keys(), key=lambda p: position_counts[p] - targets[p])
 
-            physical = random.randint(70, 98)
-            iq = random.randint(75, 98)
-            team = random.choice(list(TEAM_COLORS.keys()))
+            if position_counts[pos] < targets[pos]:
+                position_counts[pos] += 1
+                era = random.choice(["1950s-1970s", "1970s-1990s", "1980s-2000s", "1990s-2010s", "2000s-2020s"])
 
-            players.append({
-                "name": name,
-                "position": position,
-                "era": era,
-                "speed": speed,
-                "dribbling": dribbling,
-                "shooting": shooting,
-                "defense": defense,
-                "physical": physical,
-                "iq": iq,
-                "team": team
-            })
+                # Attributes by position
+                if pos == "GK":
+                    speed, dribbling, shooting, defense = random.randint(70, 82), random.randint(30, 50), random.randint(20, 40), random.randint(85, 99)
+                elif pos == "CB":
+                    speed, dribbling, shooting, defense = random.randint(75, 92), random.randint(60, 85), random.randint(40, 70), random.randint(85, 99)
+                else:  # LW, RW, ST
+                    speed, dribbling, shooting, defense = random.randint(80, 96), random.randint(75, 98), random.randint(80, 98), random.randint(25, 60)
+
+                players.append({
+                    "name": name,
+                    "position": pos,
+                    "era": era,
+                    "speed": speed,
+                    "dribbling": dribbling,
+                    "shooting": shooting,
+                    "defense": defense,
+                    "physical": random.randint(70, 98),
+                    "iq": random.randint(75, 98),
+                    "team": random.choice(list(TEAM_COLORS.keys()))
+                })
 
     return players[:count]
 

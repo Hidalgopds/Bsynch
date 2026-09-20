@@ -600,12 +600,16 @@
             }, 2000);
         }
 
+        let searchTimeout;
         function searchPlayers() {
+            clearTimeout(searchTimeout);
             const query = document.getElementById('playerSearch').value.toLowerCase();
-            document.querySelectorAll('.player-card').forEach(card => {
-                const name = card.textContent.toLowerCase();
-                card.style.display = name.includes(query) ? 'block' : 'none';
-            });
+            searchTimeout = setTimeout(() => {
+                document.querySelectorAll('.player-card').forEach(card => {
+                    const name = card.textContent.toLowerCase();
+                    card.style.display = name.includes(query) ? 'block' : 'none';
+                });
+            }, 300);
         }
 
         function confirmFormation() {
