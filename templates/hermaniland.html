@@ -200,19 +200,6 @@
 
             <div class="timer" id="timer">20</div>
 
-            <div style="margin-bottom: 15px;">
-                <button onclick="togglePlayersList()" style="width: 100%; padding: 10px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; font-weight: 600; color: #333;">
-                    📋 Show Available Players
-                </button>
-            </div>
-
-            <div id="playersListContainer" style="display: none; margin-bottom: 20px; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; background: #fafafa;">
-                <div style="margin-bottom: 12px;">
-                    <input type="text" id="playerSearch" placeholder="Search player..." onkeyup="searchPlayers()" style="width: 100%;">
-                </div>
-                <div id="playersList" style="max-height: 350px; overflow-y: auto;"></div>
-            </div>
-
             <div class="draft-controls">
                 <button id="addToTeamBtn" onclick="addPlayerToTeam()" disabled>✓ Add to My Team</button>
                 <button onclick="skipPick()" id="skipBtn">Skip / Next Player</button>
@@ -220,6 +207,12 @@
 
             <h3>Your Selected Players</h3>
             <div id="selectedPlayersList" class="player-list"></div>
+
+            <div style="margin-bottom: 20px; margin-top: 30px;">
+                <input type="text" id="playerSearch" placeholder="Search player..." onkeyup="searchPlayers()">
+            </div>
+
+            <div id="playersList" style="max-height: 350px; overflow-y: auto; margin-bottom: 20px;"></div>
         </div>
 
         <!-- FORMATION SECTION -->
@@ -283,10 +276,6 @@
         });
 
         function loadGameData() {
-            fetch('/api/hermaniland/players')
-                .then(r => r.json())
-                .then(data => gameState.players = data.players);
-
             fetch('/api/hermaniland/coaches')
                 .then(r => r.json())
                 .then(data => {
@@ -297,6 +286,13 @@
             fetch('/api/hermaniland/formations')
                 .then(r => r.json())
                 .then(data => gameState.formations = data.formations);
+        }
+
+        function loadPlayers() {
+            if (gameState.players.length > 0) return;
+            return fetch('/api/hermaniland/players')
+                .then(r => r.json())
+                .then(data => gameState.players = data.players);
         }
 
         function populateCoaches() {
@@ -402,16 +398,19 @@
         }
 
         function startDraft() {
-            fetch(`/api/hermaniland/start-draft/${gameState.roomCode}`, {method: 'POST'})
-                .then(r => r.json())
-                .then(data => {
-                    gameState.draftedPlayers = new Set();
-                    showSection('draftSection');
-                    displayPlayers();
-                    updateTeamsTable();
-                    startPickTimer();
-                    pollDraftStatus();
-                });
+            loadPlayers().then(() => {
+                fetch(`/api/hermaniland/start-draft/${gameState.roomCode}`, {method: 'POST'})
+                    .then(r => r.json())
+                    .then(data => {
+                        gameState.draftedPlayers = new Set();
+                        showSection('draftSection');
+                        displayPlayers();
+                        updateTeamsTable().then(() => {
+                            startPickTimer();
+                            pollDraftStatus();
+                        });
+                    });
+            });
         }
 
         function getTeamColor(teamName) {
@@ -430,14 +429,13 @@
             // Convert array of player objects to "LastName I., LastName I." format
             if (!players || players.length === 0) return '';
             return players.map(p => {
-                const name = typeof p === 'string' ? p : (p.name || '');
-                const parts = name.split(' ');
+                const parts = p.name.split(' ');
                 if (parts.length >= 2) {
                     const lastName = parts[parts.length - 1];
                     const firstInitial = parts[0][0].toUpperCase();
                     return `${lastName} ${firstInitial}.`;
                 }
-                return name;
+                return p.name;
             }).join(', ');
         }
 
@@ -539,9 +537,10 @@
         }
 
         function updateTeamsTable() {
-            fetch(`/api/hermaniland/room/${gameState.roomCode}`)
+            return fetch(`/api/hermaniland/room/${gameState.roomCode}`)
                 .then(r => r.json())
                 .then(room => {
+                    gameState.timePerPick = room.time_per_pick;
                     gameState.currentPickerId = room.pick_order[room.current_pick_index];
                     const tbody = document.getElementById('teamsTableBody');
                     tbody.innerHTML = '';
@@ -561,14 +560,7 @@
 
                     const currentPickerId = gameState.currentPickerId;
                     const currentPlayer = room.participants[currentPickerId];
-
-                    if (gameState.playerId === currentPickerId) {
-                        document.getElementById('currentPickText').textContent = `🎯 YOUR TIME TO PICK (Round ${room.current_round})`;
-                        document.getElementById('currentPickText').style.background = '#fff3cd';
-                    } else {
-                        document.getElementById('currentPickText').textContent = `🎯 ${currentPlayer.name} is picking... (Round ${room.current_round})`;
-                        document.getElementById('currentPickText').style.background = '#e8eaf6';
-                    }
+                    document.getElementById('currentPickText').textContent = `🎯 ${currentPlayer.name} is picking... (Round ${room.current_round})`;
                 });
         }
 
@@ -606,18 +598,6 @@
                         }
                     });
             }, 2000);
-        }
-
-        function togglePlayersList() {
-            const container = document.getElementById('playersListContainer');
-            const button = event.currentTarget;
-            if (container.style.display === 'none') {
-                container.style.display = 'block';
-                button.textContent = '📋 Hide Available Players';
-            } else {
-                container.style.display = 'none';
-                button.textContent = '📋 Show Available Players';
-            }
         }
 
         function searchPlayers() {

@@ -130,7 +130,14 @@ def generate_players(count=3000):
         "Olivier", "Paulo", "Quentin", "Raul", "Santiago", "Tiago", "Ubaldo", "Vicente",
         "Waldemar", "Xavier", "Yuri", "Zeljko", "Alberto", "Bruno", "Cristian", "Diego",
         "Emilio", "Federico", "Gustavo", "Hugo", "Ivan", "Jesus", "Klaus", "Luis",
-        "Manuel", "Nestor", "Oscar", "Pablo", "Quirino", "Roberto", "Sergio", "Tomas"
+        "Manuel", "Nestor", "Oscar", "Pablo", "Quirino", "Roberto", "Sergio", "Tomas",
+        "Adrian", "Andres", "Angel", "Arturo", "Aurelio", "Benito", "Blas", "Bolivar",
+        "Camilo", "Casimiro", "Cesareo", "Cipriano", "Claudio", "Clemente", "Colombo", "Conrado",
+        "Cornelio", "Cosme", "Cremencio", "Dagoberto", "Damaso", "Damian", "Danilo", "Dario",
+        "Davide", "Demetrio", "Dino", "Domingo", "Domitilo", "Dorian", "Doricio", "Dositeo",
+        "Duelio", "Dunix", "Durosino", "Edgardo", "Edmundo", "Eduardo", "Edwin", "Efraim",
+        "Egberto", "Egidio", "Egino", "Egon", "Eladio", "Elario", "Eleonor", "Eleoterio",
+        "Eleuterio", "Elias", "Elieo", "Elifas", "Eligio", "Elino", "Eliseo", "Elizardo"
     ]
 
     last_names = [
@@ -144,9 +151,6 @@ def generate_players(count=3000):
 
     players = TOP_PLAYERS_SAMPLE.copy()
     used_names = {p["name"] for p in players}
-
-    # Generate unique players
-    extra_needed = count - len(players)
 
     # Use historical players first
     for player_name in historical_players:

@@ -6647,6 +6647,14 @@ def delete_all_job_steps(job_id):
 from hermaniland_data import generate_players, COACHES, FORMATIONS
 
 HERMANILAND_GAMES = {}
+_HERMANILAND_PLAYERS_CACHE = None
+
+def get_hermaniland_players_cached():
+    """Get cached players or generate them once"""
+    global _HERMANILAND_PLAYERS_CACHE
+    if _HERMANILAND_PLAYERS_CACHE is None:
+        _HERMANILAND_PLAYERS_CACHE = generate_players(3000)
+    return _HERMANILAND_PLAYERS_CACHE
 
 def generate_hermaniland_room_code():
     """Generate unique 4-char room code for Hermaniland"""
@@ -6663,8 +6671,8 @@ def hermaniland_hub():
 
 @app.route("/api/hermaniland/players")
 def get_hermaniland_players():
-    """Get all available players for draft"""
-    players = generate_players(3000)
+    """Get all available players for draft (cached)"""
+    players = get_hermaniland_players_cached()
     return jsonify({"players": players})
 
 @app.route("/api/hermaniland/coaches")
@@ -6836,7 +6844,7 @@ def start_hermaniland_draft(code):
     room["pick_order"] = participants
     room["current_round"] = 1
     room["current_pick_index"] = 0
-    room["available_players"] = generate_players(3000)
+    room["available_players"] = get_hermaniland_players_cached()
     room["drafted_players"] = set()
 
     # Handle AI picks at start if needed
@@ -6912,6 +6920,20 @@ def draft_hermaniland_player(code):
         "draft_complete": draft_complete,
         "players_drafted": len(room["drafted_players"])
     })
+
+def ai_pick_player(room, ai_player_id):
+    """AI automatically selects a random available player"""
+    ai_player = room["participants"][ai_player_id]
+    available = [p for p in room["available_players"] if p["name"] not in room["drafted_players"]]
+
+    if not available:
+        return False
+
+    # AI picks randomly
+    picked = random.choice(available)
+    ai_player["players"].append(picked)
+    room["drafted_players"].add(picked["name"])
+    return True
 
 @app.route("/api/hermaniland/next-pick/<code>", methods=["POST"])
 def next_hermaniland_pick(code):
