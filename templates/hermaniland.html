@@ -1055,6 +1055,7 @@
                 skipBtn.disabled = true;
                 timer.classList.add('paused');
                 clearInterval(gameState.timerInterval);
+                gameState.timerInterval = null;
             } else {
                 banner.classList.remove('active');
                 stateLabel.style.display = 'none';
@@ -1062,7 +1063,31 @@
                 skipBtn.disabled = false;
                 addBtn.disabled = !gameState.selectedPlayer;
                 timer.classList.remove('paused');
+                // Restart the timer when resuming
+                const currentTimeValue = parseInt(document.getElementById('timer').textContent);
+                if (currentTimeValue > 0 && !gameState.timerInterval) {
+                    restartPickTimer(currentTimeValue);
+                }
             }
+        }
+
+        function restartPickTimer(remainingSeconds) {
+            clearInterval(gameState.timerInterval);
+            let seconds = remainingSeconds;
+
+            gameState.timerInterval = setInterval(() => {
+                if (gameState.paused) return;
+                seconds--;
+                document.getElementById('timer').textContent = seconds;
+
+                if (seconds <= 5) document.getElementById('timer').classList.add('danger');
+                else if (seconds <= 10) document.getElementById('timer').classList.add('warning');
+
+                if (seconds <= 0) {
+                    clearInterval(gameState.timerInterval);
+                    skipPick();
+                }
+            }, 1000);
         }
 
         function startPickTimer() {
