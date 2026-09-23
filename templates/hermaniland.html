@@ -322,7 +322,10 @@
                 <div class="progress-label"><span id="progressText">0 / 11 selected</span></div>
                 <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBarFill"></div></div>
             </div>
+            <div id="fieldDisplay" style="width: 100%; max-width: 600px; margin: 20px auto; background: #1a5f3f; border-radius: 8px; padding: 20px; text-align: center; color: white; font-family: Arial, sans-serif;"></div>
             <div id="lineupBoard" class="lineup-board"></div>
+
+            <div id="positionSelectMsg" style="background: #4CAF50; color: white; padding: 10px; border-radius: 4px; margin-bottom: 10px; font-weight: 600; display: none; text-align: center;"></div>
 
             <div class="sticky-selection" id="stickySelection">
                 <div class="sel-info">
@@ -404,7 +407,9 @@
             participants: {},
             positionFilter: 'ALL',
             paused: false,
-            reviewDropChoice: null
+            reviewDropChoice: null,
+            selectedPositionIndex: null,
+            POSITION_GROUP: { GK: 'GK', CB: 'DEF', LB: 'DEF', RB: 'DEF', CM: 'MID', CDM: 'MID', CAM: 'MID', LW: 'FWD', RW: 'FWD', ST: 'FWD', CF: 'FWD' }
         };
 
         window.addEventListener('load', function() {
@@ -898,7 +903,43 @@
             bar.classList.add('active');
         }
 
+        function selectPositionForPlayer(slotIndex) {
+            gameState.selectedPositionIndex = slotIndex;
+            const formation = gameState.participants[gameState.playerId]?.formation || '4-3-3';
+            const template = gameState.formationSlots?.[formation] || [];
+            const selectedPos = template[slotIndex];
+
+            // Show feedback to user
+            document.getElementById('positionSelectMsg').textContent = `✓ Selected: ${selectedPos} - Now pick a player`;
+            document.getElementById('positionSelectMsg').style.display = 'block';
+
+            // Filter players by position group
+            filterPlayersByPosition(selectedPos);
+            renderFieldDisplay(); // Highlight selected position
+        }
+
+        function filterPlayersByPosition(pos) {
+            const posGroup = gameState.POSITION_GROUP?.[pos] || 'MID';
+            // Filter display to show compatible positions
+            const filters = document.querySelectorAll('.pos-chip');
+            filters.forEach(chip => {
+                const posType = chip.getAttribute('data-pos');
+                if (posType === 'ALL' || posType === posGroup) {
+                    chip.click();
+                }
+            });
+        }
+
         function addPlayerToTeam() {
+            if (gameState.selectedPositionIndex !== undefined && gameState.selectedPositionIndex !== null) {
+                // Position-based assignment
+                if (gameState.selectedPlayers[gameState.selectedPositionIndex]) {
+                    alert('Position already filled');
+                    return;
+                }
+                gameState.selectedPlayers[gameState.selectedPositionIndex] = gameState.selectedPlayer;
+                gameState.selectedPositionIndex = null;
+                document.getElementById('positionSelectMsg').style.display = 'none';
             if (!gameState.selectedPlayer) return;
             if (gameState.paused) { alert('Game is paused.'); return; }
             if (gameState.currentPickerId !== gameState.playerId) {
@@ -948,6 +989,49 @@
                 });
         }
 
+        // ── Render field visualization (SVG soccer field) ──
+        function renderFieldDisplay() {
+            const formation = gameState.participants[gameState.playerId]?.formation || '4-3-3';
+            const template = gameState.formationSlots?.[formation] || [];
+            const fieldDiv = document.getElementById('fieldDisplay');
+
+            let svg = `<svg width="100%" height="280" viewBox="0 0 500 300" style="background: linear-gradient(180deg, #2d7d3f 0%, #1a5f3f 100%); border-radius: 8px; border: 2px solid #fff;">
+                <defs>
+                    <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+                        <path d="M 50 0 L 0 0 0 50" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                    </pattern>
+                </defs>
+                <rect width="500" height="300" fill="url(#grid)" />
+                <line x1="250" y1="0" x2="250" y2="300" stroke="white" stroke-width="2" stroke-dasharray="5,5" />
+                <circle cx="250" cy="150" r="40" fill="none" stroke="white" stroke-width="2" />
+                <circle cx="250" cy="150" r="4" fill="white" />`;
+
+            const positionMap = {
+                'GK': {x: 250, y: 30}, 'RB': {x: 420, y: 80}, 'CB': {x: 310, y: 80}, 'LB': {x: 80, y: 80},
+                'RW': {x: 450, y: 150}, 'CM': {x: 250, y: 120}, 'CAM': {x: 250, y: 100}, 'CDM': {x: 250, y: 140}, 'LW': {x: 50, y: 150},
+                'ST': {x: 250, y: 250}, 'CF': {x: 250, y: 250}
+            };
+
+            template.forEach((pos, idx) => {
+                const player = gameState.selectedPlayers[idx];
+                const playerName = player ? player.name.split(' ')[0].substring(0, 8) : '—';
+                const coord = positionMap[pos] || {x: 250, y: 150};
+                const isSelected = idx === gameState.selectedPositionIndex;
+                const fillColor = isSelected ? 'rgba(255, 215, 0, 0.5)' : 'rgba(255,255,255,0.2)';
+                const strokeColor = isSelected ? '#FFD700' : 'white';
+                const strokeWidth = isSelected ? 3 : 2;
+
+                svg += `<g onclick="selectPositionForPlayer(${idx})" style="cursor: pointer;" title="${pos}">
+                    <circle cx="${coord.x}" cy="${coord.y}" r="22" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" />
+                    <text x="${coord.x}" y="${coord.y-8}" text-anchor="middle" fill="white" font-size="11" font-weight="bold">${pos}</text>
+                    <text x="${coord.x}" y="${coord.y+8}" text-anchor="middle" fill="white" font-size="9">${playerName}</text>
+                </g>`;
+            });
+
+            svg += '</svg>';
+            fieldDiv.innerHTML = svg;
+        }
+
         // ── Lineup slot board: fills formation slots with player names as drafted ──
         function renderLineupBoard() {
             const formation = gameState.participants[gameState.playerId]?.formation
@@ -955,6 +1039,8 @@
                 || '4-3-3';
             const template = (gameState.formationSlots && gameState.formationSlots[formation]) || [];
             const board = document.getElementById('lineupBoard');
+
+            renderFieldDisplay();
             board.innerHTML = '';
 
             const remaining = gameState.selectedPlayers.slice();
