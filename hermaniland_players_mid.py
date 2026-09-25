@@ -95,7 +95,6 @@ def get_midfielders():
         {'name': "Jorge Valdivia #8", 'position': "CAM", 'speed': 87, 'dribbling': 91, 'shooting': 83, 'defense': 76, 'physical': 93, 'iq': 92, 'team': "Chelsea", 'era': "2010", 'rating': 87.0},
         {'name': "Robbie Keane #8", 'position': "CM", 'speed': 93, 'dribbling': 89, 'shooting': 83, 'defense': 78, 'physical': 86, 'iq': 93, 'team': "Paris SG", 'era': "2010", 'rating': 87.0},
         {'name': "Graeme Souness #9", 'position': "CM", 'speed': 94, 'dribbling': 85, 'shooting': 85, 'defense': 77, 'physical': 84, 'iq': 97, 'team': "Real Madrid", 'era': "2014", 'rating': 87.0},
-        {'name': "Gianluigi Buffon #9", 'position': "CM", 'speed': 85, 'dribbling': 92, 'shooting': 85, 'defense': 79, 'physical': 87, 'iq': 94, 'team': "Real Madrid", 'era': "2018", 'rating': 87.0},
         {'name': "Seydou Doumbia #10", 'position': "CM", 'speed': 90, 'dribbling': 90, 'shooting': 86, 'defense': 71, 'physical': 94, 'iq': 91, 'team': "Juventus", 'era': "2006", 'rating': 87.0},
         {'name': "Gerard Pique", 'position': "CM", 'speed': 90, 'dribbling': 77, 'shooting': 86, 'defense': 84, 'physical': 86, 'iq': 98, 'team': "Inter Milan", 'era': "2010", 'rating': 86.83333333333333},
         {'name': "Sergio Aguero #1", 'position': "CDM", 'speed': 86, 'dribbling': 91, 'shooting': 78, 'defense': 85, 'physical': 89, 'iq': 92, 'team': "Real Madrid", 'era': "2010", 'rating': 86.83333333333333},
@@ -250,4 +249,5 @@ def get_midfielders():
         {'name': "Yacine Brahimi #4", 'position': "CM", 'speed': 91, 'dribbling': 83, 'shooting': 81, 'defense': 83, 'physical': 91, 'iq': 85, 'team': "Liverpool", 'era': "2018", 'rating': 85.66666666666667},
         {'name': "Peter \u010cech #5", 'position': "CDM", 'speed': 82, 'dribbling': 87, 'shooting': 83, 'defense': 83, 'physical': 88, 'iq': 91, 'team': "Manchester United", 'era': "2014", 'rating': 85.66666666666667},
         {'name': "Ashley Cole #5", 'position': "CM", 'speed': 90, 'dribbling': 85, 'shooting': 71, 'defense': 85, 'physical': 96, 'iq': 87, 'team': "Barcelona", 'era': "2022", 'rating': 85.66666666666667},
+        {'name': "Pauleta #6", 'position': "CDM", 'speed': 93, 'dribbling': 88, 'shooting': 80, 'defense': 64, 'physical': 93, 'iq': 96, 'team': "Real Madrid", 'era': "2010", 'rating': 85.66666666666667},
     ]

@@ -2,6 +2,7 @@
 
 def get_goalkeepers():
     return [
+        {'name': "Gianluigi Buffon", 'position': "GK", 'speed': 85, 'dribbling': 92, 'shooting': 85, 'defense': 79, 'physical': 87, 'iq': 94, 'team': "Real Madrid", 'era': "2018", 'rating': 87.0},
         {'name': "Giorgio Chiellini #10", 'position': "GK", 'speed': 79, 'dribbling': 50, 'shooting': 44, 'defense': 98, 'physical': 95, 'iq': 92, 'team': "Inter Milan", 'era': "2014", 'rating': 76.33333333333333},
         {'name': "Ousmane N'Doye", 'position': "GK", 'speed': 82, 'dribbling': 52, 'shooting': 45, 'defense': 91, 'physical': 96, 'iq': 90, 'team': "Paris SG", 'era': "2022", 'rating': 76.0},
         {'name': "Gio de Arrascaeta #9", 'position': "GK", 'speed': 76, 'dribbling': 50, 'shooting': 44, 'defense': 96, 'physical': 95, 'iq': 95, 'team': "Arsenal", 'era': "2022", 'rating': 76.0},
@@ -51,5 +52,4 @@ def get_goalkeepers():
         {'name': "Danilo Carrillo #3", 'position': "GK", 'speed': 78, 'dribbling': 44, 'shooting': 33, 'defense': 96, 'physical': 92, 'iq': 97, 'team': "AC Milan", 'era': "2022", 'rating': 73.33333333333333},
         {'name': "Juan Pablo Sor\u00edn #5", 'position': "GK", 'speed': 77, 'dribbling': 35, 'shooting': 43, 'defense': 95, 'physical': 97, 'iq': 93, 'team': "Napoli", 'era': "2006", 'rating': 73.33333333333333},
         {'name': "Jimmy Greaves #9", 'position': "GK", 'speed': 81, 'dribbling': 53, 'shooting': 31, 'defense': 97, 'physical': 97, 'iq': 81, 'team': "Liverpool", 'era': "2014", 'rating': 73.33333333333333},
-        {'name': "Peter Crouch #11", 'position': "GK", 'speed': 77, 'dribbling': 51, 'shooting': 42, 'defense': 91, 'physical': 89, 'iq': 90, 'team': "Bayern Munich", 'era': "2010", 'rating': 73.33333333333333},
     ]

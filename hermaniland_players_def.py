@@ -49,7 +49,6 @@ def get_defenders():
         {'name': "Benedikt H\u00f6wedes #4", 'position': "CB", 'speed': 90, 'dribbling': 71, 'shooting': 64, 'defense': 97, 'physical': 87, 'iq': 98, 'team': "Bayern Munich", 'era': "2006", 'rating': 84.5},
         {'name': "Giorgio Chiellini #5", 'position': "RB", 'speed': 90, 'dribbling': 77, 'shooting': 65, 'defense': 97, 'physical': 83, 'iq': 95, 'team': "Juventus", 'era': "2006", 'rating': 84.5},
         {'name': "Andrea Pirlo #6", 'position': "RB", 'speed': 79, 'dribbling': 79, 'shooting': 70, 'defense': 92, 'physical': 91, 'iq': 96, 'team': "Juventus", 'era': "2014", 'rating': 84.5},
-        {'name': "Lionel Messi #9", 'position': "LB", 'speed': 81, 'dribbling': 77, 'shooting': 64, 'defense': 97, 'physical': 96, 'iq': 92, 'team': "Liverpool", 'era': "2006", 'rating': 84.5},
         {'name': "Julian Draxler #10", 'position': "RB", 'speed': 83, 'dribbling': 75, 'shooting': 69, 'defense': 88, 'physical': 96, 'iq': 96, 'team': "Bayern Munich", 'era': "2010", 'rating': 84.5},
         {'name': "Medhi Benatia #3", 'position': "CB", 'speed': 90, 'dribbling': 77, 'shooting': 70, 'defense': 85, 'physical': 94, 'iq': 90, 'team': "Napoli", 'era': "2006", 'rating': 84.33333333333333},
         {'name': "Vilson Vilela #4", 'position': "LB", 'speed': 86, 'dribbling': 71, 'shooting': 62, 'defense': 93, 'physical': 96, 'iq': 98, 'team': "Manchester United", 'era': "2018", 'rating': 84.33333333333333},
@@ -167,4 +166,5 @@ def get_defenders():
         {'name': "Alexis Mac Allister #6", 'position': "RB", 'speed': 90, 'dribbling': 77, 'shooting': 66, 'defense': 91, 'physical': 84, 'iq': 89, 'team': "Inter Milan", 'era': "2014", 'rating': 82.83333333333333},
         {'name': "Juli\u00e1n Montes #6", 'position': "RB", 'speed': 77, 'dribbling': 79, 'shooting': 68, 'defense': 99, 'physical': 83, 'iq': 91, 'team': "Arsenal", 'era': "2018", 'rating': 82.83333333333333},
         {'name': "N'Golo Kant\u00e9 #6", 'position': "LB", 'speed': 87, 'dribbling': 66, 'shooting': 57, 'defense': 96, 'physical': 98, 'iq': 93, 'team': "Inter Milan", 'era': "2018", 'rating': 82.83333333333333},
+        {'name': "Frank Lampard #7", 'position': "RB", 'speed': 79, 'dribbling': 71, 'shooting': 69, 'defense': 88, 'physical': 96, 'iq': 94, 'team': "Arsenal", 'era': "2022", 'rating': 82.83333333333333},
     ]
