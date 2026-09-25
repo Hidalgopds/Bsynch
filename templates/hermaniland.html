@@ -931,8 +931,15 @@
         }
 
         function addPlayerToTeam() {
+            if (!gameState.selectedPlayer) return;
+            if (gameState.paused) { alert('Game is paused.'); return; }
+            if (gameState.currentPickerId !== gameState.playerId) {
+                alert('Not your turn!');
+                return;
+            }
+
             if (gameState.selectedPositionIndex !== undefined && gameState.selectedPositionIndex !== null) {
-                // Position-based assignment
+                // Position-based assignment: add to specific slot
                 if (gameState.selectedPlayers[gameState.selectedPositionIndex]) {
                     alert('Position already filled');
                     return;
@@ -940,11 +947,12 @@
                 gameState.selectedPlayers[gameState.selectedPositionIndex] = gameState.selectedPlayer;
                 gameState.selectedPositionIndex = null;
                 document.getElementById('positionSelectMsg').style.display = 'none';
-            if (!gameState.selectedPlayer) return;
-            if (gameState.paused) { alert('Game is paused.'); return; }
-            if (gameState.currentPickerId !== gameState.playerId) {
-                alert('Not your turn!');
-                return;
+            } else {
+                // Fallback: add to next available slot
+                const firstEmpty = gameState.selectedPlayers.findIndex(p => !p);
+                if (firstEmpty !== -1) {
+                    gameState.selectedPlayers[firstEmpty] = gameState.selectedPlayer;
+                }
             }
 
             apiFetch(`/api/hermaniland/draft-player/${gameState.roomCode}`, {
@@ -962,7 +970,6 @@
                     return;
                 }
 
-                gameState.selectedPlayers.push(gameState.selectedPlayer);
                 gameState.draftedPlayers.add(gameState.selectedPlayer.name);
                 renderLineupBoard();
                 applyPlayerFilters();
@@ -989,6 +996,25 @@
                 });
         }
 
+        // ── Get coordinate for a position slot in the formation ──
+        function getSlotCoordinate(pos, slotIdxInGroup) {
+            const coords = {
+                'GK': [{x: 250, y: 30}],
+                'CB': [{x: 190, y: 70}, {x: 250, y: 70}, {x: 310, y: 70}],
+                'RB': [{x: 420, y: 80}],
+                'LB': [{x: 80, y: 80}],
+                'CDM': [{x: 200, y: 130}, {x: 300, y: 130}],
+                'CM': [{x: 150, y: 120}, {x: 250, y: 120}, {x: 350, y: 120}],
+                'CAM': [{x: 250, y: 100}],
+                'RW': [{x: 450, y: 150}],
+                'LW': [{x: 50, y: 150}],
+                'ST': [{x: 180, y: 250}, {x: 250, y: 250}, {x: 320, y: 250}],
+                'CF': [{x: 250, y: 250}]
+            };
+            const posCoords = coords[pos] || [{x: 250, y: 150}];
+            return posCoords[Math.min(slotIdxInGroup, posCoords.length - 1)];
+        }
+
         // ── Render field visualization (SVG soccer field) ──
         function renderFieldDisplay() {
             const formation = gameState.participants[gameState.playerId]?.formation || '4-3-3';
@@ -1006,16 +1032,14 @@
                 <circle cx="250" cy="150" r="40" fill="none" stroke="white" stroke-width="2" />
                 <circle cx="250" cy="150" r="4" fill="white" />`;
 
-            const positionMap = {
-                'GK': {x: 250, y: 30}, 'RB': {x: 420, y: 80}, 'CB': {x: 310, y: 80}, 'LB': {x: 80, y: 80},
-                'RW': {x: 450, y: 150}, 'CM': {x: 250, y: 120}, 'CAM': {x: 250, y: 100}, 'CDM': {x: 250, y: 140}, 'LW': {x: 50, y: 150},
-                'ST': {x: 250, y: 250}, 'CF': {x: 250, y: 250}
-            };
-
+            // Count occurrences of each position to determine slot index within that position
+            const positionCounts = {};
             template.forEach((pos, idx) => {
+                if (!positionCounts[pos]) positionCounts[pos] = 0;
+                const slotIdxInGroup = positionCounts[pos];
                 const player = gameState.selectedPlayers[idx];
                 const playerName = player ? player.name.split(' ')[0].substring(0, 8) : '—';
-                const coord = positionMap[pos] || {x: 250, y: 150};
+                const coord = getSlotCoordinate(pos, slotIdxInGroup);
                 const isSelected = idx === gameState.selectedPositionIndex;
                 const fillColor = isSelected ? 'rgba(255, 215, 0, 0.5)' : 'rgba(255,255,255,0.2)';
                 const strokeColor = isSelected ? '#FFD700' : 'white';
@@ -1026,6 +1050,7 @@
                     <text x="${coord.x}" y="${coord.y-8}" text-anchor="middle" fill="white" font-size="11" font-weight="bold">${pos}</text>
                     <text x="${coord.x}" y="${coord.y+8}" text-anchor="middle" fill="white" font-size="9">${playerName}</text>
                 </g>`;
+                positionCounts[pos]++;
             });
 
             svg += '</svg>';
