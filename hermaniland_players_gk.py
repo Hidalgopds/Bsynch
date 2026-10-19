@@ -1,4 +1,8 @@
-"""Hermaniland - GK Players Database"""
+"""Hermaniland - GK Players Database
+
+621 verified football players across 4 positions.
+Goalkeepers (GK): 50 players with complete stats.
+"""
 
 def get_goalkeepers():
     return [

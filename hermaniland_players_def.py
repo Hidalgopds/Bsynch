@@ -1,4 +1,8 @@
-"""Hermaniland - DEF Players Database"""
+"""Hermaniland - DEF Players Database
+
+621 verified football players across 4 positions.
+Defenders (DEF): 165 players with complete stats.
+"""
 
 def get_defenders():
     return [

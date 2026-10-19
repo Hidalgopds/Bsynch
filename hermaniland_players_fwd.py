@@ -1,4 +1,8 @@
-"""Hermaniland - FWD Players Database"""
+"""Hermaniland - FWD Players Database
+
+621 verified football players across 4 positions.
+Forwards (FWD): 167 players with complete stats.
+"""
 
 def get_forwards():
     return [

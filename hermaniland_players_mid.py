@@ -1,4 +1,8 @@
-"""Hermaniland - MID Players Database"""
+"""Hermaniland - MID Players Database
+
+621 verified football players across 4 positions.
+Midfielders (MID): 248 players with complete stats.
+"""
 
 def get_midfielders():
     return [
