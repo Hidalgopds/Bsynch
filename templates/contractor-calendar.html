@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ company_name }} Calendar – BSynch</title>
+<script src="/static/contractor-scope.js"></script>
+<script src="/static/theme.js"></script>
+<script>document.documentElement.setAttribute('data-theme','light');</script>
+<link rel="stylesheet" href="/static/themes.css">
+<link rel="stylesheet" href="/static/contractor-light.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f4f8;color:#0f172a;min-height:100vh;display:flex;flex-direction:column;}
+header{padding:14px 20px;display:flex;align-items:center;gap:12px;background:#19354d;color:#e2e8f0;}
+.logo-badge{width:36px;height:36px;background:linear-gradient(135deg,#1e9484,#4f8ef7);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;flex-shrink:0;}
+.hdr-title{font-size:17px;font-weight:700;}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.btn-back{padding:6px 14px;border:1px solid rgba(255,255,255,.3);border-radius:7px;color:#e2e8f0;font-size:12px;text-decoration:none;}
+.wrap{flex:1;display:grid;grid-template-columns:1fr 360px;gap:16px;padding:18px;max-width:1300px;width:100%;margin:0 auto;}
+@media(max-width:900px){.wrap{grid-template-columns:1fr;padding:12px;}}
+.cal{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;box-shadow:0 1px 3px rgba(15,23,42,.05);}
+.cal-head{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+.cal-head h2{font-size:20px;flex:1;min-width:150px;}
+.nav-btn{padding:7px 12px;border-radius:9px;border:1px solid #cbd5e1;background:#fff;color:#334155;font-weight:600;cursor:pointer;font-size:13px;}
+.nav-btn:hover{border-color:#1e9484;}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:#64748b;margin-bottom:8px;}
+.legend span::before{content:'';display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:4px;vertical-align:-1px;background:var(--c);}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+.dow{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;text-align:center;padding:4px 0;}
+.day{min-height:96px;border:1px solid #edf1f5;border-radius:10px;padding:5px;cursor:pointer;background:#fff;display:flex;flex-direction:column;gap:3px;overflow:hidden;transition:border-color .15s;}
+.day:hover{border-color:#8fcfc2;}
+.day.out{background:#f8fafc;color:#94a3b8;}
+.day.today .num{background:#1e9484;color:#fff;}
+.day.sel{border:2px solid #1e9484;padding:4px;}
+.num{font-size:12px;font-weight:700;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
+.ev{font-size:11px;line-height:1.25;padding:2px 5px;border-radius:5px;background:var(--bg);color:var(--fg);border-left:3px solid var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.more{font-size:10px;color:#64748b;padding-left:4px;}
+@media(max-width:600px){.day{min-height:58px;}.ev{font-size:0;padding:0;height:6px;border-left:none;background:var(--fg);}.more{display:none;}}
+.side{display:flex;flex-direction:column;gap:12px;}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px;}
+.card h3{font-size:15px;margin-bottom:10px;}
+.job{border:1px solid #e2e8f0;border-left:4px solid var(--fg);border-radius:12px;padding:12px;margin-bottom:10px;}
+.job-top{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
+.job-top b{font-size:14px;flex:1;}
+.chip{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--bg);color:var(--fg);white-space:nowrap;}
+.meta{font-size:12px;color:#64748b;line-height:1.5;}
+.desc{font-size:13px;margin-top:6px;white-space:pre-line;}
+.mats{margin-top:6px;font-size:12px;}
+.mats li{margin-left:16px;}
+.job-actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+.btn{padding:7px 12px;border-radius:8px;border:none;background:#1e9484;color:#fff;font-weight:700;font-size:12px;cursor:pointer;text-decoration:none;}
+.btn.alt{background:#fff;color:#0f766e;border:1px solid #8fcfc2;}
+.empty{color:#64748b;font-size:13px;text-align:center;padding:14px;}
+.field{margin-bottom:8px;}
+.field label{display:block;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:4px;}
+.field input,.field select{width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit;background:#fff;color:#0f172a;}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.msg{font-size:12px;margin-top:6px;min-height:14px;}
+.sched-box{display:none;margin-top:10px;padding-top:10px;border-top:1px dashed #cbd5e1;}
+.sched-box.open{display:block;}
+footer{text-align:center;padding:16px;font-size:12px;color:#94a3b8;}
+</style>
+</head>
+<body data-ct-hub>
+<header>
+  <div class="logo-badge">B</div>
+  <span class="hdr-title">{{ company_name }} · Calendar</span>
+  <div class="hdr-right"><a href="/contractor/{{ company }}" class="btn-back">&#8592; {{ company_name }}</a></div>
+</header>
+
+<div class="wrap" id="wrap" style="visibility:hidden;">
+  <div class="cal">
+    <div class="cal-head">
+      <button class="nav-btn" id="prev" aria-label="Previous month">&#8249;</button>
+      <h2 id="monthTitle"></h2>
+      <button class="nav-btn" id="today">Today</button>
+      <button class="nav-btn" id="next" aria-label="Next month">&#8250;</button>
+    </div>
+    <div class="legend">
+      <span style="--c:#3b82f6">Open</span><span style="--c:#f59e0b">In progress</span><span style="--c:#22a06b">Finished</span><span style="--c:#94a3b8">On hold / cancelled</span>
+    </div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="side">
+    <div class="card">
+      <h3 id="dayTitle">Select a day</h3>
+      <div id="dayJobs"><div class="empty">Tap a day to see its jobs.</div></div>
+      <div id="dayActions" style="display:none;" class="job-actions"></div>
+    </div>
+    <div class="card" id="unschedCard" style="display:none;">
+      <h3>Not scheduled yet</h3>
+      <div id="unsched"></div>
+    </div>
+  </div>
+</div>
+
+<footer>BSynch &middot; Contractor Module</footer>
+
+<script>
+var COMPANY = {{ company|tojson }};
+var API = '/api/contractor/' + COMPANY + '/calendar';
+var cur = new Date(); cur.setDate(1);
+var data = {jobs: [], unscheduled: [], people: [], can_schedule: false};
+var selDay = null;
+var COLORS = {open:['#dbeafe','#1d4ed8'], in_progress:['#fef3c7','#b45309'], completed:['#dcfce7','#15803d'], on_hold:['#f1f5f9','#64748b'], cancelled:['#f1f5f9','#64748b']};
+
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function pad(n){ return (n < 10 ? '0' : '') + n; }
+function iso(d){ return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function monthKey(){ return cur.getFullYear() + '-' + pad(cur.getMonth() + 1); }
+function colorOf(j){ var done = j.status === 'completed' || parseFloat(j.progress_pct || 0) >= 100; return COLORS[done ? 'completed' : j.status] || COLORS.open; }
+function statusLabel(j){ return (parseFloat(j.progress_pct || 0) >= 100 || j.status === 'completed') ? 'Finished' : ({open:'Open', in_progress:'In progress', on_hold:'On hold', cancelled:'Cancelled'}[j.status] || 'Open'); }
+function jobsOn(day){
+  return data.jobs.filter(function(j){ var s = j.scheduled_date, e = j.scheduled_end || j.scheduled_date; return s && s <= day && day <= e; });
+}
+function jobUrl(id){ return '/contractor/projects?company=' + encodeURIComponent(COMPANY) + '&job=' + encodeURIComponent(id); }
+
+function renderGrid(){
+  document.getElementById('monthTitle').textContent = cur.toLocaleDateString(undefined, {month:'long', year:'numeric'});
+  var g = document.getElementById('grid'), html = '';
+  ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(function(d){ html += '<div class="dow">' + d + '</div>'; });
+  var start = new Date(cur); start.setDate(1 - cur.getDay());
+  var todayIso = iso(new Date());
+  for(var i = 0; i < 42; i++){
+    var d = new Date(start); d.setDate(start.getDate() + i);
+    if(i >= 35 && d.getMonth() !== cur.getMonth()) break;
+    var key = iso(d), list = jobsOn(key);
+    html += '<div class="day' + (d.getMonth() !== cur.getMonth() ? ' out' : '') + (key === todayIso ? ' today' : '') + (key === selDay ? ' sel' : '') + '" data-day="' + key + '">' +
+      '<span class="num">' + d.getDate() + '</span>' +
+      list.slice(0, 3).map(function(j){ var c = colorOf(j); return '<div class="ev" style="--bg:' + c[0] + ';--fg:' + c[1] + '" title="' + esc(j.title) + '">' + (j.scheduled_time ? esc(j.scheduled_time) + ' ' : '') + esc(j.title) + '</div>'; }).join('') +
+      (list.length > 3 ? '<div class="more">+' + (list.length - 3) + ' more</div>' : '') +
+      '</div>';
+  }
+  g.innerHTML = html;
+}
+
+function renderDay(){
+  var box = document.getElementById('dayJobs'), acts = document.getElementById('dayActions');
+  if(!selDay){ return; }
+  var d = new Date(selDay + 'T12:00:00');
+  document.getElementById('dayTitle').textContent = d.toLocaleDateString(undefined, {weekday:'long', month:'long', day:'numeric'});
+  var list = jobsOn(selDay);
+  box.innerHTML = list.length ? list.map(function(j){
+    var c = colorOf(j);
+    var mats = (j.materials || []).length ? '<ul class="mats">' + j.materials.map(function(m){ return '<li>' + esc(m.qty || '') + ' ' + esc(m.unit && m.unit !== 'each' ? m.unit : '') + ' ' + esc(m.name) + '</li>'; }).join('') + '</ul>' : '';
+    return '<div class="job" style="--bg:' + c[0] + ';--fg:' + c[1] + '">' +
+      '<div class="job-top"><b>' + esc(j.title) + '</b><span class="chip">' + statusLabel(j) + '</span></div>' +
+      '<div class="meta">' + [j.scheduled_time ? '&#128339; ' + esc(j.scheduled_time) : '', j.client_name ? '&#128100; ' + esc(j.client_name) : '', j.location ? '&#128205; ' + esc(j.location) : '', j.assigned_to ? '&#128119; ' + esc(j.assigned_to) : '<i>Not assigned</i>'].filter(Boolean).join('<br>') + '</div>' +
+      (j.description ? '<div class="desc">' + esc(j.description) + '</div>' : '') +
+      (j.notes ? '<div class="desc"><b>Notes:</b> ' + esc(j.notes) + '</div>' : '') +
+      (mats ? '<div class="mats"><b>Materials:</b>' + mats + '</div>' : '') +
+      '<div class="job-actions"><a class="btn" href="' + jobUrl(j.id) + '">Open job</a>' +
+        (data.can_schedule ? '<button class="btn alt" data-edit="' + esc(j.id) + '">Change date / person</button>' : '') + '</div>' +
+      (data.can_schedule ? schedForm(j) : '') +
+    '</div>';
+  }).join('') : '<div class="empty">No jobs this day.</div>';
+  if(data.can_schedule){
+    acts.style.display = '';
+    acts.innerHTML = '<a class="btn" href="/contractor/projects?company=' + encodeURIComponent(COMPANY) + '&new=1&date=' + selDay + '">+ New work order this day</a>';
+  }
+}
+
+function peopleOptions(sel){
+  return '<option value="">— Not assigned —</option>' + data.people.map(function(p){ return '<option' + (p === sel ? ' selected' : '') + '>' + esc(p) + '</option>'; }).join('');
+}
+function schedForm(j){
+  return '<div class="sched-box" id="sb-' + esc(j.id) + '" data-id="' + esc(j.id) + '">' +
+    '<div class="row2"><div class="field"><label>Date</label><input type="date" class="s-date" value="' + esc(j.scheduled_date || selDay) + '"></div>' +
+    '<div class="field"><label>Until (optional)</label><input type="date" class="s-end" value="' + esc(j.scheduled_end || '') + '"></div></div>' +
+    '<div class="row2"><div class="field"><label>Time</label><input type="time" class="s-time" value="' + esc(j.scheduled_time || '') + '"></div>' +
+    '<div class="field"><label>Assigned to</label><select class="s-who">' + peopleOptions(j.assigned_to) + '</select></div></div>' +
+    '<div class="job-actions"><button class="btn s-save">Save</button><button class="btn alt s-clear">Remove from calendar</button></div><div class="msg"></div></div>';
+}
+
+function renderUnscheduled(){
+  var card = document.getElementById('unschedCard');
+  if(!data.can_schedule){ card.style.display = 'none'; return; }
+  card.style.display = '';
+  var list = data.unscheduled || [];
+  document.getElementById('unsched').innerHTML = list.length ? list.map(function(j){
+    return '<div class="job" style="--fg:#94a3b8"><div class="job-top"><b>' + esc(j.title) + '</b></div>' +
+      '<div class="meta">' + [j.client_name, j.location].filter(Boolean).map(esc).join(' · ') + '</div>' +
+      '<div class="job-actions"><button class="btn" data-plan="' + esc(j.id) + '">Schedule' + (selDay ? ' on ' + selDay : '') + '</button></div>' +
+      schedForm(j) + '</div>';
+  }).join('') : '<div class="empty">Every open job has a date. &#10003;</div>';
+}
+
+function save(box, clear){
+  var body = {job_id: box.dataset.id};
+  if(clear){ body.scheduled_date = null; body.scheduled_end = null; body.scheduled_time = ''; }
+  else {
+    body.scheduled_date = box.querySelector('.s-date').value || null;
+    body.scheduled_end = box.querySelector('.s-end').value || null;
+    body.scheduled_time = box.querySelector('.s-time').value || '';
+    body.assigned_to = box.querySelector('.s-who').value || '';
+    if(!body.scheduled_date){ box.querySelector('.msg').textContent = 'Pick a date.'; return; }
+  }
+  fetch(API + '/schedule', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)})
+    .then(function(r){ return r.json(); }).then(function(res){
+      if(!res.ok){ var m = box.querySelector('.msg'); m.style.color = '#dc2626'; m.textContent = res.error || 'Could not save'; return; }
+      if(body.scheduled_date) selDay = body.scheduled_date;
+      if(selDay && selDay.slice(0, 7) !== monthKey()){ cur = new Date(selDay + 'T12:00:00'); cur.setDate(1); }
+      load();
+    });
+}
+
+document.addEventListener('click', function(e){
+  var t = e.target, day = t.closest('.day');
+  if(day){ selDay = day.dataset.day; renderGrid(); renderDay(); renderUnscheduled(); if(window.innerWidth < 900) document.getElementById('dayTitle').scrollIntoView({behavior:'smooth'}); return; }
+  if(t.dataset.edit){ document.getElementById('sb-' + t.dataset.edit).classList.toggle('open'); return; }
+  if(t.dataset.plan){ var b = t.closest('.job').querySelector('.sched-box'); b.classList.toggle('open'); if(selDay) b.querySelector('.s-date').value = selDay; return; }
+  if(t.classList.contains('s-save')) save(t.closest('.sched-box'), false);
+  if(t.classList.contains('s-clear') && confirm('Remove this job from the calendar?')) save(t.closest('.sched-box'), true);
+});
+document.getElementById('prev').onclick = function(){ cur.setMonth(cur.getMonth() - 1); load(); };
+document.getElementById('next').onclick = function(){ cur.setMonth(cur.getMonth() + 1); load(); };
+document.getElementById('today').onclick = function(){ cur = new Date(); cur.setDate(1); selDay = iso(new Date()); load(); };
+
+function load(){
+  fetch(API + '?month=' + monthKey()).then(function(r){ return r.json(); }).then(function(d){
+    if(!d.ok){ location.replace('/contractor/' + COMPANY); return; }
+    data = d; renderGrid(); renderDay(); renderUnscheduled();
+    document.getElementById('wrap').style.visibility = '';
+  });
+}
+selDay = iso(new Date());
+load();
+</script>
+</body>
+</html>

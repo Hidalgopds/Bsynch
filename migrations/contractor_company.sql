@@ -199,3 +199,32 @@ create index if not exists contractor_locations_company_idx on contractor_locati
 
 alter table job_visits           enable row level security;
 alter table contractor_locations enable row level security;
+
+-- Calendar: who does the job and when
+alter table contractor_jobs add column if not exists assigned_to    text;
+alter table contractor_jobs add column if not exists scheduled_date date;
+alter table contractor_jobs add column if not exists scheduled_end  date;
+alter table contractor_jobs add column if not exists scheduled_time text default '';
+create index if not exists contractor_jobs_sched_idx    on contractor_jobs (company, scheduled_date);
+create index if not exists contractor_jobs_assigned_idx on contractor_jobs (assigned_to);
+
+-- Expenses: every purchase ticket (job-related or not: gas, paint, repairs...)
+create table if not exists contractor_expenses (
+  id             uuid primary key default gen_random_uuid(),
+  company        text not null,
+  job_id         uuid references contractor_jobs(id) on delete set null,
+  vendor         text default '',
+  amount         numeric default 0,
+  tax            numeric default 0,
+  category       text default 'other',
+  expense_date   date default current_date,
+  description    text default '',
+  payment_method text default '',
+  photo_data     text,
+  ai_read        boolean default false,
+  added_by       text default '',
+  created_at     timestamptz default now()
+);
+create index if not exists contractor_expenses_company_idx on contractor_expenses (company, expense_date desc);
+create index if not exists contractor_expenses_job_idx     on contractor_expenses (job_id);
+alter table contractor_expenses enable row level security;

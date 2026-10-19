@@ -74,13 +74,21 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
     <span><b>Create Work Order</b><small>Start a job now. No project needed.</small></span>
   </a>
 
-  <a class="my-wo" id="myWo" href="/contractor/projects?company={{ company }}" style="display:none;">
+  <a class="my-wo" id="myWo" href="/contractor/workorders?company={{ company }}" style="display:none;">
     &#128203; <span><b>My work orders</b><small>Add photos, receipts and visits, or mark them finished.</small></span><span class="tile-arrow">&#8594;</span>
+  </a>
+
+  <a class="my-wo" id="myCal" href="/contractor/{{ company }}/calendar" style="display:none;margin-top:10px;">
+    &#128197; <span><b>My calendar</b><small>The jobs you have each day and what you need for them.</small></span><span class="tile-arrow">&#8594;</span>
+  </a>
+
+  <a class="my-wo" id="myExp" href="/contractor/{{ company }}/expenses" style="display:none;margin-top:10px;">
+    &#129534; <span><b>My expenses</b><small>Take a photo of a gas or store ticket. The AI fills it in.</small></span><span class="tile-arrow">&#8594;</span>
   </a>
 
   <div class="tile-grid" id="tileGrid">
 
-    <a class="tile" data-perm="projects" href="/contractor/projects?company={{ company }}">
+    <a class="tile" data-perm="projects" href="/contractor/projects?company={{ company }}" style="display:none" data-hidden>
       <div class="tile-icon icon-teal">&#128196;</div>
       <div class="tile-name">Projects</div>
       <div class="tile-desc">Create projects, add work orders inside them, and track completion % automatically.</div>
@@ -92,6 +100,22 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
       <div class="tile-icon icon-blue">&#128202;</div>
       <div class="tile-name">Dashboard</div>
       <div class="tile-desc">Project progress, job completion percentages, and step-by-step status overview.</div>
+      <span class="tile-badge badge-live">&#9679; Live</span>
+      <div class="tile-arrow">&#8594;</div>
+    </a>
+
+    <a class="tile" href="/contractor/{{ company }}/expenses">
+      <div class="tile-icon icon-amber">&#129534;</div>
+      <div class="tile-name">Expenses</div>
+      <div class="tile-desc">Every ticket in one place: gas, paint, materials, repairs. The AI reads the photo.</div>
+      <span class="tile-badge badge-live">&#9679; Live</span>
+      <div class="tile-arrow">&#8594;</div>
+    </a>
+
+    <a class="tile" href="/contractor/{{ company }}/calendar">
+      <div class="tile-icon icon-blue">&#128197;</div>
+      <div class="tile-name">Calendar</div>
+      <div class="tile-desc">Jobs for the month. Schedule them and assign who does each one.</div>
       <span class="tile-badge badge-live">&#9679; Live</span>
       <div class="tile-arrow">&#8594;</div>
     </a>
@@ -141,12 +165,14 @@ fetch('/api/contractor/me').then(function(r){ return r.json(); }).then(function(
   if(me.member_only){
     document.getElementById('tileGrid').style.display = 'none';
     document.getElementById('myWo').style.display = '';
+    document.getElementById('myCal').style.display = '';
+    document.getElementById('myExp').style.display = '';
     document.getElementById('hubContent').style.visibility = '';
     return;
   }
   var perms = acc.permissions || {};
   document.querySelectorAll('[data-perm]').forEach(function(t){
-    if(!perms[t.getAttribute('data-perm')]) t.style.display = 'none';
+    if(!perms[t.getAttribute('data-perm')] || t.hasAttribute('data-hidden')) t.style.display = 'none';
   });
   if(!acc.is_admin) document.querySelector('[data-admin]').style.display = 'none';
   if(!me.is_super) document.querySelector('.btn-back').setAttribute('href', '/home');

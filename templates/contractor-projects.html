@@ -121,13 +121,19 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
 .jp-back:hover{color:#22c55e;}
 .jp-job-num{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;}
 .jp-title{font-size:15px;font-weight:700;flex:1;min-width:0;}
-.jp-pct-row{display:flex;align-items:center;gap:8px;margin-top:4px;}
+.jp-pct-row{display:flex;align-items:center;gap:10px;margin-top:4px;flex-wrap:wrap;}
+.jp-finish{display:flex;align-items:center;gap:6px;}
+.btn-finish-sm{padding:7px 14px;border-radius:9px;border:1px solid #9bd3b4;background:#e6f4ec;color:#1d6b46;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.btn-finish-sm:hover{background:#d4ecdf;}
+.finished-tag{padding:6px 12px;border-radius:9px;background:#e6f4ec;color:#1d6b46;font-size:13px;font-weight:700;white-space:nowrap;}
+.reopen-link{background:none;border:none;color:#64748b;font-size:12px;text-decoration:underline;cursor:pointer;}
 .jp-pct-big{font-size:20px;font-weight:800;color:#1e9484;}
 .jp-prog-track{flex:1;height:7px;background:#1e2533;border-radius:5px;overflow:hidden;}
 .jp-prog-fill{height:100%;border-radius:5px;background:linear-gradient(90deg,#1e9484,#4f8ef7);transition:width .5s ease;}
-.jp-tabs{display:flex;border-bottom:1px solid #1e2533;flex-shrink:0;}
-.jptab{flex:1;padding:10px 4px;text-align:center;font-size:13px;font-weight:600;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;}
-.jptab.active{color:#1e9484;border-bottom-color:#1e9484;}
+.jp-tabs{display:flex;gap:6px;padding:10px 12px;border-bottom:1px solid #1e2533;flex-shrink:0;overflow-x:auto;background:#f1f5f9;}
+.jptab{flex:1;min-width:max-content;padding:8px 12px;text-align:center;font-size:13px;font-weight:600;color:#475569;cursor:pointer;border:1px solid #dbe3ec;border-radius:10px;background:#fff;white-space:nowrap;transition:border-color .15s,background .15s;}
+.jptab:hover{border-color:#9fcfc6;}
+.jptab.active{color:#0f766e;background:#e3f3ef;border-color:#8fcfc2;box-shadow:inset 0 -2px 0 #1e9484;}
 .jp-body{flex:1;overflow-y:auto;padding:18px;}
 .jp-body::-webkit-scrollbar{width:4px;}
 .jp-body::-webkit-scrollbar-thumb{background:#2a2d3e;}
@@ -176,6 +182,13 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
 .visit-top b{color:#1e9484;font-size:13px;}
 .visit-top .step-del{margin-left:auto;}
 .visit-desc{font-size:14px;line-height:1.5;white-space:pre-line;}
+.mat-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:8px 0;}
+@media(max-width:560px){.mat-grid{grid-template-columns:1fr 1fr;}}
+.mat-lbl{display:flex;flex-direction:column;gap:4px;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.3px;}
+.cam-row{display:flex;gap:8px;flex-wrap:wrap;}
+.rc-gallery{display:block;text-align:center;font-size:12px;color:#0f766e;text-decoration:underline;margin:-2px 0 10px;cursor:pointer;}
+.cam-btn{flex:1;min-width:140px;text-align:center;padding:12px;border-radius:10px;background:#1e9484;color:#fff;font-weight:700;font-size:14px;cursor:pointer;}
+.cam-btn.alt{background:#fff;color:#0f766e;border:1px solid #8fcfc2;}
 .steps-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
 .steps-header h4{font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;}
 .btn-add-step{padding:5px 12px;background:rgba(30,148,132,.12);border:1px solid #1e9484;border-radius:7px;color:#1e9484;font-size:12px;cursor:pointer;}
@@ -299,7 +312,7 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
   <span class="hdr-title">Projects</span>
   <div class="hdr-right">
     <button class="btn-primary" onclick="openWoModal(null)">+ Work Order</button>
-    <button class="btn-icon" id="newProjBtn" onclick="openCreateProject()">+ Project</button>
+    <button class="btn-icon" id="newProjBtn" onclick="openCreateProject()" style="display:none;">+ Project</button>
     <a href="/contractor-hub" class="btn-icon">&#8592; Hub</a>
   </div>
 </header>
@@ -341,7 +354,7 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
 <!-- Job detail panel (full screen) -->
 <div class="job-panel" id="jobPanel">
   <div class="jp-head">
-    <button class="jp-back" onclick="closeJobPanel()">&#8592; Back</button>
+    <button class="jp-back" onclick="closeJobPanel()">&#8592; Work Orders</button>
     <div style="flex:1;min-width:0;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
         <span class="jp-job-num" id="jpJobNum"></span>
@@ -350,16 +363,17 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
       <div class="jp-pct-row">
         <span class="jp-pct-big" id="jpPct">0%</span>
         <div class="jp-prog-track"><div class="jp-prog-fill" id="jpProgFill" style="width:0%"></div></div>
+        <div class="jp-finish" id="jpFinish"></div>
       </div>
     </div>
   </div>
   <div class="jp-tabs">
-    <div class="jptab active" data-tab="steps" onclick="switchJobTab(this)">Work</div>
-    <div class="jptab" data-tab="info" onclick="switchJobTab(this)">Info</div>
-    <div class="jptab" data-tab="materials" onclick="switchJobTab(this)">Materials</div>
-    <div class="jptab" data-tab="visits" onclick="switchJobTab(this)">Visits</div>
-    <div class="jptab" data-tab="receipts" onclick="switchJobTab(this)">Receipts</div>
-    <div class="jptab" data-tab="photos" onclick="switchJobTab(this)">Photos</div>
+    <div class="jptab active" data-tab="info" onclick="switchJobTab(this)">&#8505;&#65039; Info</div>
+    <div class="jptab" data-tab="steps" onclick="switchJobTab(this)">&#129692; Steps</div>
+    <div class="jptab" data-tab="materials" onclick="switchJobTab(this)">&#129521; Materials</div>
+    <div class="jptab" data-tab="visits" onclick="switchJobTab(this)">&#128197; Visits</div>
+    <div class="jptab" data-tab="receipts" onclick="switchJobTab(this)">&#129534; Receipts</div>
+    <div class="jptab" data-tab="photos" onclick="switchJobTab(this)">&#128247; Photos</div>
   </div>
   <div class="jp-body" id="jpBody"></div>
 </div>
@@ -426,7 +440,10 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
     </div>
     <div class="modal-section">
       <div class="modal-section-title">Before photos (optional)</div>
-      <label class="before-drop"><input type="file" id="woBeforeFiles" accept="image/*" multiple hidden>&#128247; Add photos of how it looks before starting</label>
+      <div class="cam-row">
+        <label class="cam-btn">&#128247; Take photo<input type="file" class="woBeforeIn" accept="image/*" capture="environment" hidden></label>
+        <label class="cam-btn alt">&#128444;&#65039; From gallery<input type="file" class="woBeforeIn" accept="image/*" multiple hidden></label>
+      </div>
       <div class="before-grid" id="woBeforeGrid"></div>
     </div>
     <div class="modal-section steps-only" style="display:none;">
@@ -593,11 +610,20 @@ function openJobDetail(jobId){
   updateJpProgress(parseFloat(openJobData.progress_pct||0));
   document.getElementById('jobPanel').classList.add('open');
   document.querySelectorAll('.jptab').forEach(t=>t.classList.remove('active'));
-  document.querySelector('.jptab[data-tab="steps"]').classList.add('active');
-  openJobTab='steps';
-  loadSteps();
+  document.querySelector('.jptab[data-tab="info"]').classList.add('active');
+  document.querySelector('.jptab[data-tab="steps"]').style.display=jobTracking()==='simple'?'none':'';
+  openJobTab='info';
+  renderFinish();
+  renderInfoTab(openJobData);
+}
+function renderFinish(){
+  var j=openJobData||{}, done=j.status==='completed'||parseFloat(j.progress_pct||0)>=100, box=document.getElementById('jpFinish');
+  if(j.invoice_id) box.innerHTML='<span class="finished-tag">&#10003; Finished &middot; invoiced</span>';
+  else if(done) box.innerHTML='<span class="finished-tag">&#10003; Finished</span><button class="reopen-link" onclick="finishJob(false)">Reopen</button>';
+  else box.innerHTML='<button class="btn-finish-sm" onclick="finishJob(true)">&#10003; Mark job finished</button>';
 }
 function closeJobPanel(){
+  if(window.CT&&CT.company){location.href='/contractor/workorders?company='+encodeURIComponent(CT.company);return;}
   document.getElementById('jobPanel').classList.remove('open');
   // Refresh panel to pick up any % changes
   if(openProjId) renderPanel(openProjId);
@@ -630,29 +656,18 @@ function loadSteps(){
 }
 function sfill(p){return p>=100?'sfill-done':p>=60?'sfill-high':p>=30?'sfill-mid':'sfill-low';}
 function jobTracking(){var t=openJobData&&openJobData.tracking;return t==='check'||t==='simple'?t:'percent';}
-function renderSimple(){
-  var j=openJobData||{}, done=j.status==='completed'||parseFloat(j.progress_pct||0)>=100;
-  var html='<div class="simple-job">'
-    +'<div class="simple-desc">'+(j.description?esc(j.description).replace(/\n/g,'<br>'):'<span style="color:#64748b">No description.</span>')+'</div>'
-    +(j.invoice_id?'<div class="finish-state done">&#10003; Finished and invoiced</div>'
-      :done?'<div class="finish-state done">&#10003; Job finished</div><button class="btn-reopen" onclick="finishJob(false)">Reopen job</button>'
-      :'<button class="btn-finish" onclick="finishJob(true)">&#9989; Mark job finished</button><div class="finish-hint">Add visits, photos and receipts first. When it\'s finished, the invoice can be created.</div>')
-    +'</div>'
-    +'<div class="track-toggle" style="margin-top:18px;">Need steps instead? <button class="tt-btn" onclick="setTracking(\'percent\')">Switch to steps</button></div>';
-  document.getElementById('jpBody').innerHTML=html;
-}
 function finishJob(done){
-  if(done&&!confirm('Mark this job as finished?'))return;
+  if(done&&!confirm('Mark this job as finished? The invoice can then be created.'))return;
   fetch('/api/contractor/jobs/'+openJobId+'/finish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({done:done})})
     .then(r=>r.json()).then(res=>{
       if(!res.ok){alert(res.error||'Could not update');return;}
       openJobData.status=res.status;openJobData.progress_pct=res.progress_pct;
       var idx=allJobs.findIndex(j=>j.id===openJobId);if(idx>=0){allJobs[idx].status=res.status;allJobs[idx].progress_pct=res.progress_pct;}
-      updateJpProgress(res.progress_pct);renderSimple();flash(done?'Job finished':'Job reopened');
+      updateJpProgress(res.progress_pct);renderFinish();if(openJobTab==='info')renderInfoTab(openJobData);flash(done?'Job finished':'Job reopened');
     });
 }
 function renderSteps(steps){
-  if(jobTracking()==='simple'){renderSimple();return;}
+  if(jobTracking()==='simple'){document.getElementById('jpBody').innerHTML='<div class="track-toggle">This job is tracked by its description. <button class="tt-btn" onclick="setTracking(\'percent\')">Use steps</button></div>';return;}
   var canAdd=steps.length<10, mode=jobTracking();
   var html='<div class="track-toggle">Track by '
     +'<button class="tt-btn'+(mode==='percent'?' on':'')+'" onclick="setTracking(\'percent\')">% complete</button>'
@@ -690,7 +705,7 @@ function setTracking(mode){
   if(!openJobData||jobTracking()===mode)return;
   fetch('/api/contractor/jobs/'+openJobId,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({tracking:mode})})
     .then(r=>r.json()).then(res=>{if(!res.ok){alert('Could not change tracking');return;}
-      openJobData.tracking=mode;var idx=allJobs.findIndex(j=>j.id===openJobId);if(idx>=0)allJobs[idx].tracking=mode;loadSteps();});
+      openJobData.tracking=mode;var idx=allJobs.findIndex(j=>j.id===openJobId);if(idx>=0)allJobs[idx].tracking=mode;document.querySelector('.jptab[data-tab="steps"]').style.display=mode==='simple'?'none':'';if(mode==='simple'){var it=document.querySelector('.jptab[data-tab="info"]');switchJobTab(it);}else loadSteps();});
 }
 function saveJobDone(done){
   var p=done?100:0;
@@ -715,7 +730,10 @@ function addNewStep(){
 
 // ── Info tab ──
 function renderInfoTab(j){
-  var html='<div class="field-row"><div class="field-label">Status</div>'
+  var sched=j.scheduled_date?(j.scheduled_date+(j.scheduled_end&&j.scheduled_end!==j.scheduled_date?' → '+j.scheduled_end:'')+(j.scheduled_time?' · '+j.scheduled_time:'')):'Not scheduled';
+  var schedRow='<div class="field-row"><div class="field-label">Calendar</div><div class="field-value">&#128197; '+esc(sched)+(j.assigned_to?' &middot; &#128119; '+esc(j.assigned_to):'')
+    +(window._memberOnly?'':' &nbsp;<a href="/contractor/'+encodeURIComponent(CT.company||'')+'/calendar" style="color:#0f766e;font-weight:600;">Open calendar</a>')+'</div></div>';
+  var html=schedRow+'<div class="field-row"><div class="field-label">Status</div>'
     +'<select class="status-select" onchange="updateStatus(this.value)">'
     +['open','in_progress','on_hold','completed','cancelled'].map(s=>'<option value="'+s+'"'+(j.status===s?' selected':'')+'>'+statusLabel(s)+'</option>').join('')
     +'</select></div>';
@@ -747,17 +765,21 @@ function loadMaterials(){
   fetch('/api/contractor/jobs/'+openJobId+'/materials').then(r=>r.json()).then(renderMaterials);
 }
 function renderMaterials(mats){
-  var html='<div class="add-mat-form"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"><h4 style="margin:0">Add Material</h4><button class="btn-add-step" onclick="openReceiptModal()">&#128247; Scan Receipt</button></div>'
-    +'<div class="form-row"><input class="form-input" id="matName" placeholder="Material name" style="grid-column:1/-1">'
-    +'<input class="form-input" id="matQty" type="number" placeholder="Qty" step="0.01">'
-    +'<input class="form-input" id="matUnit" placeholder="Unit" value="each">'
-    +'<input class="form-input" id="matCost" type="number" placeholder="$/unit" step="0.01"></div>'
-    +'<button class="btn-add-mat" onclick="addMaterial()">+ Add</button></div>';
+  var units=['pieces','ft','sq ft','yd','gal','qt','lb','box','bag','roll','sheet','tube','set'];
+  var html='<div class="add-mat-form"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;"><h4 style="margin:0">Materials used on this job</h4><button class="btn-add-step" onclick="openReceiptModal()">&#128247; Add from a receipt</button></div>'
+    +'<div class="rc-hint">Write what you used, how much, and what it cost.</div>'
+    +'<div class="mat-grid">'
+    +'<label class="mat-lbl" style="grid-column:1/-1">Material<input class="form-input" id="matName" placeholder="e.g. Joint compound"></label>'
+    +'<label class="mat-lbl">Quantity<input class="form-input" id="matQty" type="number" inputmode="decimal" placeholder="1" step="0.01" min="0"></label>'
+    +'<label class="mat-lbl">Unit<select class="form-input" id="matUnit">'+units.map(u=>'<option value="'+u+'">'+u+'</option>').join('')+'</select></label>'
+    +'<label class="mat-lbl">Price per unit ($)<input class="form-input" id="matCost" type="number" inputmode="decimal" placeholder="0.00" step="0.01" min="0"></label>'
+    +'</div>'
+    +'<button class="btn-add-mat" onclick="addMaterial()">+ Add material</button></div>';
   html+=mats.map(m=>{var cost=parseFloat(m.unit_cost||0)*parseFloat(m.qty||0);return '<div class="mat-item" id="mat-'+m.id+'"><div class="mat-info"><div class="mat-name">'+esc(m.material_name)+'</div><div class="mat-detail">'+m.qty+' '+esc(m.unit||'each')+(m.unit_cost?' &middot; $'+parseFloat(m.unit_cost).toFixed(2)+'/unit':'')+'</div></div>'+(cost?'<div class="mat-cost">$'+cost.toFixed(2)+'</div>':'')+'<button class="mat-del" onclick="deleteMaterial(\''+m.id+'\')">&#215;</button></div>';}).join('');
   if(!mats.length) html+='<div style="text-align:center;padding:24px;color:#64748b;font-size:13px;">No materials yet.</div>';
   document.getElementById('jpBody').innerHTML=html;
 }
-function addMaterial(){var name=(document.getElementById('matName').value||'').trim();if(!name){alert('Enter a material name');return;}fetch('/api/contractor/jobs/'+openJobId+'/materials',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({material_name:name,qty:parseFloat(document.getElementById('matQty').value||0),unit:document.getElementById('matUnit').value||'each',unit_cost:parseFloat(document.getElementById('matCost').value||0),added_by:userName})}).then(r=>r.json()).then(res=>{if(res.ok)loadMaterials();});}
+function addMaterial(){var name=(document.getElementById('matName').value||'').trim();if(!name){alert('Enter a material name');return;}fetch('/api/contractor/jobs/'+openJobId+'/materials',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({material_name:name,qty:parseFloat(document.getElementById('matQty').value||1),unit:document.getElementById('matUnit').value||'pieces',unit_cost:parseFloat(document.getElementById('matCost').value||0),added_by:userName})}).then(r=>r.json()).then(res=>{if(res.ok)loadMaterials();});}
 function deleteMaterial(id){if(!confirm('Remove?'))return;fetch('/api/contractor/jobs/'+openJobId+'/materials/'+id,{method:'DELETE'}).then(()=>document.getElementById('mat-'+id).remove());}
 
 // ── Photos ──
@@ -766,18 +788,25 @@ function loadPhotos(){
   fetch('/api/contractor/jobs/'+openJobId+'/photos').then(r=>r.json()).then(renderPhotos);
 }
 function renderPhotos(photos){
-  var html='<div class="photo-upload-area" onclick="document.getElementById(\'photoFileInput\').click()">'
-    +'<div style="font-size:32px">&#128247;</div><p>Tap to choose a photo</p>'
-    +'<input type="file" id="photoFileInput" accept="image/*" onchange="onPhotoSelected(this)">'
-    +'<select class="photo-type-select" id="photoTypeSelect" onclick="event.stopPropagation()"><option value="progress">Progress</option><option value="before">Before</option><option value="after">After</option><option value="other">Other</option></select>'
-    +'<input class="photo-caption-input" id="photoCaptionInput" placeholder="Caption" onclick="event.stopPropagation()">'
-    +'<button class="btn-upload-photo" id="uploadPhotoBtn" onclick="event.stopPropagation();uploadPhoto()">Upload Photo</button></div>';
+  var html='<div class="add-mat-form">'
+    +'<div class="mat-grid" style="grid-template-columns:1fr 1fr;margin-top:0;">'
+    +'<label class="mat-lbl">Type<select class="form-input" id="photoTypeSelect"><option value="progress">Progress</option><option value="before">Before</option><option value="after">After</option><option value="other">Other</option></select></label>'
+    +'<label class="mat-lbl">Caption (optional)<input class="form-input" id="photoCaptionInput" placeholder="e.g. Kitchen wall"></label></div>'
+    +'<div class="cam-row">'
+    +'<label class="cam-btn">&#128247; Take photo<input type="file" accept="image/*" capture="environment" hidden onchange="uploadPhotoFiles(this)"></label>'
+    +'<label class="cam-btn alt">&#128444;&#65039; Choose from gallery<input type="file" accept="image/*" multiple hidden onchange="uploadPhotoFiles(this)"></label>'
+    +'</div><div class="rc-msg" id="photoMsg"></div></div>';
   if(photos.length) html+='<div class="photo-grid">'+photos.map(p=>{var tc={'before':'pt-before','progress':'pt-progress','after':'pt-after','other':'pt-other'}[p.photo_type]||'pt-other';return '<div class="photo-card"><img class="photo-thumb" src="/api/contractor/jobs/'+openJobId+'/photos/'+p.id+'/img" onclick="openLightboxId(\''+p.id+'\')" loading="lazy" onerror="this.parentElement.style.display=\'none\'"><div class="photo-foot"><span class="photo-type-lbl '+tc+'">'+ucfirst(p.photo_type||'other')+'</span><span class="photo-caption-txt">'+esc(p.caption||'')+'</span><button class="photo-del" onclick="deletePhoto(\''+p.id+'\')">&#215;</button></div></div>';}).join('')+'</div>';
   else html+='<div style="text-align:center;padding:24px;color:#64748b;font-size:13px;">No photos yet.</div>';
   document.getElementById('jpBody').innerHTML=html;
 }
-function onPhotoSelected(input){if(input.files&&input.files[0]){selectedPhotoFile=input.files[0];document.getElementById('uploadPhotoBtn').classList.add('visible');}}
-function uploadPhoto(){if(!selectedPhotoFile)return;var reader=new FileReader();reader.onload=function(e){fetch('/api/contractor/jobs/'+openJobId+'/photos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({photo_data:e.target.result,photo_type:document.getElementById('photoTypeSelect').value,caption:(document.getElementById('photoCaptionInput').value||'').trim(),uploaded_by:userName})}).then(r=>r.json()).then(res=>{if(res.ok){selectedPhotoFile=null;loadPhotos();}});};reader.readAsDataURL(selectedPhotoFile);}
+function uploadPhotoFiles(input){
+  var files=Array.from(input.files||[]).slice(0,10);input.value='';if(!files.length)return;
+  var type=document.getElementById('photoTypeSelect').value,cap=(document.getElementById('photoCaptionInput').value||'').trim(),msg=document.getElementById('photoMsg');
+  msg.style.color='#64748b';msg.textContent='Uploading '+files.length+' photo'+(files.length>1?'s':'')+'...';
+  files.reduce((p,f)=>p.then(()=>rcShrink(f).then(d=>fetch('/api/contractor/jobs/'+openJobId+'/photos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({photo_data:d,photo_type:type,caption:cap,uploaded_by:userName})}))),Promise.resolve())
+    .then(()=>loadPhotos()).catch(()=>{msg.style.color='#dc2626';msg.textContent='Could not upload. Try again.';});
+}
 function deletePhoto(id){if(!confirm('Remove photo?'))return;fetch('/api/contractor/jobs/'+openJobId+'/photos/'+id,{method:'DELETE'}).then(()=>loadPhotos());}
 function openLightboxId(id){fetch('/api/contractor/jobs/'+openJobId+'/photos/'+id).then(r=>r.json()).then(d=>{document.getElementById('lightboxImg').src=d.photo_data||'';document.getElementById('lightbox').classList.add('open');});}
 function closeLightbox(){document.getElementById('lightbox').classList.remove('open');document.getElementById('lightboxImg').src='';}
@@ -802,10 +831,11 @@ function openWoModal(projectId){
   if(projectId===NO_PROJECT) projectId=null;
   woForProjectId=projectId||null;
   woBefore=[];renderWoBefore();setWoMode('simple');
+  var qd=new URLSearchParams(location.search).get('date');window._woSchedDate=/^\d{4}-\d{2}-\d{2}$/.test(qd||'')?qd:null;
   var proj=allProjects.find(p=>p.id===projectId);
   document.getElementById('woClient').value=proj&&proj.client_name?proj.client_name:'';
   document.getElementById('woModal').classList.add('open');
-  document.getElementById('woStart').value=new Date().toISOString().split('T')[0];
+  document.getElementById('woStart').value=window._woSchedDate||new Date().toISOString().split('T')[0];
   initWoSteps();
 }
 var woMode='simple', woBefore=[];
@@ -818,10 +848,10 @@ document.getElementById('woModePick').addEventListener('click',function(e){var b
 function renderWoBefore(){
   document.getElementById('woBeforeGrid').innerHTML=woBefore.map((d,i)=>'<div class="before-thumb"><img src="'+d+'" alt=""><button type="button" onclick="woBefore.splice('+i+',1);renderWoBefore()">&#215;</button></div>').join('');
 }
-document.getElementById('woBeforeFiles').addEventListener('change',function(){
+document.querySelectorAll('.woBeforeIn').forEach(inp=>inp.addEventListener('change',function(){
   var files=Array.from(this.files||[]).slice(0,10-woBefore.length);this.value='';
   Promise.all(files.map(f=>rcShrink(f).catch(()=>null))).then(list=>{list.forEach(d=>{if(d)woBefore.push(d);});renderWoBefore();});
-});
+}));
 function uploadWoBefore(jobId){
   return woBefore.reduce((p,d)=>p.then(()=>fetch('/api/contractor/jobs/'+jobId+'/photos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({photo_data:d,photo_type:'before',caption:'Before',uploaded_by:userName})})),Promise.resolve()).then(()=>{woBefore=[];renderWoBefore();});
 }
@@ -850,7 +880,7 @@ function submitWo(){
   else if(!stepNames.length) stepNames.push(title);
   var btn=document.querySelector('#woModal .btn-submit');
   if(btn){btn.disabled=true;btn.textContent='Creating...';}
-  fetch('/api/contractor/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:title,description:document.getElementById('woDesc').value.trim(),priority:document.getElementById('woPriority').value,status:document.getElementById('woStatus').value,start_date:document.getElementById('woStart').value||null,due_date:document.getElementById('woDue').value||null,created_by:userName,project_id:woForProjectId,client_name:document.getElementById('woClient').value.trim(),location:document.getElementById('woSite').value.trim(),client_email:document.getElementById('woClientEmail').value.trim(),tracking:mode})})
+  fetch('/api/contractor/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:title,description:document.getElementById('woDesc').value.trim(),priority:document.getElementById('woPriority').value,status:document.getElementById('woStatus').value,start_date:document.getElementById('woStart').value||null,due_date:document.getElementById('woDue').value||null,created_by:userName,project_id:woForProjectId,client_name:document.getElementById('woClient').value.trim(),location:document.getElementById('woSite').value.trim(),client_email:document.getElementById('woClientEmail').value.trim(),tracking:mode,scheduled_date:window._woSchedDate||null,lat:(window.CT&&CT.lastPos)?CT.lastPos.lat:null,lng:(window.CT&&CT.lastPos)?CT.lastPos.lng:null})})
     .then(r=>r.json()).then(function(res){
       if(!res.ok){alert('Error creating work order: '+(res.error||'unknown'));return;}
       if(!res.job||!res.job.id){

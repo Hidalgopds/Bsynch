@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ company_name }} Expenses – BSynch</title>
+<script src="/static/contractor-scope.js"></script>
+<script src="/static/theme.js"></script>
+<script>document.documentElement.setAttribute('data-theme','light');</script>
+<link rel="stylesheet" href="/static/themes.css">
+<link rel="stylesheet" href="/static/contractor-light.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f4f8;color:#0f172a;min-height:100vh;display:flex;flex-direction:column;}
+header{padding:14px 20px;display:flex;align-items:center;gap:12px;background:#19354d;color:#e2e8f0;}
+.logo-badge{width:36px;height:36px;background:linear-gradient(135deg,#1e9484,#4f8ef7);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;flex-shrink:0;}
+.hdr-title{font-size:17px;font-weight:700;}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.btn-back{padding:6px 14px;border:1px solid rgba(255,255,255,.3);border-radius:7px;color:#e2e8f0;font-size:12px;text-decoration:none;}
+.content{flex:1;padding:18px 14px 50px;max-width:1000px;width:100%;margin:0 auto;}
+h1{font-size:22px;margin-bottom:4px;}
+.sub{font-size:14px;color:#64748b;margin-bottom:16px;}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px;margin-bottom:14px;}
+.card h2{font-size:15px;margin-bottom:10px;}
+.cam-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+.cam-btn{flex:1;min-width:150px;text-align:center;padding:13px;border-radius:11px;background:#1e9484;color:#fff !important;font-weight:700;font-size:14px;cursor:pointer;}
+.cam-btn.alt{background:#fff;color:#0f766e !important;border:1px solid #8fcfc2;}
+.preview{display:none;max-height:220px;max-width:100%;border-radius:10px;margin:0 auto 10px;}
+.ai-note{font-size:13px;margin-bottom:8px;min-height:16px;}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+@media(max-width:640px){.grid{grid-template-columns:1fr 1fr;}}
+.field label{display:block;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:4px;}
+.field input,.field select{width:100%;padding:9px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;font-family:inherit;background:#fff;color:#0f172a;}
+.wide{grid-column:1/-1;}
+.btn{padding:10px 18px;border-radius:9px;border:none;background:#1e9484;color:#fff;font-weight:700;font-size:14px;cursor:pointer;}
+.btn:disabled{opacity:.5;}
+.btn.alt{background:#fff;color:#0f766e;border:1px solid #8fcfc2;}
+.actions{display:flex;gap:8px;margin-top:12px;align-items:center;flex-wrap:wrap;}
+.msg{font-size:13px;min-height:16px;}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;}
+.toolbar input[type=month]{padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#fff;color:#0f172a;}
+.chips{display:flex;gap:6px;flex-wrap:wrap;}
+.chip{padding:5px 12px;border-radius:20px;border:1px solid #cbd5e1;background:#fff;font-size:12px;color:#475569;cursor:pointer;}
+.chip.on{background:#1e9484;border-color:#1e9484;color:#fff;}
+.totals{display:grid;grid-template-columns:200px 1fr;gap:16px;align-items:center;}
+@media(max-width:640px){.totals{grid-template-columns:1fr;}}
+.big{font-size:30px;font-weight:800;color:#0f766e;}
+.big small{display:block;font-size:12px;font-weight:600;color:#64748b;}
+.bar-row{display:grid;grid-template-columns:120px 1fr 80px;gap:8px;align-items:center;font-size:12px;margin-bottom:5px;}
+.bar{height:9px;background:#e2e8f0;border-radius:5px;overflow:hidden;}
+.bar span{display:block;height:100%;background:#1e9484;border-radius:5px;}
+.bar-row b{text-align:right;}
+.list .row{display:flex;align-items:center;gap:10px;padding:11px 4px;border-bottom:1px solid #edf1f5;}
+.row .ic{width:38px;height:38px;border-radius:10px;background:#e3f3ef;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;border:none;cursor:pointer;}
+.row .info{flex:1;min-width:0;}
+.row .info b{display:block;font-size:14px;}
+.row .info span{display:block;font-size:12px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.row .amt{font-weight:800;font-size:15px;white-space:nowrap;}
+.row .del{border:none;background:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:4px;}
+.row .info b .ai-tag{display:inline-block;font-size:10px;font-weight:700;color:#7c3aed;background:#f3e8ff;padding:1px 6px;border-radius:10px;margin-left:4px;}
+.empty{text-align:center;color:#64748b;font-size:13px;padding:20px;}
+.lightbox{display:none;position:fixed;inset:0;background:rgba(15,23,42,.85);z-index:50;align-items:center;justify-content:center;padding:16px;}
+.lightbox.open{display:flex;}
+.lightbox img{max-width:100%;max-height:100%;border-radius:10px;}
+footer{text-align:center;padding:16px;font-size:12px;color:#94a3b8;}
+</style>
+</head>
+<body data-ct-hub>
+<header>
+  <div class="logo-badge">B</div>
+  <span class="hdr-title">{{ company_name }} · Expenses</span>
+  <div class="hdr-right"><a href="/contractor/{{ company }}" class="btn-back">&#8592; {{ company_name }}</a></div>
+</header>
+
+<div class="content" id="content" style="visibility:hidden;">
+  <h1>&#129534; Expenses</h1>
+  <p class="sub">Every ticket in one place: gas, paint, materials, repairs, tools. Take a photo and the AI fills it in.</p>
+
+  <div class="card">
+    <h2>Add an expense</h2>
+    <div class="cam-row">
+      <label class="cam-btn">&#128247; Take photo of the ticket<input type="file" accept="image/*" capture="environment" class="exIn" hidden></label>
+      <label class="cam-btn alt">&#128444;&#65039; From gallery<input type="file" accept="image/*" class="exIn" hidden></label>
+    </div>
+    <img class="preview" id="exPrev" alt="Ticket">
+    <div class="ai-note" id="aiNote"></div>
+    <div class="grid">
+      <div class="field"><label>Store</label><input id="exVendor" maxlength="120" placeholder="e.g. Home Depot"></div>
+      <div class="field"><label>Total ($)</label><input id="exAmount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+      <div class="field"><label>Tax ($)</label><input id="exTax" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+      <div class="field"><label>Category</label><select id="exCat"></select></div>
+      <div class="field"><label>Date</label><input id="exDate" type="date"></div>
+      <div class="field"><label>Payment</label><input id="exPay" maxlength="40" placeholder="Cash, card..."></div>
+      <div class="field wide"><label>What was it for?</label><input id="exDesc" maxlength="500" placeholder="e.g. Gas for the truck"></div>
+      <div class="field wide"><label>Work order (optional)</label><select id="exJob"><option value="">— Not for a specific job —</option></select></div>
+    </div>
+    <div class="actions"><button class="btn" id="exSave">Save expense</button><span class="msg" id="exMsg"></span></div>
+  </div>
+
+  <div class="card">
+    <div class="toolbar">
+      <input type="month" id="month">
+      <div class="chips" id="cats"></div>
+      <button class="btn alt" id="csvBtn" style="margin-left:auto;display:none;">&#11015;&#65039; Export CSV</button>
+    </div>
+    <div class="totals">
+      <div class="big" id="total">$0.00<small id="count"></small></div>
+      <div id="bars"></div>
+    </div>
+  </div>
+
+  <div class="card list" id="list"><div class="empty">Loading&hellip;</div></div>
+</div>
+
+<div class="lightbox" id="lb" onclick="this.classList.remove('open')"><img id="lbImg" alt=""></div>
+<footer>BSynch &middot; Contractor Module</footer>
+
+<script src="/static/contractor-receipts.js"></script>
+<script>
+var COMPANY = {{ company|tojson }};
+var API = '/api/contractor/' + COMPANY + '/expenses';
+var CATS = {materials:'Materials', paint:'Paint', tools:'Tools', fuel:'Gas / fuel', repairs:'Repairs', equipment_rental:'Equipment rental', meals:'Meals', supplies:'Supplies', other:'Other'};
+var ICON = {materials:'&#129521;', paint:'&#127912;', tools:'&#128295;', fuel:'&#9981;', repairs:'&#128736;&#65039;', equipment_rental:'&#128668;', meals:'&#127828;', supplies:'&#128230;', other:'&#129534;'};
+var photo = null, aiRead = false, catFilter = '';
+
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function money(n){ return '$' + (parseFloat(n) || 0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function note(t, ok){ var n = document.getElementById('aiNote'); n.textContent = t; n.style.color = ok === false ? '#dc2626' : ok ? '#15803d' : '#64748b'; }
+function today(){ var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+
+document.getElementById('exCat').innerHTML = Object.keys(CATS).map(function(k){ return '<option value="' + k + '"' + (k === 'other' ? ' selected' : '') + '>' + CATS[k] + '</option>'; }).join('');
+document.getElementById('exDate').value = today();
+document.getElementById('month').value = today().slice(0, 7);
+document.getElementById('cats').innerHTML = '<button class="chip on" data-c="">All</button>' + Object.keys(CATS).map(function(k){ return '<button class="chip" data-c="' + k + '">' + CATS[k] + '</button>'; }).join('');
+
+document.querySelectorAll('.exIn').forEach(function(inp){
+  inp.addEventListener('change', function(){
+    var f = this.files && this.files[0]; this.value = '';
+    if(!f) return;
+    note('Processing photo...');
+    rcShrink(f).then(function(d){
+      photo = d; aiRead = false;
+      var img = document.getElementById('exPrev'); img.src = d; img.style.display = 'block';
+      note('🤖 Reading the ticket...');
+      rcAiRead(d, function(r){
+        if(r.vendor) document.getElementById('exVendor').value = r.vendor;
+        if(r.total) document.getElementById('exAmount').value = r.total.toFixed(2);
+        if(r.tax) document.getElementById('exTax').value = r.tax.toFixed(2);
+        if(r.category) document.getElementById('exCat').value = r.category;
+        if(/^\d{4}-\d{2}-\d{2}$/.test(r.date)) document.getElementById('exDate').value = r.date;
+        if(r.description) document.getElementById('exDesc').value = r.description;
+        if(r.payment_method) document.getElementById('exPay').value = r.payment_method;
+        aiRead = true;
+      }, function(r){ note(r.ok ? 'Filled in by AI. Check it and tap Save.' : (r.error || 'Could not read it. Type the amount.'), r.ok); });
+    }).catch(function(){ note('Could not open that image.', false); });
+  });
+});
+
+document.getElementById('exSave').onclick = function(){
+  var btn = this, m = document.getElementById('exMsg');
+  var body = {vendor: document.getElementById('exVendor').value, amount: document.getElementById('exAmount').value, tax: document.getElementById('exTax').value,
+    category: document.getElementById('exCat').value, expense_date: document.getElementById('exDate').value, payment_method: document.getElementById('exPay').value,
+    description: document.getElementById('exDesc').value, job_id: document.getElementById('exJob').value || null, photo_data: photo, ai_read: aiRead};
+  if(!photo && !(parseFloat(body.amount) > 0)){ m.style.color = '#dc2626'; m.textContent = 'Add a photo or the total.'; return; }
+  btn.disabled = true; m.textContent = '';
+  fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)}).then(function(r){ return r.json(); }).then(function(res){
+    btn.disabled = false;
+    if(!res.ok){ m.style.color = '#dc2626'; m.textContent = res.error || 'Could not save.'; return; }
+    m.style.color = '#15803d'; m.textContent = 'Saved ✓';
+    photo = null; aiRead = false; document.getElementById('exPrev').style.display = 'none'; note('');
+    ['exVendor','exAmount','exTax','exPay','exDesc'].forEach(function(id){ document.getElementById(id).value = ''; });
+    document.getElementById('exCat').value = 'other'; document.getElementById('exJob').value = '';
+    load();
+  }).catch(function(){ btn.disabled = false; m.style.color = '#dc2626'; m.textContent = 'Connection error.'; });
+};
+
+document.getElementById('cats').onclick = function(e){
+  if(e.target.dataset.c === undefined) return;
+  catFilter = e.target.dataset.c;
+  document.querySelectorAll('#cats .chip').forEach(function(c){ c.classList.toggle('on', c === e.target); });
+  load();
+};
+document.getElementById('month').onchange = load;
+document.getElementById('csvBtn').onclick = function(){
+  fetch(API + '.csv?month=' + document.getElementById('month').value).then(function(r){ return r.blob(); }).then(function(b){
+    var a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = COMPANY + '-expenses-' + document.getElementById('month').value + '.csv'; a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 5000);
+  });
+};
+document.getElementById('list').addEventListener('click', function(e){
+  var t = e.target.closest('[data-photo],[data-del]'); if(!t) return;
+  if(t.dataset.photo){
+    fetch(API + '/' + t.dataset.photo).then(function(r){ return r.json(); }).then(function(d){
+      if(!d.photo_data){ alert('This expense has no photo.'); return; }
+      document.getElementById('lbImg').src = d.photo_data; document.getElementById('lb').classList.add('open');
+    });
+  } else if(confirm('Delete this expense?')){
+    fetch(API + '/' + t.dataset.del, {method:'DELETE'}).then(load);
+  }
+});
+
+function load(){
+  var q = '?month=' + document.getElementById('month').value + (catFilter ? '&category=' + catFilter : '');
+  fetch(API + q).then(function(r){ return r.json(); }).then(function(d){
+    if(!d.ok){ location.replace('/contractor/' + COMPANY); return; }
+    document.getElementById('content').style.visibility = '';
+    document.getElementById('csvBtn').style.display = d.sees_all ? '' : 'none';
+    document.getElementById('total').innerHTML = money(d.total) + '<small>' + d.expenses.length + ' ticket' + (d.expenses.length === 1 ? '' : 's') + (d.sees_all ? '' : ' · only yours') + '</small>';
+    var cats = Object.keys(d.by_category).sort(function(a, b){ return d.by_category[b] - d.by_category[a]; });
+    var max = Math.max.apply(null, cats.map(function(c){ return d.by_category[c]; }).concat([1]));
+    document.getElementById('bars').innerHTML = cats.map(function(c){
+      return '<div class="bar-row"><span>' + (CATS[c] || c) + '</span><div class="bar"><span style="width:' + Math.round(d.by_category[c] / max * 100) + '%"></span></div><b>' + money(d.by_category[c]) + '</b></div>';
+    }).join('') || '<div class="empty" style="padding:6px;">No expenses this month.</div>';
+    document.getElementById('list').innerHTML = d.expenses.length ? d.expenses.map(function(e){
+      return '<div class="row"><button class="ic" data-photo="' + esc(e.id) + '" title="View ticket">' + (ICON[e.category] || ICON.other) + '</button>' +
+        '<div class="info"><b>' + esc(e.vendor || CATS[e.category] || 'Expense') + (e.ai_read ? '<span class="ai-tag">AI</span>' : '') + '</b>' +
+        '<span>' + esc(e.expense_date || '') + ' · ' + esc(CATS[e.category] || e.category) + (e.job ? ' · ' + esc(e.job.job_number || '') + ' ' + esc(e.job.title || '') : '') + (e.description ? ' · ' + esc(e.description) : '') + (d.sees_all ? ' · ' + esc(e.added_by) : '') + '</span></div>' +
+        '<div class="amt">' + money(e.amount) + '</div><button class="del" data-del="' + esc(e.id) + '" title="Delete">&#215;</button></div>';
+    }).join('') : '<div class="empty">No expenses for this month.</div>';
+  });
+}
+
+fetch('/api/contractor/jobs').then(function(r){ return r.json(); }).then(function(jobs){
+  if(!Array.isArray(jobs)) return;
+  document.getElementById('exJob').innerHTML += jobs.filter(function(j){ return j.status !== 'cancelled'; }).map(function(j){
+    return '<option value="' + esc(j.id) + '">' + esc((j.job_number || '') + ' ' + j.title) + '</option>';
+  }).join('');
+});
+load();
+</script>
+</body>
+</html>

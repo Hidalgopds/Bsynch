@@ -1,6 +1,13 @@
 /* Contractor job receipts: photo of the ticket + store + amount.
    Uses openJobId / esc() from the projects page. */
 var rcPhoto = null;
+var RC_CATS = [['materials','Materials'],['paint','Paint'],['tools','Tools'],['fuel','Gas / fuel'],['repairs','Repairs'],['equipment_rental','Equipment rental'],['meals','Meals'],['supplies','Supplies'],['other','Other']];
+
+function rcAiRead(photo, fill, done) {
+  fetch('/api/contractor/receipt-read', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({image_data: photo})})
+    .then(function (r) { return r.json(); }).then(function (d) { if (d.ok) fill(d); done(d); })
+    .catch(function () { done({ok: false, error: 'Connection error.'}); });
+}
 
 function rcMoney(n) { return '$' + (parseFloat(n) || 0).toFixed(2); }
 
@@ -33,16 +40,20 @@ function loadReceipts() {
 function renderReceipts(list) {
   list = Array.isArray(list) ? list : [];
   rcPhoto = null;
+  window._rcAi = false;
   var total = list.reduce(function (s, r) { return s + (parseFloat(r.amount) || 0); }, 0);
   var today = new Date().toISOString().slice(0, 10);
   var html = '<div class="rc-form">'
     + '<h4 style="margin:0 0 4px">Add a purchase receipt</h4>'
-    + '<div class="rc-hint">Things you bought for this job (store tickets). Materials you used go in the Materials tab.</div>'
+    + '<div class="rc-hint">Take a photo of the store ticket. The AI reads it and fills everything in. It also goes to Expenses.</div>'
     + '<label class="rc-photo" id="rcPhotoBox"><input type="file" accept="image/*" capture="environment" id="rcFile" hidden>'
     + '<span id="rcPhotoLbl">&#128247; Take photo of the ticket</span><img id="rcPreview" alt="" style="display:none"></label>'
-    + '<button class="btn-add-step" id="rcReadBtn" style="display:none;width:100%;margin-bottom:8px;">&#129302; Read store and total from photo</button>'
+    + '<label class="rc-gallery">or choose from gallery<input type="file" accept="image/*" id="rcFile2" hidden></label>'
+    + '<button class="btn-add-step" id="rcReadBtn" style="display:none;width:100%;margin-bottom:8px;">&#129302; Read the ticket again</button>'
     + '<div class="rc-row"><input class="form-input" id="rcVendor" placeholder="Store (e.g. Home Depot)" maxlength="120">'
     + '<input class="form-input" id="rcAmount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Total $"></div>'
+    + '<div class="rc-row"><select class="form-input" id="rcCat">' + RC_CATS.map(function (c) { return '<option value="' + c[0] + '"' + (c[0] === 'materials' ? ' selected' : '') + '>' + c[1] + '</option>'; }).join('') + '</select>'
+    + '<input class="form-input" id="rcTax" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Tax $"></div>'
     + '<div class="rc-row"><input class="form-input" id="rcDate" type="date" value="' + today + '">'
     + '<input class="form-input" id="rcNotes" placeholder="What was it for? (optional)" maxlength="500"></div>'
     + '<button class="btn-save" id="rcSave" style="width:100%">Save receipt</button>'
@@ -61,6 +72,7 @@ function renderReceipts(list) {
   }
   document.getElementById('jpBody').innerHTML = html;
 
+  document.getElementById('rcFile2').onchange = function () { document.getElementById('rcFile').onchange.call(this); };
   document.getElementById('rcFile').onchange = function () {
     var f = this.files && this.files[0];
     if (!f) return;
@@ -71,20 +83,25 @@ function renderReceipts(list) {
       img.src = data; img.style.display = 'block';
       document.getElementById('rcPhotoLbl').textContent = 'Tap to retake';
       document.getElementById('rcReadBtn').style.display = '';
+      document.getElementById('rcReadBtn').click();
     }).catch(function () { document.getElementById('rcPhotoLbl').textContent = 'Could not read that image. Try again.'; });
   };
   document.getElementById('rcReadBtn').onclick = function () {
     if (!rcPhoto) return;
-    var btn = this; btn.disabled = true; btn.textContent = 'Reading receipt...';
-    fetch('/api/contractor/receipt-read', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({image_data: rcPhoto})})
-      .then(function (r) { return r.json(); }).then(function (d) {
-        btn.disabled = false; btn.innerHTML = '&#129302; Read store and total from photo';
-        if (!d.ok) { rcMsg(d.error || 'Could not read it. Type the amount.', false); return; }
-        if (d.vendor) document.getElementById('rcVendor').value = d.vendor;
-        if (d.total) document.getElementById('rcAmount').value = d.total.toFixed(2);
-        if (/^\d{4}-\d{2}-\d{2}$/.test(d.date)) document.getElementById('rcDate').value = d.date;
-        rcMsg('Check the values and tap Save.', true);
-      }).catch(function () { btn.disabled = false; btn.innerHTML = '&#129302; Read store and total from photo'; rcMsg('Connection error.', false); });
+    var btn = this; btn.disabled = true; btn.textContent = '\ud83e\udd16 Reading the ticket...';
+    rcMsg('', true);
+    rcAiRead(rcPhoto, function (d) {
+      if (d.vendor) document.getElementById('rcVendor').value = d.vendor;
+      if (d.total) document.getElementById('rcAmount').value = d.total.toFixed(2);
+      if (d.tax) document.getElementById('rcTax').value = d.tax.toFixed(2);
+      if (d.category) document.getElementById('rcCat').value = d.category;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d.date)) document.getElementById('rcDate').value = d.date;
+      if (d.description) document.getElementById('rcNotes').value = d.description;
+      window._rcAi = true;
+    }, function (d) {
+      btn.disabled = false; btn.innerHTML = '&#129302; Read the ticket again';
+      rcMsg(d.ok ? 'Filled in by AI. Check it and tap Save.' : (d.error || 'Could not read it. Type the amount.'), d.ok);
+    });
   };
   document.getElementById('rcSave').onclick = function () {
     var btn = this, amount = parseFloat(document.getElementById('rcAmount').value || 0);
@@ -93,7 +110,8 @@ function renderReceipts(list) {
     fetch('/api/contractor/jobs/' + openJobId + '/receipts', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({
       vendor: document.getElementById('rcVendor').value, amount: amount,
       receipt_date: document.getElementById('rcDate').value || null,
-      notes: document.getElementById('rcNotes').value, photo_data: rcPhoto
+      notes: document.getElementById('rcNotes').value, photo_data: rcPhoto,
+      category: document.getElementById('rcCat').value, tax: document.getElementById('rcTax').value, ai_read: !!window._rcAi
     })}).then(function (r) { return r.json(); }).then(function (d) {
       btn.disabled = false; btn.textContent = 'Save receipt';
       if (!d.ok) { rcMsg(d.error || 'Could not save.', false); return; }

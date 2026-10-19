@@ -115,3 +115,27 @@ html[data-theme="light"] .visit-top b,
 html[data-theme="light"] .rc-total b { color: #0f766e !important; }
 html[data-theme="light"] .visit-top,
 html[data-theme="light"] .visit-top span { color: #64748b !important; }
+
+/* Button text colors (the page's own rules force light text inside panels) */
+html[data-theme="light"] .btn-finish-sm { color: #1d6b46 !important; }
+html[data-theme="light"] .finished-tag { color: #1d6b46 !important; }
+html[data-theme="light"] .reopen-link { color: #64748b !important; }
+html[data-theme="light"] .btn-add-step,
+html[data-theme="light"] .btn-add-step-field,
+html[data-theme="light"] .cam-btn.alt,
+html[data-theme="light"] .rc-gallery { color: #0f766e !important; }
+html[data-theme="light"] .btn-save,
+html[data-theme="light"] .btn-add-mat,
+html[data-theme="light"] .btn-submit,
+html[data-theme="light"] .btn-primary,
+html[data-theme="light"] .scan-btn,
+html[data-theme="light"] .cam-btn:not(.alt),
+html[data-theme="light"] .btn-sm-primary { color: #ffffff !important; }
+html[data-theme="light"] .delete-btn { color: #dc2626 !important; border-color: #fecaca !important; background: #fff5f5 !important; }
+html[data-theme="light"] .btn-cancel { color: #475569 !important; }
+html[data-theme="light"] .step-del,
+html[data-theme="light"] .mat-del,
+html[data-theme="light"] .photo-del,
+html[data-theme="light"] .step-field-del { color: #94a3b8 !important; }
+html[data-theme="light"] .mode-btn b { color: #0f172a !important; }
+html[data-theme="light"] .mode-btn small { color: #64748b !important; }
