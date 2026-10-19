@@ -6096,21 +6096,288 @@ def contractor_workorders():
 def contractor_projects_page():
     return render_template("contractor-projects.html")
 
-@app.route("/contractor/hicons")
-def contractor_hicons():
-    return render_template("contractor-company.html", company="hicons")
+CONTRACTOR_COMPANIES = {"hicons": "Hicons", "bsynch": "Bsynch"}
+CONTRACTOR_ROLES = ["member", "lead", "admin"]
+CONTRACTOR_FEATURES = ["projects", "dashboard", "workorders", "invoicing", "company_settings"]
+CONTRACTOR_DEFAULT_PERMS = {
+    "member": {"projects": True, "dashboard": True, "workorders": True, "invoicing": False, "company_settings": False},
+    "lead":   {"projects": True, "dashboard": True, "workorders": True, "invoicing": True, "company_settings": False},
+}
+_ALL_PERMS = {f: True for f in CONTRACTOR_FEATURES}
 
-@app.route("/contractor/bsynch")
-def contractor_bsynch():
-    return render_template("contractor-company.html", company="bsynch")
 
-@app.route("/contractor/company-settings")
-def contractor_company_settings():
-    return render_template("contractor-company-settings.html")
+def _ct_config(key, default=None):
+    r = requests.get(
+        f"{sb_url()}/rest/v1/app_config?key=eq.{requests.utils.quote(key)}&select=value&limit=1",
+        headers=sb_headers(), timeout=5
+    )
+    return (r.json()[0].get("value") if r.ok and r.json() else None) or default
 
-@app.route("/contractor/admin-settings")
-def contractor_admin_settings():
-    return render_template("contractor-admin-settings.html")
+
+def _ct_set_config(key, value):
+    import datetime as dt
+    r = requests.post(
+        f"{sb_url()}/rest/v1/app_config",
+        headers={**sb_headers(), "Prefer": "resolution=merge-duplicates,return=representation"},
+        json={"key": key, "value": value, "updated_at": dt.datetime.utcnow().isoformat()},
+        timeout=5
+    )
+    return r.ok, (r.text if not r.ok else None)
+
+
+def _ct_company_roles(company):
+    """{user name: member|lead|admin} for one contractor company. Kept apart from
+    app_users.role so a company admin can never grant ERP access."""
+    return _ct_config(f"contractor_roles_{company}", {})
+
+
+def _contractor_caller():
+    """{name, company, company_role, is_super}. A platform admin/boss with no
+    contractor company (Daniel), or a client-subdomain owner, is super and sees
+    every company. Identity comes from the X-User-Name header."""
+    name = (request.headers.get("X-User-Name") or request.args.get("caller") or "").strip()
+    me = {"name": name, "company": None, "company_role": None, "is_super": False}
+    if not name:
+        return me
+    r = requests.get(
+        f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}"
+        f"&approved=eq.true&select=role,contractor_company&limit=1",
+        headers=sb_headers(), timeout=5
+    )
+    rows = r.json() if r.ok else []
+    if rows:
+        company = rows[0].get("contractor_company")
+        if company in CONTRACTOR_COMPANIES:
+            me["company"] = company
+            me["company_role"] = _ct_company_roles(company).get(name, "member")
+        elif (rows[0].get("role") or "").lower() in ("admin", "boss"):
+            me["is_super"] = True
+        return me
+    co = _get_client_co()
+    if co:
+        cr = requests.get(
+            f"{_MASTER_URL}/rest/v1/bsynch_companies?slug=eq.{co['slug']}&select=admin_username&limit=1",
+            headers={"apikey": _MASTER_KEY, "Authorization": f"Bearer {_MASTER_KEY}"}, timeout=5
+        )
+        if cr.ok and cr.json() and cr.json()[0].get("admin_username") == name:
+            me["is_super"] = True
+    return me
+
+
+def _ct_can_view(me, company):
+    return me["is_super"] or me["company"] == company
+
+
+def _ct_can_admin(me, company):
+    return me["is_super"] or (me["company"] == company and me["company_role"] == "admin")
+
+
+def _ct_perms(company):
+    saved = _ct_config(f"contractor_permissions_{company}", {})
+    return {role: {**CONTRACTOR_DEFAULT_PERMS[role], **(saved.get(role) or {})} for role in CONTRACTOR_DEFAULT_PERMS}
+
+
+def _contractor_scope():
+    """Company slug the current request is limited to. Super admins get the
+    company they asked for (None = everything); everyone else is pinned to their
+    own company, or '__none__' when they have not been assigned one yet."""
+    me = _contractor_caller()
+    wanted = (request.headers.get("X-Contractor-Company") or request.args.get("company") or "").lower()
+    if me["is_super"]:
+        return wanted if wanted in CONTRACTOR_COMPANIES else None
+    return me["company"] or "__none__"
+
+
+def _ct_page(company, template, **ctx):
+    if company not in CONTRACTOR_COMPANIES:
+        return redirect("/contractor-hub")
+    if not _client_can_access_module("contractor"):
+        return redirect("/home")
+    return render_template(template, company=company, company_name=CONTRACTOR_COMPANIES[company], **ctx)
+
+
+@app.route("/contractor/<company>")
+def contractor_company_page(company):
+    return _ct_page(company, "contractor-company.html")
+
+@app.route("/contractor/<company>/settings")
+def contractor_company_settings(company):
+    return _ct_page(company, "contractor-company-settings.html")
+
+@app.route("/contractor/<company>/admin")
+def contractor_admin_settings(company):
+    return _ct_page(company, "contractor-admin-settings.html",
+                    roles=CONTRACTOR_ROLES, features=CONTRACTOR_FEATURES)
+
+
+@app.route("/api/contractor/me", methods=["GET"])
+def contractor_me():
+    me = _contractor_caller()
+    visible = list(CONTRACTOR_COMPANIES) if me["is_super"] else ([me["company"]] if me["company"] else [])
+    access = {}
+    for co in visible:
+        admin = _ct_can_admin(me, co)
+        perms = _ALL_PERMS if admin else _ct_perms(co).get(me["company_role"] or "member", {})
+        access[co] = {"name": CONTRACTOR_COMPANIES[co], "is_admin": admin, "permissions": perms}
+    return jsonify({**me, "access": access})
+
+
+def _ct_admin_guard(company):
+    me = _contractor_caller()
+    if company not in CONTRACTOR_COMPANIES or not _ct_can_admin(me, company):
+        return me, (jsonify({"ok": False, "error": "admin only"}), 403)
+    return me, None
+
+
+@app.route("/api/contractor/<company>/admin/users", methods=["GET"])
+def contractor_admin_users(company):
+    me, err = _ct_admin_guard(company)
+    if err:
+        return err
+    r = requests.get(
+        f"{sb_url()}/rest/v1/app_users?approved=eq.true&contractor_company=eq.{company}"
+        f"&order=name.asc&select=name,email&limit=500",
+        headers=sb_headers(), timeout=8
+    )
+    roles = _ct_company_roles(company)
+    members = [{**u, "company_role": roles.get(u["name"], "member")} for u in (r.json() if r.ok else [])]
+    out = {"members": members, "unassigned": []}
+    if me["is_super"]:
+        ur = requests.get(
+            f"{sb_url()}/rest/v1/app_users?approved=eq.true&contractor_company=is.null"
+            f"&order=name.asc&select=name,email&limit=500",
+            headers=sb_headers(), timeout=8
+        )
+        out["unassigned"] = ur.json() if ur.ok else []
+    return jsonify(out)
+
+
+@app.route("/api/contractor/<company>/admin/users", methods=["POST"])
+def contractor_admin_add_user(company):
+    """Add a user to this company. Super admins pick by name; company admins must
+    know the exact username or email, so they never browse other people."""
+    me, err = _ct_admin_guard(company)
+    if err:
+        return err
+    data = request.get_json() or {}
+    lookup = (data.get("lookup") or "").strip()
+    if not lookup:
+        return jsonify({"ok": False, "error": "Enter a username or email"}), 400
+    fields = ["name", "username", "email"] if me["is_super"] else ["username", "email"]
+    user = None
+    for field in fields:
+        r = requests.get(
+            f"{sb_url()}/rest/v1/app_users?{field}=eq.{requests.utils.quote(lookup)}"
+            f"&approved=eq.true&select=name,contractor_company&limit=1",
+            headers=sb_headers(), timeout=5
+        )
+        if r.ok and r.json():
+            user = r.json()[0]
+            break
+    if not user:
+        return jsonify({"ok": False, "error": "No approved user with that username or email"}), 404
+    if user.get("contractor_company") and user["contractor_company"] != company:
+        return jsonify({"ok": False, "error": "That user already belongs to another company"}), 409
+    r = requests.patch(
+        f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(user['name'])}",
+        json={"contractor_company": company}, headers=sb_headers(), timeout=5
+    )
+    return jsonify({"ok": r.ok, "name": user["name"]})
+
+
+@app.route("/api/contractor/<company>/admin/users", methods=["PATCH"])
+def contractor_admin_update_user(company):
+    me, err = _ct_admin_guard(company)
+    if err:
+        return err
+    data = request.get_json() or {}
+    name = (data.get("name") or "").strip()
+    chk = requests.get(
+        f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}"
+        f"&contractor_company=eq.{company}&select=name&limit=1",
+        headers=sb_headers(), timeout=5
+    )
+    if not name or not (chk.ok and chk.json()):
+        return jsonify({"ok": False, "error": "User is not in this company"}), 404
+    if name == me["name"] and not me["is_super"]:
+        return jsonify({"ok": False, "error": "You can't change your own access"}), 400
+    roles = _ct_company_roles(company)
+    if data.get("remove"):
+        roles.pop(name, None)
+        ok, e = _ct_set_config(f"contractor_roles_{company}", roles)
+        r = requests.patch(
+            f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}",
+            json={"contractor_company": None}, headers=sb_headers(), timeout=5
+        )
+        return jsonify({"ok": ok and r.ok, "error": e})
+    role = data.get("company_role")
+    if role not in CONTRACTOR_ROLES:
+        return jsonify({"ok": False, "error": "unknown role"}), 400
+    roles[name] = role
+    ok, e = _ct_set_config(f"contractor_roles_{company}", roles)
+    return jsonify({"ok": ok, "error": e})
+
+
+@app.route("/api/contractor/<company>/admin/permissions", methods=["GET", "POST"])
+def contractor_admin_permissions(company):
+    me, err = _ct_admin_guard(company)
+    if err:
+        return err
+    if request.method == "GET":
+        return jsonify(_ct_perms(company))
+    data = request.get_json() or {}
+    clean = {role: {f: bool((data.get(role) or {}).get(f)) for f in CONTRACTOR_FEATURES}
+             for role in CONTRACTOR_DEFAULT_PERMS}
+    ok, e = _ct_set_config(f"contractor_permissions_{company}", clean)
+    return jsonify({"ok": ok, "error": e})
+
+
+@app.route("/api/contractor/<company>/admin/unassigned-projects", methods=["GET", "POST"])
+def contractor_unassigned_projects(company):
+    me, err = _ct_admin_guard(company)
+    if err:
+        return err
+    if not me["is_super"]:
+        return jsonify({"ok": False, "error": "platform admin only"}), 403
+    if request.method == "GET":
+        r = requests.get(
+            f"{sb_url()}/rest/v1/{CONTRACTOR_PROJECTS_TABLE}?company=is.null"
+            f"&select=id,name,client_name&order=created_at.desc&limit=200",
+            headers=sb_headers(), timeout=8
+        )
+        if not r.ok:
+            return jsonify({"error": "missing_company_column"}), 500
+        return jsonify(r.json())
+    proj_id = (request.get_json() or {}).get("project_id")
+    if not proj_id:
+        return jsonify({"ok": False, "error": "project_id required"}), 400
+    r1 = requests.patch(
+        f"{sb_url()}/rest/v1/{CONTRACTOR_PROJECTS_TABLE}?id=eq.{proj_id}&company=is.null",
+        json={"company": company}, headers=sb_headers(), timeout=5
+    )
+    requests.patch(
+        f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?project_id=eq.{proj_id}&company=is.null",
+        json={"company": company}, headers=sb_headers(), timeout=5
+    )
+    return jsonify({"ok": r1.ok})
+
+
+CONTRACTOR_PROFILE_FIELDS = ["display_name", "contact_name", "email", "phone", "address", "logo_url", "notify_email"]
+
+@app.route("/api/contractor/<company>/profile", methods=["GET", "POST"])
+def contractor_company_profile(company):
+    me = _contractor_caller()
+    if company not in CONTRACTOR_COMPANIES or not _ct_can_view(me, company):
+        return jsonify({"ok": False, "error": "not your company"}), 403
+    key = f"contractor_company_{company}"
+    if request.method == "GET":
+        return jsonify({"ok": True, "profile": {"display_name": CONTRACTOR_COMPANIES[company], **_ct_config(key, {})}})
+    can_edit = _ct_can_admin(me, company) or _ct_perms(company).get(me["company_role"] or "member", {}).get("company_settings")
+    if not can_edit:
+        return jsonify({"ok": False, "error": "no permission"}), 403
+    data = request.get_json() or {}
+    ok, e = _ct_set_config(key, {f: str(data.get(f) or "").strip() for f in CONTRACTOR_PROFILE_FIELDS})
+    return jsonify({"ok": ok, "error": e})
 
 
 # ── Helpers ──────────────────────────────────────────────────────
@@ -6140,10 +6407,15 @@ def _next_job_number():
 @app.route("/api/contractor/jobs", methods=["GET"])
 def get_contractor_jobs():
     status_filter = request.args.get("status")
+    scope = _contractor_scope()
+    if scope == "__none__":
+        return jsonify([])
     url = (
         f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}"
         f"?select=*&order=created_at.desc&limit=500"
     )
+    if scope:
+        url += f"&company=eq.{scope}"
     if status_filter:
         url += f"&status=eq.{status_filter}"
     r = requests.get(url, headers=sb_headers(), timeout=8)
@@ -6171,6 +6443,11 @@ def create_contractor_job():
         "notes":        data.get("notes", ""),
         "created_by":   data.get("created_by", ""),
     }
+    scope = _contractor_scope()
+    if scope == "__none__":
+        return jsonify({"ok": False, "error": "You are not assigned to a company yet"}), 403
+    if scope:
+        payload["company"] = scope
     r = requests.post(
         f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}",
         json=payload,
@@ -6463,11 +6740,15 @@ def contractor_dashboard():
 
 @app.route("/api/contractor/projects", methods=["GET"])
 def get_contractor_projects():
+    scope = _contractor_scope()
+    if scope == "__none__":
+        return jsonify([])
+    company_filter = f"&company=eq.{scope}" if scope else ""
     # Single query using PostgREST embedded join (FK: contractor_jobs.project_id → contractor_projects.id)
     r = requests.get(
         f"{sb_url()}/rest/v1/{CONTRACTOR_PROJECTS_TABLE}"
         f"?select=*,{CONTRACTOR_JOBS_TABLE}(id,job_number,title,status,progress_pct,project_id,due_date)"
-        f"&order=created_at.desc&limit=200",
+        f"&order=created_at.desc&limit=200{company_filter}",
         headers=sb_headers(), timeout=10
     )
     projects = r.json() if r.ok else []
@@ -6497,6 +6778,11 @@ def create_contractor_project():
         "status":      data.get("status", "active"),
         "created_by":  data.get("created_by", ""),
     }
+    scope = _contractor_scope()
+    if scope == "__none__":
+        return jsonify({"ok": False, "error": "You are not assigned to a company yet"}), 403
+    if scope:
+        payload["company"] = scope
     r = requests.post(
         f"{sb_url()}/rest/v1/{CONTRACTOR_PROJECTS_TABLE}",
         json=payload,

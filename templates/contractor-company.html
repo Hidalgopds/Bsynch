@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{ company|capitalize }} – Contractor – BSynch</title>
+<title>{{ company_name }} – Contractor – BSynch</title>
+<script src="/static/contractor-scope.js"></script>
 <script src="/static/theme.js"></script>
 <link rel="stylesheet" href="/static/themes.css">
 <style>
@@ -30,42 +31,80 @@ header{padding:16px 24px;display:flex;align-items:center;gap:14px;border-bottom:
 .tile-desc{font-size:13px;color:#64748b;line-height:1.5;}
 .tile-badge{margin-top:4px;display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;width:fit-content;}
 .badge-live{background:rgba(34,197,94,.12);color:#22c55e;}
+.badge-soon{background:#1e2533;color:#475569;}
+.icon-amber{background:rgba(245,158,11,.14);}
+.icon-red{background:rgba(239,68,68,.14);}
+.badge-admin{background:rgba(239,68,68,.12);color:#f87171;}
+.icon-violet{background:rgba(139,92,246,.14);}
+.tile.disabled{cursor:default;opacity:.55;}
+.tile.disabled:hover{border-color:#2a2d3e;transform:none;box-shadow:none;}
 .tile-arrow{margin-top:auto;font-size:18px;color:#334155;text-align:right;}
 footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1px solid #1e2533;}
 </style>
 </head>
-<body>
+<body data-ct-hub>
 <header>
   <div class="logo-badge">B</div>
-  <span class="hdr-title">{{ company|capitalize }} – Contractor</span>
+  <span class="hdr-title">{{ company_name }} – Contractor</span>
   <div class="hdr-right">
     <span class="hdr-user" id="hdrUser"></span>
     <a href="/contractor-hub" class="btn-back">&#8592; Back</a>
   </div>
 </header>
 
-<div class="hub-content">
+<div class="hub-content" id="hubContent" style="visibility:hidden;">
   <div class="hub-header">
-    <h1>{{ company|capitalize }} Operations</h1>
-    <p>Manage projects, work orders, and field documentation.</p>
+    <h1>{{ company_name }}</h1>
+    <p>Projects, work orders, and field documentation for {{ company_name }}.</p>
   </div>
 
   <div class="tile-grid">
 
-    <a class="tile" href="/contractor/projects">
-      <div class="tile-icon icon-teal">📋</div>
+    <a class="tile" data-perm="projects" href="/contractor/projects?company={{ company }}">
+      <div class="tile-icon icon-teal">&#128196;</div>
       <div class="tile-name">Projects</div>
       <div class="tile-desc">Create projects, add work orders inside them, and track completion % automatically.</div>
-      <span class="tile-badge badge-live">● Live</span>
-      <div class="tile-arrow">→</div>
+      <span class="tile-badge badge-live">&#9679; Live</span>
+      <div class="tile-arrow">&#8594;</div>
     </a>
 
-    <a class="tile" href="/contractor/dashboard">
-      <div class="tile-icon icon-blue">📊</div>
+    <a class="tile" data-perm="dashboard" href="/contractor/dashboard?company={{ company }}">
+      <div class="tile-icon icon-blue">&#128202;</div>
       <div class="tile-name">Dashboard</div>
       <div class="tile-desc">Project progress, job completion percentages, and step-by-step status overview.</div>
-      <span class="tile-badge badge-live">● Live</span>
-      <div class="tile-arrow">→</div>
+      <span class="tile-badge badge-live">&#9679; Live</span>
+      <div class="tile-arrow">&#8594;</div>
+    </a>
+
+    <a class="tile" data-perm="workorders" href="/contractor/workorders?company={{ company }}">
+      <div class="tile-icon icon-violet">&#128203;</div>
+      <div class="tile-name">Work Orders</div>
+      <div class="tile-desc">Every work order for {{ company_name }}, with materials, photos and receipts.</div>
+      <span class="tile-badge badge-live">&#9679; Live</span>
+      <div class="tile-arrow">&#8594;</div>
+    </a>
+
+    <div class="tile disabled" data-perm="invoicing">
+      <div class="tile-icon icon-amber">&#128181;</div>
+      <div class="tile-name">Invoicing</div>
+      <div class="tile-desc">Generate client invoices from completed jobs and material records.</div>
+      <span class="tile-badge badge-soon">Coming soon</span>
+    </div>
+
+
+    <a class="tile" data-perm="company_settings" href="/contractor/{{ company }}/settings">
+      <div class="tile-icon icon-teal">&#9881;&#65039;</div>
+      <div class="tile-name">Company Settings</div>
+      <div class="tile-desc">{{ company_name }} profile: name, contact, address, logo and notification email.</div>
+      <div class="tile-arrow">&#8594;</div>
+    </a>
+
+    <a class="tile" data-admin href="/contractor/{{ company }}/admin">
+      <div class="tile-icon icon-red">&#128272;</div>
+      <div class="tile-name">Admin Settings</div>
+      <div class="tile-desc">Who belongs to {{ company_name }}, their roles, and what each role can open.</div>
+      <span class="tile-badge badge-admin">Admins only</span>
+      <div class="tile-arrow">&#8594;</div>
     </a>
 
   </div>
@@ -74,8 +113,18 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
 <footer>BSynch &middot; Contractor Module</footer>
 
 <script>
-var u = localStorage.getItem('mbrName') || localStorage.getItem('companyUser') || '';
-if(u) document.getElementById('hdrUser').textContent = 'Hi, ' + u;
+if(CT.user) document.getElementById('hdrUser').textContent = 'Hi, ' + CT.user;
+fetch('/api/contractor/me').then(function(r){ return r.json(); }).then(function(me){
+  var acc = (me.access || {})['{{ company }}'];
+  if(!acc){ location.replace('/contractor-hub'); return; }
+  var perms = acc.permissions || {};
+  document.querySelectorAll('[data-perm]').forEach(function(t){
+    if(!perms[t.getAttribute('data-perm')]) t.style.display = 'none';
+  });
+  if(!acc.is_admin) document.querySelector('[data-admin]').style.display = 'none';
+  if(!me.is_super) document.querySelector('.btn-back').setAttribute('href', '/home');
+  document.getElementById('hubContent').style.visibility = '';
+}).catch(function(){ location.replace('/contractor-hub'); });
 </script>
 </body>
 </html>

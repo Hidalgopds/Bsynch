@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin Settings – BSynch</title>
+<title>{{ company_name }} Admin – BSynch</title>
+<script src="/static/contractor-scope.js"></script>
 <script src="/static/theme.js"></script>
 <link rel="stylesheet" href="/static/themes.css">
 <style>
@@ -14,72 +15,107 @@ header{padding:16px 24px;display:flex;align-items:center;gap:14px;border-bottom:
 .hdr-title{font-size:17px;font-weight:700;}
 .hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
 .hdr-user{font-size:13px;color:#94a3b8;}
-.btn-back{padding:6px 14px;background:none;border:1px solid #334155;border-radius:7px;color:#94a3b8;font-size:12px;cursor:pointer;text-decoration:none;line-height:1.4;}
+.btn-back{padding:6px 14px;background:none;border:1px solid #334155;border-radius:7px;color:#94a3b8;font-size:12px;text-decoration:none;}
 .btn-back:hover{border-color:#1e9484;color:#1e9484;}
-.content{flex:1;padding:32px 20px 60px;}
-.content-header{max-width:680px;margin:0 auto 28px;}
-.content-header h1{font-size:22px;font-weight:700;margin-bottom:4px;}
-.content-header p{font-size:14px;color:#94a3b8;}
-.section-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;max-width:680px;margin:0 auto;}
-.section-card{background:#1a1d27;border:1px solid #2a2d3e;border-radius:16px;padding:24px;cursor:pointer;text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:10px;transition:border-color .18s,transform .15s;}
-.section-card:hover{border-color:#1e9484;transform:translateY(-2px);}
-.card-icon{font-size:32px;margin-bottom:4px;}
-.card-title{font-size:16px;font-weight:700;}
-.card-desc{font-size:13px;color:#64748b;line-height:1.5;}
+.content{flex:1;padding:28px 16px 60px;max-width:900px;width:100%;margin:0 auto;}
+h1{font-size:22px;font-weight:700;margin-bottom:4px;}
+.sub{font-size:14px;color:#94a3b8;margin-bottom:22px;}
+.tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;}
+.tab{padding:8px 14px;border-radius:8px;border:1px solid #2a2d3e;background:transparent;color:#94a3b8;font-size:13px;font-weight:600;cursor:pointer;}
+.tab.active{border-color:#1e9484;color:#1e9484;background:rgba(30,148,132,.1);}
+.card{background:#1a1d27;border:1px solid #2a2d3e;border-radius:14px;padding:18px;}
+.card h2{font-size:15px;margin-bottom:4px;}
+.card .hint{font-size:12px;color:#64748b;margin-bottom:14px;line-height:1.5;}
+.panel{display:none;}
+.panel.active{display:block;}
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{text-align:left;color:#64748b;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:8px;border-bottom:1px solid #2a2d3e;}
+td{padding:8px;border-bottom:1px solid #1e2533;vertical-align:middle;}
+td.c,th.c{text-align:center;}
+select{background:#0f1117;border:1px solid #334155;color:#e2e8f0;border-radius:6px;padding:6px 8px;font-size:13px;}
+input[type=search]{background:#0f1117;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:8px 12px;font-size:13px;width:100%;margin-bottom:12px;}
+input[type=checkbox]{width:17px;height:17px;accent-color:#1e9484;cursor:pointer;}
+.muted{color:#64748b;font-size:12px;}
+.btn{padding:8px 16px;background:#1e9484;border:none;border-radius:8px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;margin-top:14px;}
+.btn:disabled{opacity:.5;cursor:default;}
+.saved{font-size:12px;color:#22c55e;margin-left:8px;opacity:0;transition:opacity .2s;}
+.saved.on{opacity:1;}
+.add-row{display:flex;gap:8px;flex-wrap:wrap;}
+.add-row input{flex:1;min-width:180px;background:#0f1117;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:8px 12px;font-size:13px;}
+.msg{font-size:13px;margin-top:10px;min-height:16px;}
+.btn-rm{background:none;border:1px solid #3f1d1d;color:#f87171;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;}
+.empty{padding:18px;text-align:center;color:#64748b;font-size:13px;}
+.warn{padding:12px 14px;border-radius:10px;background:rgba(245,158,11,.1);color:#fbbf24;font-size:13px;line-height:1.5;}
 footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1px solid #1e2533;}
 </style>
 </head>
-<body>
+<body data-ct-hub>
 <header>
   <div class="logo-badge">B</div>
-  <span class="hdr-title">Admin Settings</span>
+  <span class="hdr-title">{{ company_name }} · Admin Settings</span>
   <div class="hdr-right">
     <span class="hdr-user" id="hdrUser"></span>
-    <a href="/contractor-hub" class="btn-back">&#8592; Back</a>
+    <a href="/contractor/{{ company }}" class="btn-back">&#8592; {{ company_name }}</a>
   </div>
 </header>
 
-<div class="content">
-  <div class="content-header">
-    <h1>🔐 Admin Settings</h1>
-    <p>Control user roles, permissions, and platform-wide settings.</p>
+<div class="content" id="content" style="visibility:hidden;">
+  <h1>&#128272; {{ company_name }} Admin Settings</h1>
+  <p class="sub">Who belongs to {{ company_name }}, their role, and what each role can open. Nothing here is visible to other companies.</p>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="users">Members</button>
+    <button class="tab" data-tab="perms">Roles &amp; Permissions</button>
+    <button class="tab" data-tab="projects" id="projTab" style="display:none;">Unassigned Projects</button>
   </div>
 
-  <div class="section-grid">
-    <div class="section-card">
-      <div class="card-icon">👤</div>
-      <div class="card-title">User Management</div>
-      <div class="card-desc">Create, edit, and manage all platform users and access levels.</div>
+  <div class="panel active" id="panel-users">
+    <div class="card" style="margin-bottom:14px;">
+      <h2>Add a member</h2>
+      <p class="hint">Enter the person's exact username or email. They need an approved BSynch account first.</p>
+      <div class="add-row">
+        <input type="text" id="addLookup" placeholder="username or email" autocomplete="off">
+        <button class="btn" id="addBtn" style="margin-top:0;">Add to {{ company_name }}</button>
+      </div>
+      <div id="unassignedBox" style="display:none;margin-top:12px;">
+        <p class="hint" style="margin-bottom:6px;">Platform admin: or pick someone without a company</p>
+        <div class="add-row"><select id="unassignedSel" style="flex:1;"></select><button class="btn" id="addPickBtn" style="margin-top:0;">Add</button></div>
+      </div>
+      <div class="msg" id="addMsg"></div>
     </div>
-
-    <div class="section-card">
-      <div class="card-icon">🔑</div>
-      <div class="card-title">Roles & Permissions</div>
-      <div class="card-desc">Define roles and control what users can do in the system.</div>
+    <div class="card">
+      <h2>Members</h2>
+      <p class="hint"><b>Member</b> and <b>Lead</b> get what you allow in Roles &amp; Permissions. <b>Admin</b> can open everything, including this page. Changes save immediately.</p>
+      <input type="search" id="userSearch" placeholder="Search by name or email">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>User</th><th>Role</th><th></th></tr></thead>
+          <tbody id="userRows"><tr><td colspan="3" class="empty">Loading&hellip;</td></tr></tbody>
+        </table>
+      </div>
     </div>
+  </div>
 
-    <div class="section-card">
-      <div class="card-icon">🏢</div>
-      <div class="card-title">Companies</div>
-      <div class="card-desc">Manage all companies, contractors, and their hierarchies.</div>
+  <div class="panel" id="panel-perms">
+    <div class="card">
+      <h2>Roles &amp; Permissions</h2>
+      <p class="hint">What Members and Leads can open inside {{ company_name }}. Admins always have full access.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Role</th>{% for f in features %}<th class="c">{{ f.replace('_', ' ')|title }}</th>{% endfor %}</tr></thead>
+          <tbody id="permRows"></tbody>
+        </table>
+      </div>
+      <button class="btn" id="savePerms">Save permissions</button><span class="saved" id="permsSaved">Saved &#10003;</span>
     </div>
+  </div>
 
-    <div class="section-card">
-      <div class="card-icon">📊</div>
-      <div class="card-title">Audit Log</div>
-      <div class="card-desc">View system activity, changes, and user actions across the platform.</div>
-    </div>
-
-    <div class="section-card">
-      <div class="card-icon">⚙️</div>
-      <div class="card-title">System Settings</div>
-      <div class="card-desc">Configure platform-wide defaults and system behavior.</div>
-    </div>
-
-    <div class="section-card">
-      <div class="card-icon">🔐</div>
-      <div class="card-title">Security</div>
-      <div class="card-desc">Manage API keys, two-factor authentication, and security policies.</div>
+  <div class="panel" id="panel-projects">
+    <div class="card">
+      <h2>Unassigned Projects</h2>
+      <p class="hint">Projects created before the company split. Move each one (and its work orders) into {{ company_name }}. Only you, as platform admin, see this list.</p>
+      <div id="projBox"><div class="empty">Loading&hellip;</div></div>
     </div>
   </div>
 </div>
@@ -87,8 +123,135 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
 <footer>BSynch &middot; Contractor Module</footer>
 
 <script>
-var u = localStorage.getItem('mbrName') || localStorage.getItem('companyUser') || '';
-if(u) document.getElementById('hdrUser').textContent = 'Hi, ' + u;
+var COMPANY = {{ company|tojson }};
+var COMPANY_NAME = {{ company_name|tojson }};
+var ROLES = {{ roles|tojson }};
+var PERM_ROLES = ['member', 'lead'];
+var FEATURES = {{ features|tojson }};
+var API = '/api/contractor/' + COMPANY + '/admin';
+
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function cap(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+function flash(el){ el.classList.add('on'); setTimeout(function(){ el.classList.remove('on'); }, 1500); }
+function send(method, url, body){ return fetch(url, {method:method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}).then(function(r){ return r.json(); }); }
+function msg(text, ok){ var m = document.getElementById('addMsg'); m.textContent = text; m.style.color = ok ? '#22c55e' : '#f87171'; }
+
+document.querySelectorAll('.tab').forEach(function(t){
+  t.onclick = function(){
+    document.querySelectorAll('.tab').forEach(function(x){ x.classList.toggle('active', x === t); });
+    document.querySelectorAll('.panel').forEach(function(p){ p.classList.toggle('active', p.id === 'panel-' + t.dataset.tab); });
+  };
+});
+
+var members = [];
+function renderUsers(){
+  var q = (document.getElementById('userSearch').value || '').toLowerCase();
+  var rows = members.filter(function(u){ return !q || (u.name||'').toLowerCase().indexOf(q) >= 0 || (u.email||'').toLowerCase().indexOf(q) >= 0; });
+  var tb = document.getElementById('userRows');
+  if(!rows.length){ tb.innerHTML = '<tr><td colspan="3" class="empty">'+(members.length ? 'No matches.' : 'No members yet. Add someone above.')+'</td></tr>'; return; }
+  tb.innerHTML = rows.map(function(u){
+    var self = u.name === CT.user;
+    return '<tr data-name="'+esc(u.name)+'"><td><strong>'+esc(u.name)+'</strong>'+(self?' <span class="muted">(you)</span>':'')+(u.email?'<br><span class="muted">'+esc(u.email)+'</span>':'')+'</td>'+
+      '<td><select'+(self?' disabled':'')+'>'+ROLES.map(function(r){ return '<option value="'+r+'"'+(u.company_role===r?' selected':'')+'>'+cap(r)+'</option>'; }).join('')+'</select> <span class="saved">Saved &#10003;</span></td>'+
+      '<td style="text-align:right;">'+(self?'':'<button class="btn-rm">Remove</button>')+'</td></tr>';
+  }).join('');
+}
+function loadUsers(){
+  fetch(API + '/users').then(function(r){ return r.json(); }).then(function(d){
+    members = d.members || [];
+    renderUsers();
+    var un = d.unassigned || [];
+    var box = document.getElementById('unassignedBox');
+    if(un.length){
+      box.style.display = '';
+      document.getElementById('unassignedSel').innerHTML = un.map(function(u){ return '<option value="'+esc(u.name)+'">'+esc(u.name)+(u.email?' — '+esc(u.email):'')+'</option>'; }).join('');
+    } else box.style.display = 'none';
+  });
+}
+document.getElementById('userRows').addEventListener('change', function(e){
+  var sel = e.target; if(sel.tagName !== 'SELECT') return;
+  var tr = sel.closest('tr'), name = tr.getAttribute('data-name');
+  sel.disabled = true;
+  send('PATCH', API + '/users', {name: name, company_role: sel.value}).then(function(res){
+    sel.disabled = false;
+    if(!res.ok){ alert('Could not save: ' + (res.error || 'error')); return; }
+    members.forEach(function(u){ if(u.name === name) u.company_role = sel.value; });
+    flash(tr.querySelector('.saved'));
+  });
+});
+document.getElementById('userRows').addEventListener('click', function(e){
+  if(!e.target.classList.contains('btn-rm')) return;
+  var name = e.target.closest('tr').getAttribute('data-name');
+  if(!confirm('Remove ' + name + ' from ' + COMPANY_NAME + '? They will lose access to its projects.')) return;
+  send('PATCH', API + '/users', {name: name, remove: true}).then(function(res){
+    if(res.ok) loadUsers(); else alert('Could not remove: ' + (res.error || 'error'));
+  });
+});
+document.getElementById('userSearch').oninput = renderUsers;
+function addUser(lookup){
+  if(!lookup){ msg('Enter a username or email.', false); return; }
+  send('POST', API + '/users', {lookup: lookup}).then(function(res){
+    if(res.ok){ msg(res.name + ' added to ' + COMPANY_NAME + '.', true); document.getElementById('addLookup').value = ''; loadUsers(); }
+    else msg(res.error || 'Could not add user.', false);
+  });
+}
+document.getElementById('addBtn').onclick = function(){ addUser(document.getElementById('addLookup').value.trim()); };
+document.getElementById('addLookup').onkeydown = function(e){ if(e.key === 'Enter') addUser(this.value.trim()); };
+document.getElementById('addPickBtn').onclick = function(){ addUser(document.getElementById('unassignedSel').value); };
+
+function loadPerms(){
+  fetch(API + '/permissions').then(function(r){ return r.json(); }).then(function(p){
+    document.getElementById('permRows').innerHTML = PERM_ROLES.map(function(role){
+      return '<tr><td><strong>'+cap(role)+'</strong></td>' + FEATURES.map(function(f){
+        return '<td class="c"><input type="checkbox" data-role="'+role+'" data-feature="'+f+'"'+(p[role] && p[role][f]?' checked':'')+'></td>';
+      }).join('') + '</tr>';
+    }).join('') + '<tr><td><strong>Admin</strong></td>' + FEATURES.map(function(){ return '<td class="c"><input type="checkbox" checked disabled></td>'; }).join('') + '</tr>';
+  });
+}
+document.getElementById('savePerms').onclick = function(){
+  var btn = this, out = {};
+  PERM_ROLES.forEach(function(r){ out[r] = {}; });
+  document.querySelectorAll('#permRows input[data-role]').forEach(function(c){ out[c.dataset.role][c.dataset.feature] = c.checked; });
+  btn.disabled = true;
+  send('POST', API + '/permissions', out).then(function(res){
+    btn.disabled = false;
+    if(res.ok) flash(document.getElementById('permsSaved')); else alert('Could not save: ' + (res.error || 'error'));
+  });
+};
+
+function loadProjects(){
+  var box = document.getElementById('projBox');
+  fetch(API + '/unassigned-projects').then(function(r){ return r.json(); }).then(function(list){
+    if(list && list.error === 'missing_company_column'){
+      box.innerHTML = '<div class="warn">The database is missing the <b>company</b> column on contractor projects and work orders. Run <code>migrations/contractor_company.sql</code> in Supabase, then reload this page.</div>';
+      return;
+    }
+    if(!list.length){ box.innerHTML = '<div class="empty">Every project already belongs to a company. &#10003;</div>'; return; }
+    box.innerHTML = '<div class="table-wrap"><table><thead><tr><th>Project</th><th>Client</th><th></th></tr></thead><tbody>' +
+      list.map(function(p){
+        return '<tr data-id="'+esc(p.id)+'"><td><strong>'+esc(p.name)+'</strong></td><td class="muted">'+esc(p.client_name||'')+'</td><td style="text-align:right;"><button class="btn" style="margin-top:0;padding:6px 12px;">Move to '+esc(COMPANY_NAME)+'</button></td></tr>';
+      }).join('') + '</tbody></table></div>';
+    box.querySelectorAll('button').forEach(function(btn){
+      btn.onclick = function(){
+        var tr = btn.closest('tr'); btn.disabled = true;
+        send('POST', API + '/unassigned-projects', {project_id: tr.dataset.id}).then(function(res){
+          if(res.ok){ tr.remove(); if(!box.querySelector('tbody tr')) loadProjects(); }
+          else { btn.disabled = false; alert('Could not move project.'); }
+        });
+      };
+    });
+  });
+}
+
+if(CT.user) document.getElementById('hdrUser').textContent = 'Hi, ' + CT.user;
+fetch('/api/contractor/me').then(function(r){ return r.json(); }).then(function(me){
+  var acc = (me.access || {})[COMPANY];
+  if(!acc || !acc.is_admin){ location.replace('/contractor/' + COMPANY); return; }
+  document.getElementById('content').style.visibility = '';
+  loadUsers();
+  loadPerms();
+  if(me.is_super){ document.getElementById('projTab').style.display = ''; loadProjects(); }
+}).catch(function(){ location.replace('/contractor-hub'); });
 </script>
 </body>
 </html>

@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Contractor – BSynch</title>
+<script src="/static/contractor-scope.js"></script>
 <script src="/static/theme.js"></script>
 <link rel="stylesheet" href="/static/themes.css">
 <style>
@@ -31,6 +32,9 @@ header{padding:16px 24px;display:flex;align-items:center;gap:14px;border-bottom:
 .icon-teal{background:rgba(30,148,132,.14);}
 .icon-blue{background:rgba(79,142,247,.14);}
 .icon-amber{background:rgba(245,158,11,.14);}
+.icon-red{background:rgba(239,68,68,.14);}
+.badge-admin{background:rgba(239,68,68,.12);color:#f87171;}
+.hub-empty{max-width:680px;margin:20px auto 0;padding:18px 20px;border:1px dashed #334155;border-radius:14px;color:#94a3b8;font-size:14px;text-align:center;}
 .tile-name{font-size:16px;font-weight:700;}
 .tile-desc{font-size:13px;color:#64748b;line-height:1.5;}
 .tile-badge{margin-top:4px;display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;width:fit-content;}
@@ -46,7 +50,7 @@ header{padding:16px 24px;display:flex;align-items:center;gap:14px;border-bottom:
 footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1px solid #1e2533;}
 </style>
 </head>
-<body>
+<body data-ct-hub>
 <header>
   <div class="logo-badge">B</div>
   <span class="hdr-title">Contractor</span>
@@ -60,44 +64,30 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
 <div class="hub-content" id="hubContent">
   <div class="hub-header">
     <h1>&#128295; Contractor Hub</h1>
-    <p>Select your company or access settings below.</p>
+    <p>Open your company workspace.</p>
   </div>
 
   <div class="tile-grid">
 
-    <a class="tile" href="/contractor/hicons">
-      <div class="tile-icon icon-teal">🏢</div>
+    <a class="tile" href="/contractor/hicons" id="tile-hicons" style="display:none;">
+      <div class="tile-icon icon-teal">&#127959;&#65039;</div>
       <div class="tile-name">Hicons</div>
-      <div class="tile-desc">Projects, work orders, and field documentation for Hicons company.</div>
-      <span class="tile-badge badge-live">&#9679; Live</span>
+      <div class="tile-desc">Projects, work orders, dashboard, invoicing and settings for Hicons.</div>
       <div class="tile-arrow">&#8594;</div>
     </a>
 
-    <a class="tile" href="/contractor/bsynch">
-      <div class="tile-icon icon-blue">🏢</div>
+    <a class="tile" href="/contractor/bsynch" id="tile-bsynch" style="display:none;">
+      <div class="tile-icon icon-blue">&#127970;</div>
       <div class="tile-name">Bsynch</div>
-      <div class="tile-desc">Projects, work orders, and field documentation for Bsynch company.</div>
-      <span class="tile-badge badge-live">&#9679; Live</span>
-      <div class="tile-arrow">&#8594;</div>
-    </a>
-
-    <a class="tile" href="/contractor/company-settings">
-      <div class="tile-icon icon-amber">⚙️</div>
-      <div class="tile-name">Company Settings</div>
-      <div class="tile-desc">Manage your company profile, users, and general configuration.</div>
-      <span class="tile-badge badge-live">&#9679; Live</span>
-      <div class="tile-arrow">&#8594;</div>
-    </a>
-
-    <a class="tile" href="/contractor/admin-settings" id="adminTile" style="display:none;">
-      <div class="tile-icon icon-teal">🔐</div>
-      <div class="tile-name">Admin Settings</div>
-      <div class="tile-desc">Control user roles, permissions, and platform-wide settings.</div>
-      <span class="tile-badge badge-live">&#9679; Live</span>
+      <div class="tile-desc">Projects, work orders, dashboard, invoicing and settings for Bsynch.</div>
       <div class="tile-arrow">&#8594;</div>
     </a>
 
   </div>
+  <div class="hub-empty" id="hubEmpty" style="display:none;">
+    You haven't been assigned to a company yet. Ask your administrator to add you to Hicons or Bsynch .
+  </div>
+  <div class="hub-empty" id="hubLoading">Loading&hellip;</div>
 </div>
 
 <div class="settings-panel" id="settingsPanel">
@@ -111,14 +101,21 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
 <footer>BSynch &middot; Contractor Module</footer>
 
 <script>
-var u = localStorage.getItem('mbrName') || localStorage.getItem('companyUser') || '';
-if(u) document.getElementById('hdrUser').textContent = 'Hi, ' + u;
+if(CT.user) document.getElementById('hdrUser').textContent = 'Hi, ' + CT.user;
+try { sessionStorage.removeItem('contractorCompany'); } catch(e) {}
 
-// Check if user is admin to show Admin Settings
-var userRole = localStorage.getItem('userRole') || '';
-if(userRole === 'admin' || userRole === 'superadmin') {
-  document.getElementById('adminTile').style.display = '';
-}
+fetch('/api/contractor/me').then(function(r){ return r.json(); }).then(function(me){
+  document.getElementById('hubLoading').style.display = 'none';
+  var slugs = Object.keys(me.access || {});
+  if(slugs.length === 1 && !me.is_super){ location.replace('/contractor/' + slugs[0]); return; }
+  slugs.forEach(function(slug){
+    var t = document.getElementById('tile-' + slug);
+    if(t) t.style.display = '';
+  });
+  if(!slugs.length) document.getElementById('hubEmpty').style.display = '';
+}).catch(function(){
+  document.getElementById('hubLoading').textContent = 'Could not load your access. Refresh the page.';
+});
 
 function showSettings(){
   document.getElementById('hubContent').style.display = 'none';

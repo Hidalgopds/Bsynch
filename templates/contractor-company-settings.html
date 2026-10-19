@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Company Settings – BSynch</title>
+<title>{{ company_name }} Settings – BSynch</title>
+<script src="/static/contractor-scope.js"></script>
 <script src="/static/theme.js"></script>
 <link rel="stylesheet" href="/static/themes.css">
 <style>
@@ -14,69 +15,109 @@ header{padding:16px 24px;display:flex;align-items:center;gap:14px;border-bottom:
 .hdr-title{font-size:17px;font-weight:700;}
 .hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
 .hdr-user{font-size:13px;color:#94a3b8;}
-.btn-back{padding:6px 14px;background:none;border:1px solid #334155;border-radius:7px;color:#94a3b8;font-size:12px;cursor:pointer;text-decoration:none;line-height:1.4;}
+.btn-back{padding:6px 14px;background:none;border:1px solid #334155;border-radius:7px;color:#94a3b8;font-size:12px;text-decoration:none;}
 .btn-back:hover{border-color:#1e9484;color:#1e9484;}
-.content{flex:1;padding:32px 20px 60px;}
-.content-header{max-width:680px;margin:0 auto 28px;}
-.content-header h1{font-size:22px;font-weight:700;margin-bottom:4px;}
-.content-header p{font-size:14px;color:#94a3b8;}
-.section-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;max-width:680px;margin:0 auto;}
-.section-card{background:#1a1d27;border:1px solid #2a2d3e;border-radius:16px;padding:24px;cursor:pointer;text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:10px;transition:border-color .18s,transform .15s;}
-.section-card:hover{border-color:#1e9484;transform:translateY(-2px);}
-.card-icon{font-size:32px;margin-bottom:4px;}
-.card-title{font-size:16px;font-weight:700;}
-.card-desc{font-size:13px;color:#64748b;line-height:1.5;}
+.content{flex:1;padding:28px 16px 60px;max-width:640px;width:100%;margin:0 auto;}
+h1{font-size:22px;font-weight:700;margin-bottom:4px;}
+.sub{font-size:14px;color:#94a3b8;margin-bottom:22px;}
+.card{background:#1a1d27;border:1px solid #2a2d3e;border-radius:14px;padding:20px;margin-bottom:14px;}
+.card h2{font-size:13px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:12px;color:#94a3b8;margin-bottom:5px;}
+.field input,.field textarea{width:100%;background:#0f1117;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:9px 12px;font-size:14px;font-family:inherit;}
+.field input:disabled,.field textarea:disabled{opacity:.7;}
+.field textarea{resize:vertical;min-height:64px;}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media(max-width:520px){.row{grid-template-columns:1fr;}}
+.logo-prev{width:64px;height:64px;border-radius:12px;border:1px solid #334155;object-fit:contain;background:#fff;display:none;margin-top:8px;}
+.btn{padding:10px 20px;background:#1e9484;border:none;border-radius:8px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;}
+.btn:disabled{opacity:.5;cursor:default;}
+.saved{font-size:13px;color:#22c55e;margin-left:10px;opacity:0;transition:opacity .2s;}
+.saved.on{opacity:1;}
+.readonly-note{font-size:13px;color:#64748b;margin-bottom:14px;}
 footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1px solid #1e2533;}
 </style>
 </head>
-<body>
+<body data-ct-hub>
 <header>
   <div class="logo-badge">B</div>
-  <span class="hdr-title">Company Settings</span>
+  <span class="hdr-title">{{ company_name }} · Company Settings</span>
   <div class="hdr-right">
     <span class="hdr-user" id="hdrUser"></span>
-    <a href="/contractor-hub" class="btn-back">&#8592; Back</a>
+    <a href="/contractor/{{ company }}" class="btn-back">&#8592; {{ company_name }}</a>
   </div>
 </header>
 
-<div class="content">
-  <div class="content-header">
-    <h1>⚙️ Company Settings</h1>
-    <p>Manage your company profile and general configuration.</p>
-  </div>
+<div class="content" id="content" style="visibility:hidden;">
+  <h1>&#9881;&#65039; Company Settings</h1>
+  <p class="sub">{{ company_name }}'s profile, used on invoices and notifications.</p>
+  <p class="readonly-note" id="roNote" style="display:none;">You can view these settings. Ask a {{ company_name }} admin to change them.</p>
 
-  <div class="section-grid">
-    <div class="section-card">
-      <div class="card-icon">👥</div>
-      <div class="card-title">Users & Roles</div>
-      <div class="card-desc">Add company members and assign team roles for projects.</div>
+  <form id="profileForm">
+    <div class="card">
+      <h2>Profile</h2>
+      <div class="field"><label for="display_name">Company name</label><input id="display_name" maxlength="120"></div>
+      <div class="field">
+        <label for="logo_url">Logo URL</label><input id="logo_url" placeholder="https://…" maxlength="500">
+        <img class="logo-prev" id="logoPrev" alt="">
+      </div>
+      <div class="field"><label for="address">Address</label><textarea id="address" maxlength="300"></textarea></div>
     </div>
-
-    <div class="section-card">
-      <div class="card-icon">🏢</div>
-      <div class="card-title">Profile</div>
-      <div class="card-desc">Edit company name, contact info, and logo branding.</div>
+    <div class="card">
+      <h2>Contact</h2>
+      <div class="field"><label for="contact_name">Main contact</label><input id="contact_name" maxlength="120"></div>
+      <div class="row">
+        <div class="field"><label for="email">Email</label><input id="email" type="email" maxlength="160"></div>
+        <div class="field"><label for="phone">Phone</label><input id="phone" type="tel" maxlength="40"></div>
+      </div>
     </div>
-
-    <div class="section-card">
-      <div class="card-icon">💳</div>
-      <div class="card-title">Billing</div>
-      <div class="card-desc">Manage subscription, invoices, and payment methods.</div>
+    <div class="card">
+      <h2>Notifications</h2>
+      <div class="field"><label for="notify_email">Send project and work-order alerts to</label><input id="notify_email" type="email" placeholder="ops@company.com" maxlength="160"></div>
     </div>
-
-    <div class="section-card">
-      <div class="card-icon">🔔</div>
-      <div class="card-title">Notifications</div>
-      <div class="card-desc">Configure email alerts and notification preferences.</div>
-    </div>
-  </div>
+    <button class="btn" type="submit" id="saveBtn">Save settings</button><span class="saved" id="saved">Saved &#10003;</span>
+  </form>
 </div>
 
 <footer>BSynch &middot; Contractor Module</footer>
 
 <script>
-var u = localStorage.getItem('mbrName') || localStorage.getItem('companyUser') || '';
-if(u) document.getElementById('hdrUser').textContent = 'Hi, ' + u;
+var COMPANY = {{ company|tojson }};
+var FIELDS = ['display_name', 'contact_name', 'email', 'phone', 'address', 'logo_url', 'notify_email'];
+var API = '/api/contractor/' + COMPANY + '/profile';
+
+function showLogo(){
+  var url = document.getElementById('logo_url').value.trim(), img = document.getElementById('logoPrev');
+  if(/^https?:\/\//.test(url)){ img.src = url; img.style.display = 'block'; } else img.style.display = 'none';
+}
+document.getElementById('logo_url').oninput = showLogo;
+
+if(CT.user) document.getElementById('hdrUser').textContent = 'Hi, ' + CT.user;
+fetch('/api/contractor/me').then(function(r){ return r.json(); }).then(function(me){
+  var acc = (me.access || {})[COMPANY];
+  if(!acc){ location.replace('/contractor-hub'); return; }
+  var canEdit = acc.is_admin || (acc.permissions && acc.permissions.company_settings);
+  return fetch(API).then(function(r){ return r.json(); }).then(function(d){
+    var p = d.profile || {};
+    FIELDS.forEach(function(f){ var el = document.getElementById(f); el.value = p[f] || ''; el.disabled = !canEdit; });
+    showLogo();
+    if(!canEdit){ document.getElementById('saveBtn').style.display = 'none'; document.getElementById('roNote').style.display = ''; }
+    document.getElementById('content').style.visibility = '';
+  });
+}).catch(function(){ location.replace('/contractor-hub'); });
+
+document.getElementById('profileForm').onsubmit = function(e){
+  e.preventDefault();
+  var body = {}, btn = document.getElementById('saveBtn');
+  FIELDS.forEach(function(f){ body[f] = document.getElementById(f).value; });
+  btn.disabled = true;
+  fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)})
+    .then(function(r){ return r.json(); }).then(function(res){
+      btn.disabled = false;
+      if(res.ok){ var s = document.getElementById('saved'); s.classList.add('on'); setTimeout(function(){ s.classList.remove('on'); }, 1500); }
+      else alert('Could not save: ' + (res.error || 'error'));
+    });
+};
 </script>
 </body>
 </html>
