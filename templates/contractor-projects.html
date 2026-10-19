@@ -189,6 +189,19 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
 .rc-gallery{display:block;text-align:center;font-size:12px;color:#0f766e;text-decoration:underline;margin:-2px 0 10px;cursor:pointer;}
 .cam-btn{flex:1;min-width:140px;text-align:center;padding:12px;border-radius:10px;background:#1e9484;color:#fff;font-weight:700;font-size:14px;cursor:pointer;}
 .cam-btn.alt{background:#fff;color:#0f766e;border:1px solid #8fcfc2;}
+.dictate{border:1px solid #8fcfc2;background:#f0faf7;border-radius:12px;padding:12px;margin-bottom:14px;}
+.dict-top{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+.dict-top b{flex:1;font-size:14px;color:#0f766e;}
+.dict-top select{padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff;color:#0f172a;}
+.dict-hint{font-size:12px;color:#64748b;margin-bottom:8px;}
+.dict-btn{width:100%;padding:13px;border:none;border-radius:10px;background:#1e9484;color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:8px;}
+.dict-btn.rec{background:#dc2626;animation:dictPulse 1.2s ease-in-out infinite;}
+@keyframes dictPulse{50%{opacity:.75;}}
+.dictate textarea{width:100%;padding:9px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;font-family:inherit;resize:vertical;background:#fff;color:#0f172a;}
+.dict-row{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap;}
+.dict-mats-title{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin:10px 0 6px;}
+.dict-mat{display:inline-flex;align-items:center;gap:4px;padding:4px 4px 4px 10px;margin:0 6px 6px 0;border-radius:16px;background:#fff;border:1px solid #cbd5e1;font-size:12px;}
+.dict-mat button{border:none;background:none;color:#94a3b8;font-size:15px;cursor:pointer;padding:0 4px;}
 .steps-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
 .steps-header h4{font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;}
 .btn-add-step{padding:5px 12px;background:rgba(30,148,132,.12);border:1px solid #1e9484;border-radius:7px;color:#1e9484;font-size:12px;cursor:pointer;}
@@ -407,6 +420,14 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
 <div class="modal-overlay" id="woModal">
   <div class="modal">
     <h2>&#128203; New Work Order</h2>
+    <div class="dictate">
+      <div class="dict-top"><b>&#127908; Dictate it</b><select id="dictLang" aria-label="Language"><option value="es-US">Espa&ntilde;ol</option><option value="en-US">English</option></select></div>
+      <div class="dict-hint" id="dictHint">Say what the job is, the client, the address, the materials and when. The form fills itself.</div>
+      <button type="button" class="dict-btn" id="dictBtn">&#127908; Tap and speak</button>
+      <textarea id="dictText" rows="3" maxlength="4000" placeholder="Your words appear here. You can also type."></textarea>
+      <div class="dict-row"><button type="button" class="btn-add-step" id="dictFill">&#10024; Fill the form</button><span class="rc-msg" id="dictMsg"></span></div>
+      <div id="dictMats"></div>
+    </div>
     <div class="modal-section">
       <div class="modal-section-title">Job Details</div>
       <div class="form-group"><label>Title *</label><input id="woTitle" placeholder="e.g. Roof panel repair – Bldg A"></div>
@@ -830,7 +851,7 @@ function openWoModal(projectId){
   if(projectId===undefined) projectId=openProjId;
   if(projectId===NO_PROJECT) projectId=null;
   woForProjectId=projectId||null;
-  woBefore=[];renderWoBefore();setWoMode('simple');
+  woBefore=[];renderWoBefore();setWoMode('simple');resetDictation();
   var qd=new URLSearchParams(location.search).get('date');window._woSchedDate=/^\d{4}-\d{2}-\d{2}$/.test(qd||'')?qd:null;
   var proj=allProjects.find(p=>p.id===projectId);
   document.getElementById('woClient').value=proj&&proj.client_name?proj.client_name:'';
@@ -889,7 +910,7 @@ function submitWo(){
       }
       var newId=res.job.id;
       var work=stepNames.length?fetch('/api/contractor/jobs/'+newId+'/steps',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({steps:stepNames})}):Promise.resolve();
-      return work.then(function(){return uploadWoBefore(newId);})
+      return work.then(function(){return uploadWoBefore(newId);}).then(function(){return uploadWoMaterials(newId);})
         .then(function(){
           window._openAfterLoad=newId;
           closeWoModal();
@@ -919,6 +940,7 @@ document.getElementById('lightbox').addEventListener('click',function(e){if(e.ta
 </script>
 <script src="/static/contractor-ocr.js"></script>
 <script src="/static/contractor-receipts.js"></script>
+<script src="/static/contractor-dictate.js"></script>
 <script>
 // ── Rename project ──
 function doSaveProjectName(){
