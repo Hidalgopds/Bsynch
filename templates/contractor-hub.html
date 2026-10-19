@@ -105,7 +105,12 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
 if(CT.user) document.getElementById('hdrUser').textContent = 'Hi, ' + CT.user;
 try { sessionStorage.removeItem('contractorCompany'); } catch(e) {}
 
-fetch('/api/contractor/me').then(function(r){ return r.json(); }).then(function(me){
+(function(){
+  var launched = new URLSearchParams(location.search).get('source') === 'pwa', pref = '';
+  try { pref = localStorage.getItem('ctOpenDictate'); } catch(e) {}
+  if(launched && pref === '1'){ window._ctRedirecting = true; location.replace('/contractor/dictate'); }
+})();
+if(!window._ctRedirecting) fetch('/api/contractor/me').then(function(r){ return r.json(); }).then(function(me){
   document.getElementById('hubLoading').style.display = 'none';
   var slugs = Object.keys(me.access || {});
   if(slugs.length === 1 && !me.is_super){ location.replace('/contractor/' + slugs[0]); return; }

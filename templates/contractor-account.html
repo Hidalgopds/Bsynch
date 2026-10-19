@@ -28,6 +28,12 @@ h1{font-size:22px;font-weight:700;margin-bottom:4px;}
 .btn:disabled{opacity:.5;cursor:default;}
 .btn-out{padding:10px 18px;background:none;border:1px solid #7f1d1d;border-radius:8px;color:#f87171;font-weight:700;font-size:14px;cursor:pointer;}
 .msg{font-size:13px;margin-top:10px;min-height:16px;}
+.tgl{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.45;cursor:pointer;margin-bottom:8px;}
+.tgl input{width:20px;height:20px;flex-shrink:0;accent-color:#1e9484;margin-top:1px;}
+.vs-hint{font-size:13px;color:#64748b;line-height:1.5;}
+.vs{border:1px solid rgba(148,163,184,.35);border-radius:10px;padding:10px 12px;margin-top:8px;font-size:13px;}
+.vs summary{cursor:pointer;font-weight:700;}
+.vs ol{margin:8px 0 0 18px;line-height:1.6;}
 .row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #1e2533;font-size:14px;}
 .row:last-child{border-bottom:none;}
 .row a{color:#1e9484;font-weight:600;text-decoration:none;white-space:nowrap;}
@@ -60,6 +66,24 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
   <div class="card">
     <h2>My signed agreements</h2>
     <div id="agreements"><div class="muted">Loading&hellip;</div></div>
+  </div>
+
+  <div class="card">
+    <h2>&#127908; Voice shortcut</h2>
+    <label class="tgl"><input type="checkbox" id="openDictate"><span>When I open the app, go straight to <b>dictating a new work order</b></span></label>
+    <p class="vs-hint">Then just say <b>&ldquo;Hey Google, open BSynch&rdquo;</b> or <b>&ldquo;Hi Bixby, open BSynch&rdquo;</b>, wait for the microphone, and speak.</p>
+    <details class="vs"><summary>Samsung / Android: add a &ldquo;Dictate&rdquo; icon</summary>
+      <ol><li>Install the app (button below, or Chrome menu &rarr; <b>Install app</b>).</li>
+      <li>Press and hold the <b>BSynch</b> icon on the home screen.</li>
+      <li>Drag <b>Dictate work order</b> to the home screen. One tap opens it with the microphone ready.</li></ol></details>
+    <details class="vs"><summary>Bixby: say a phrase to open it</summary>
+      <ol><li>Open <b>Bixby</b> &rarr; menu &rarr; <b>Quick commands</b> &rarr; <b>+</b>.</li>
+      <li>Phrase: <i>&ldquo;nuevo trabajo&rdquo;</i>. Action: <b>Open app</b> &rarr; <b>BSynch</b>.</li>
+      <li>Turn on the option above so the app opens on dictation.</li></ol></details>
+    <details class="vs"><summary>iPhone</summary>
+      <ol><li>In Safari, open <a id="dictLink" href="/contractor/dictate">this dictation link</a>, tap <b>Share</b> &rarr; <b>Add to Home Screen</b>.</li>
+      <li>Name it <i>&ldquo;Nuevo trabajo&rdquo;</i>. You can then say <b>&ldquo;Hey Siri, open Nuevo trabajo&rdquo;</b>.</li></ol></details>
+    <p class="vs-hint" style="margin-top:10px;">&#9888;&#65039; Only dictate while parked, or let a passenger do it.</p>
   </div>
 
   <div class="card">
@@ -125,6 +149,11 @@ document.addEventListener('ct-installable', refreshInstall);
 document.getElementById('installBtn').onclick = function(){ CT.install().then(refreshInstall); };
 refreshInstall();
 
+(function(){
+  var cb = document.getElementById('openDictate');
+  try { cb.checked = localStorage.getItem('ctOpenDictate') === '1'; } catch(e) {}
+  cb.onchange = function(){ try { localStorage.setItem('ctOpenDictate', cb.checked ? '1' : '0'); } catch(e) {} };
+})();
 document.getElementById('logout').onclick = function(){
   try {
     ['bsynchAuth','bsynchRole','mbrName','mbrRole','companyUser','companySlug','bsynchPinRequired'].forEach(function(k){ localStorage.removeItem(k); });

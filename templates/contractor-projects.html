@@ -509,7 +509,7 @@ function loadAll(){
       var full={};jobs.forEach(j=>{full[j.id]=j;});
       allJobs=allProjects.reduce((acc,p)=>acc.concat(p.jobs||[]),[]).map(j=>full[j.id]?Object.assign({},j,full[j.id]):j);
       updateKPIs(); renderProjects();
-      if(!window._woAutoOpened&&new URLSearchParams(location.search).get('new')==='1'){window._woAutoOpened=true;openWoModal(null);}
+      if(!window._woAutoOpened&&new URLSearchParams(location.search).get('new')==='1'){window._woAutoOpened=true;openWoModal(null);if(new URLSearchParams(location.search).get('dictate')==='1'&&window.startDictation)setTimeout(window.startDictation,350);}
       var qJob=new URLSearchParams(location.search).get('job');if(qJob&&!window._jobAutoOpened){window._jobAutoOpened=true;var qj=allJobs.find(j=>j.id===qJob);if(qj){selectProject(qj.project_id||NO_PROJECT);openJobDetail(qJob);}}
       if(openProjId) renderPanel(openProjId);
       if(window._openAfterLoad){var nid=window._openAfterLoad;window._openAfterLoad=null;var nj=allJobs.find(j=>j.id===nid);if(nj){selectProject(nj.project_id||NO_PROJECT);openJobDetail(nid);}}

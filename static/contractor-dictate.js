@@ -68,6 +68,8 @@ function fillFromDictation() {
     document.getElementById('dictHint').textContent = 'Tap the box below, then the 🎤 on your phone keyboard and speak. Then tap Fill the form.';
     return;
   }
+  var autoStart = false;
+  window.startDictation = function () { autoStart = true; btn.click(); };
   btn.onclick = function () {
     if (dictOn) { dictRec.stop(); return; }
     dictRec = new SR();
@@ -83,15 +85,17 @@ function fillFromDictation() {
       ta.value = (dictBase + fin + interim).replace(/\s+/g, ' ').trimStart();
     };
     dictRec.onerror = function (e) {
-      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') dictMsg('Allow the microphone for this site, or use the 🎤 on your keyboard.', false);
+      if ((e.error === 'not-allowed' || e.error === 'service-not-allowed') && autoStart) { dictMsg('Tap the green button and speak.', true); btn.focus(); }
+      else if (e.error === 'not-allowed' || e.error === 'service-not-allowed') dictMsg('Allow the microphone for this site, or use the 🎤 on your keyboard.', false);
       else if (e.error === 'network') dictMsg('Dictation needs internet. Type it, or try again with signal.', false);
       else if (e.error !== 'no-speech' && e.error !== 'aborted') dictMsg('Dictation stopped (' + e.error + ').', false);
     };
     dictRec.onend = function () {
+      autoStart = false;
       dictOn = false; btn.classList.remove('rec'); btn.innerHTML = '&#127908; Tap and speak';
       if (document.getElementById('dictText').value.trim().length >= 5) fillFromDictation();
     };
-    try { dictRec.start(); } catch (err) { dictMsg('Could not start the microphone.', false); return; }
+    try { dictRec.start(); } catch (err) { dictMsg(autoStart ? 'Tap the green button and speak.' : 'Could not start the microphone.', autoStart); autoStart = false; return; }
     dictOn = true; btn.classList.add('rec'); btn.innerHTML = '&#9209;&#65039; Listening... tap to stop';
     dictMsg('Speak: what to do, client, address, materials, when.');
   };

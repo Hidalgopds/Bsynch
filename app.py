@@ -6900,11 +6900,23 @@ def contractor_account_page():
     return render_template("contractor-account.html")
 
 
+@app.route("/contractor/dictate")
+def contractor_dictate_shortcut():
+    """Voice/home-screen shortcut: lands on a new work order with the microphone ready."""
+    if not _client_can_access_module("contractor"):
+        return redirect("/home")
+    return render_template("contractor-dictate-go.html")
+
+
 @app.route("/contractor/manifest.webmanifest")
 def contractor_manifest():
     return jsonify({
         "id": "/contractor-hub", "name": "BSynch Contractor", "short_name": "BSynch",
-        "start_url": "/contractor-hub", "scope": "/", "display": "standalone",
+        "start_url": "/contractor-hub?source=pwa", "scope": "/", "display": "standalone",
+        "shortcuts": [
+            {"name": "Dictate work order", "short_name": "Dictate", "description": "Open a new work order and start dictating",
+             "url": "/contractor/dictate", "icons": [{"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png"}]},
+        ],
         "background_color": "#0f1117", "theme_color": "#1e9484",
         "icons": [
             {"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},

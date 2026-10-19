@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1e9484">
+<title>Dictate work order – BSynch</title>
+<script>window.CT_NO_MANIFEST = true;</script>
+<link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Nuevo trabajo">
+<script src="/static/contractor-scope.js"></script>
+<style>
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:'Segoe UI',system-ui,sans-serif;background:#f0f4f8;color:#475569;text-align:center;padding:20px;}
+.mic{font-size:54px;animation:p 1.2s ease-in-out infinite;}
+@keyframes p{50%{transform:scale(1.1);}}
+a{color:#0f766e;font-weight:600;}
+</style>
+</head>
+<body>
+<div id="box"><div class="mic">&#127908;</div><p>Opening a new work order&hellip;</p></div>
+<script>
+fetch('/api/contractor/me').then(function(r){ return r.json(); }).then(function(me){
+  var slugs = Object.keys(me.access || {}), last = '';
+  try { last = localStorage.getItem('ctLastCompany') || ''; } catch(e) {}
+  var co = slugs.indexOf(last) >= 0 ? last : (slugs.length === 1 ? slugs[0] : '');
+  if(!co){
+    document.getElementById('box').innerHTML = slugs.length
+      ? '<p>Which company?</p>' + slugs.map(function(s){ return '<p><a href="/contractor/projects?company=' + s + '&new=1&dictate=1">' + me.access[s].name + '</a></p>'; }).join('')
+      : '<p>Your account is not in a company yet.</p><p><a href="/contractor-hub">Go to the app</a></p>';
+    return;
+  }
+  location.replace('/contractor/projects?company=' + encodeURIComponent(co) + '&new=1&dictate=1');
+}).catch(function(){ location.replace('/contractor-hub'); });
+</script>
+</body>
+</html>

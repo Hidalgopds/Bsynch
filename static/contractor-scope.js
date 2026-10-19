@@ -7,7 +7,7 @@
   var fromUrl = (new URLSearchParams(location.search).get('company') || '').toLowerCase();
   var fromPath = (location.pathname.match(/^\/contractor\/(hicons|bsynch)\b/) || [])[1] || '';
   var company = fromPath || fromUrl || ss('contractorCompany');
-  if (company) ss('contractorCompany', company);
+  if (company) { ss('contractorCompany', company); try { localStorage.setItem('ctLastCompany', company); } catch (e) {} }
   var here = location.pathname + location.search;
 
   window.CT = { user: user, role: role, company: company };
@@ -74,9 +74,11 @@
   }
 
   // Installable app (PWA)
-  var mf = document.createElement('link');
-  mf.rel = 'manifest'; mf.href = '/contractor/manifest.webmanifest';
-  document.head.appendChild(mf);
+  if (!window.CT_NO_MANIFEST) {
+    var mf = document.createElement('link');
+    mf.rel = 'manifest'; mf.href = '/contractor/manifest.webmanifest';
+    document.head.appendChild(mf);
+  }
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(function () {});
   var deferredInstall = null;
   window.addEventListener('beforeinstallprompt', function (e) {
