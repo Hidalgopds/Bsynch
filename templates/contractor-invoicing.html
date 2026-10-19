@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ company_name }} Invoicing – BSynch</title>
+<script src="/static/contractor-scope.js"></script>
+<script src="/static/theme.js"></script>
+<link rel="stylesheet" href="/static/themes.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;}
+header{padding:16px 24px;display:flex;align-items:center;gap:14px;border-bottom:1px solid #1e2533;background:#0f1117;}
+.logo-badge{width:36px;height:36px;background:linear-gradient(135deg,#1e9484,#4f8ef7);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;flex-shrink:0;}
+.hdr-title{font-size:17px;font-weight:700;}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.btn-back{padding:6px 14px;background:none;border:1px solid #334155;border-radius:7px;color:#94a3b8;font-size:12px;text-decoration:none;}
+.content{flex:1;padding:24px 16px 60px;max-width:960px;width:100%;margin:0 auto;}
+h1{font-size:22px;font-weight:700;margin-bottom:4px;}
+.sub{font-size:14px;color:#94a3b8;margin-bottom:18px;}
+.tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+.tab{padding:8px 14px;border-radius:8px;border:1px solid rgba(148,163,184,.3);background:transparent;color:#94a3b8;font-size:13px;font-weight:600;cursor:pointer;}
+.tab.active{border-color:#1e9484;color:#1e9484;background:rgba(30,148,132,.1);}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+.filter{padding:5px 12px;border-radius:20px;border:1px solid rgba(148,163,184,.3);background:transparent;color:#94a3b8;font-size:12px;cursor:pointer;}
+.filter.active{background:#1e9484;border-color:#1e9484;color:#fff;}
+.job{background:#1a1d27;border:1px solid #2a2d3e;border-radius:14px;padding:16px;margin-bottom:12px;}
+.job-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;}
+.job-num{font-size:12px;font-weight:700;color:#64748b;}
+.job-title{font-size:16px;font-weight:700;flex:1;min-width:160px;}
+.chip{font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap;}
+.chip-done{background:rgba(34,197,94,.14);color:#22c55e;}
+.chip-wip{background:rgba(245,158,11,.14);color:#f59e0b;}
+.chip-inv{background:rgba(79,142,247,.14);color:#4f8ef7;}
+.costs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+.cost{flex:1;min-width:130px;padding:10px 12px;border-radius:10px;background:rgba(148,163,184,.07);}
+.cost span{display:block;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.4px;}
+.cost b{font-size:16px;}
+.grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+@media(max-width:640px){.grid{grid-template-columns:1fr;}}
+.field label{display:block;font-size:11px;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px;}
+.field input,.field textarea{width:100%;background:#0f1117;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:9px 11px;font-size:14px;font-family:inherit;}
+.field textarea{min-height:66px;resize:vertical;}
+.field input:disabled,.field textarea:disabled{opacity:.6;}
+.price-row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-top:10px;}
+.price-row .field{width:180px;}
+.price-row .field input{font-size:18px;font-weight:700;}
+.incl{display:flex;align-items:center;gap:8px;font-size:13px;color:#94a3b8;cursor:pointer;padding-bottom:10px;}
+.incl input{width:17px;height:17px;accent-color:#1e9484;}
+.btn{padding:11px 18px;background:#1e9484;border:none;border-radius:9px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;margin-left:auto;}
+.btn:disabled{background:#334155;color:#94a3b8;cursor:not-allowed;}
+.why{font-size:12px;color:#f59e0b;margin-top:8px;text-align:right;}
+.saved{font-size:11px;color:#22c55e;margin-left:6px;opacity:0;transition:opacity .2s;}
+.saved.on{opacity:1;}
+.inv-link{color:#4f8ef7;font-weight:700;text-decoration:none;}
+.empty{text-align:center;padding:40px 16px;color:#64748b;font-size:14px;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{text-align:left;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:8px;border-bottom:1px solid #2a2d3e;}
+td{padding:10px 8px;border-bottom:1px solid #1e2533;}
+td.r,th.r{text-align:right;}
+.table-wrap{overflow-x:auto;background:#1a1d27;border:1px solid #2a2d3e;border-radius:14px;padding:6px 10px;}
+footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1px solid #1e2533;}
+</style>
+</head>
+<body data-ct-hub>
+<header>
+  <div class="logo-badge">B</div>
+  <span class="hdr-title">{{ company_name }} · Invoicing</span>
+  <div class="hdr-right">
+    <a href="/contractor/{{ company }}" class="btn-back">&#8592; {{ company_name }}</a>
+  </div>
+</header>
+
+<div class="content" id="content" style="visibility:hidden;">
+  <h1>&#128181; Invoicing</h1>
+  <p class="sub">Set the price of each job and create the invoice. The button turns on when the job is finished in Projects and has a price.</p>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="jobs">Jobs</button>
+    <button class="tab" data-tab="invoices">Invoices</button>
+  </div>
+
+  <div id="panel-jobs">
+    <div class="filters" id="filters">
+      <button class="filter active" data-f="pending">To invoice</button>
+      <button class="filter" data-f="ready">Ready</button>
+      <button class="filter" data-f="wip">Not finished</button>
+      <button class="filter" data-f="invoiced">Invoiced</button>
+      <button class="filter" data-f="all">All</button>
+    </div>
+    <div id="jobList"><div class="empty">Loading&hellip;</div></div>
+  </div>
+
+  <div id="panel-invoices" style="display:none;">
+    <div id="invList"><div class="empty">Loading&hellip;</div></div>
+  </div>
+</div>
+
+<footer>BSynch &middot; Contractor Module</footer>
+
+<script>
+var COMPANY = {{ company|tojson }};
+var API = '/api/contractor/' + COMPANY;
+var jobs = [], filter = 'pending';
+
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function money(n){ return '$' + (parseFloat(n) || 0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function price(j){ return parseFloat(j.service_price) || 0; }
+function ready(j){ return j.is_done && price(j) > 0 && !j.invoice; }
+
+function matches(j){
+  if(filter === 'all') return true;
+  if(filter === 'invoiced') return !!j.invoice;
+  if(filter === 'ready') return ready(j);
+  if(filter === 'wip') return !j.is_done && !j.invoice;
+  return !j.invoice;
+}
+
+function whyNot(j){
+  if(!j.is_done) return 'Waiting for the job to be finished in Projects (' + Math.round(parseFloat(j.progress_pct) || 0) + '% done).';
+  if(price(j) <= 0) return 'Enter the price to create the invoice.';
+  return '';
+}
+
+function renderJobs(){
+  var list = jobs.filter(matches), box = document.getElementById('jobList');
+  if(!list.length){ box.innerHTML = '<div class="empty">No jobs here.</div>'; return; }
+  box.innerHTML = list.map(function(j){
+    var locked = !!j.invoice, pct = Math.round(parseFloat(j.progress_pct) || 0);
+    var chip = locked ? '<span class="chip chip-inv">Invoiced</span>'
+      : j.is_done ? '<span class="chip chip-done">Finished</span>' : '<span class="chip chip-wip">' + pct + '% done</span>';
+    var dis = locked ? ' disabled' : '';
+    var desc = j.invoice_description || j.description || j.title || '';
+    return '<div class="job card" data-id="' + esc(j.id) + '">' +
+      '<div class="job-top"><span class="job-num">' + esc(j.job_number || '') + '</span><span class="job-title">' + esc(j.title) + '</span>' + chip + '</div>' +
+      '<div class="costs">' +
+        '<div class="cost"><span>Materials used</span><b>' + money(j.materials_total) + '</b></div>' +
+        '<div class="cost"><span>Purchases (receipts)</span><b>' + money(j.receipts_total) + '</b></div>' +
+        '<div class="cost"><span>Job cost</span><b>' + money((j.materials_total || 0) + (j.receipts_total || 0)) + '</b></div>' +
+      '</div>' +
+      '<div class="grid">' +
+        '<div class="field"><label>Bill to</label><input data-k="client_name" value="' + esc(j.client_name || '') + '" maxlength="160"' + dis + '></div>' +
+        '<div class="field"><label>Customer ID</label><input data-k="customer_id" value="' + esc(j.customer_id || '') + '" maxlength="60"' + dis + '></div>' +
+        '<div class="field"><label>Job site</label><input data-k="location" value="' + esc(j.location || '') + '" maxlength="200"' + dis + '></div>' +
+      '</div>' +
+      '<div class="field" style="margin-top:10px;"><label>Description on the invoice <span class="saved">Saved &#10003;</span></label><textarea data-k="invoice_description" maxlength="2000"' + dis + '>' + esc(desc) + '</textarea></div>' +
+      (locked
+        ? '<div class="price-row"><div>Invoice <a class="inv-link" href="/contractor/invoice/' + esc(j.invoice.id) + '">' + esc(j.invoice.invoice_number) + '</a> &middot; ' + money(j.invoice.total) + '</div></div>'
+        : '<div class="price-row">' +
+            '<div class="field"><label>Price of the job ($)</label><input data-k="service_price" type="number" min="0" step="0.01" inputmode="decimal" value="' + (j.service_price != null ? esc(j.service_price) : '') + '" placeholder="0.00"></div>' +
+            '<label class="incl"><input type="checkbox" class="incl-costs"> Also bill materials and purchases</label>' +
+            '<button class="btn create"' + (ready(j) ? '' : ' disabled') + '>Create invoice</button>' +
+          '</div><div class="why">' + esc(whyNot(j)) + '</div>') +
+    '</div>';
+  }).join('');
+}
+
+function jobById(id){ return jobs.find(function(j){ return j.id === id; }); }
+
+document.getElementById('jobList').addEventListener('change', function(e){
+  var el = e.target, k = el.dataset.k; if(!k) return;
+  var card = el.closest('.job'), j = jobById(card.dataset.id), body = {};
+  body[k] = el.value;
+  fetch(API + '/invoicing/jobs/' + j.id, {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)})
+    .then(function(r){ return r.json(); }).then(function(res){
+      if(!res.ok){ alert(res.error || 'Could not save'); return; }
+      j[k] = k === 'service_price' ? (el.value === '' ? null : parseFloat(el.value)) : el.value;
+      var s = card.querySelector('.saved'); s.classList.add('on'); setTimeout(function(){ s.classList.remove('on'); }, 1200);
+      if(k === 'service_price'){
+        card.querySelector('.create').disabled = !ready(j);
+        card.querySelector('.why').textContent = whyNot(j);
+      }
+    });
+});
+document.getElementById('jobList').addEventListener('input', function(e){
+  if(e.target.dataset.k !== 'service_price') return;
+  var card = e.target.closest('.job'), j = jobById(card.dataset.id), v = parseFloat(e.target.value) || 0;
+  card.querySelector('.create').disabled = !(j.is_done && v > 0);
+});
+document.getElementById('jobList').addEventListener('click', function(e){
+  if(!e.target.classList.contains('create')) return;
+  var btn = e.target, card = btn.closest('.job'), j = jobById(card.dataset.id);
+  var p = card.querySelector('[data-k="service_price"]');
+  if(document.activeElement) document.activeElement.blur();
+  var go = function(){
+    if(!confirm('Create the invoice for "' + j.title + '" for ' + money(p.value) + '?')) return;
+    btn.disabled = true; btn.textContent = 'Creating...';
+    fetch(API + '/invoices', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({job_id: j.id, include_costs: card.querySelector('.incl-costs').checked})})
+      .then(function(r){ return r.json(); }).then(function(res){
+        if(!res.ok){ btn.disabled = false; btn.textContent = 'Create invoice'; alert(res.error || 'Could not create the invoice'); return; }
+        location.href = '/contractor/invoice/' + res.invoice.id;
+      });
+  };
+  if(String(j.service_price) !== String(parseFloat(p.value))){
+    fetch(API + '/invoicing/jobs/' + j.id, {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({service_price: p.value})})
+      .then(function(r){ return r.json(); }).then(function(res){ if(res.ok){ j.service_price = parseFloat(p.value); go(); } else alert(res.error || 'Could not save the price'); });
+  } else go();
+});
+
+document.getElementById('filters').onclick = function(e){
+  if(!e.target.dataset.f) return;
+  filter = e.target.dataset.f;
+  document.querySelectorAll('.filter').forEach(function(b){ b.classList.toggle('active', b === e.target); });
+  renderJobs();
+};
+document.querySelectorAll('.tab').forEach(function(t){
+  t.onclick = function(){
+    document.querySelectorAll('.tab').forEach(function(x){ x.classList.toggle('active', x === t); });
+    document.getElementById('panel-jobs').style.display = t.dataset.tab === 'jobs' ? '' : 'none';
+    document.getElementById('panel-invoices').style.display = t.dataset.tab === 'invoices' ? '' : 'none';
+    if(t.dataset.tab === 'invoices') loadInvoices();
+  };
+});
+
+function loadInvoices(){
+  fetch(API + '/invoices').then(function(r){ return r.json(); }).then(function(list){
+    var box = document.getElementById('invList');
+    if(!Array.isArray(list) || !list.length){ box.innerHTML = '<div class="empty">No invoices yet.</div>'; return; }
+    box.innerHTML = '<div class="table-wrap card"><table><thead><tr><th>Invoice</th><th>Date</th><th>Bill to</th><th>Job site</th><th class="r">Total</th></tr></thead><tbody>' +
+      list.map(function(i){
+        return '<tr><td><a class="inv-link" href="/contractor/invoice/' + esc(i.id) + '">' + esc(i.invoice_number) + '</a></td><td>' + esc(i.invoice_date || '') + '</td><td>' + esc(i.bill_to) + '</td><td>' + esc(i.job_site) + '</td><td class="r"><b>' + money(i.total) + '</b></td></tr>';
+      }).join('') + '</tbody></table></div>';
+  });
+}
+
+function loadJobs(){
+  fetch(API + '/invoicing/jobs').then(function(r){ return r.json(); }).then(function(list){
+    if(!Array.isArray(list)){ location.replace('/contractor/' + COMPANY); return; }
+    jobs = list; renderJobs();
+    document.getElementById('content').style.visibility = '';
+  }).catch(function(){ location.replace('/contractor/' + COMPANY); });
+}
+loadJobs();
+</script>
+</body>
+</html>

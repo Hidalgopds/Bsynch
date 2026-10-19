@@ -138,6 +138,20 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
 .step-check input{width:20px;height:20px;accent-color:#1e9484;cursor:pointer;}
 .step-check input:checked+span{color:#22c55e;font-weight:700;}
 .job-check{margin-bottom:10px;font-size:14px;}
+.rc-form{background:rgba(148,163,184,.06);border:1px solid rgba(148,163,184,.2);border-radius:12px;padding:14px;margin-bottom:12px;}
+.rc-hint{font-size:12px;color:#64748b;margin-bottom:10px;}
+.rc-photo{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:2px dashed rgba(148,163,184,.4);border-radius:10px;padding:14px;margin-bottom:8px;cursor:pointer;font-size:14px;color:#1e9484;font-weight:600;text-align:center;}
+.rc-photo img{max-width:100%;max-height:220px;border-radius:8px;}
+.rc-row{display:flex;gap:8px;margin-bottom:8px;}
+.rc-row .form-input{flex:1;min-width:0;}
+.rc-msg{font-size:12px;margin-top:8px;min-height:14px;}
+.rc-total{display:flex;justify-content:space-between;align-items:center;padding:10px 4px;border-bottom:1px solid rgba(148,163,184,.2);margin-bottom:6px;font-size:13px;color:#94a3b8;}
+.rc-total b{font-size:17px;color:#1e9484;}
+.rc-item{display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid rgba(148,163,184,.12);}
+.rc-thumb{width:38px;height:38px;border-radius:8px;border:1px solid rgba(148,163,184,.3);background:transparent;font-size:18px;cursor:pointer;flex-shrink:0;}
+.rc-info{flex:1;min-width:0;display:flex;flex-direction:column;font-size:13px;}
+.rc-info span{font-size:11px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rc-amt{font-weight:700;font-size:14px;}
 .steps-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
 .steps-header h4{font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;}
 .btn-add-step{padding:5px 12px;background:rgba(30,148,132,.12);border:1px solid #1e9484;border-radius:7px;color:#1e9484;font-size:12px;cursor:pointer;}
@@ -260,7 +274,8 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
   <div class="logo-badge">B</div>
   <span class="hdr-title">Projects</span>
   <div class="hdr-right">
-    <button class="btn-primary" onclick="openCreateProject()">+ New Project</button>
+    <button class="btn-primary" onclick="openWoModal(null)">+ Work Order</button>
+    <button class="btn-icon" onclick="openCreateProject()">+ Project</button>
     <a href="/contractor-hub" class="btn-icon">&#8592; Hub</a>
   </div>
 </header>
@@ -318,6 +333,7 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
     <div class="jptab active" data-tab="steps" onclick="switchJobTab(this)">Steps</div>
     <div class="jptab" data-tab="info" onclick="switchJobTab(this)">Info</div>
     <div class="jptab" data-tab="materials" onclick="switchJobTab(this)">Materials</div>
+    <div class="jptab" data-tab="receipts" onclick="switchJobTab(this)">Receipts</div>
     <div class="jptab" data-tab="photos" onclick="switchJobTab(this)">Photos</div>
   </div>
   <div class="jp-body" id="jpBody"></div>
@@ -357,6 +373,11 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
       <div class="form-group"><label>Title *</label><input id="woTitle" placeholder="e.g. Roof panel repair – Bldg A"></div>
       <div class="form-group"><label>Description</label><textarea id="woDesc" placeholder="What needs to be done..."></textarea></div>
       <div class="form-2col">
+        <div class="form-group"><label>Client (bill to)</label><input id="woClient" placeholder="e.g. Newmark"></div>
+        <div class="form-group"><label>Job site</label><input id="woSite" placeholder="e.g. 31106 Marlow Manor"></div>
+      </div>
+      <div class="form-group"><label>Project (optional)</label><select id="woProject"></select></div>
+      <div class="form-2col">
         <div class="form-group"><label>Priority</label>
           <select id="woPriority"><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option><option value="low">Low</option></select>
         </div>
@@ -373,7 +394,7 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
       </div>
     </div>
     <div class="modal-section">
-      <div class="modal-section-title">Steps (5 default, max 10)</div>
+      <div class="modal-section-title">Steps (max 10)</div>
       <div id="woStepFields"></div>
       <button class="btn-add-step-field" id="woAddStepBtn" onclick="addWoStepField()">+ Add Step</button>
     </div>
@@ -393,24 +414,28 @@ var selectedPhotoFile=null;
 var woStepCount=0;
 var woForProjectId=null; // captured when modal opens
 var userName=localStorage.getItem('mbrName')||localStorage.getItem('companyUser')||'User';
-var DEFAULT_STEPS=['Site Assessment','Material Preparation','Structural Work','Quality Check','Final Inspection'];
+var NO_PROJECT='__none__';
 
 // ── Boot ──
 loadAll();
 function loadAll(){
-  fetch('/api/contractor/projects')
-    .then(r=>r.json())
-    .then(projs=>{
+  Promise.all([fetch('/api/contractor/projects').then(r=>r.json()),fetch('/api/contractor/jobs').then(r=>r.json())])
+    .then(([projs,jobs])=>{
+      projs=Array.isArray(projs)?projs:[];jobs=Array.isArray(jobs)?jobs:[];
+      var loose=jobs.filter(j=>!j.project_id);
       allProjects=projs;
-      allJobs=projs.reduce((acc,p)=>acc.concat(p.jobs||[]),[]);
+      if(loose.length) allProjects=[{id:NO_PROJECT,name:'Work orders without project',jobs:loose,virtual:true}].concat(projs);
+      var full={};jobs.forEach(j=>{full[j.id]=j;});
+      allJobs=allProjects.reduce((acc,p)=>acc.concat(p.jobs||[]),[]).map(j=>full[j.id]?Object.assign({},j,full[j.id]):j);
       updateKPIs(); renderProjects();
+      if(!window._woAutoOpened&&new URLSearchParams(location.search).get('new')==='1'){window._woAutoOpened=true;openWoModal(null);}
       if(openProjId) renderPanel(openProjId);
     }).catch(()=>document.getElementById('projList').innerHTML='<div class="spinner">Error loading data.</div>');
 }
 
 // ── KPIs ──
 function updateKPIs(){
-  document.getElementById('kpiProj').textContent=allProjects.length;
+  document.getElementById('kpiProj').textContent=allProjects.filter(p=>!p.virtual).length;
   document.getElementById('kpiJobs').textContent=allJobs.length;
   document.getElementById('kpiActive').textContent=allJobs.filter(j=>j.status==='in_progress').length;
   var overall=allJobs.length?Math.round(allJobs.reduce((s,j)=>s+parseFloat(j.progress_pct||0),0)/allJobs.length):0;
@@ -425,7 +450,7 @@ function renderProjects(){
     return;
   }
   el.innerHTML=allProjects.map(p=>{
-    var pjobs=allJobs.filter(j=>j.project_id===p.id);
+    var pjobs=allJobs.filter(j=>(j.project_id||NO_PROJECT)===p.id);
     var pct=pjobs.length?Math.round(pjobs.reduce((s,j)=>s+parseFloat(j.progress_pct||0),0)/pjobs.length):0;
     var open=pjobs.filter(j=>j.status==='open').length;
     var inp=pjobs.filter(j=>j.status==='in_progress').length;
@@ -475,17 +500,18 @@ function closePanel(){
 function renderPanel(projId){
   var proj=allProjects.find(p=>p.id===projId);
   if(!proj) return;
-  var pjobs=allJobs.filter(j=>j.project_id===projId);
+  var pjobs=allJobs.filter(j=>(j.project_id||NO_PROJECT)===projId);
   var pct=pjobs.length?Math.round(pjobs.reduce((s,j)=>s+parseFloat(j.progress_pct||0),0)/pjobs.length):0;
   document.getElementById('rpName').value=proj.name;
+  document.getElementById('rpName').readOnly=!!proj.virtual;
   var _rpClient=document.getElementById('rpClient');if(_rpClient)_rpClient.textContent=proj.client_name||'';
   document.getElementById('rpPct').textContent=pct+'%';
   var weight=pjobs.length?Math.round(100/pjobs.length):0;
   var html='<div class="rp-actions">'
     +'<button class="btn-sm btn-sm-primary" onclick="openWoModal()">+ Add Work Order</button>'
-    +'<button class="btn-sm btn-sm-danger" onclick="deleteProject(\''+projId+'\')">Delete Project</button>'
+    +(proj.virtual?'':'<button class="btn-sm btn-sm-danger" onclick="deleteProject(\''+projId+'\')">Delete Project</button>')
     +'</div>';
-  if(pjobs.length){
+  if(pjobs.length&&!proj.virtual){
     html+='<div class="weight-banner">Each work order contributes <strong>'+weight+'%</strong> to this project ('+pjobs.length+' jobs, equal weight).</div>';
   }
   if(!pjobs.length){
@@ -546,6 +572,7 @@ function switchJobTab(el){
   if(openJobTab==='steps') loadSteps();
   else if(openJobTab==='info') renderInfoTab(openJobData);
   else if(openJobTab==='materials') loadMaterials();
+  else if(openJobTab==='receipts') loadReceipts();
   else if(openJobTab==='photos') loadPhotos();
 }
 
@@ -568,7 +595,7 @@ function renderSteps(steps){
   if(!steps.length){
     var done=parseFloat((openJobData&&openJobData.progress_pct)||0)>=100;
     if(mode==='check') html+='<label class="step-check job-check"><input type="checkbox"'+(done?' checked':'')+' onchange="saveJobDone(this.checked)"><span>Job done</span></label>';
-    html+='<div style="text-align:center;padding:28px;color:#64748b;font-size:13px;">No steps. <a href="#" onclick="initDefaultSteps();return false;" style="color:#1e9484;">Initialize 5 defaults</a></div>';
+    html+='<div style="text-align:center;padding:28px;color:#64748b;font-size:13px;">No steps yet. <a href="#" onclick="addNewStep();return false;" style="color:#1e9484;">Add a step</a></div>';
   } else {
     steps.forEach(s=>{
       var p=parseFloat(s.progress_pct||0);
@@ -615,9 +642,7 @@ function addNewStep(){
   var name=prompt('Step name:','New Step');if(!name||!name.trim())return;
   fetch('/api/contractor/jobs/'+openJobId+'/steps',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({step_name:name.trim()})}).then(()=>loadSteps());
 }
-function initDefaultSteps(){
-  fetch('/api/contractor/jobs/'+openJobId+'/steps',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({steps:DEFAULT_STEPS})}).then(r=>r.json()).then(res=>{if(res.ok)loadSteps();});
-}
+
 
 // ── Info tab ──
 function renderInfoTab(j){
@@ -703,14 +728,20 @@ function deleteProject(id){
 }
 
 // ── Create Work Order (inside project) ──
-function openWoModal(){
-  woForProjectId=openProjId; // lock in the project now
+function openWoModal(projectId){
+  if(projectId===undefined) projectId=openProjId;
+  if(projectId===NO_PROJECT) projectId=null;
+  var sel=document.getElementById('woProject');
+  sel.innerHTML='<option value="">— No project —</option>'+allProjects.filter(p=>p.id!==NO_PROJECT).map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>').join('');
+  sel.value=projectId||'';
+  var proj=allProjects.find(p=>p.id===projectId);
+  document.getElementById('woClient').value=proj&&proj.client_name?proj.client_name:'';
   document.getElementById('woModal').classList.add('open');
   document.getElementById('woStart').value=new Date().toISOString().split('T')[0];
   initWoSteps();
 }
 function closeWoModal(){document.getElementById('woModal').classList.remove('open');}
-function initWoSteps(){var c=document.getElementById('woStepFields');c.innerHTML='';woStepCount=0;DEFAULT_STEPS.forEach(n=>addWoStepField(n));updateWoStepBtn();}
+function initWoSteps(){var c=document.getElementById('woStepFields');c.innerHTML='';woStepCount=0;addWoStepField('');updateWoStepBtn();}
 function addWoStepField(defaultName){
   if(woStepCount>=10){alert('Max 10 steps.');return;}
   woStepCount++;
@@ -718,8 +749,8 @@ function addWoStepField(defaultName){
   var c=document.getElementById('woStepFields');
   var row=document.createElement('div');row.className='step-field-row';row.id='wsrow-'+n;
   row.innerHTML='<div class="step-field-num">'+n+'</div>'
-    +'<input class="step-field-input" value="'+(defaultName?esc(defaultName):'')+'" placeholder="Step '+n+'">'
-    +(n>5?'<button class="step-field-del" onclick="removeWoStep('+n+')">&#215;</button>':'');
+    +'<input class="step-field-input" value="'+(defaultName?esc(defaultName):'')+'" placeholder="'+(n===1?'Step 1 (blank = use the title)':'Step '+n)+'">'
+    +(n>1?'<button class="step-field-del" onclick="removeWoStep('+n+')">&#215;</button>':'');
   c.appendChild(row);updateWoStepBtn();
 }
 function removeWoStep(n){var r=document.getElementById('wsrow-'+n);if(r)r.remove();woStepCount--;document.querySelectorAll('#woStepFields .step-field-row').forEach((r,i)=>{r.querySelector('.step-field-num').textContent=i+1;});updateWoStepBtn();}
@@ -729,9 +760,11 @@ function submitWo(){
   if(!title){alert('Title required');return;}
   var stepNames=[];
   document.querySelectorAll('#woStepFields .step-field-input').forEach(inp=>{if(inp.value.trim())stepNames.push(inp.value.trim());});
+  if(!stepNames.length) stepNames.push(title);
+  woForProjectId=document.getElementById('woProject').value||null;
   var btn=document.querySelector('#woModal .btn-submit');
   if(btn){btn.disabled=true;btn.textContent='Creating...';}
-  fetch('/api/contractor/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:title,description:document.getElementById('woDesc').value.trim(),priority:document.getElementById('woPriority').value,status:document.getElementById('woStatus').value,start_date:document.getElementById('woStart').value||null,due_date:document.getElementById('woDue').value||null,created_by:userName,project_id:woForProjectId,tracking:document.getElementById('woTracking').value})})
+  fetch('/api/contractor/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:title,description:document.getElementById('woDesc').value.trim(),priority:document.getElementById('woPriority').value,status:document.getElementById('woStatus').value,start_date:document.getElementById('woStart').value||null,due_date:document.getElementById('woDue').value||null,created_by:userName,project_id:woForProjectId,client_name:document.getElementById('woClient').value.trim(),location:document.getElementById('woSite').value.trim(),tracking:document.getElementById('woTracking').value})})
     .then(r=>r.json()).then(function(res){
       if(!res.ok){alert('Error creating work order: '+(res.error||'unknown'));return;}
       if(!res.job||!res.job.id){
@@ -741,7 +774,7 @@ function submitWo(){
       return fetch('/api/contractor/jobs/'+res.job.id+'/steps',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({steps:stepNames})})
         .then(function(){
           closeWoModal();
-          ['woTitle','woDesc'].forEach(function(id){document.getElementById(id).value='';});
+          ['woTitle','woDesc','woClient','woSite'].forEach(function(id){document.getElementById(id).value='';});
           document.getElementById('woPriority').value='normal';document.getElementById('woTracking').value='percent';
           document.getElementById('woStatus').value='open';
           loadAll();
@@ -765,14 +798,16 @@ document.getElementById('projModal').addEventListener('click',function(e){if(e.t
 document.getElementById('woModal').addEventListener('click',function(e){if(e.target===this)closeWoModal();});
 document.getElementById('lightbox').addEventListener('click',function(e){if(e.target===this)closeLightbox();});
 </script>
-<script src="/static/contractor-ocr.js">
+<script src="/static/contractor-ocr.js"></script>
+<script src="/static/contractor-receipts.js"></script>
+<script>
 // ── Rename project ──
 function doSaveProjectName(){
   var input=document.getElementById('rpName');
   var newName=(input.value||'').trim();
   document.getElementById('rpSaveBtn').style.display='none';
   input.style.borderBottomColor='transparent';
-  if(!newName||!openProjId){
+  if(!newName||!openProjId||openProjId===NO_PROJECT){
     var orig=(allProjects.find(function(p){return p.id===openProjId;})||{}).name||'';
     input.value=orig;
     return;

@@ -106,3 +106,60 @@ create table if not exists contractor_agreements (
 create index if not exists contractor_agreements_user_idx    on contractor_agreements (user_name, version);
 create index if not exists contractor_agreements_company_idx on contractor_agreements (company);
 alter table contractor_agreements enable row level security;
+
+-- Invoicing: job fields, receipts, invoices, uploaded company files
+alter table contractor_jobs add column if not exists customer_id         text default '';
+alter table contractor_jobs add column if not exists invoice_description text default '';
+alter table contractor_jobs add column if not exists service_price       numeric;
+alter table contractor_jobs add column if not exists invoice_id          uuid;
+
+create table if not exists job_receipts (
+  id           uuid primary key default gen_random_uuid(),
+  job_id       uuid not null references contractor_jobs(id) on delete cascade,
+  vendor       text default '',
+  amount       numeric default 0,
+  receipt_date date,
+  notes        text default '',
+  photo_data   text,
+  added_by     text default '',
+  created_at   timestamptz default now()
+);
+create index if not exists job_receipts_job_idx on job_receipts (job_id);
+
+create table if not exists contractor_invoices (
+  id               uuid primary key default gen_random_uuid(),
+  company          text not null,
+  seq              int not null,
+  invoice_number   text not null,
+  job_id           uuid references contractor_jobs(id) on delete set null,
+  bill_to          text default '',
+  customer_id      text default '',
+  job_site         text default '',
+  invoice_date     date default current_date,
+  payment_terms    text default '',
+  items            jsonb not null default '[]'::jsonb,
+  subtotal         numeric default 0,
+  total            numeric default 0,
+  company_snapshot jsonb default '{}'::jsonb,
+  status           text default 'issued',
+  created_by       text default '',
+  created_at       timestamptz default now(),
+  unique (company, seq)
+);
+create index if not exists contractor_invoices_company_idx on contractor_invoices (company);
+
+create table if not exists contractor_files (
+  id          uuid primary key default gen_random_uuid(),
+  company     text not null,
+  kind        text not null,
+  filename    text default '',
+  mime        text default '',
+  data        text not null,
+  uploaded_by text default '',
+  created_at  timestamptz default now()
+);
+create index if not exists contractor_files_company_idx on contractor_files (company, kind);
+
+alter table job_receipts        enable row level security;
+alter table contractor_invoices enable row level security;
+alter table contractor_files    enable row level security;

@@ -6368,22 +6368,125 @@ def contractor_unassigned_projects(company):
     return jsonify({"ok": r1.ok})
 
 
-CONTRACTOR_PROFILE_FIELDS = ["display_name", "contact_name", "email", "phone", "address", "logo_url", "notify_email"]
+CONTRACTOR_PROFILE_TEXT = {
+    "display_name": 120, "subtitle": 120, "tagline": 120, "contact_name": 120, "phone": 40,
+    "address": 300, "notify_email": 160, "invoice_prefix": 6, "payment_terms": 60,
+    "payment_note": 400, "footer_note": 200,
+}
+_HEX_COLOR = re.compile(r"#[0-9a-fA-F]{6}")
+_IMG_DATA = re.compile(r"data:image/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+")
+
+
+def _ct_profile(company):
+    p = {"display_name": CONTRACTOR_COMPANIES.get(company, ""), "invoice_prefix": company[:1].upper(),
+         "invoice_next": 1000, "payment_terms": "Due on receipt", "footer_note": "Thank you for your business!",
+         "brand_primary": "#0d1b36", "brand_accent": "#e8a317", "emails": []}
+    p.update(_ct_config(f"contractor_company_{company}", {}) or {})
+    if not p.get("emails") and p.get("email"):
+        p["emails"] = [p["email"]]
+    return p
+
+
+def _ct_can_edit_settings(me, company):
+    return _ct_can_admin(me, company) or _ct_perms(company).get(me["company_role"] or "member", {}).get("company_settings")
+
 
 @app.route("/api/contractor/<company>/profile", methods=["GET", "POST"])
 def contractor_company_profile(company):
     me = _contractor_caller()
     if company not in CONTRACTOR_COMPANIES or not _ct_can_view(me, company):
         return jsonify({"ok": False, "error": "not your company"}), 403
-    key = f"contractor_company_{company}"
     if request.method == "GET":
-        return jsonify({"ok": True, "profile": {"display_name": CONTRACTOR_COMPANIES[company], **_ct_config(key, {})}})
-    can_edit = _ct_can_admin(me, company) or _ct_perms(company).get(me["company_role"] or "member", {}).get("company_settings")
-    if not can_edit:
+        return jsonify({"ok": True, "profile": _ct_profile(company), "can_edit": bool(_ct_can_edit_settings(me, company))})
+    if not _ct_can_edit_settings(me, company):
         return jsonify({"ok": False, "error": "no permission"}), 403
     data = request.get_json() or {}
-    ok, e = _ct_set_config(key, {f: str(data.get(f) or "").strip() for f in CONTRACTOR_PROFILE_FIELDS})
+    out = dict(_ct_config(f"contractor_company_{company}", {}) or {})
+    for k, n in CONTRACTOR_PROFILE_TEXT.items():
+        if k in data:
+            out[k] = str(data.get(k) or "").strip()[:n]
+    if "emails" in data:
+        emails = data.get("emails") or []
+        if isinstance(emails, str):
+            emails = re.split(r"[,;\s]+", emails)
+        out["emails"] = [e.strip().lower() for e in emails if re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", str(e).strip())][:10]
+    if "invoice_next" in data:
+        try:
+            out["invoice_next"] = max(1, min(99_999_999, int(data.get("invoice_next") or 1)))
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "Next invoice number must be a number"}), 400
+    for k, default in (("brand_primary", "#0d1b36"), ("brand_accent", "#e8a317")):
+        if k in data:
+            v = str(data.get(k) or "")
+            out[k] = v if _HEX_COLOR.fullmatch(v) else default
+    if "logo" in data:
+        logo = data.get("logo") or ""
+        if logo and not re.fullmatch(r"/static/brand/[\w.-]+\.(?:png|jpg|webp)", logo) \
+                and (len(logo) > 600_000 or not _IMG_DATA.fullmatch(logo)):
+            return jsonify({"ok": False, "error": "Logo must be a PNG, JPG or WEBP under 450 KB"}), 400
+        out["logo"] = logo
+    ok, e = _ct_set_config(f"contractor_company_{company}", out)
     return jsonify({"ok": ok, "error": e})
+
+
+CONTRACTOR_FILE_TYPES = {
+    "application/pdf": ".pdf", "image/png": ".png", "image/jpeg": ".jpg",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+}
+
+
+@app.route("/api/contractor/<company>/files", methods=["GET", "POST"])
+def contractor_company_files(company):
+    me = _contractor_caller()
+    if company not in CONTRACTOR_COMPANIES or not _ct_can_view(me, company):
+        return jsonify({"ok": False, "error": "not your company"}), 403
+    if request.method == "GET":
+        r = requests.get(
+            f"{sb_url()}/rest/v1/contractor_files?company=eq.{company}"
+            f"&select=id,kind,filename,mime,uploaded_by,created_at&order=created_at.desc&limit=50",
+            headers=sb_headers(), timeout=8
+        )
+        return jsonify(r.json() if r.ok else [])
+    if not _ct_can_edit_settings(me, company):
+        return jsonify({"ok": False, "error": "no permission"}), 403
+    data = request.get_json() or {}
+    mime = data.get("mime") or ""
+    blob = data.get("data") or ""
+    if mime not in CONTRACTOR_FILE_TYPES or not blob.startswith(f"data:{mime};base64,") or len(blob) > 7_000_000:
+        return jsonify({"ok": False, "error": "Upload a PDF, image, Word or Excel file under 5 MB"}), 400
+    row = {"company": company, "kind": "invoice_template", "mime": mime, "data": blob,
+           "filename": re.sub(r"[^\w .()-]", "_", str(data.get("filename") or "template"))[:120],
+           "uploaded_by": me["name"][:80]}
+    r = requests.post(f"{sb_url()}/rest/v1/contractor_files", json=row,
+                      headers={**sb_headers(), "Prefer": "return=representation"}, timeout=15)
+    if not (r.ok and r.json()):
+        return jsonify({"ok": False, "error": "Could not save the file"}), 500
+    return jsonify({"ok": True, "id": r.json()[0]["id"]})
+
+
+@app.route("/api/contractor/<company>/files/<file_id>", methods=["GET", "DELETE"])
+def contractor_company_file(company, file_id):
+    me = _contractor_caller()
+    if company not in CONTRACTOR_COMPANIES or not _ct_can_view(me, company):
+        return jsonify({"ok": False, "error": "not your company"}), 403
+    q = f"{sb_url()}/rest/v1/contractor_files?id=eq.{requests.utils.quote(file_id)}&company=eq.{company}"
+    if request.method == "DELETE":
+        if not _ct_can_edit_settings(me, company):
+            return jsonify({"ok": False, "error": "no permission"}), 403
+        r = requests.delete(q, headers=sb_headers(), timeout=8)
+        return jsonify({"ok": r.ok})
+    r = requests.get(q + "&select=filename,mime,data&limit=1", headers=sb_headers(), timeout=15)
+    rows = r.json() if r.ok else []
+    if not rows:
+        return jsonify({"ok": False}), 404
+    import base64
+    f = rows[0]
+    raw = base64.b64decode(f["data"].split(",", 1)[1])
+    return Response(raw, mimetype=f["mime"], headers={
+        "Content-Disposition": f'attachment; filename="{f["filename"]}"',
+        "X-Content-Type-Options": "nosniff",
+    })
 
 
 # ── Contractor: confidentiality + data-use agreement ────────────────
@@ -6627,6 +6730,312 @@ def contractor_manifest():
             {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
         ],
     }), 200, {"Content-Type": "application/manifest+json"}
+
+
+# ── Contractor: job receipts (store tickets for purchases) ──────────
+def _ct_job_allowed(job_id):
+    """The job row if the caller's company scope may see it, else None."""
+    r = requests.get(
+        f"{sb_url()}/rest/v1/contractor_jobs?id=eq.{requests.utils.quote(str(job_id))}&select=*&limit=1",
+        headers=sb_headers(), timeout=5
+    )
+    job = r.json()[0] if r.ok and r.json() else None
+    if not job:
+        return None
+    scope = _contractor_scope()
+    if scope == "__none__" or (scope and job.get("company") != scope):
+        return None
+    return job
+
+
+def _ct_money(v):
+    try:
+        return round(float(v or 0), 2)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+@app.route("/api/contractor/jobs/<job_id>/receipts", methods=["GET"])
+def contractor_job_receipts(job_id):
+    if not _ct_job_allowed(job_id):
+        return jsonify([]), 404
+    r = requests.get(
+        f"{sb_url()}/rest/v1/job_receipts?job_id=eq.{job_id}"
+        f"&select=id,vendor,amount,receipt_date,notes,added_by,created_at&order=created_at.asc",
+        headers=sb_headers(), timeout=8
+    )
+    return jsonify(r.json() if r.ok else [])
+
+
+@app.route("/api/contractor/jobs/<job_id>/receipts", methods=["POST"])
+def contractor_add_receipt(job_id):
+    if not _ct_job_allowed(job_id):
+        return jsonify({"ok": False, "error": "job not found"}), 404
+    data = request.get_json() or {}
+    photo = data.get("photo_data") or None
+    if photo and (len(photo) > 3_000_000 or not re.fullmatch(r"data:image/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+", photo)):
+        return jsonify({"ok": False, "error": "Photo must be an image under 3 MB"}), 400
+    amount = _ct_money(data.get("amount"))
+    if amount <= 0 and not photo:
+        return jsonify({"ok": False, "error": "Add a photo or an amount"}), 400
+    row = {
+        "job_id": job_id, "vendor": (data.get("vendor") or "").strip()[:120], "amount": amount,
+        "receipt_date": data.get("receipt_date") or None, "notes": (data.get("notes") or "").strip()[:500],
+        "photo_data": photo, "added_by": (request.headers.get("X-User-Name") or "")[:80],
+    }
+    r = requests.post(f"{sb_url()}/rest/v1/job_receipts", json=row,
+                      headers={**sb_headers(), "Prefer": "return=representation"}, timeout=10)
+    if not (r.ok and r.json()):
+        return jsonify({"ok": False, "error": "Could not save the receipt"}), 500
+    rec = r.json()[0]
+    rec.pop("photo_data", None)
+    return jsonify({"ok": True, "receipt": rec})
+
+
+@app.route("/api/contractor/jobs/<job_id>/receipts/<rid>", methods=["GET"])
+def contractor_receipt_photo(job_id, rid):
+    if not _ct_job_allowed(job_id):
+        return jsonify({"ok": False}), 404
+    r = requests.get(
+        f"{sb_url()}/rest/v1/job_receipts?id=eq.{requests.utils.quote(rid)}&job_id=eq.{job_id}&select=photo_data&limit=1",
+        headers=sb_headers(), timeout=8
+    )
+    rows = r.json() if r.ok else []
+    return jsonify({"ok": bool(rows), "photo_data": rows[0].get("photo_data") if rows else None})
+
+
+@app.route("/api/contractor/jobs/<job_id>/receipts/<rid>", methods=["DELETE"])
+def contractor_delete_receipt(job_id, rid):
+    if not _ct_job_allowed(job_id):
+        return jsonify({"ok": False}), 404
+    r = requests.delete(
+        f"{sb_url()}/rest/v1/job_receipts?id=eq.{requests.utils.quote(rid)}&job_id=eq.{job_id}",
+        headers=sb_headers(), timeout=5
+    )
+    return jsonify({"ok": r.ok})
+
+
+@app.route("/api/contractor/receipt-read", methods=["POST"])
+def contractor_receipt_read():
+    """Read store, date and total from a receipt photo so the worker doesn't type them."""
+    import json as _json
+    if not _ANTHROPIC_CLIENT:
+        return jsonify({"ok": False, "error": "AI reading is not configured"}), 503
+    if _contractor_scope() == "__none__":
+        return jsonify({"ok": False, "error": "not allowed"}), 403
+    image_data = (request.get_json() or {}).get("image_data", "")
+    m = re.match(r"data:(image/(?:jpeg|png|webp|gif));base64,(.+)", image_data, re.DOTALL)
+    if not m:
+        return jsonify({"ok": False, "error": "No image"}), 400
+    try:
+        response = _ANTHROPIC_CLIENT.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=300,
+            messages=[{"role": "user", "content": [
+                {"type": "image", "source": {"type": "base64", "media_type": m.group(1), "data": m.group(2)}},
+                {"type": "text", "text": (
+                    "This is a store receipt. Return ONLY a JSON object, no markdown: "
+                    "{\"vendor\": \"store name\", \"date\": \"YYYY-MM-DD or empty\", \"total\": number (grand total paid, including tax)}."
+                )},
+            ]}],
+        )
+        raw = re.sub(r"^```[a-z]*\n?|\n?```$", "", response.content[0].text.strip())
+        d = _json.loads(raw)
+        return jsonify({"ok": True, "vendor": str(d.get("vendor") or "")[:120],
+                        "date": str(d.get("date") or "")[:10], "total": _ct_money(d.get("total"))})
+    except Exception as e:
+        logger.warning("[receipt-read] %s", e)
+        return jsonify({"ok": False, "error": "Could not read the receipt"}), 500
+
+
+# ── Contractor: invoicing ───────────────────────────────────────────
+def _ct_can_invoice(me, company):
+    return _ct_can_admin(me, company) or _ct_perms(company).get(me["company_role"] or "member", {}).get("invoicing")
+
+
+def _ct_invoice_guard(company):
+    me = _contractor_caller()
+    if company not in CONTRACTOR_COMPANIES or not _ct_can_view(me, company) or not _ct_can_invoice(me, company):
+        return me, (jsonify({"ok": False, "error": "no invoicing permission"}), 403)
+    return me, None
+
+
+def _ct_job_is_done(job):
+    return job.get("status") == "completed" or float(job.get("progress_pct") or 0) >= 100
+
+
+def _ct_job_costs(job_ids):
+    """{job_id: {"materials": [...], "receipts": [...]}} for the given jobs."""
+    out = {j: {"materials": [], "receipts": []} for j in job_ids}
+    if not job_ids:
+        return out
+    ids = ",".join(job_ids)
+    m = requests.get(f"{sb_url()}/rest/v1/{JOB_MATERIALS_TABLE}?job_id=in.({ids})&select=job_id,material_name,qty,unit,unit_cost",
+                     headers=sb_headers(), timeout=8)
+    for row in (m.json() if m.ok else []):
+        out.setdefault(row["job_id"], {"materials": [], "receipts": []})["materials"].append(row)
+    rc = requests.get(f"{sb_url()}/rest/v1/job_receipts?job_id=in.({ids})&select=job_id,vendor,amount,receipt_date",
+                      headers=sb_headers(), timeout=8)
+    for row in (rc.json() if rc.ok else []):
+        out.setdefault(row["job_id"], {"materials": [], "receipts": []})["receipts"].append(row)
+    return out
+
+
+@app.route("/contractor/<company>/invoicing")
+def contractor_invoicing_page(company):
+    return _ct_page(company, "contractor-invoicing.html")
+
+
+@app.route("/contractor/invoice/<invoice_id>")
+def contractor_invoice_page(invoice_id):
+    return render_template("contractor-invoice.html", invoice_id=invoice_id)
+
+
+@app.route("/api/contractor/<company>/invoicing/jobs", methods=["GET"])
+def contractor_invoicing_jobs(company):
+    me, err = _ct_invoice_guard(company)
+    if err:
+        return err
+    r = requests.get(
+        f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?company=eq.{company}"
+        f"&select=id,job_number,title,description,client_name,location,status,progress_pct,completed_date,"
+        f"customer_id,invoice_description,service_price,invoice_id,project_id,created_at"
+        f"&order=created_at.desc&limit=500",
+        headers=sb_headers(), timeout=10
+    )
+    jobs = r.json() if r.ok else []
+    costs = _ct_job_costs([j["id"] for j in jobs])
+    inv_ids = [j["invoice_id"] for j in jobs if j.get("invoice_id")]
+    numbers = {}
+    if inv_ids:
+        ir = requests.get(f"{sb_url()}/rest/v1/contractor_invoices?id=in.({','.join(inv_ids)})&select=id,invoice_number,total",
+                          headers=sb_headers(), timeout=8)
+        numbers = {i["id"]: i for i in (ir.json() if ir.ok else [])}
+    for j in jobs:
+        c = costs.get(j["id"], {"materials": [], "receipts": []})
+        j["materials_total"] = round(sum(_ct_money(m.get("qty")) * _ct_money(m.get("unit_cost")) for m in c["materials"]), 2)
+        j["receipts_total"] = round(sum(_ct_money(x.get("amount")) for x in c["receipts"]), 2)
+        j["is_done"] = _ct_job_is_done(j)
+        j["invoice"] = numbers.get(j.get("invoice_id"))
+    return jsonify(jobs)
+
+
+@app.route("/api/contractor/<company>/invoicing/jobs/<job_id>", methods=["PATCH"])
+def contractor_invoicing_update_job(company, job_id):
+    me, err = _ct_invoice_guard(company)
+    if err:
+        return err
+    data = request.get_json() or {}
+    payload = {}
+    for k, n in (("client_name", 160), ("location", 200), ("customer_id", 60), ("invoice_description", 2000)):
+        if k in data:
+            payload[k] = str(data.get(k) or "").strip()[:n]
+    if "service_price" in data:
+        v = data.get("service_price")
+        if v in (None, ""):
+            payload["service_price"] = None
+        else:
+            price = _ct_money(v)
+            if price < 0 or price > 10_000_000:
+                return jsonify({"ok": False, "error": "Enter a valid price"}), 400
+            payload["service_price"] = price
+    if not payload:
+        return jsonify({"ok": False, "error": "nothing to update"}), 400
+    r = requests.patch(
+        f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?id=eq.{requests.utils.quote(job_id)}&company=eq.{company}&invoice_id=is.null",
+        json=payload, headers={**sb_headers(), "Prefer": "return=representation"}, timeout=8
+    )
+    if not (r.ok and r.json()):
+        return jsonify({"ok": False, "error": "Job not found or already invoiced"}), 409
+    return jsonify({"ok": True})
+
+
+@app.route("/api/contractor/<company>/invoices", methods=["GET"])
+def contractor_invoices_list(company):
+    me, err = _ct_invoice_guard(company)
+    if err:
+        return err
+    r = requests.get(
+        f"{sb_url()}/rest/v1/contractor_invoices?company=eq.{company}"
+        f"&select=id,invoice_number,bill_to,job_site,invoice_date,total,status,created_by,job_id&order=seq.desc&limit=500",
+        headers=sb_headers(), timeout=8
+    )
+    return jsonify(r.json() if r.ok else [])
+
+
+@app.route("/api/contractor/<company>/invoices", methods=["POST"])
+def contractor_create_invoice(company):
+    me, err = _ct_invoice_guard(company)
+    if err:
+        return err
+    data = request.get_json() or {}
+    job_id = str(data.get("job_id") or "")
+    jr = requests.get(
+        f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?id=eq.{requests.utils.quote(job_id)}&company=eq.{company}&select=*&limit=1",
+        headers=sb_headers(), timeout=8
+    )
+    job = jr.json()[0] if jr.ok and jr.json() else None
+    if not job:
+        return jsonify({"ok": False, "error": "Job not found"}), 404
+    if job.get("invoice_id"):
+        return jsonify({"ok": False, "error": "This job already has an invoice"}), 409
+    if not _ct_job_is_done(job):
+        return jsonify({"ok": False, "error": "The job must be finished (100%) in Projects before invoicing"}), 409
+    price = _ct_money(job.get("service_price"))
+    if price <= 0:
+        return jsonify({"ok": False, "error": "Enter the price of the job first"}), 409
+
+    items = [{"description": (job.get("invoice_description") or job.get("description") or job.get("title") or "").strip(),
+              "qty": 1, "amount": price, "total": price}]
+    if data.get("include_costs"):
+        c = _ct_job_costs([job_id]).get(job_id, {"materials": [], "receipts": []})
+        for m in c["materials"]:
+            q, u = _ct_money(m.get("qty")), _ct_money(m.get("unit_cost"))
+            if q * u > 0:
+                items.append({"description": f"Material: {m.get('material_name', '')}", "qty": q, "amount": u, "total": round(q * u, 2)})
+        for x in c["receipts"]:
+            a = _ct_money(x.get("amount"))
+            if a > 0:
+                items.append({"description": f"Purchase: {x.get('vendor') or 'receipt'}", "qty": 1, "amount": a, "total": a})
+    subtotal = round(sum(i["total"] for i in items), 2)
+
+    profile = _ct_profile(company)
+    import datetime as dt
+    last = requests.get(f"{sb_url()}/rest/v1/contractor_invoices?company=eq.{company}&select=seq&order=seq.desc&limit=1",
+                        headers=sb_headers(), timeout=5)
+    last_seq = last.json()[0]["seq"] if last.ok and last.json() else 0
+    seq = max(int(profile.get("invoice_next") or 1), last_seq + 1)
+    snapshot = {k: profile.get(k) for k in ("display_name", "subtitle", "tagline", "phone", "address", "emails", "logo",
+                                             "payment_note", "footer_note", "brand_primary", "brand_accent")}
+    row = {
+        "company": company, "seq": seq, "invoice_number": f"{profile.get('invoice_prefix') or ''}{seq:06d}",
+        "job_id": job_id, "bill_to": job.get("client_name") or "", "customer_id": job.get("customer_id") or "",
+        "job_site": job.get("location") or "", "invoice_date": dt.date.today().isoformat(),
+        "payment_terms": profile.get("payment_terms") or "", "items": items, "subtotal": subtotal, "total": subtotal,
+        "company_snapshot": snapshot, "created_by": me["name"][:80],
+    }
+    r = requests.post(f"{sb_url()}/rest/v1/contractor_invoices", json=row,
+                      headers={**sb_headers(), "Prefer": "return=representation"}, timeout=10)
+    if not (r.ok and r.json()):
+        return jsonify({"ok": False, "error": "Could not create the invoice. Try again."}), 500
+    inv = r.json()[0]
+    requests.patch(f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?id=eq.{job_id}", json={"invoice_id": inv["id"]},
+                   headers=sb_headers(), timeout=5)
+    _ct_set_config(f"contractor_company_{company}", {**(_ct_config(f"contractor_company_{company}", {}) or {}), "invoice_next": seq + 1})
+    return jsonify({"ok": True, "invoice": {"id": inv["id"], "invoice_number": inv["invoice_number"]}})
+
+
+@app.route("/api/contractor/invoices/<invoice_id>", methods=["GET"])
+def contractor_invoice_get(invoice_id):
+    r = requests.get(f"{sb_url()}/rest/v1/contractor_invoices?id=eq.{requests.utils.quote(invoice_id)}&select=*&limit=1",
+                     headers=sb_headers(), timeout=8)
+    inv = r.json()[0] if r.ok and r.json() else None
+    if not inv:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    me, err = _ct_invoice_guard(inv["company"])
+    if err:
+        return err
+    return jsonify({"ok": True, "invoice": inv})
 
 
 # ── Helpers ──────────────────────────────────────────────────────

@@ -29,7 +29,24 @@ h1{font-size:22px;font-weight:700;margin-bottom:4px;}
 .field textarea{resize:vertical;min-height:64px;}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 @media(max-width:520px){.row{grid-template-columns:1fr;}}
-.logo-prev{width:64px;height:64px;border-radius:12px;border:1px solid #334155;object-fit:contain;background:#fff;display:none;margin-top:8px;}
+.logo-row{display:flex;gap:14px;align-items:center;flex-wrap:wrap;}
+.logo-box{width:160px;height:86px;border-radius:12px;border:1px dashed rgba(148,163,184,.5);background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.logo-box img{max-width:100%;max-height:100%;object-fit:contain;display:none;}
+.logo-box span{font-size:12px;color:#94a3b8;}
+.logo-actions{display:flex;flex-direction:column;gap:6px;align-items:flex-start;}
+.btn-sm{display:inline-block;padding:7px 14px;border-radius:8px;border:1px solid #1e9484;background:rgba(30,148,132,.12);color:#1e9484;font-size:13px;font-weight:600;cursor:pointer;}
+.btn-ghost{border-color:rgba(148,163,184,.4);background:transparent;color:#94a3b8;}
+.hint{font-size:12px;color:#64748b;}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:5px 6px 5px 12px;border-radius:20px;background:rgba(30,148,132,.12);color:#1e9484;font-size:13px;}
+.chip button{border:none;background:none;color:inherit;font-size:16px;cursor:pointer;line-height:1;padding:0 4px;}
+.add-email{display:flex;gap:8px;margin-bottom:4px;}
+.add-email input{flex:1;}
+input[type=color]{height:40px;padding:4px;cursor:pointer;}
+.file-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(148,163,184,.15);font-size:13px;}
+.file-row button{border:none;background:none;color:#1e9484;font-weight:600;cursor:pointer;font-size:13px;}
+.file-row button.del{color:#f87171;}
+.msg{font-size:13px;margin-top:8px;min-height:16px;}
 .btn{padding:10px 20px;background:#1e9484;border:none;border-radius:8px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;}
 .btn:disabled{opacity:.5;cursor:default;}
 .saved{font-size:13px;color:#22c55e;margin-left:10px;opacity:0;transition:opacity .2s;}
@@ -50,73 +67,201 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
 
 <div class="content" id="content" style="visibility:hidden;">
   <h1>&#9881;&#65039; Company Settings</h1>
-  <p class="sub">{{ company_name }}'s profile, used on invoices and notifications.</p>
+  <p class="sub">{{ company_name }}'s details. They are printed on every invoice.</p>
   <p class="readonly-note" id="roNote" style="display:none;">You can view these settings. Ask a {{ company_name }} admin to change them.</p>
 
   <form id="profileForm">
     <div class="card">
-      <h2>Profile</h2>
-      <div class="field"><label for="display_name">Company name</label><input id="display_name" maxlength="120"></div>
-      <div class="field">
-        <label for="logo_url">Logo URL</label><input id="logo_url" placeholder="https://…" maxlength="500">
-        <img class="logo-prev" id="logoPrev" alt="">
+      <h2>Company</h2>
+      <div class="field"><label for="display_name">Legal name (shown on invoices)</label><input id="display_name" maxlength="120" placeholder="e.g. Hicons, LLC"></div>
+      <div class="row">
+        <div class="field"><label for="subtitle">Subtitle</label><input id="subtitle" maxlength="120" placeholder="e.g. Hidalgo Construction &amp; Services"></div>
+        <div class="field"><label for="tagline">Slogan</label><input id="tagline" maxlength="120" placeholder="e.g. Your trust is our motivation"></div>
       </div>
-      <div class="field"><label for="address">Address</label><textarea id="address" maxlength="300"></textarea></div>
+      <div class="field">
+        <label>Logo</label>
+        <div class="logo-row">
+          <div class="logo-box" id="logoBox"><img id="logoPrev" alt="Company logo"><span id="logoEmpty">No logo</span></div>
+          <div class="logo-actions">
+            <label class="btn-sm">Upload logo<input type="file" id="logoFile" accept="image/png,image/jpeg,image/webp" hidden></label>
+            <button type="button" class="btn-sm btn-ghost" id="logoRemove">Remove</button>
+            <span class="hint">PNG with transparent background works best.</span>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="brand_primary">Main color</label><input id="brand_primary" type="color" value="#0d1b36"></div>
+        <div class="field"><label for="brand_accent">Accent color</label><input id="brand_accent" type="color" value="#e8a317"></div>
+      </div>
     </div>
+
     <div class="card">
       <h2>Contact</h2>
-      <div class="field"><label for="contact_name">Main contact</label><input id="contact_name" maxlength="120"></div>
       <div class="row">
-        <div class="field"><label for="email">Email</label><input id="email" type="email" maxlength="160"></div>
+        <div class="field"><label for="contact_name">Main contact</label><input id="contact_name" maxlength="120"></div>
         <div class="field"><label for="phone">Phone</label><input id="phone" type="tel" maxlength="40"></div>
       </div>
+      <div class="field"><label for="address">Address</label><textarea id="address" maxlength="300" placeholder="Street&#10;City, State ZIP"></textarea></div>
+      <div class="field">
+        <label for="emailInput">Company emails</label>
+        <div class="chips" id="emailChips"></div>
+        <div class="add-email"><input id="emailInput" type="email" placeholder="name@company.com" maxlength="160"><button type="button" class="btn-sm" id="emailAdd">Add</button></div>
+        <span class="hint">The first one is printed on invoices. Add as many as you need.</span>
+      </div>
+      <div class="field"><label for="notify_email">Send project and work-order alerts to</label><input id="notify_email" type="email" maxlength="160"></div>
     </div>
+
     <div class="card">
-      <h2>Notifications</h2>
-      <div class="field"><label for="notify_email">Send project and work-order alerts to</label><input id="notify_email" type="email" placeholder="ops@company.com" maxlength="160"></div>
+      <h2>Invoices</h2>
+      <div class="row">
+        <div class="field"><label for="invoice_prefix">Invoice number prefix</label><input id="invoice_prefix" maxlength="6" placeholder="H"></div>
+        <div class="field"><label for="invoice_next">Next invoice number</label><input id="invoice_next" type="number" min="1" step="1"></div>
+      </div>
+      <div class="field"><label for="payment_terms">Payment terms</label><input id="payment_terms" maxlength="60" placeholder="Due on receipt"></div>
+      <div class="field"><label for="payment_note">Payment instructions</label><textarea id="payment_note" maxlength="400" placeholder="Make all checks payable to ..."></textarea></div>
+      <div class="field"><label for="footer_note">Closing message</label><input id="footer_note" maxlength="200" placeholder="Thank you for your business!"></div>
+      <span class="hint" id="nextPreview"></span>
     </div>
+
     <button class="btn" type="submit" id="saveBtn">Save settings</button><span class="saved" id="saved">Saved &#10003;</span>
   </form>
+
+  <div class="card" style="margin-top:18px;">
+    <h2>Your own invoice template</h2>
+    <p class="hint" style="display:block;margin-bottom:12px;">Already have an invoice format you must use? Upload it here (PDF, image, Word or Excel) so we can set it up for you. Until then, invoices use the standard BSynch template with your logo and colors above.</p>
+    <div id="fileList"></div>
+    <label class="btn-sm" id="fileUploadBtn">Upload template<input type="file" id="tplFile" accept=".pdf,.png,.jpg,.jpeg,.docx,.xlsx" hidden></label>
+    <div class="msg" id="fileMsg"></div>
+  </div>
 </div>
 
 <footer>BSynch &middot; Contractor Module</footer>
 
 <script>
 var COMPANY = {{ company|tojson }};
-var FIELDS = ['display_name', 'contact_name', 'email', 'phone', 'address', 'logo_url', 'notify_email'];
-var API = '/api/contractor/' + COMPANY + '/profile';
+var TEXT = ['display_name','subtitle','tagline','contact_name','phone','address','notify_email','invoice_prefix','invoice_next','payment_terms','payment_note','footer_note','brand_primary','brand_accent'];
+var API = '/api/contractor/' + COMPANY;
+var emails = [], logo = '', canEdit = false;
 
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 function showLogo(){
-  var url = document.getElementById('logo_url').value.trim(), img = document.getElementById('logoPrev');
-  if(/^https?:\/\//.test(url)){ img.src = url; img.style.display = 'block'; } else img.style.display = 'none';
+  var img = document.getElementById('logoPrev');
+  img.style.display = logo ? 'block' : 'none'; if(logo) img.src = logo;
+  document.getElementById('logoEmpty').style.display = logo ? 'none' : '';
 }
-document.getElementById('logo_url').oninput = showLogo;
+function renderEmails(){
+  document.getElementById('emailChips').innerHTML = emails.map(function(e, i){
+    return '<span class="chip">' + esc(e) + (canEdit ? '<button type="button" data-i="' + i + '" aria-label="Remove">&times;</button>' : '') + '</span>';
+  }).join('') || '<span class="hint">No emails yet.</span>';
+}
+function addEmail(){
+  var inp = document.getElementById('emailInput'), v = inp.value.trim().toLowerCase();
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)){ inp.focus(); return; }
+  if(emails.indexOf(v) < 0) emails.push(v);
+  inp.value = ''; renderEmails();
+}
+document.getElementById('emailAdd').onclick = addEmail;
+document.getElementById('emailInput').onkeydown = function(e){ if(e.key === 'Enter'){ e.preventDefault(); addEmail(); } };
+document.getElementById('emailChips').onclick = function(e){
+  if(e.target.dataset.i !== undefined){ emails.splice(+e.target.dataset.i, 1); renderEmails(); }
+};
+function updateNextPreview(){
+  var p = document.getElementById('invoice_prefix').value.trim(), n = parseInt(document.getElementById('invoice_next').value || '0', 10);
+  document.getElementById('nextPreview').textContent = n > 0 ? 'Next invoice will be ' + p + String(n).padStart(6, '0') : '';
+}
+document.getElementById('invoice_prefix').oninput = updateNextPreview;
+document.getElementById('invoice_next').oninput = updateNextPreview;
+
+document.getElementById('logoFile').onchange = function(){
+  var f = this.files && this.files[0]; if(!f) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var img = new Image();
+    img.onload = function(){
+      var k = Math.min(1, 700 / Math.max(img.width, img.height)), cv = document.createElement('canvas');
+      cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      var data = cv.toDataURL('image/png');
+      if(data.length > 590000) data = cv.toDataURL('image/webp', 0.9);
+      if(data.length > 590000){ alert('That logo is too large. Try a smaller image.'); return; }
+      logo = data; showLogo();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(f);
+  this.value = '';
+};
+document.getElementById('logoRemove').onclick = function(){ logo = ''; showLogo(); };
+
+function loadFiles(){
+  fetch(API + '/files').then(function(r){ return r.json(); }).then(function(list){
+    var box = document.getElementById('fileList');
+    box.innerHTML = (Array.isArray(list) && list.length) ? list.map(function(f){
+      return '<div class="file-row"><span>&#128196; ' + esc(f.filename) + ' <span class="hint">· ' + esc(new Date(f.created_at).toLocaleDateString()) + '</span></span>' +
+        '<span><button type="button" data-dl="' + esc(f.id) + '" data-name="' + esc(f.filename) + '">Download</button>' +
+        (canEdit ? ' <button type="button" class="del" data-del="' + esc(f.id) + '">Delete</button>' : '') + '</span></div>';
+    }).join('') : '<div class="hint" style="margin-bottom:10px;">No template uploaded.</div>';
+  });
+}
+document.getElementById('fileList').onclick = function(e){
+  var t = e.target;
+  if(t.dataset.dl){
+    fetch(API + '/files/' + t.dataset.dl).then(function(r){ return r.blob(); }).then(function(b){
+      var a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = t.dataset.name; a.click();
+      setTimeout(function(){ URL.revokeObjectURL(a.href); }, 5000);
+    });
+  } else if(t.dataset.del && confirm('Delete this file?')){
+    fetch(API + '/files/' + t.dataset.del, {method:'DELETE'}).then(loadFiles);
+  }
+};
+document.getElementById('tplFile').onchange = function(){
+  var f = this.files && this.files[0], m = document.getElementById('fileMsg');
+  if(!f) return;
+  if(f.size > 5 * 1024 * 1024){ m.style.color = '#f87171'; m.textContent = 'File must be under 5 MB.'; return; }
+  m.style.color = '#94a3b8'; m.textContent = 'Uploading...';
+  var reader = new FileReader();
+  reader.onload = function(e){
+    fetch(API + '/files', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({filename: f.name, mime: f.type, data: e.target.result})})
+      .then(function(r){ return r.json(); }).then(function(res){
+        m.style.color = res.ok ? '#22c55e' : '#f87171';
+        m.textContent = res.ok ? 'Template uploaded ✓' : (res.error || 'Upload failed');
+        loadFiles();
+      });
+  };
+  reader.readAsDataURL(f);
+  this.value = '';
+};
 
 if(CT.user) document.getElementById('hdrUser').textContent = 'Hi, ' + CT.user;
-fetch('/api/contractor/me').then(function(r){ return r.json(); }).then(function(me){
-  var acc = (me.access || {})[COMPANY];
-  if(!acc){ location.replace('/contractor-hub'); return; }
-  var canEdit = acc.is_admin || (acc.permissions && acc.permissions.company_settings);
-  return fetch(API).then(function(r){ return r.json(); }).then(function(d){
-    var p = d.profile || {};
-    FIELDS.forEach(function(f){ var el = document.getElementById(f); el.value = p[f] || ''; el.disabled = !canEdit; });
-    showLogo();
-    if(!canEdit){ document.getElementById('saveBtn').style.display = 'none'; document.getElementById('roNote').style.display = ''; }
-    document.getElementById('content').style.visibility = '';
-  });
+fetch(API + '/profile').then(function(r){ return r.json(); }).then(function(d){
+  if(!d.ok){ location.replace('/contractor-hub'); return; }
+  var p = d.profile || {};
+  canEdit = !!d.can_edit;
+  TEXT.forEach(function(f){ var el = document.getElementById(f); if(p[f] !== undefined && p[f] !== null) el.value = p[f]; el.disabled = !canEdit; });
+  emails = (p.emails || []).slice(); logo = p.logo || '';
+  renderEmails(); showLogo(); updateNextPreview(); loadFiles();
+  if(!canEdit){
+    ['saveBtn','emailAdd','logoRemove','fileUploadBtn'].forEach(function(id){ document.getElementById(id).style.display = 'none'; });
+    document.querySelector('.add-email').style.display = 'none';
+    document.querySelector('.logo-actions label').style.display = 'none';
+    document.getElementById('roNote').style.display = '';
+  }
+  document.getElementById('content').style.visibility = '';
 }).catch(function(){ location.replace('/contractor-hub'); });
 
 document.getElementById('profileForm').onsubmit = function(e){
   e.preventDefault();
-  var body = {}, btn = document.getElementById('saveBtn');
-  FIELDS.forEach(function(f){ body[f] = document.getElementById(f).value; });
+  var pending = document.getElementById('emailInput').value.trim();
+  if(pending) addEmail();
+  var body = {emails: emails, logo: logo}, btn = document.getElementById('saveBtn');
+  TEXT.forEach(function(f){ body[f] = document.getElementById(f).value; });
   btn.disabled = true;
-  fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)})
+  fetch(API + '/profile', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)})
     .then(function(r){ return r.json(); }).then(function(res){
       btn.disabled = false;
       if(res.ok){ var s = document.getElementById('saved'); s.classList.add('on'); setTimeout(function(){ s.classList.remove('on'); }, 1500); }
       else alert('Could not save: ' + (res.error || 'error'));
-    });
+    }).catch(function(){ btn.disabled = false; alert('Connection error.'); });
 };
 </script>
 </body>

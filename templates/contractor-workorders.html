@@ -287,7 +287,7 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
     </div>
 
     <div class="modal-section">
-      <div class="modal-section-title">Steps (5 default, max 10)</div>
+      <div class="modal-section-title">Steps (max 10)</div>
       <div id="stepFieldsContainer"></div>
       <button class="btn-add-step-field" id="addStepFieldBtn" onclick="addStepField()">+ Add Step</button>
     </div>
@@ -319,7 +319,7 @@ var openJobData = null;
 var currentTab = 'steps';
 var selectedPhotoFile = null;
 var userName = localStorage.getItem('mbrName') || localStorage.getItem('companyUser') || 'User';
-var DEFAULT_STEPS = ['Site Assessment','Material Preparation','Structural Work','Quality Check','Final Inspection'];
+var DEFAULT_STEPS = ['Work'];
 
 // ── Boot ──
 Promise.all([
@@ -433,7 +433,7 @@ function renderSteps(steps){
     +'</div>';
 
   if(!steps.length){
-    html += '<div style="text-align:center;padding:30px;color:#475569;font-size:13px;">No steps yet. <a href="#" onclick="initDefaultSteps();return false;" style="color:#1e9484;">Initialize 5 default steps</a></div>';
+    html += '<div style="text-align:center;padding:30px;color:#475569;font-size:13px;">No steps yet. <a href="#" onclick="initDefaultSteps();return false;" style="color:#1e9484;">Add a first step</a></div>';
   } else {
     steps.forEach(function(s){
       var pct = parseFloat(s.progress_pct||0);
@@ -639,7 +639,7 @@ function initCreateSteps(){
   var c=document.getElementById('stepFieldsContainer');
   c.innerHTML='';
   createStepCount=0;
-  DEFAULT_STEPS.forEach(function(name){addStepField(name);});
+  addStepField('');
   updateAddStepBtn();
 }
 function addStepField(defaultName){
@@ -651,8 +651,8 @@ function addStepField(defaultName){
   row.className='step-field-row';
   row.id='sfrow-'+num;
   row.innerHTML='<div class="step-field-num">'+num+'</div>'
-    +'<input class="step-field-input" value="'+(defaultName?esc(defaultName):'')+'" placeholder="Step '+num+' name">'
-    +(num>5?'<button class="step-field-del" onclick="removeStepField('+num+')">&#215;</button>':'');
+    +'<input class="step-field-input" value="'+(defaultName?esc(defaultName):'')+'" placeholder="'+(num===1?'Step 1 (blank = use the title)':'Step '+num+' name')+'">'
+    +(num>1?'<button class="step-field-del" onclick="removeStepField('+num+')">&#215;</button>':'');
   c.appendChild(row);
   updateAddStepBtn();
 }
@@ -683,6 +683,7 @@ function submitNewJob(){
   document.querySelectorAll('#stepFieldsContainer .step-field-input').forEach(function(inp){
     if(inp.value.trim()) stepNames.push(inp.value.trim());
   });
+  if(!stepNames.length) stepNames.push(title);
   var payload={
     title:title,description:document.getElementById('newDesc').value.trim(),
     client_name:document.getElementById('newClient').value.trim(),
