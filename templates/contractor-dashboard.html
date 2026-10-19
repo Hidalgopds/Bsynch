@@ -239,8 +239,10 @@ function renderJobRow(j,inProj){
       stepsHtml+='<div class="step-row">'
         +'<div class="step-num">'+(s.order_num+1)+'</div>'
         +'<span class="step-name">'+esc(s.step_name)+'</span>'
-        +'<div class="step-mini-track"><div class="step-mini-fill '+mf+'" style="width:'+sp+'%"></div></div>'
-        +'<span class="step-pct-badge '+sc+'">'+Math.round(sp)+'%</span>'
+        +(j.tracking==='check'
+          ? '<span class="step-pct-badge '+(sp>=100?'spct-done':'spct-zero')+'">'+(sp>=100?'&#10003; Done':'Not done')+'</span>'
+          : '<div class="step-mini-track"><div class="step-mini-fill '+mf+'" style="width:'+sp+'%"></div></div>'
+            +'<span class="step-pct-badge '+sc+'">'+Math.round(sp)+'%</span>')
         +'</div>';
     });
     stepsHtml+='</div>';

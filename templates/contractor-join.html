@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1e9484">
+<title>Join {{ company_name }} – BSynch</title>
+<link rel="manifest" href="/contractor/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px;}
+.box{width:100%;max-width:420px;}
+.logo{width:56px;height:56px;margin:0 auto 14px;background:linear-gradient(135deg,#1e9484,#4f8ef7);border-radius:14px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:24px;color:#fff;}
+h1{font-size:22px;text-align:center;margin-bottom:6px;}
+.sub{font-size:14px;color:#94a3b8;text-align:center;margin-bottom:22px;line-height:1.5;}
+.card{background:#1a1d27;border:1px solid #2a2d3e;border-radius:16px;padding:20px;}
+.field{margin-bottom:12px;}
+.field label{display:block;font-size:12px;color:#94a3b8;margin-bottom:5px;}
+.field input{width:100%;background:#0f1117;border:1px solid #334155;color:#e2e8f0;border-radius:9px;padding:11px 12px;font-size:15px;}
+.field input:focus{outline:none;border-color:#1e9484;}
+.btn{width:100%;padding:13px;background:#1e9484;border:none;border-radius:10px;color:#fff;font-weight:700;font-size:15px;cursor:pointer;margin-top:6px;}
+.btn:disabled{opacity:.5;cursor:default;}
+.err{color:#f87171;font-size:13px;margin-top:10px;min-height:16px;text-align:center;}
+.alt{text-align:center;font-size:13px;color:#94a3b8;margin-top:16px;}
+.alt a{color:#1e9484;}
+.steps{display:flex;justify-content:center;gap:6px;margin-bottom:18px;font-size:11px;color:#64748b;flex-wrap:wrap;}
+.steps span{padding:3px 10px;border-radius:20px;background:#1e2533;}
+.steps span.on{background:rgba(30,148,132,.15);color:#1e9484;font-weight:700;}
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="logo">B</div>
+  {% if valid %}
+  <h1>Join {{ company_name }}</h1>
+  <p class="sub">Create your account to see {{ company_name }}'s projects and work orders.</p>
+  <div class="steps"><span class="on">1. Account</span><span>2. Agreement</span><span>3. Install app</span></div>
+  <form class="card" id="f" autocomplete="on">
+    <div class="field"><label for="name">Full name</label><input id="name" autocomplete="name" required maxlength="80"></div>
+    <div class="field"><label for="username">Username</label><input id="username" autocomplete="username" autocapitalize="none" required maxlength="60" placeholder="e.g. jperez"></div>
+    <div class="field"><label for="email">Email</label><input id="email" type="email" autocomplete="email" required maxlength="160"></div>
+    <div class="field"><label for="phone">Phone</label><input id="phone" type="tel" autocomplete="tel" maxlength="30"></div>
+    <div class="field"><label for="password">Password (6+ characters)</label><input id="password" type="password" autocomplete="new-password" required minlength="6"></div>
+    <button class="btn" id="btn" type="submit">Create account</button>
+    <div class="err" id="err"></div>
+  </form>
+  <p class="alt">Already have an account? <a href="/login?next=/contractor/{{ company }}">Log in</a></p>
+  {% else %}
+  <h1>Invite link expired</h1>
+  <p class="sub">This link is no longer valid. Ask your {{ company_name }} admin to send you a new one.</p>
+  <p class="alt"><a href="/login">Go to login</a></p>
+  {% endif %}
+</div>
+<script>
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(function(){});
+{% if valid %}
+document.getElementById('f').onsubmit = function(e){
+  e.preventDefault();
+  var btn = document.getElementById('btn'), err = document.getElementById('err');
+  err.textContent = ''; btn.disabled = true; btn.textContent = 'Creating…';
+  var body = {};
+  ['name','username','email','phone','password'].forEach(function(k){ body[k] = document.getElementById(k).value; });
+  fetch('/api/join/' + {{ company|tojson }} + '/' + {{ token|tojson }}, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)})
+    .then(function(r){ return r.json(); }).then(function(res){
+      if(!res.ok){ err.textContent = res.error || 'Could not create account.'; btn.disabled = false; btn.textContent = 'Create account'; return; }
+      try {
+        ['mbrName','mbrRole','companyUser','companySlug'].forEach(function(k){ localStorage.removeItem(k); });
+        localStorage.setItem('bsynchAuth', res.name);
+        localStorage.setItem('bsynchRole', res.role || 'worker');
+      } catch(x) {}
+      location.href = '/contractor/agreement?next=' + encodeURIComponent('/contractor/' + {{ company|tojson }});
+    }).catch(function(){ err.textContent = 'Connection error. Try again.'; btn.disabled = false; btn.textContent = 'Create account'; });
+};
+{% endif %}
+</script>
+</body>
+</html>

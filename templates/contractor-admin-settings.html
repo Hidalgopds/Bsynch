@@ -67,10 +67,24 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
   <div class="tabs">
     <button class="tab active" data-tab="users">Members</button>
     <button class="tab" data-tab="perms">Roles &amp; Permissions</button>
+    <button class="tab" data-tab="agreements">Signed Agreements</button>
     <button class="tab" data-tab="projects" id="projTab" style="display:none;">Unassigned Projects</button>
   </div>
 
   <div class="panel active" id="panel-users">
+    <div class="card" style="margin-bottom:14px;">
+      <h2>&#128279; Invite link</h2>
+      <p class="hint">Send this link to new people. They create their account, sign the agreement, and install the app. They join {{ company_name }} automatically.</p>
+      <div class="add-row"><input type="text" id="inviteUrl" readonly onclick="this.select()"></div>
+      <div class="add-row" style="margin-top:8px;">
+        <button class="btn" id="copyInvite" style="margin-top:0;">Copy</button>
+        <button class="btn" id="shareInvite" style="margin-top:0;display:none;">Share</button>
+        <a class="btn" id="waInvite" target="_blank" rel="noopener" style="margin-top:0;text-decoration:none;background:#25d366;">WhatsApp</a>
+        <a class="btn" id="mailInvite" style="margin-top:0;text-decoration:none;background:#334155;">Email</a>
+        <button class="btn-rm" id="resetInvite" style="margin-left:auto;">New link</button>
+      </div>
+      <div class="msg" id="inviteMsg"></div>
+    </div>
     <div class="card" style="margin-bottom:14px;">
       <h2>Add a member</h2>
       <p class="hint">Enter the person's exact username or email. They need an approved BSynch account first.</p>
@@ -108,6 +122,14 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
         </table>
       </div>
       <button class="btn" id="savePerms">Save permissions</button><span class="saved" id="permsSaved">Saved &#10003;</span>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-agreements">
+    <div class="card">
+      <h2>Signed Agreements</h2>
+      <p class="hint">Confidentiality and data-use agreements signed by {{ company_name }} members. Open one to print it or save it as PDF.</p>
+      <div id="agreeBox"><div class="empty">Loading&hellip;</div></div>
     </div>
   </div>
 
@@ -243,12 +265,52 @@ function loadProjects(){
   });
 }
 
+var inviteText = '';
+function setInvite(url){
+  document.getElementById('inviteUrl').value = url;
+  inviteText = 'You are invited to join ' + COMPANY_NAME + ' on BSynch. Create your account and install the app here: ' + url;
+  document.getElementById('waInvite').href = 'https://wa.me/?text=' + encodeURIComponent(inviteText);
+  document.getElementById('mailInvite').href = 'mailto:?subject=' + encodeURIComponent('Join ' + COMPANY_NAME + ' on BSynch') + '&body=' + encodeURIComponent(inviteText);
+}
+function loadInvite(){
+  fetch(API + '/invite').then(function(r){ return r.json(); }).then(function(d){ if(d.ok) setInvite(d.url); });
+  if(navigator.share) document.getElementById('shareInvite').style.display = '';
+}
+document.getElementById('copyInvite').onclick = function(){
+  var inp = document.getElementById('inviteUrl'), m = document.getElementById('inviteMsg');
+  (navigator.clipboard ? navigator.clipboard.writeText(inp.value) : Promise.reject()).then(function(){
+    m.style.color = '#22c55e'; m.textContent = 'Link copied ✓';
+  }).catch(function(){ inp.select(); document.execCommand('copy'); m.style.color = '#22c55e'; m.textContent = 'Link copied ✓'; });
+};
+document.getElementById('shareInvite').onclick = function(){
+  navigator.share({title: 'Join ' + COMPANY_NAME, text: inviteText, url: document.getElementById('inviteUrl').value}).catch(function(){});
+};
+document.getElementById('resetInvite').onclick = function(){
+  if(!confirm('Create a new link? The old link will stop working.')) return;
+  fetch(API + '/invite', {method:'POST'}).then(function(r){ return r.json(); }).then(function(d){
+    if(d.ok){ setInvite(d.url); var m = document.getElementById('inviteMsg'); m.style.color = '#22c55e'; m.textContent = 'New link created. The old one no longer works.'; }
+  });
+};
+function loadAgreements(){
+  fetch(API + '/agreements').then(function(r){ return r.json(); }).then(function(list){
+    var box = document.getElementById('agreeBox');
+    if(!Array.isArray(list) || !list.length){ box.innerHTML = '<div class="empty">No signed agreements yet.</div>'; return; }
+    box.innerHTML = '<div class="table-wrap"><table><thead><tr><th>Member</th><th>Signed by</th><th>Date</th><th></th></tr></thead><tbody>' +
+      list.map(function(a){
+        return '<tr><td><strong>' + esc(a.user_name) + '</strong></td><td>' + esc(a.signer_name) + '</td><td class="muted">' + esc(new Date(a.signed_at).toLocaleString()) + '</td>' +
+          '<td style="text-align:right;"><a href="/contractor/agreement/' + encodeURIComponent(a.id) + '/print" style="color:#1e9484;font-weight:600;text-decoration:none;">View / Print</a></td></tr>';
+      }).join('') + '</tbody></table></div>';
+  });
+}
+
 if(CT.user) document.getElementById('hdrUser').textContent = 'Hi, ' + CT.user;
 fetch('/api/contractor/me').then(function(r){ return r.json(); }).then(function(me){
   var acc = (me.access || {})[COMPANY];
   if(!acc || !acc.is_admin){ location.replace('/contractor/' + COMPANY); return; }
   document.getElementById('content').style.visibility = '';
   loadUsers();
+  loadInvite();
+  loadAgreements();
   loadPerms();
   if(me.is_super){ document.getElementById('projTab').style.display = ''; loadProjects(); }
 }).catch(function(){ location.replace('/contractor-hub'); });

@@ -4,6 +4,7 @@ import io
 import logging
 import smtplib
 import random
+import re
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import date, datetime, timezone, timedelta
@@ -1688,6 +1689,9 @@ def get_companies():
     )
     return jsonify(r.json() if r.ok else [])
 
+DEFAULT_COMPANY_ADMIN_USER = os.environ.get("DEFAULT_COMPANY_ADMIN_USER", "daniel@hidalgoops.com")
+DEFAULT_COMPANY_ADMIN_PASSWORD = os.environ.get("DEFAULT_COMPANY_ADMIN_PASSWORD", "1234")
+
 @app.route("/api/platform/companies", methods=["POST"])
 def create_company():
     data = request.get_json() or {}
@@ -1703,6 +1707,8 @@ def create_company():
         "status":        data.get("status", "active"),
         "logo_url":      data.get("logo_url", "") or None,
         "homelab_plan":  data.get("homelab_plan", "free"),
+        "admin_username": (data.get("admin_username") or DEFAULT_COMPANY_ADMIN_USER).strip(),
+        "admin_password": (data.get("admin_password") or DEFAULT_COMPANY_ADMIN_PASSWORD).strip(),
     }
     if not payload["name"] or not payload["slug"]:
         return jsonify({"ok": False, "error": "name and slug required"}), 400
@@ -6380,6 +6386,249 @@ def contractor_company_profile(company):
     return jsonify({"ok": ok, "error": e})
 
 
+# ── Contractor: confidentiality + data-use agreement ────────────────
+CONTRACTOR_AGREEMENT_VERSION = "2026-10-v1"
+CONTRACTOR_AGREEMENT_TEMPLATE = """CONFIDENTIALITY, DATA USE AND APP PERMISSIONS AGREEMENT
+
+This Agreement is made between {company} (the "Company"), which operates through the BSynch platform provided by Hidalgo Ops, and the person signing below (the "User").
+
+1. PURPOSE
+The User is being given access to the BSynch application (the "App") to perform work for the Company. This Agreement protects the information the User will see in the App and explains how the User's data is used.
+
+2. CONFIDENTIAL INFORMATION
+"Confidential Information" means everything the User sees, receives or creates through the App, including but not limited to: projects, work orders, clients and their contact details, addresses, plans and drawings, photos, schedules, prices, quantities, materials, suppliers, invoices, internal procedures, and personal information about other workers or clients.
+
+3. USER OBLIGATIONS
+The User agrees to:
+  a) Use Confidential Information only to perform work for the Company.
+  b) Not disclose, share, publish, sell or transfer any Confidential Information to anyone outside the Company, by any means (including screenshots, photos, messages, email or social media).
+  c) Not copy, download, store or reuse any Confidential Information for the User's own benefit or for any other person, company or competitor.
+  d) Not contact the Company's clients or suppliers to offer competing services using information obtained through the App.
+  e) Immediately report any loss, leak or unauthorized use of Confidential Information to the Company.
+  f) When the working relationship ends, or when the Company asks, stop using the App and delete any Confidential Information in the User's possession.
+
+4. CONSENT TO DATA USE
+The User authorizes the Company and the BSynch platform to collect, store and use the following data: name, username, email, phone number, signature, photos and files uploaded, location while using the App, device and browser information, and activity in the App (including dates and times). This data is used to operate the App, manage projects and work orders, track progress and time, keep safety and quality records, and meet legal obligations. It is shared only with the Company and the service providers needed to run the App. The User may ask the Company to see or correct their data.
+
+5. APP PERMISSIONS
+The User authorizes the App to use the device's camera and photo library (to document work), location (to record where work is done), and notifications (to receive assignments and alerts). The User can change these permissions in the device settings, but some App features may stop working.
+
+6. DURATION
+The User's confidentiality obligations start when this Agreement is signed and continue for two (2) years after the working relationship ends. Obligations regarding trade secrets and personal data continue for as long as that information remains confidential.
+
+7. CONSEQUENCES OF A BREACH
+A breach of this Agreement may result in immediate removal of access to the App, termination of the working relationship, and legal action, including claims for damages and injunctive relief.
+
+8. GOVERNING LAW
+This Agreement is governed by the laws of the State of Texas, United States.
+
+9. ELECTRONIC SIGNATURE
+The User agrees that signing this Agreement electronically has the same legal effect as a handwritten signature, under the U.S. ESIGN Act and the Texas Uniform Electronic Transactions Act.
+"""
+
+
+def _ct_agreement_text(company):
+    name = "BSynch"
+    if company in CONTRACTOR_COMPANIES:
+        name = (_ct_config(f"contractor_company_{company}", {}) or {}).get("display_name") or CONTRACTOR_COMPANIES[company]
+    return CONTRACTOR_AGREEMENT_TEMPLATE.format(company=name)
+
+
+def _ct_signed_agreement(name):
+    r = requests.get(
+        f"{sb_url()}/rest/v1/contractor_agreements?user_name=eq.{requests.utils.quote(name)}"
+        f"&version=eq.{CONTRACTOR_AGREEMENT_VERSION}&select=id,signed_at&order=signed_at.desc&limit=1",
+        headers=sb_headers(), timeout=5
+    )
+    return r.json()[0] if r.ok and r.json() else None
+
+
+@app.route("/contractor/agreement")
+def contractor_agreement_page():
+    return render_template("contractor-agreement.html")
+
+
+@app.route("/contractor/agreement/<agreement_id>/print")
+def contractor_agreement_print(agreement_id):
+    return render_template("contractor-agreement-print.html", agreement_id=agreement_id)
+
+
+@app.route("/api/contractor/agreement", methods=["GET"])
+def contractor_agreement_status():
+    me = _contractor_caller()
+    if not me["name"]:
+        return jsonify({"ok": False, "error": "not logged in"}), 401
+    signed = None if me["is_super"] else _ct_signed_agreement(me["name"])
+    return jsonify({
+        "ok": True, "required": not me["is_super"], "signed": bool(signed) or me["is_super"],
+        "agreement_id": signed["id"] if signed else None,
+        "version": CONTRACTOR_AGREEMENT_VERSION, "text": _ct_agreement_text(me["company"]),
+    })
+
+
+@app.route("/api/contractor/agreement", methods=["POST"])
+def contractor_agreement_sign():
+    me = _contractor_caller()
+    if not me["name"]:
+        return jsonify({"ok": False, "error": "not logged in"}), 401
+    data = request.get_json() or {}
+    signer = (data.get("signer_name") or "").strip()
+    sig = data.get("signature_png") or ""
+    if not (data.get("accept_nda") and data.get("accept_data") and data.get("accept_permissions")):
+        return jsonify({"ok": False, "error": "You must accept every section"}), 400
+    if len(signer) < 3 or len(signer) > 120:
+        return jsonify({"ok": False, "error": "Type your full legal name"}), 400
+    if not sig.startswith("data:image/png;base64,") or len(sig) > 400_000 or len(sig) < 1500:
+        return jsonify({"ok": False, "error": "Please sign in the box"}), 400
+    perms = data.get("permissions") or {}
+    row = {
+        "user_name": me["name"], "company": me["company"], "version": CONTRACTOR_AGREEMENT_VERSION,
+        "agreement_text": _ct_agreement_text(me["company"]), "signer_name": signer, "signature_png": sig,
+        "permissions": {k: str(perms.get(k, ""))[:20] for k in ("camera", "location", "notifications")},
+        "ip": get_client_ip(), "user_agent": (request.headers.get("User-Agent") or "")[:300],
+    }
+    r = requests.post(
+        f"{sb_url()}/rest/v1/contractor_agreements",
+        json=row, headers={**sb_headers(), "Prefer": "return=representation"}, timeout=8
+    )
+    if not (r.ok and r.json()):
+        return jsonify({"ok": False, "error": "Could not save the agreement"}), 500
+    requests.patch(
+        f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(me['name'])}",
+        json={"consent_signed": True, "consent_date": __import__("datetime").datetime.utcnow().isoformat()},
+        headers=sb_headers(), timeout=5
+    )
+    return jsonify({"ok": True, "agreement_id": r.json()[0]["id"]})
+
+
+@app.route("/api/contractor/agreements/<agreement_id>", methods=["GET"])
+def contractor_agreement_get(agreement_id):
+    me = _contractor_caller()
+    r = requests.get(
+        f"{sb_url()}/rest/v1/contractor_agreements?id=eq.{requests.utils.quote(agreement_id)}&select=*&limit=1",
+        headers=sb_headers(), timeout=8
+    )
+    row = r.json()[0] if r.ok and r.json() else None
+    if not row:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    if not (me["is_super"] or row["user_name"] == me["name"] or (row.get("company") and _ct_can_admin(me, row["company"]))):
+        return jsonify({"ok": False, "error": "not allowed"}), 403
+    return jsonify({"ok": True, "agreement": row})
+
+
+@app.route("/api/contractor/agreements/mine", methods=["GET"])
+def contractor_agreements_mine():
+    me = _contractor_caller()
+    if not me["name"]:
+        return jsonify([])
+    r = requests.get(
+        f"{sb_url()}/rest/v1/contractor_agreements?user_name=eq.{requests.utils.quote(me['name'])}"
+        f"&select=id,version,signer_name,signed_at,company&order=signed_at.desc&limit=20",
+        headers=sb_headers(), timeout=8
+    )
+    return jsonify(r.json() if r.ok else [])
+
+
+@app.route("/api/contractor/<company>/admin/agreements", methods=["GET"])
+def contractor_admin_agreements(company):
+    me, err = _ct_admin_guard(company)
+    if err:
+        return err
+    r = requests.get(
+        f"{sb_url()}/rest/v1/contractor_agreements?company=eq.{company}"
+        f"&select=id,user_name,signer_name,version,signed_at&order=signed_at.desc&limit=500",
+        headers=sb_headers(), timeout=8
+    )
+    return jsonify(r.json() if r.ok else [])
+
+
+# ── Contractor: invite link + self sign-up ──────────────────────────
+def _ct_invite_token(company, regenerate=False):
+    import secrets, datetime as dt
+    cur = _ct_config(f"contractor_invite_{company}", {}) or {}
+    if regenerate or not cur.get("token"):
+        cur = {"token": secrets.token_urlsafe(18), "created_at": dt.datetime.utcnow().isoformat()}
+        _ct_set_config(f"contractor_invite_{company}", cur)
+    return cur["token"]
+
+
+def _ct_invite_valid(company, token):
+    import hmac
+    if company not in CONTRACTOR_COMPANIES or not token:
+        return False
+    cur = (_ct_config(f"contractor_invite_{company}", {}) or {}).get("token") or ""
+    return bool(cur) and hmac.compare_digest(cur, token)
+
+
+@app.route("/api/contractor/<company>/admin/invite", methods=["GET", "POST"])
+def contractor_admin_invite(company):
+    me, err = _ct_admin_guard(company)
+    if err:
+        return err
+    token = _ct_invite_token(company, regenerate=request.method == "POST")
+    return jsonify({"ok": True, "url": f"{request.host_url.rstrip('/')}/join/{company}/{token}"})
+
+
+@app.route("/join/<company>/<token>")
+def contractor_join_page(company, token):
+    valid = _ct_invite_valid(company, token)
+    return render_template("contractor-join.html", valid=valid, company=company, token=token,
+                           company_name=CONTRACTOR_COMPANIES.get(company, "BSynch"))
+
+
+@app.route("/api/join/<company>/<token>", methods=["POST"])
+def contractor_join(company, token):
+    if not _ct_invite_valid(company, token):
+        return jsonify({"ok": False, "error": "This invite link is no longer valid. Ask your admin for a new one."}), 403
+    data = request.get_json() or {}
+    name = " ".join((data.get("name") or "").split())
+    username = (data.get("username") or "").strip().lower()
+    email = (data.get("email") or "").strip().lower()
+    phone = (data.get("phone") or "").strip()
+    password = data.get("password") or ""
+    if not (2 <= len(name) <= 80) or not re.fullmatch(r"[a-z0-9._@-]{3,60}", username) \
+            or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email) or len(email) > 160:
+        return jsonify({"ok": False, "error": "Check your name, username (letters, numbers, . _ -) and email"}), 400
+    if len(password) < 6:
+        return jsonify({"ok": False, "error": "Password must be at least 6 characters"}), 400
+    for field, value, label in (("name", name, "name"), ("username", username, "username"), ("email", email, "email")):
+        chk = requests.get(
+            f"{sb_url()}/rest/v1/app_users?{field}=eq.{requests.utils.quote(value)}&select=id&limit=1",
+            headers=sb_headers(), timeout=5
+        )
+        if chk.ok and chk.json():
+            return jsonify({"ok": False, "error": f"That {label} is already registered. Log in instead, or use a different {label}."}), 409
+    r = requests.post(
+        f"{sb_url()}/rest/v1/app_users",
+        json={"name": name, "username": username, "email": email, "phone": phone[:30] or None,
+              "password": hash_password(password), "role": "worker", "approved": True,
+              "contractor_company": company},
+        headers={**sb_headers(), "Prefer": "return=representation"}, timeout=8
+    )
+    if not (r.ok and r.json()):
+        return jsonify({"ok": False, "error": "Could not create your account. Try again."}), 400
+    return jsonify({"ok": True, "name": name, "role": "worker"})
+
+
+@app.route("/contractor/account")
+def contractor_account_page():
+    return render_template("contractor-account.html")
+
+
+@app.route("/contractor/manifest.webmanifest")
+def contractor_manifest():
+    return jsonify({
+        "id": "/contractor-hub", "name": "BSynch Contractor", "short_name": "BSynch",
+        "start_url": "/contractor-hub", "scope": "/", "display": "standalone",
+        "background_color": "#0f1117", "theme_color": "#1e9484",
+        "icons": [
+            {"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+            {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+            {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+        ],
+    }), 200, {"Content-Type": "application/manifest+json"}
+
+
 # ── Helpers ──────────────────────────────────────────────────────
 
 def _next_job_number():
@@ -6442,10 +6691,18 @@ def create_contractor_job():
         "due_date":     data.get("due_date") or None,
         "notes":        data.get("notes", ""),
         "created_by":   data.get("created_by", ""),
+        "project_id":   data.get("project_id") or None,
+        "tracking":     "check" if data.get("tracking") == "check" else "percent",
     }
     scope = _contractor_scope()
     if scope == "__none__":
         return jsonify({"ok": False, "error": "You are not assigned to a company yet"}), 403
+    if not scope and payload["project_id"]:
+        pr = requests.get(
+            f"{sb_url()}/rest/v1/{CONTRACTOR_PROJECTS_TABLE}?id=eq.{payload['project_id']}&select=company&limit=1",
+            headers=sb_headers(), timeout=5
+        )
+        scope = pr.json()[0].get("company") if pr.ok and pr.json() else None
     if scope:
         payload["company"] = scope
     r = requests.post(
@@ -6477,9 +6734,13 @@ def update_contractor_job(job_id):
     allowed = [
         "title", "description", "client_name", "location", "status",
         "priority", "crew", "start_date", "due_date", "completed_date",
-        "notes"
+        "notes", "tracking", "progress_pct"
     ]
     payload = {k: data[k] for k in allowed if k in data}
+    if "tracking" in payload and payload["tracking"] not in ("percent", "check"):
+        return jsonify({"ok": False, "error": "tracking must be percent or check"}), 400
+    if "progress_pct" in payload:
+        payload["progress_pct"] = max(0.0, min(100.0, float(payload["progress_pct"] or 0)))
     if not payload:
         return jsonify({"ok": False, "error": "nothing to update"}), 400
     payload["updated_at"] = __import__("datetime").datetime.utcnow().isoformat() + "Z"
@@ -6747,7 +7008,7 @@ def get_contractor_projects():
     # Single query using PostgREST embedded join (FK: contractor_jobs.project_id → contractor_projects.id)
     r = requests.get(
         f"{sb_url()}/rest/v1/{CONTRACTOR_PROJECTS_TABLE}"
-        f"?select=*,{CONTRACTOR_JOBS_TABLE}(id,job_number,title,status,progress_pct,project_id,due_date)"
+        f"?select=*,{CONTRACTOR_JOBS_TABLE}(id,job_number,title,status,progress_pct,project_id,due_date,tracking)"
         f"&order=created_at.desc&limit=200{company_filter}",
         headers=sb_headers(), timeout=10
     )

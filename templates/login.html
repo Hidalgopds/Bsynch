@@ -254,7 +254,8 @@ async function doLogin() {
       if(pd.ok && !pd.pin_set){ localStorage.setItem('bsynchPinRequired','1'); }
       else { localStorage.removeItem('bsynchPinRequired'); }
     } catch(e2){}
-    location.href = '/home';
+    var nx = new URLSearchParams(location.search).get('next') || '';
+    location.href = (/^\/[^\/\\]/.test(nx) ? nx : '/home');
   } catch(e) {
     setErr('login-err', 'Connection error. Please try again.');
   } finally {

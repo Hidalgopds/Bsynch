@@ -131,6 +131,13 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
 .jp-body::-webkit-scrollbar-thumb{background:#2a2d3e;}
 
 /* Steps inside job panel */
+.track-toggle{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;color:#64748b;margin-bottom:14px;}
+.tt-btn{padding:5px 10px;border-radius:7px;border:1px solid #334155;background:transparent;color:#94a3b8;font-size:12px;cursor:pointer;}
+.tt-btn.on{border-color:#1e9484;color:#1e9484;background:rgba(30,148,132,.12);font-weight:700;}
+.step-check{display:flex;align-items:center;gap:10px;font-size:13px;color:#94a3b8;cursor:pointer;padding:4px 0;}
+.step-check input{width:20px;height:20px;accent-color:#1e9484;cursor:pointer;}
+.step-check input:checked+span{color:#22c55e;font-weight:700;}
+.job-check{margin-bottom:10px;font-size:14px;}
 .steps-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
 .steps-header h4{font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;}
 .btn-add-step{padding:5px 12px;background:rgba(30,148,132,.12);border:1px solid #1e9484;border-radius:7px;color:#1e9484;font-size:12px;cursor:pointer;}
@@ -353,6 +360,9 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
         <div class="form-group"><label>Priority</label>
           <select id="woPriority"><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option><option value="low">Low</option></select>
         </div>
+        <div class="form-group"><label>Track progress by</label>
+          <select id="woTracking"><option value="percent">% complete</option><option value="check">Done / not done</option></select>
+        </div>
         <div class="form-group"><label>Status</label>
           <select id="woStatus"><option value="open">Open</option><option value="in_progress">In Progress</option><option value="on_hold">On Hold</option></select>
         </div>
@@ -546,12 +556,18 @@ function loadSteps(){
     .then(r=>r.json()).then(renderSteps);
 }
 function sfill(p){return p>=100?'sfill-done':p>=60?'sfill-high':p>=30?'sfill-mid':'sfill-low';}
+function jobTracking(){return (openJobData&&openJobData.tracking)==='check'?'check':'percent';}
 function renderSteps(steps){
-  var canAdd=steps.length<10;
-  var html='<div class="steps-header"><h4>Steps ('+steps.length+'/10)</h4>'
+  var canAdd=steps.length<10, mode=jobTracking();
+  var html='<div class="track-toggle">Track by '
+    +'<button class="tt-btn'+(mode==='percent'?' on':'')+'" onclick="setTracking(\'percent\')">% complete</button>'
+    +'<button class="tt-btn'+(mode==='check'?' on':'')+'" onclick="setTracking(\'check\')">&#10003; Done / not done</button></div>';
+  html+='<div class="steps-header"><h4>Steps ('+steps.length+'/10)</h4>'
     +(canAdd?'<button class="btn-add-step" onclick="addNewStep()">+ Add Step</button>':'')
     +'</div>';
   if(!steps.length){
+    var done=parseFloat((openJobData&&openJobData.progress_pct)||0)>=100;
+    if(mode==='check') html+='<label class="step-check job-check"><input type="checkbox"'+(done?' checked':'')+' onchange="saveJobDone(this.checked)"><span>Job done</span></label>';
     html+='<div style="text-align:center;padding:28px;color:#64748b;font-size:13px;">No steps. <a href="#" onclick="initDefaultSteps();return false;" style="color:#1e9484;">Initialize 5 defaults</a></div>';
   } else {
     steps.forEach(s=>{
@@ -559,19 +575,36 @@ function renderSteps(steps){
       html+='<div class="step-item" id="step-'+s.id+'">'
         +'<div class="step-top"><div class="step-order">'+(s.order_num+1)+'</div>'
         +'<input class="step-name-input" value="'+esc(s.step_name)+'" onblur="saveStepName(\''+s.id+'\',this.value)">'
-        +'<button class="step-del" onclick="deleteStep(\''+s.id+'\')">&#215;</button></div>'
-        +'<div class="step-pct-row">'
-        +'<div class="step-prog-track" onclick="clickTrack(event,\''+s.id+'\',this)">'
-        +'<div class="step-prog-fill '+sfill(p)+'" id="sf-'+s.id+'" style="width:'+p+'%"></div></div>'
-        +'<input class="step-pct-input" type="number" min="0" max="100" value="'+Math.round(p)+'" onchange="saveStepPct(\''+s.id+'\',this.value)" id="si-'+s.id+'">'
-        +'</div></div>';
+        +'<button class="step-del" onclick="deleteStep(\''+s.id+'\')">&#215;</button></div>';
+      if(mode==='check'){
+        html+='<label class="step-check"><input type="checkbox"'+(p>=100?' checked':'')+' onchange="saveStepPct(\''+s.id+'\',this.checked?100:0)"><span>'+(p>=100?'Done':'Not done')+'</span></label>';
+      } else {
+        html+='<div class="step-pct-row">'
+          +'<div class="step-prog-track" onclick="clickTrack(event,\''+s.id+'\',this)">'
+          +'<div class="step-prog-fill '+sfill(p)+'" id="sf-'+s.id+'" style="width:'+p+'%"></div></div>'
+          +'<input class="step-pct-input" type="number" min="0" max="100" value="'+Math.round(p)+'" onchange="saveStepPct(\''+s.id+'\',this.value)" id="si-'+s.id+'">'
+          +'</div>';
+      }
+      html+='</div>';
     });
   }
   document.getElementById('jpBody').innerHTML=html;
 }
+function setTracking(mode){
+  if(!openJobData||jobTracking()===mode)return;
+  fetch('/api/contractor/jobs/'+openJobId,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({tracking:mode})})
+    .then(r=>r.json()).then(res=>{if(!res.ok){alert('Could not change tracking');return;}
+      openJobData.tracking=mode;var idx=allJobs.findIndex(j=>j.id===openJobId);if(idx>=0)allJobs[idx].tracking=mode;loadSteps();});
+}
+function saveJobDone(done){
+  var p=done?100:0;
+  fetch('/api/contractor/jobs/'+openJobId,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({progress_pct:p,status:done?'completed':'in_progress'})})
+    .then(r=>r.json()).then(res=>{if(res.ok){openJobData.progress_pct=p;openJobData.status=done?'completed':'in_progress';updateJpProgress(p);}});
+}
 function clickTrack(e,sid,el){var r=el.getBoundingClientRect();var p=Math.round((e.clientX-r.left)/r.width*100);p=Math.max(0,Math.min(100,p));document.getElementById('si-'+sid).value=p;saveStepPct(sid,p);}
 function saveStepPct(sid,val){
   var p=Math.max(0,Math.min(100,parseFloat(val)||0));
+  var row=document.getElementById('step-'+sid),lbl=row&&row.querySelector('.step-check span');if(lbl)lbl.textContent=p>=100?'Done':'Not done';
   var f=document.getElementById('sf-'+sid);if(f){f.style.width=p+'%';f.className='step-prog-fill '+sfill(p);}
   fetch('/api/contractor/jobs/'+openJobId+'/steps/'+sid,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({progress_pct:p})})
     .then(r=>r.json()).then(res=>{if(res.ok&&res.job_progress_pct!==undefined){updateJpProgress(res.job_progress_pct);}});
@@ -698,7 +731,7 @@ function submitWo(){
   document.querySelectorAll('#woStepFields .step-field-input').forEach(inp=>{if(inp.value.trim())stepNames.push(inp.value.trim());});
   var btn=document.querySelector('#woModal .btn-submit');
   if(btn){btn.disabled=true;btn.textContent='Creating...';}
-  fetch('/api/contractor/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:title,description:document.getElementById('woDesc').value.trim(),priority:document.getElementById('woPriority').value,status:document.getElementById('woStatus').value,start_date:document.getElementById('woStart').value||null,due_date:document.getElementById('woDue').value||null,created_by:userName,project_id:woForProjectId})})
+  fetch('/api/contractor/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:title,description:document.getElementById('woDesc').value.trim(),priority:document.getElementById('woPriority').value,status:document.getElementById('woStatus').value,start_date:document.getElementById('woStart').value||null,due_date:document.getElementById('woDue').value||null,created_by:userName,project_id:woForProjectId,tracking:document.getElementById('woTracking').value})})
     .then(r=>r.json()).then(function(res){
       if(!res.ok){alert('Error creating work order: '+(res.error||'unknown'));return;}
       if(!res.job||!res.job.id){
@@ -709,7 +742,7 @@ function submitWo(){
         .then(function(){
           closeWoModal();
           ['woTitle','woDesc'].forEach(function(id){document.getElementById(id).value='';});
-          document.getElementById('woPriority').value='normal';
+          document.getElementById('woPriority').value='normal';document.getElementById('woTracking').value='percent';
           document.getElementById('woStatus').value='open';
           loadAll();
           flash('Work order created');
