@@ -1,0 +1,117 @@
+/* Contractor module — light look. Covers the panels and controls that
+   themes.css doesn't know about, so no dark boxes are left on light pages. */
+
+html[data-theme="light"] body { background: #f0f4f8 !important; color: #0f172a !important; }
+
+/* Side panels, job panel, modals */
+html[data-theme="light"] .right-panel,
+html[data-theme="light"] .job-panel,
+html[data-theme="light"] .detail-panel,
+html[data-theme="light"] .modal { background: #ffffff !important; border-color: #e2e8f0 !important; color: #0f172a !important; }
+html[data-theme="light"] .right-panel { border-left: 1px solid #e2e8f0 !important; box-shadow: -4px 0 18px rgba(15, 23, 42, .06); }
+html[data-theme="light"] .rp-head,
+html[data-theme="light"] .jp-head,
+html[data-theme="light"] .jp-tabs,
+html[data-theme="light"] .panel-head,
+html[data-theme="light"] .modal-section-title { border-color: #e2e8f0 !important; }
+html[data-theme="light"] #rpName { background: transparent !important; border: none !important; color: #0f172a !important; box-shadow: none !important; }
+
+/* Cards and list items */
+html[data-theme="light"] .job-item,
+html[data-theme="light"] .wo-card,
+html[data-theme="light"] .job,
+html[data-theme="light"] .my-wo,
+html[data-theme="light"] .photo-card,
+html[data-theme="light"] .mat-item,
+html[data-theme="light"] .ocr-item,
+html[data-theme="light"] .sp-section,
+html[data-theme="light"] .table-wrap { background: #ffffff !important; border: 1px solid #e2e8f0 !important; color: #0f172a !important; box-shadow: 0 1px 3px rgba(15, 23, 42, .05); }
+html[data-theme="light"] .step-item,
+html[data-theme="light"] .add-mat-form,
+html[data-theme="light"] .rc-form,
+html[data-theme="light"] .edit-area,
+html[data-theme="light"] .visit,
+html[data-theme="light"] .simple-desc,
+html[data-theme="light"] .cost { background: #f8fafc !important; border-color: #e2e8f0 !important; color: #0f172a !important; }
+html[data-theme="light"] .job-item:hover,
+html[data-theme="light"] .wo-card:hover,
+html[data-theme="light"] .my-wo:hover { border-color: #1e9484 !important; }
+
+/* Progress tracks and small badges */
+html[data-theme="light"] .proj-prog-bar,
+html[data-theme="light"] .job-prog-track,
+html[data-theme="light"] .jp-prog-track,
+html[data-theme="light"] .step-prog-track,
+html[data-theme="light"] .prog-track,
+html[data-theme="light"] .panel-prog-track,
+html[data-theme="light"] .step-mini-track { background: #e2e8f0 !important; }
+html[data-theme="light"] .chip-count,
+html[data-theme="light"] .pt-other,
+html[data-theme="light"] .step-order,
+html[data-theme="light"] .step-field-num,
+html[data-theme="light"] .step-num,
+html[data-theme="light"] .spct-zero,
+html[data-theme="light"] .section-title span,
+html[data-theme="light"] .badge-soon,
+html[data-theme="light"] .perm-state { background: #e2e8f0 !important; color: #475569 !important; }
+
+/* Inputs */
+html[data-theme="light"] .form-input,
+html[data-theme="light"] .editable-input,
+html[data-theme="light"] .status-select,
+html[data-theme="light"] .step-pct-input,
+html[data-theme="light"] .step-field-input,
+html[data-theme="light"] .photo-type-select,
+html[data-theme="light"] .photo-caption-input,
+html[data-theme="light"] .ocr-split input,
+html[data-theme="light"] .form-group input,
+html[data-theme="light"] .form-group textarea,
+html[data-theme="light"] .form-group select,
+html[data-theme="light"] .field input,
+html[data-theme="light"] .field textarea,
+html[data-theme="light"] .add-row input,
+html[data-theme="light"] .add-email input { background: #ffffff !important; border: 1px solid #cbd5e1 !important; color: #0f172a !important; }
+html[data-theme="light"] .step-name-input { background: transparent !important; border: none !important; border-bottom: 1px dashed #cbd5e1 !important; color: #0f172a !important; box-shadow: none !important; }
+
+/* Text that was light-on-dark */
+html[data-theme="light"] .proj-name,
+html[data-theme="light"] .field-value,
+html[data-theme="light"] .ocr-item-name,
+html[data-theme="light"] .job-title,
+html[data-theme="light"] .wo-title,
+html[data-theme="light"] .jp-title,
+html[data-theme="light"] .visit-desc,
+html[data-theme="light"] .rc-amt { color: #0f172a !important; }
+
+/* Buttons and pickers */
+html[data-theme="light"] .mode-btn,
+html[data-theme="light"] .btn-reopen,
+html[data-theme="light"] .tt-btn,
+html[data-theme="light"] .filter,
+html[data-theme="light"] .tab { border-color: #cbd5e1 !important; color: #475569 !important; background: #ffffff !important; }
+html[data-theme="light"] .mode-btn.on,
+html[data-theme="light"] .tt-btn.on,
+html[data-theme="light"] .tab.active { border-color: #1e9484 !important; color: #0f766e !important; background: rgba(30, 148, 132, .1) !important; }
+html[data-theme="light"] .filter.active { background: #1e9484 !important; border-color: #1e9484 !important; color: #ffffff !important; }
+html[data-theme="light"] .before-drop,
+html[data-theme="light"] .rc-photo { border-color: #94a3b8 !important; background: #ffffff !important; }
+html[data-theme="light"] .btn:disabled { background: #cbd5e1 !important; color: #64748b !important; }
+html[data-theme="light"] .ct-nav button,
+html[data-theme="light"] .ct-acct { border-color: rgba(255, 255, 255, .35) !important; color: #e2e8f0 !important; }
+html[data-theme="light"] .tile.disabled:hover { border-color: #e2e8f0 !important; }
+html[data-theme="light"] .jp-body,
+html[data-theme="light"] .rp-body,
+html[data-theme="light"] .panel-body,
+html[data-theme="light"] .jp-body h4,
+html[data-theme="light"] .rc-form h4,
+html[data-theme="light"] .track-toggle,
+html[data-theme="light"] .rc-total span { color: #0f172a !important; }
+html[data-theme="light"] .rc-hint,
+html[data-theme="light"] .finish-hint,
+html[data-theme="light"] .rc-info span { color: #64748b !important; }
+html[data-theme="light"] .right-panel *:not(.chip-active):not(.chip-hold):not(.chip-done):not(.chip-count):not(.s-chip):not(.job-pct-badge):not(.rp-pct):not(.weight-banner):not(.job-num):not(.job-steps-info):not(.job-weight):not(button),
+html[data-theme="light"] .job-panel *:not(.jp-back):not(.jp-job-num):not(.jptab):not(.jp-pct-big):not(.s-chip):not(.step-del):not(.field-label):not(.field-value.muted):not(button):not(.rc-hint):not(.finish-hint):not(.visit-top):not(.visit-top span) { color: #0f172a; }
+html[data-theme="light"] .visit-top b,
+html[data-theme="light"] .rc-total b { color: #0f766e !important; }
+html[data-theme="light"] .visit-top,
+html[data-theme="light"] .visit-top span { color: #64748b !important; }

@@ -127,7 +127,7 @@
     var primary = hex.test(b.primary || '') ? b.primary : '#0d1b36';
     var accent = hex.test(b.accent || '') ? b.accent : '#e8a317';
     var css = document.createElement('style');
-    css.textContent = 'header{background:' + primary + ' !important;border-bottom:3px solid ' + accent + ' !important;}' +
+    css.textContent = 'html[data-theme] header{background:' + primary + ' !important;border-bottom:3px solid ' + accent + ' !important;}' +
       '.ct-logo{height:36px;max-width:120px;padding:3px 8px;border-radius:9px;background:#fff;display:flex;align-items:center;flex-shrink:0;}' +
       '.ct-logo img{max-height:30px;max-width:104px;object-fit:contain;display:block;}';
     document.head.appendChild(css);
