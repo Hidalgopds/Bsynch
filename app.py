@@ -6661,14 +6661,8 @@ def delete_all_job_steps(job_id):
 
 
 # ── Hermaniland: Football Draft Game ──────────────────────────────────────────
-# TODO: Fix Render deployment issue with hermaniland_players_*.py files
-# from hermaniland_players import get_all_players, get_players_by_position, search_players, get_stats
+from hermaniland_players import get_all_players, get_players_by_position, search_players, get_stats
 from hermaniland_data import COACHES, FORMATIONS, FORMATION_SLOTS, POSITION_GROUP
-
-def get_all_players(): return []
-def get_players_by_position(pos='ALL'): return []
-def search_players(q, pos='ALL'): return []
-def get_stats(): return {'total': 0}
 
 HERMANILAND_GAMES = {}
 
