@@ -6096,6 +6096,22 @@ def contractor_workorders():
 def contractor_projects_page():
     return render_template("contractor-projects.html")
 
+@app.route("/contractor/hicons")
+def contractor_hicons():
+    return render_template("contractor-company.html", company="hicons")
+
+@app.route("/contractor/bsynch")
+def contractor_bsynch():
+    return render_template("contractor-company.html", company="bsynch")
+
+@app.route("/contractor/company-settings")
+def contractor_company_settings():
+    return render_template("contractor-company-settings.html")
+
+@app.route("/contractor/admin-settings")
+def contractor_admin_settings():
+    return render_template("contractor-admin-settings.html")
+
 
 # ── Helpers ──────────────────────────────────────────────────────
 

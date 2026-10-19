@@ -60,33 +60,42 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
 <div class="hub-content" id="hubContent">
   <div class="hub-header">
     <h1>&#128295; Contractor Hub</h1>
-    <p>Job tracking, materials, and field documentation for every client.</p>
+    <p>Select your company or access settings below.</p>
   </div>
 
   <div class="tile-grid">
 
-    <a class="tile" href="/contractor/projects">
-      <div class="tile-icon icon-teal">&#128196;</div>
-      <div class="tile-name">Projects</div>
-      <div class="tile-desc">Create projects, add work orders inside them, and track completion % automatically.</div>
+    <a class="tile" href="/contractor/hicons">
+      <div class="tile-icon icon-teal">🏢</div>
+      <div class="tile-name">Hicons</div>
+      <div class="tile-desc">Projects, work orders, and field documentation for Hicons company.</div>
       <span class="tile-badge badge-live">&#9679; Live</span>
       <div class="tile-arrow">&#8594;</div>
     </a>
 
-    <a class="tile" href="/contractor/dashboard">
-      <div class="tile-icon icon-blue">&#128202;</div>
-      <div class="tile-name">Dashboard</div>
-      <div class="tile-desc">Project progress, job completion percentages, and step-by-step status overview.</div>
+    <a class="tile" href="/contractor/bsynch">
+      <div class="tile-icon icon-blue">🏢</div>
+      <div class="tile-name">Bsynch</div>
+      <div class="tile-desc">Projects, work orders, and field documentation for Bsynch company.</div>
       <span class="tile-badge badge-live">&#9679; Live</span>
       <div class="tile-arrow">&#8594;</div>
     </a>
 
-    <div class="tile disabled">
-      <div class="tile-icon icon-amber">&#128181;</div>
-      <div class="tile-name">Invoicing</div>
-      <div class="tile-desc">Generate client invoices from completed jobs and material records.</div>
-      <span class="tile-badge badge-soon">Coming soon</span>
-    </div>
+    <a class="tile" href="/contractor/company-settings">
+      <div class="tile-icon icon-amber">⚙️</div>
+      <div class="tile-name">Company Settings</div>
+      <div class="tile-desc">Manage your company profile, users, and general configuration.</div>
+      <span class="tile-badge badge-live">&#9679; Live</span>
+      <div class="tile-arrow">&#8594;</div>
+    </a>
+
+    <a class="tile" href="/contractor/admin-settings" id="adminTile" style="display:none;">
+      <div class="tile-icon icon-teal">🔐</div>
+      <div class="tile-name">Admin Settings</div>
+      <div class="tile-desc">Control user roles, permissions, and platform-wide settings.</div>
+      <span class="tile-badge badge-live">&#9679; Live</span>
+      <div class="tile-arrow">&#8594;</div>
+    </a>
 
   </div>
 </div>
@@ -104,6 +113,12 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
 <script>
 var u = localStorage.getItem('mbrName') || localStorage.getItem('companyUser') || '';
 if(u) document.getElementById('hdrUser').textContent = 'Hi, ' + u;
+
+// Check if user is admin to show Admin Settings
+var userRole = localStorage.getItem('userRole') || '';
+if(userRole === 'admin' || userRole === 'superadmin') {
+  document.getElementById('adminTile').style.display = '';
+}
 
 function showSettings(){
   document.getElementById('hubContent').style.display = 'none';
