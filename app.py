@@ -6948,12 +6948,46 @@ def _ct_job_allowed(job_id):
 _CT_JOB_PATH = re.compile(r"^/api/contractor/jobs/([0-9a-fA-F-]{36})(?:/|$)")
 
 
+_CT_STEPS_PATH = re.compile(r"^/api/contractor/jobs/[0-9a-fA-F-]{36}/steps(/[^/]+)?$")
+
+
+def _ct_manager_only_edit(job):
+    """True when this request changes the work order itself, which only a Manager may do.
+    Workers still add visits, photos, receipts and materials, move step progress,
+    and mark the job finished."""
+    path, method = request.path, request.method
+    base = f"/api/contractor/jobs/{job['id']}"
+    if path == base and method in ("PATCH", "DELETE"):
+        return True
+    if _CT_STEPS_PATH.match(path):
+        if method == "DELETE":
+            return True
+        if method == "PATCH":
+            body = request.get_json(silent=True) or {}
+            return any(k in body for k in ("step_name", "order_num", "notes"))
+        if method == "POST":
+            me = _contractor_caller()
+            if job.get("created_by") != me["name"]:
+                return True
+            existing = requests.get(f"{sb_url()}/rest/v1/{JOB_STEPS_TABLE}?job_id=eq.{job['id']}&select=id&limit=1",
+                                    headers=sb_headers(), timeout=5)
+            return bool(existing.ok and existing.json())
+    return False
+
+
 @app.before_request
 def _ct_guard_job_routes():
-    """Every /api/contractor/jobs/<id>/... call must be for a job the caller may see."""
+    """Every /api/contractor/jobs/<id>/... call must be for a job the caller may see,
+    and edits to the work order itself are for Managers only."""
     m = _CT_JOB_PATH.match(request.path)
-    if m and not _ct_job_allowed(m.group(1)):
+    if not m:
+        return None
+    job = _ct_job_allowed(m.group(1))
+    if not job:
         return jsonify({"ok": False, "error": "job not found"}), 404
+    if _ct_manager_only_edit(job) and not _ct_can_admin(_contractor_caller(), job.get("company")):
+        return jsonify({"ok": False, "error": "Only a Manager can edit this work order"}), 403
+    return None
 
 
 def _ct_money(v):

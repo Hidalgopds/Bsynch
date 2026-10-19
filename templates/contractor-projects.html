@@ -202,6 +202,8 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
 .dict-mats-title{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin:10px 0 6px;}
 .dict-mat{display:inline-flex;align-items:center;gap:4px;padding:4px 4px 4px 10px;margin:0 6px 6px 0;border-radius:16px;background:#fff;border:1px solid #cbd5e1;font-size:12px;}
 .dict-mat button{border:none;background:none;color:#94a3b8;font-size:15px;cursor:pointer;padding:0 4px;}
+.step-name-ro{flex:1;font-size:14px;font-weight:600;}
+.locked-note{margin-top:14px;padding:12px 14px;border-radius:10px;background:#f1f5f9;border:1px dashed #cbd5e1;color:#475569;font-size:13px;line-height:1.5;}
 .steps-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
 .steps-header h4{font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;}
 .btn-add-step{padding:5px 12px;background:rgba(30,148,132,.12);border:1px solid #1e9484;border-radius:7px;color:#1e9484;font-size:12px;cursor:pointer;}
@@ -493,6 +495,7 @@ var NO_PROJECT='__none__';
 // ── Boot ──
 fetch('/api/contractor/me').then(r=>r.json()).then(me=>{
   window._memberOnly=!!me.member_only;
+  var acc=(me.access||{})[CT.company]||{};window._isManager=!!(me.is_super||acc.is_admin);
   if(window._memberOnly){
     var b=document.getElementById('newProjBtn');if(b)b.style.display='none';
     var t=document.querySelector('.hdr-title');if(t)t.textContent='My Work Orders';
@@ -688,26 +691,27 @@ function finishJob(done){
     });
 }
 function renderSteps(steps){
-  if(jobTracking()==='simple'){document.getElementById('jpBody').innerHTML='<div class="track-toggle">This job is tracked by its description. <button class="tt-btn" onclick="setTracking(\'percent\')">Use steps</button></div>';return;}
-  var canAdd=steps.length<10, mode=jobTracking();
-  var html='<div class="track-toggle">Track by '
+  var mgr=!!window._isManager;
+  if(jobTracking()==='simple'){document.getElementById('jpBody').innerHTML='<div class="track-toggle">This job is tracked by its description.'+(mgr?' <button class="tt-btn" onclick="setTracking(\'percent\')">Use steps</button>':'')+'</div>';return;}
+  var canAdd=mgr&&steps.length<10, mode=jobTracking();
+  var html=mgr?('<div class="track-toggle">Track by '
     +'<button class="tt-btn'+(mode==='percent'?' on':'')+'" onclick="setTracking(\'percent\')">% complete</button>'
     +'<button class="tt-btn'+(mode==='check'?' on':'')+'" onclick="setTracking(\'check\')">&#10003; Done / not done</button>'
-    +'<button class="tt-btn" onclick="setTracking(\'simple\')">&#128221; Description only</button></div>';
+    +'<button class="tt-btn" onclick="setTracking(\'simple\')">&#128221; Description only</button></div>'):'';
   html+='<div class="steps-header"><h4>Steps ('+steps.length+'/10)</h4>'
     +(canAdd?'<button class="btn-add-step" onclick="addNewStep()">+ Add Step</button>':'')
     +'</div>';
   if(!steps.length){
     var done=parseFloat((openJobData&&openJobData.progress_pct)||0)>=100;
     if(mode==='check') html+='<label class="step-check job-check"><input type="checkbox"'+(done?' checked':'')+' onchange="saveJobDone(this.checked)"><span>Job done</span></label>';
-    html+='<div style="text-align:center;padding:28px;color:#64748b;font-size:13px;">No steps yet. <a href="#" onclick="addNewStep();return false;" style="color:#1e9484;">Add a step</a></div>';
+    html+='<div style="text-align:center;padding:28px;color:#64748b;font-size:13px;">No steps yet.'+(mgr?' <a href="#" onclick="addNewStep();return false;" style="color:#1e9484;">Add a step</a>':'')+'</div>';
   } else {
     steps.forEach(s=>{
       var p=parseFloat(s.progress_pct||0);
       html+='<div class="step-item" id="step-'+s.id+'">'
         +'<div class="step-top"><div class="step-order">'+(s.order_num+1)+'</div>'
-        +'<input class="step-name-input" value="'+esc(s.step_name)+'" onblur="saveStepName(\''+s.id+'\',this.value)">'
-        +'<button class="step-del" onclick="deleteStep(\''+s.id+'\')">&#215;</button></div>';
+        +(mgr?'<input class="step-name-input" value="'+esc(s.step_name)+'" onblur="saveStepName(\''+s.id+'\',this.value)">'
+          +'<button class="step-del" onclick="deleteStep(\''+s.id+'\')">&#215;</button>':'<span class="step-name-ro">'+esc(s.step_name)+'</span>')+'</div>';
       if(mode==='check'){
         html+='<label class="step-check"><input type="checkbox"'+(p>=100?' checked':'')+' onchange="saveStepPct(\''+s.id+'\',this.checked?100:0)"><span>'+(p>=100?'Done':'Not done')+'</span></label>';
       } else {
@@ -728,11 +732,7 @@ function setTracking(mode){
     .then(r=>r.json()).then(res=>{if(!res.ok){alert('Could not change tracking');return;}
       openJobData.tracking=mode;var idx=allJobs.findIndex(j=>j.id===openJobId);if(idx>=0)allJobs[idx].tracking=mode;document.querySelector('.jptab[data-tab="steps"]').style.display=mode==='simple'?'none':'';if(mode==='simple'){var it=document.querySelector('.jptab[data-tab="info"]');switchJobTab(it);}else loadSteps();});
 }
-function saveJobDone(done){
-  var p=done?100:0;
-  fetch('/api/contractor/jobs/'+openJobId,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({progress_pct:p,status:done?'completed':'in_progress'})})
-    .then(r=>r.json()).then(res=>{if(res.ok){openJobData.progress_pct=p;openJobData.status=done?'completed':'in_progress';updateJpProgress(p);}});
-}
+function saveJobDone(done){finishJob(done);}
 function clickTrack(e,sid,el){var r=el.getBoundingClientRect();var p=Math.round((e.clientX-r.left)/r.width*100);p=Math.max(0,Math.min(100,p));document.getElementById('si-'+sid).value=p;saveStepPct(sid,p);}
 function saveStepPct(sid,val){
   var p=Math.max(0,Math.min(100,parseFloat(val)||0));
@@ -754,29 +754,54 @@ function renderInfoTab(j){
   var sched=j.scheduled_date?(j.scheduled_date+(j.scheduled_end&&j.scheduled_end!==j.scheduled_date?' → '+j.scheduled_end:'')+(j.scheduled_time?' · '+j.scheduled_time:'')):'Not scheduled';
   var schedRow='<div class="field-row"><div class="field-label">Calendar</div><div class="field-value">&#128197; '+esc(sched)+(j.assigned_to?' &middot; &#128119; '+esc(j.assigned_to):'')
     +(window._memberOnly?'':' &nbsp;<a href="/contractor/'+encodeURIComponent(CT.company||'')+'/calendar" style="color:#0f766e;font-weight:600;">Open calendar</a>')+'</div></div>';
+  var mgr=!!window._isManager;
   var html=schedRow+'<div class="field-row"><div class="field-label">Status</div>'
-    +'<select class="status-select" onchange="updateStatus(this.value)">'
-    +['open','in_progress','on_hold','completed','cancelled'].map(s=>'<option value="'+s+'"'+(j.status===s?' selected':'')+'>'+statusLabel(s)+'</option>').join('')
-    +'</select></div>';
+    +(mgr?'<select class="status-select" onchange="updateStatus(this.value)">'
+      +['open','in_progress','on_hold','completed','cancelled'].map(s=>'<option value="'+s+'"'+(j.status===s?' selected':'')+'>'+statusLabel(s)+'</option>').join('')
+      +'</select>':'<div class="field-value"><span class="s-chip s-'+esc(j.status||'open')+'">'+statusLabel(j.status||'open')+'</span></div>')
+    +'</div>';
   if(j.client_name||j.location) html+='<div class="field-row"><div class="field-label">Client / Location</div><div class="field-value">'+esc(j.client_name||'')+(j.location?' &mdash; '+esc(j.location):'')+'</div></div>';
   if(j.description) html+='<div class="field-row"><div class="field-label">Description</div><div class="field-value">'+esc(j.description).replace(/\n/g,'<br>')+'</div></div>';
   var dates=[];if(j.start_date)dates.push('Start: '+fmtDate(j.start_date));if(j.due_date)dates.push('Due: '+fmtDate(j.due_date));
   if(dates.length) html+='<div class="field-row"><div class="field-label">Dates</div><div class="field-value">'+dates.join(' &middot; ')+'</div></div>';
   if(j.notes) html+='<div class="field-row"><div class="field-label">Notes</div><div class="field-value">'+esc(j.notes).replace(/\n/g,'<br>')+'</div></div>';
-  html+='<div class="edit-area"><h4>Edit Job</h4>'
-    +'<input class="editable-input" id="editTitle" value="'+esc(j.title)+'" placeholder="Title">'
-    +'<input class="editable-input" id="editDue" type="date" value="'+(j.due_date||'')+'">'
-    +'<textarea class="editable-input" id="editNotes" rows="3" placeholder="Notes">'+esc(j.notes||'')+'</textarea>'
-    +'<div class="btn-row">'
-    +'<button class="btn-save" onclick="saveEdits()">Save</button>'
-    +'<button class="delete-btn" onclick="confirmDeleteJob()">Delete Job</button>'
-    +'</div></div>';
+  if(j.client_email) html+='<div class="field-row"><div class="field-label">Client email</div><div class="field-value">'+esc(j.client_email)+'</div></div>';
+  if(!mgr){
+    html+='<div class="locked-note">&#128274; Only a Manager can edit this work order. You can still add visits, photos, receipts and materials, and mark it finished.</div>';
+  } else {
+    var pr=['low','normal','high','urgent'];
+    html+='<div class="edit-area"><h4>Edit work order</h4>'
+      +'<label class="mat-lbl">Title<input class="editable-input" id="editTitle" value="'+esc(j.title)+'"></label>'
+      +'<label class="mat-lbl">Description<textarea class="editable-input" id="editDesc" rows="3">'+esc(j.description||'')+'</textarea></label>'
+      +'<div class="mat-grid" style="grid-template-columns:1fr 1fr;">'
+      +'<label class="mat-lbl">Client (bill to)<input class="editable-input" id="editClient" value="'+esc(j.client_name||'')+'"></label>'
+      +'<label class="mat-lbl">Job site<input class="editable-input" id="editSite" value="'+esc(j.location||'')+'"></label>'
+      +'<label class="mat-lbl">Client email<input class="editable-input" id="editEmail" type="email" value="'+esc(j.client_email||'')+'"></label>'
+      +'<label class="mat-lbl">Priority<select class="editable-input" id="editPriority">'+pr.map(x=>'<option value="'+x+'"'+((j.priority||'normal')===x?' selected':'')+'>'+ucfirst(x)+'</option>').join('')+'</select></label>'
+      +'<label class="mat-lbl">Start date<input class="editable-input" id="editStart" type="date" value="'+(j.start_date||'')+'"></label>'
+      +'<label class="mat-lbl">Due date<input class="editable-input" id="editDue" type="date" value="'+(j.due_date||'')+'"></label>'
+      +'</div>'
+      +'<label class="mat-lbl">Notes<textarea class="editable-input" id="editNotes" rows="3">'+esc(j.notes||'')+'</textarea></label>'
+      +'<div class="btn-row">'
+      +'<button class="btn-save" onclick="saveEdits()">Save changes</button>'
+      +'<button class="delete-btn" onclick="confirmDeleteJob()">Delete work order</button>'
+      +'</div></div>';
+  }
   document.getElementById('jpBody').innerHTML=html;
 }
 function updateStatus(val){fetch('/api/contractor/jobs/'+openJobId,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:val})}).then(()=>{if(openJobData)openJobData.status=val;var idx=allJobs.findIndex(j=>j.id===openJobId);if(idx>=0)allJobs[idx].status=val;});}
 function saveEdits(){
-  var p={title:document.getElementById('editTitle').value.trim(),due_date:document.getElementById('editDue').value||null,notes:document.getElementById('editNotes').value.trim()};
-  fetch('/api/contractor/jobs/'+openJobId,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)}).then(r=>r.json()).then(res=>{if(res.ok){Object.assign(openJobData,p);var idx=allJobs.findIndex(j=>j.id===openJobId);if(idx>=0)Object.assign(allJobs[idx],p);document.getElementById('jpTitle').textContent=p.title||openJobData.title;flash('Saved &#10003;');}});
+  var title=document.getElementById('editTitle').value.trim();
+  if(!title){alert('The title can\'t be empty');return;}
+  var p={title:title,description:document.getElementById('editDesc').value.trim(),client_name:document.getElementById('editClient').value.trim(),
+    location:document.getElementById('editSite').value.trim(),client_email:document.getElementById('editEmail').value.trim(),
+    priority:document.getElementById('editPriority').value,start_date:document.getElementById('editStart').value||null,
+    due_date:document.getElementById('editDue').value||null,notes:document.getElementById('editNotes').value.trim()};
+  fetch('/api/contractor/jobs/'+openJobId,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)}).then(r=>r.json()).then(res=>{
+    if(!res.ok){alert(res.error||'Could not save');return;}
+    Object.assign(openJobData,p);var idx=allJobs.findIndex(j=>j.id===openJobId);if(idx>=0)Object.assign(allJobs[idx],p);
+    document.getElementById('jpTitle').textContent=p.title;renderInfoTab(openJobData);flash('Saved &#10003;');
+  });
 }
 function confirmDeleteJob(){if(!confirm('Delete this work order?'))return;fetch('/api/contractor/jobs/'+openJobId,{method:'DELETE'}).then(()=>{allJobs=allJobs.filter(j=>j.id!==openJobId);closeJobPanel();});}
 
