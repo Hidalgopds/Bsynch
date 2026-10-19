@@ -6105,9 +6105,11 @@ def contractor_projects_page():
 CONTRACTOR_COMPANIES = {"hicons": "Hicons", "bsynch": "Bsynch"}
 CONTRACTOR_ROLES = ["member", "lead", "admin"]
 CONTRACTOR_FEATURES = ["projects", "dashboard", "workorders", "invoicing", "company_settings"]
+CONTRACTOR_ROLE_LABELS = {"member": "User", "lead": "Leader", "admin": "Manager"}
+# Users (member) only create and follow their own work orders; Leaders get what the Manager allows.
+CONTRACTOR_MEMBER_PERMS = {"projects": False, "dashboard": False, "workorders": True, "invoicing": False, "company_settings": False}
 CONTRACTOR_DEFAULT_PERMS = {
-    "member": {"projects": True, "dashboard": True, "workorders": True, "invoicing": False, "company_settings": False},
-    "lead":   {"projects": True, "dashboard": True, "workorders": True, "invoicing": True, "company_settings": False},
+    "lead": {"projects": True, "dashboard": True, "workorders": True, "invoicing": True, "company_settings": False},
 }
 _ALL_PERMS = {f: True for f in CONTRACTOR_FEATURES}
 
@@ -6131,6 +6133,42 @@ def _ct_set_config(key, value):
     return r.ok, (r.text if not r.ok else None)
 
 
+def _html_escape(v):
+    import html as _h
+    return _h.escape(str(v or ""), quote=True)
+
+
+def _ct_send_email(to, cc, subject, html_body, reply_to=None):
+    """Send through the app's Gmail account. Returns (ok, error)."""
+    to = [t for t in (to or []) if t]
+    cc = [c for c in (cc or []) if c and c not in to]
+    if not to:
+        return False, "No recipient"
+    if not SMTP_EMAIL or not SMTP_PASSWORD:
+        return False, "Email is not configured on the server (SMTP_EMAIL / SMTP_PASSWORD)"
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = SMTP_EMAIL
+        msg["To"] = ", ".join(to)
+        if cc:
+            msg["Cc"] = ", ".join(cc)
+        if reply_to:
+            msg["Reply-To"] = reply_to
+        msg.attach(MIMEText(html_body, "html"))
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as srv:
+            srv.login(SMTP_EMAIL, SMTP_PASSWORD)
+            srv.sendmail(SMTP_EMAIL, to + cc, msg.as_string())
+        return True, None
+    except Exception as e:
+        logger.error("[Contractor email] %s", e)
+        return False, "Could not send the email"
+
+
+def _ct_send_email_async(to, cc, subject, html_body, reply_to=None):
+    _threading.Thread(target=_ct_send_email, args=(to, cc, subject, html_body, reply_to), daemon=True).start()
+
+
 def _ct_company_roles(company):
     """{user name: member|lead|admin} for one contractor company. Kept apart from
     app_users.role so a company admin can never grant ERP access."""
@@ -6141,6 +6179,16 @@ def _contractor_caller():
     """{name, company, company_role, is_super}. A platform admin/boss with no
     contractor company (Daniel), or a client-subdomain owner, is super and sees
     every company. Identity comes from the X-User-Name header."""
+    from flask import g
+    cached = getattr(g, "_ct_me", None)
+    if cached is not None:
+        return dict(cached)
+    me = _contractor_caller_uncached()
+    g._ct_me = me
+    return dict(me)
+
+
+def _contractor_caller_uncached():
     name = (request.headers.get("X-User-Name") or request.args.get("caller") or "").strip()
     me = {"name": name, "company": None, "company_role": None, "is_super": False}
     if not name:
@@ -6180,7 +6228,14 @@ def _ct_can_admin(me, company):
 
 def _ct_perms(company):
     saved = _ct_config(f"contractor_permissions_{company}", {})
-    return {role: {**CONTRACTOR_DEFAULT_PERMS[role], **(saved.get(role) or {})} for role in CONTRACTOR_DEFAULT_PERMS}
+    perms = {role: {**CONTRACTOR_DEFAULT_PERMS[role], **(saved.get(role) or {})} for role in CONTRACTOR_DEFAULT_PERMS}
+    perms["member"] = dict(CONTRACTOR_MEMBER_PERMS)
+    return perms
+
+
+def _ct_is_member_only(me):
+    """A plain User: sees only the work orders they created."""
+    return not me["is_super"] and (me["company_role"] or "member") == "member"
 
 
 def _contractor_scope():
@@ -6225,7 +6280,8 @@ def contractor_me():
         admin = _ct_can_admin(me, co)
         perms = _ALL_PERMS if admin else _ct_perms(co).get(me["company_role"] or "member", {})
         access[co] = {"name": CONTRACTOR_COMPANIES[co], "is_admin": admin, "permissions": perms}
-    return jsonify({**me, "access": access})
+    role_label = "Platform admin" if me["is_super"] else CONTRACTOR_ROLE_LABELS.get(me["company_role"] or "member", "User")
+    return jsonify({**me, "access": access, "role_label": role_label, "member_only": _ct_is_member_only(me)})
 
 
 def _ct_admin_guard(company):
@@ -6233,6 +6289,16 @@ def _ct_admin_guard(company):
     if company not in CONTRACTOR_COMPANIES or not _ct_can_admin(me, company):
         return me, (jsonify({"ok": False, "error": "admin only"}), 403)
     return me, None
+
+
+def _ct_pending_users(company):
+    r = requests.get(
+        f"{sb_url()}/rest/v1/app_users?approved=eq.false&contractor_company=eq.{company}"
+        f"&order=created_at.asc&select=name,email,phone,created_at&limit=200",
+        headers=sb_headers(), timeout=8
+    )
+    roles = _ct_company_roles(company)
+    return [{**u, "requested_role": roles.get(u["name"], "member")} for u in (r.json() if r.ok else [])]
 
 
 @app.route("/api/contractor/<company>/admin/users", methods=["GET"])
@@ -6247,7 +6313,19 @@ def contractor_admin_users(company):
     )
     roles = _ct_company_roles(company)
     members = [{**u, "company_role": roles.get(u["name"], "member")} for u in (r.json() if r.ok else [])]
-    out = {"members": members, "unassigned": []}
+    last = {}
+    if members:
+        names = ",".join('"' + m["name"].replace('"', '') + '"' for m in members)
+        lr = requests.get(
+            f"{sb_url()}/rest/v1/contractor_locations?user_name=in.({requests.utils.quote(names)})"
+            f"&select=user_name,lat,lng,recorded_at&order=recorded_at.desc&limit=1000",
+            headers=sb_headers(), timeout=8
+        )
+        for row in (lr.json() if lr.ok else []):
+            last.setdefault(row["user_name"], row)
+    for m in members:
+        m["last_location"] = last.get(m["name"])
+    out = {"members": members, "pending": _ct_pending_users(company), "unassigned": [], "is_super": me["is_super"]}
     if me["is_super"]:
         ur = requests.get(
             f"{sb_url()}/rest/v1/app_users?approved=eq.true&contractor_company=is.null"
@@ -6260,8 +6338,8 @@ def contractor_admin_users(company):
 
 @app.route("/api/contractor/<company>/admin/users", methods=["POST"])
 def contractor_admin_add_user(company):
-    """Add a user to this company. Super admins pick by name; company admins must
-    know the exact username or email, so they never browse other people."""
+    """Add an existing account to this company. Platform admins pick by name;
+    Managers must know the exact username or email, so they never browse people."""
     me, err = _ct_admin_guard(company)
     if err:
         return err
@@ -6300,7 +6378,7 @@ def contractor_admin_update_user(company):
     name = (data.get("name") or "").strip()
     chk = requests.get(
         f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}"
-        f"&contractor_company=eq.{company}&select=name&limit=1",
+        f"&contractor_company=eq.{company}&approved=eq.true&select=name&limit=1",
         headers=sb_headers(), timeout=5
     )
     if not name or not (chk.ok and chk.json()):
@@ -6308,6 +6386,8 @@ def contractor_admin_update_user(company):
     if name == me["name"] and not me["is_super"]:
         return jsonify({"ok": False, "error": "You can't change your own access"}), 400
     roles = _ct_company_roles(company)
+    if roles.get(name) == "admin" and not me["is_super"]:
+        return jsonify({"ok": False, "error": "Only the platform administrator can change a Manager"}), 403
     if data.get("remove"):
         roles.pop(name, None)
         ok, e = _ct_set_config(f"contractor_roles_{company}", roles)
@@ -6319,9 +6399,54 @@ def contractor_admin_update_user(company):
     role = data.get("company_role")
     if role not in CONTRACTOR_ROLES:
         return jsonify({"ok": False, "error": "unknown role"}), 400
+    if role == "admin" and not me["is_super"]:
+        return jsonify({"ok": False, "error": "Only the platform administrator can make someone a Manager"}), 403
     roles[name] = role
     ok, e = _ct_set_config(f"contractor_roles_{company}", roles)
     return jsonify({"ok": ok, "error": e})
+
+
+@app.route("/api/contractor/<company>/admin/pending", methods=["POST"])
+def contractor_admin_pending(company):
+    """Approve or reject a sign-up. Managers approve Users and Leaders; only the
+    platform administrator can approve a Manager."""
+    me, err = _ct_admin_guard(company)
+    if err:
+        return err
+    data = request.get_json() or {}
+    name = (data.get("name") or "").strip()
+    pending = {u["name"]: u for u in _ct_pending_users(company)}
+    if name not in pending:
+        return jsonify({"ok": False, "error": "No pending sign-up with that name"}), 404
+    roles = _ct_company_roles(company)
+    if data.get("action") == "reject":
+        if pending[name]["requested_role"] == "admin" and not me["is_super"]:
+            return jsonify({"ok": False, "error": "Only the platform administrator can review Manager requests"}), 403
+        roles.pop(name, None)
+        _ct_set_config(f"contractor_roles_{company}", roles)
+        r = requests.delete(
+            f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}&approved=eq.false&contractor_company=eq.{company}",
+            headers=sb_headers(), timeout=5
+        )
+        return jsonify({"ok": r.ok})
+    role = data.get("role") or pending[name]["requested_role"]
+    if role not in CONTRACTOR_ROLES:
+        return jsonify({"ok": False, "error": "unknown role"}), 400
+    if (role == "admin" or pending[name]["requested_role"] == "admin") and not me["is_super"]:
+        return jsonify({"ok": False, "error": "Only the platform administrator can approve a Manager"}), 403
+    roles[name] = role
+    ok, e = _ct_set_config(f"contractor_roles_{company}", roles)
+    r = requests.patch(
+        f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}&contractor_company=eq.{company}",
+        json={"approved": True}, headers=sb_headers(), timeout=5
+    )
+    email = pending[name].get("email")
+    if ok and r.ok and email:
+        _ct_send_email_async([email], [], f"Your {CONTRACTOR_COMPANIES[company]} account is approved",
+                             f"<p>Hi {_html_escape(name)},</p><p>Your account for <b>{CONTRACTOR_COMPANIES[company]}</b> "
+                             f"was approved as <b>{CONTRACTOR_ROLE_LABELS[role]}</b>. You can log in now:</p>"
+                             f"<p><a href=\"{request.host_url}login\">{request.host_url}login</a></p>")
+    return jsonify({"ok": ok and r.ok, "error": e})
 
 
 @app.route("/api/contractor/<company>/admin/permissions", methods=["GET", "POST"])
@@ -6429,6 +6554,16 @@ def contractor_company_profile(company):
     return jsonify({"ok": ok, "error": e})
 
 
+@app.route("/api/contractor/<company>/brand", methods=["GET"])
+def contractor_company_brand(company):
+    me = _contractor_caller()
+    if company not in CONTRACTOR_COMPANIES or not _ct_can_view(me, company):
+        return jsonify({"ok": False}), 403
+    p = _ct_profile(company)
+    return jsonify({"ok": True, "name": p.get("display_name") or CONTRACTOR_COMPANIES[company],
+                    "primary": p.get("brand_primary"), "accent": p.get("brand_accent"), "logo": p.get("logo") or ""})
+
+
 CONTRACTOR_FILE_TYPES = {
     "application/pdf": ".pdf", "image/png": ".png", "image/jpeg": ".jpg",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
@@ -6490,7 +6625,7 @@ def contractor_company_file(company, file_id):
 
 
 # ── Contractor: confidentiality + data-use agreement ────────────────
-CONTRACTOR_AGREEMENT_VERSION = "2026-10-v1"
+CONTRACTOR_AGREEMENT_VERSION = "2026-10-v2"
 CONTRACTOR_AGREEMENT_TEMPLATE = """CONFIDENTIALITY, DATA USE AND APP PERMISSIONS AGREEMENT
 
 This Agreement is made between {company} (the "Company"), which operates through the BSynch platform provided by Hidalgo Ops, and the person signing below (the "User").
@@ -6511,10 +6646,10 @@ The User agrees to:
   f) When the working relationship ends, or when the Company asks, stop using the App and delete any Confidential Information in the User's possession.
 
 4. CONSENT TO DATA USE
-The User authorizes the Company and the BSynch platform to collect, store and use the following data: name, username, email, phone number, signature, photos and files uploaded, location while using the App, device and browser information, and activity in the App (including dates and times). This data is used to operate the App, manage projects and work orders, track progress and time, keep safety and quality records, and meet legal obligations. It is shared only with the Company and the service providers needed to run the App. The User may ask the Company to see or correct their data.
+The User authorizes the Company and the BSynch platform to collect, store and use the following data: name, username, email, phone number, signature, photos and files uploaded, location (only while the App is open and in use, as described in section 5), device and browser information, and activity in the App (including dates and times). This data is used to operate the App, manage projects and work orders, track progress and time, keep safety and quality records, and meet legal obligations. It is shared only with the Company and the service providers needed to run the App. The User may ask the Company to see or correct their data.
 
 5. APP PERMISSIONS
-The User authorizes the App to use the device's camera and photo library (to document work), location (to record where work is done), and notifications (to receive assignments and alerts). The User can change these permissions in the device settings, but some App features may stop working.
+The User authorizes the App to use the device's camera and photo library (to document work), location (to record where work is done), and notifications (to receive assignments and alerts). Location is collected ONLY while the App is open and in use on the screen, approximately every five (5) minutes and when a visit is recorded. The App does not collect location in the background, when it is minimized, or when it is closed. The User can change these permissions in the device settings at any time, but some App features may stop working.
 
 6. DURATION
 The User's confidentiality obligations start when this Agreement is signed and continue for two (2) years after the working relationship ends. Obligations regarding trade secrets and personal data continue for as long as that information remains confidential.
@@ -6632,6 +6767,27 @@ def contractor_agreements_mine():
     return jsonify(r.json() if r.ok else [])
 
 
+@app.route("/api/contractor/location", methods=["POST"])
+def contractor_location():
+    """One location sample sent by an open, visible app page."""
+    me = _contractor_caller()
+    if not me["name"] or (not me["is_super"] and not me["company"]):
+        return jsonify({"ok": False}), 403
+    data = request.get_json() or {}
+    try:
+        lat, lng = float(data.get("lat")), float(data.get("lng"))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "bad coordinates"}), 400
+    if not (-90 <= lat <= 90 and -180 <= lng <= 180):
+        return jsonify({"ok": False, "error": "bad coordinates"}), 400
+    acc = data.get("accuracy")
+    row = {"user_name": me["name"][:80], "company": me["company"], "lat": lat, "lng": lng,
+           "accuracy": round(float(acc), 1) if isinstance(acc, (int, float)) else None,
+           "page": str(data.get("page") or "")[:120]}
+    r = requests.post(f"{sb_url()}/rest/v1/contractor_locations", json=row, headers=sb_headers(), timeout=5)
+    return jsonify({"ok": r.ok})
+
+
 @app.route("/api/contractor/<company>/admin/agreements", methods=["GET"])
 def contractor_admin_agreements(company):
     me, err = _ct_admin_guard(company)
@@ -6681,6 +6837,8 @@ def contractor_join_page(company, token):
 
 @app.route("/api/join/<company>/<token>", methods=["POST"])
 def contractor_join(company, token):
+    """Self sign-up from an invite link. The account stays pending until a
+    Manager (User/Leader) or the platform administrator (Manager) approves it."""
     if not _ct_invite_valid(company, token):
         return jsonify({"ok": False, "error": "This invite link is no longer valid. Ask your admin for a new one."}), 403
     data = request.get_json() or {}
@@ -6689,6 +6847,7 @@ def contractor_join(company, token):
     email = (data.get("email") or "").strip().lower()
     phone = (data.get("phone") or "").strip()
     password = data.get("password") or ""
+    role = data.get("role") if data.get("role") in CONTRACTOR_ROLES else "member"
     if not (2 <= len(name) <= 80) or not re.fullmatch(r"[a-z0-9._@-]{3,60}", username) \
             or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email) or len(email) > 160:
         return jsonify({"ok": False, "error": "Check your name, username (letters, numbers, . _ -) and email"}), 400
@@ -6704,13 +6863,36 @@ def contractor_join(company, token):
     r = requests.post(
         f"{sb_url()}/rest/v1/app_users",
         json={"name": name, "username": username, "email": email, "phone": phone[:30] or None,
-              "password": hash_password(password), "role": "worker", "approved": True,
+              "password": hash_password(password), "role": "worker", "approved": False,
               "contractor_company": company},
         headers={**sb_headers(), "Prefer": "return=representation"}, timeout=8
     )
     if not (r.ok and r.json()):
         return jsonify({"ok": False, "error": "Could not create your account. Try again."}), 400
-    return jsonify({"ok": True, "name": name, "role": "worker"})
+    roles = _ct_company_roles(company)
+    roles[name] = role
+    _ct_set_config(f"contractor_roles_{company}", roles)
+
+    co_name = CONTRACTOR_COMPANIES[company]
+    approver = "the platform administrator" if role == "admin" else f"a {co_name} Manager"
+    if role == "admin":
+        notify = [ADMIN_EMAIL, DEFAULT_COMPANY_ADMIN_USER]
+    else:
+        mgr_names = [n for n, rl in roles.items() if rl == "admin" and n != name]
+        notify = []
+        if mgr_names:
+            q = ",".join('"' + n.replace('"', '') + '"' for n in mgr_names)
+            mr = requests.get(f"{sb_url()}/rest/v1/app_users?name=in.({requests.utils.quote(q)})&approved=eq.true&select=email",
+                              headers=sb_headers(), timeout=5)
+            notify = [u["email"] for u in (mr.json() if mr.ok else []) if u.get("email")]
+        notify = notify or [ADMIN_EMAIL]
+    link = f"{request.host_url}contractor/{company}/admin"
+    _ct_send_email_async(sorted(set(notify)), [], f"{co_name}: {name} is waiting for approval ({CONTRACTOR_ROLE_LABELS[role]})",
+                         f"<p><b>{_html_escape(name)}</b> ({_html_escape(email)}) signed up for <b>{co_name}</b> "
+                         f"as <b>{CONTRACTOR_ROLE_LABELS[role]}</b>.</p><p>Review it in Admin Settings: "
+                         f"<a href=\"{link}\">{link}</a></p>")
+    return jsonify({"ok": True, "pending": True, "name": name, "approver": approver,
+                    "role_label": CONTRACTOR_ROLE_LABELS[role]})
 
 
 @app.route("/contractor/account")
@@ -6745,7 +6927,21 @@ def _ct_job_allowed(job_id):
     scope = _contractor_scope()
     if scope == "__none__" or (scope and job.get("company") != scope):
         return None
+    me = _contractor_caller()
+    if _ct_is_member_only(me) and job.get("created_by") != me["name"]:
+        return None
     return job
+
+
+_CT_JOB_PATH = re.compile(r"^/api/contractor/jobs/([0-9a-fA-F-]{36})(?:/|$)")
+
+
+@app.before_request
+def _ct_guard_job_routes():
+    """Every /api/contractor/jobs/<id>/... call must be for a job the caller may see."""
+    m = _CT_JOB_PATH.match(request.path)
+    if m and not _ct_job_allowed(m.group(1)):
+        return jsonify({"ok": False, "error": "job not found"}), 404
 
 
 def _ct_money(v):
@@ -6813,6 +7009,79 @@ def contractor_delete_receipt(job_id, rid):
         headers=sb_headers(), timeout=5
     )
     return jsonify({"ok": r.ok})
+
+
+@app.route("/api/contractor/jobs/<job_id>/visits", methods=["GET"])
+def contractor_job_visits(job_id):
+    if not _ct_job_allowed(job_id):
+        return jsonify([]), 404
+    r = requests.get(
+        f"{sb_url()}/rest/v1/job_visits?job_id=eq.{job_id}"
+        f"&select=id,visit_date,description,hours,created_by,lat,lng,created_at&order=visit_date.asc,created_at.asc",
+        headers=sb_headers(), timeout=8
+    )
+    return jsonify(r.json() if r.ok else [])
+
+
+@app.route("/api/contractor/jobs/<job_id>/visits", methods=["POST"])
+def contractor_add_visit(job_id):
+    if not _ct_job_allowed(job_id):
+        return jsonify({"ok": False, "error": "job not found"}), 404
+    data = request.get_json() or {}
+    desc = (data.get("description") or "").strip()
+    if len(desc) < 3:
+        return jsonify({"ok": False, "error": "Describe what was done on this visit"}), 400
+    visit_date = data.get("visit_date") or None
+    if visit_date and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(visit_date)):
+        return jsonify({"ok": False, "error": "Invalid date"}), 400
+    hours = data.get("hours")
+    hours = None if hours in (None, "") else max(0.0, min(24.0, _ct_money(hours)))
+    row = {"job_id": job_id, "description": desc[:2000], "hours": hours,
+           "created_by": _contractor_caller()["name"][:80]}
+    if visit_date:
+        row["visit_date"] = visit_date
+    try:
+        lat, lng = float(data.get("lat")), float(data.get("lng"))
+        if -90 <= lat <= 90 and -180 <= lng <= 180:
+            row.update(lat=lat, lng=lng)
+    except (TypeError, ValueError):
+        pass
+    r = requests.post(f"{sb_url()}/rest/v1/job_visits", json=row,
+                      headers={**sb_headers(), "Prefer": "return=representation"}, timeout=8)
+    if not (r.ok and r.json()):
+        return jsonify({"ok": False, "error": "Could not save the visit"}), 500
+    job = _ct_job_allowed(job_id)
+    if job and job.get("status") == "open":
+        requests.patch(f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?id=eq.{job_id}", json={"status": "in_progress"},
+                       headers=sb_headers(), timeout=5)
+    return jsonify({"ok": True, "visit": r.json()[0]})
+
+
+@app.route("/api/contractor/jobs/<job_id>/visits/<vid>", methods=["DELETE"])
+def contractor_delete_visit(job_id, vid):
+    if not _ct_job_allowed(job_id):
+        return jsonify({"ok": False}), 404
+    r = requests.delete(f"{sb_url()}/rest/v1/job_visits?id=eq.{requests.utils.quote(vid)}&job_id=eq.{job_id}",
+                        headers=sb_headers(), timeout=5)
+    return jsonify({"ok": r.ok})
+
+
+@app.route("/api/contractor/jobs/<job_id>/finish", methods=["POST"])
+def contractor_finish_job(job_id):
+    """Mark a job finished (or reopen it). Used by description-only jobs."""
+    job = _ct_job_allowed(job_id)
+    if not job:
+        return jsonify({"ok": False, "error": "job not found"}), 404
+    if job.get("invoice_id"):
+        return jsonify({"ok": False, "error": "This job is already invoiced"}), 409
+    done = bool((request.get_json() or {}).get("done", True))
+    import datetime as dt
+    payload = {"status": "completed" if done else "in_progress", "progress_pct": 100 if done else 0,
+               "completed_date": dt.date.today().isoformat() if done else None,
+               "updated_at": dt.datetime.utcnow().isoformat() + "Z"}
+    r = requests.patch(f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?id=eq.{job_id}", json=payload,
+                       headers=sb_headers(), timeout=5)
+    return jsonify({"ok": r.ok, **{k: payload[k] for k in ("status", "progress_pct")}})
 
 
 @app.route("/api/contractor/receipt-read", methods=["POST"])
@@ -6899,7 +7168,7 @@ def contractor_invoicing_jobs(company):
     r = requests.get(
         f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?company=eq.{company}"
         f"&select=id,job_number,title,description,client_name,location,status,progress_pct,completed_date,"
-        f"customer_id,invoice_description,service_price,invoice_id,project_id,created_at"
+        f"customer_id,invoice_description,service_price,invoice_id,project_id,created_at,client_email,tracking"
         f"&order=created_at.desc&limit=500",
         headers=sb_headers(), timeout=10
     )
@@ -6911,7 +7180,15 @@ def contractor_invoicing_jobs(company):
         ir = requests.get(f"{sb_url()}/rest/v1/contractor_invoices?id=in.({','.join(inv_ids)})&select=id,invoice_number,total",
                           headers=sb_headers(), timeout=8)
         numbers = {i["id"]: i for i in (ir.json() if ir.ok else [])}
+    visits = {}
+    if jobs:
+        vr = requests.get(f"{sb_url()}/rest/v1/job_visits?job_id=in.({','.join(j['id'] for j in jobs)})"
+                          f"&select=job_id,visit_date,description&order=visit_date.asc,created_at.asc",
+                          headers=sb_headers(), timeout=8)
+        for v in (vr.json() if vr.ok else []):
+            visits.setdefault(v["job_id"], []).append({"date": v.get("visit_date"), "description": v.get("description")})
     for j in jobs:
+        j["visits"] = visits.get(j["id"], [])
         c = costs.get(j["id"], {"materials": [], "receipts": []})
         j["materials_total"] = round(sum(_ct_money(m.get("qty")) * _ct_money(m.get("unit_cost")) for m in c["materials"]), 2)
         j["receipts_total"] = round(sum(_ct_money(x.get("amount")) for x in c["receipts"]), 2)
@@ -6927,7 +7204,9 @@ def contractor_invoicing_update_job(company, job_id):
         return err
     data = request.get_json() or {}
     payload = {}
-    for k, n in (("client_name", 160), ("location", 200), ("customer_id", 60), ("invoice_description", 2000)):
+    if "client_email" in data and data["client_email"] and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", str(data["client_email"]).strip()):
+        return jsonify({"ok": False, "error": "Enter a valid client email"}), 400
+    for k, n in (("client_name", 160), ("location", 200), ("customer_id", 60), ("invoice_description", 2000), ("client_email", 160)):
         if k in data:
             payload[k] = str(data.get(k) or "").strip()[:n]
     if "service_price" in data:
@@ -6957,7 +7236,7 @@ def contractor_invoices_list(company):
         return err
     r = requests.get(
         f"{sb_url()}/rest/v1/contractor_invoices?company=eq.{company}"
-        f"&select=id,invoice_number,bill_to,job_site,invoice_date,total,status,created_by,job_id&order=seq.desc&limit=500",
+        f"&select=id,invoice_number,bill_to,job_site,invoice_date,total,status,created_by,job_id,sent_at,sent_to&order=seq.desc&limit=500",
         headers=sb_headers(), timeout=8
     )
     return jsonify(r.json() if r.ok else [])
@@ -7035,6 +7314,98 @@ def contractor_invoice_get(invoice_id):
     me, err = _ct_invoice_guard(inv["company"])
     if err:
         return err
+    inv.pop("public_token", None)
+    if inv.get("job_id"):
+        jr = requests.get(f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?id=eq.{inv['job_id']}&select=client_email&limit=1",
+                          headers=sb_headers(), timeout=5)
+        inv["client_email"] = (jr.json()[0].get("client_email") if jr.ok and jr.json() else "") or ""
+    return jsonify({"ok": True, "invoice": inv})
+
+
+def _ct_invoice_email_html(inv, message, link):
+    co = inv.get("company_snapshot") or {}
+    navy = co.get("brand_primary") if _HEX_COLOR.fullmatch(str(co.get("brand_primary") or "")) else "#0d1b36"
+    gold = co.get("brand_accent") if _HEX_COLOR.fullmatch(str(co.get("brand_accent") or "")) else "#e8a317"
+    money = lambda v: f"${_ct_money(v):,.2f}"
+    rows = "".join(
+        f"<tr><td style='padding:8px;border-bottom:1px solid #e5e7eb;white-space:pre-line'>{_html_escape(i.get('description'))}</td>"
+        f"<td style='padding:8px;border-bottom:1px solid #e5e7eb;text-align:center'>{_html_escape(i.get('qty'))}</td>"
+        f"<td style='padding:8px;border-bottom:1px solid #e5e7eb;text-align:right'>{money(i.get('total'))}</td></tr>"
+        for i in (inv.get("items") or []))
+    msg = _html_escape(message).replace("\n", "<br>")
+    return f"""<div style="font-family:Arial,Helvetica,sans-serif;max-width:620px;margin:0 auto;color:#111827">
+  <div style="background:{navy};color:#fff;padding:18px 22px;border-radius:8px 8px 0 0">
+    <div style="font-size:20px;font-weight:bold">{_html_escape(co.get('display_name'))}</div>
+    <div style="color:{gold};font-size:13px;margin-top:4px">Invoice {_html_escape(inv.get('invoice_number'))}</div>
+  </div>
+  <div style="border:1px solid #e5e7eb;border-top:none;padding:22px;border-radius:0 0 8px 8px">
+    <p style="font-size:14px;line-height:1.6">{msg}</p>
+    <table style="width:100%;font-size:13px;margin:14px 0"><tr>
+      <td><b>Bill to:</b> {_html_escape(inv.get('bill_to'))}<br><b>Job site:</b> {_html_escape(inv.get('job_site'))}</td>
+      <td style="text-align:right"><b>Date:</b> {_html_escape(inv.get('invoice_date'))}<br><b>Terms:</b> {_html_escape(inv.get('payment_terms'))}</td>
+    </tr></table>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <tr style="background:{navy};color:#fff"><th style="padding:8px;text-align:left">Description</th><th style="padding:8px">Qty</th><th style="padding:8px;text-align:right">Total</th></tr>
+      {rows}
+    </table>
+    <div style="text-align:right;margin-top:14px;font-size:18px"><b>Total due: <span style="color:{navy}">{money(inv.get('total'))}</span></b></div>
+    <div style="text-align:center;margin:26px 0 8px">
+      <a href="{link}" style="background:{navy};color:#fff;text-decoration:none;padding:12px 22px;border-radius:6px;font-weight:bold;display:inline-block">View and download the invoice</a>
+    </div>
+    <p style="font-size:12px;color:#6b7280;text-align:center">{_html_escape(co.get('payment_note'))}</p>
+  </div>
+</div>"""
+
+
+@app.route("/api/contractor/invoices/<invoice_id>/send", methods=["POST"])
+def contractor_invoice_send(invoice_id):
+    import secrets, datetime as dt
+    r = requests.get(f"{sb_url()}/rest/v1/contractor_invoices?id=eq.{requests.utils.quote(invoice_id)}&select=*&limit=1",
+                     headers=sb_headers(), timeout=8)
+    inv = r.json()[0] if r.ok and r.json() else None
+    if not inv:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    me, err = _ct_invoice_guard(inv["company"])
+    if err:
+        return err
+    data = request.get_json() or {}
+    email_re = r"[^@\s]+@[^@\s]+\.[^@\s]+"
+    to = [e.strip().lower() for e in (data.get("to") or []) if re.fullmatch(email_re, str(e).strip())][:5]
+    cc = [e.strip().lower() for e in (data.get("cc") or []) if re.fullmatch(email_re, str(e).strip())][:10]
+    if not to:
+        return jsonify({"ok": False, "error": "Enter the client's email"}), 400
+    token = inv.get("public_token") or secrets.token_urlsafe(24)
+    if not inv.get("public_token"):
+        requests.patch(f"{sb_url()}/rest/v1/contractor_invoices?id=eq.{inv['id']}", json={"public_token": token},
+                       headers=sb_headers(), timeout=5)
+    link = f"{request.host_url}i/{token}"
+    co = inv.get("company_snapshot") or {}
+    message = str(data.get("message") or "").strip()[:2000] or "Please find your invoice below."
+    ok, e = _ct_send_email(to, cc, f"Invoice {inv['invoice_number']} from {co.get('display_name') or ''}".strip(),
+                           _ct_invoice_email_html(inv, message, link), reply_to=(co.get("emails") or [None])[0])
+    if not ok:
+        return jsonify({"ok": False, "error": e, "link": link}), 502
+    now = dt.datetime.utcnow().isoformat() + "Z"
+    requests.patch(f"{sb_url()}/rest/v1/contractor_invoices?id=eq.{inv['id']}",
+                   json={"sent_at": now, "sent_to": ", ".join(to), "status": "sent"}, headers=sb_headers(), timeout=5)
+    return jsonify({"ok": True, "sent_at": now, "link": link})
+
+
+@app.route("/i/<token>")
+def contractor_public_invoice_page(token):
+    return render_template("contractor-invoice.html", invoice_id="", public_token=token)
+
+
+@app.route("/api/public/invoice/<token>")
+def contractor_public_invoice(token):
+    if not re.fullmatch(r"[A-Za-z0-9_-]{20,64}", token):
+        return jsonify({"ok": False, "error": "not found"}), 404
+    r = requests.get(f"{sb_url()}/rest/v1/contractor_invoices?public_token=eq.{token}"
+                     f"&select=invoice_number,bill_to,customer_id,job_site,invoice_date,payment_terms,items,subtotal,total,company_snapshot&limit=1",
+                     headers=sb_headers(), timeout=8)
+    inv = r.json()[0] if r.ok and r.json() else None
+    if not inv:
+        return jsonify({"ok": False, "error": "not found"}), 404
     return jsonify({"ok": True, "invoice": inv})
 
 
@@ -7050,7 +7421,7 @@ def _next_job_number():
     rows = r.json() if r.ok else []
     nums = []
     for row in rows:
-        jn = row.get("job_number", "")
+        jn = row.get("job_number") or ""
         if jn.startswith("WO-"):
             try:
                 nums.append(int(jn.split("-")[1]))
@@ -7074,6 +7445,9 @@ def get_contractor_jobs():
     )
     if scope:
         url += f"&company=eq.{scope}"
+    me = _contractor_caller()
+    if _ct_is_member_only(me):
+        url += f"&created_by=eq.{requests.utils.quote(me['name'])}"
     if status_filter:
         url += f"&status=eq.{status_filter}"
     r = requests.get(url, headers=sb_headers(), timeout=8)
@@ -7099,9 +7473,10 @@ def create_contractor_job():
         "start_date":   data.get("start_date") or None,
         "due_date":     data.get("due_date") or None,
         "notes":        data.get("notes", ""),
-        "created_by":   data.get("created_by", ""),
-        "project_id":   data.get("project_id") or None,
-        "tracking":     "check" if data.get("tracking") == "check" else "percent",
+        "created_by":   _contractor_caller()["name"] or data.get("created_by", ""),
+        "client_email": str(data.get("client_email") or "").strip()[:160],
+        "project_id":   (data.get("project_id") or None) if not _ct_is_member_only(_contractor_caller()) else None,
+        "tracking":     data.get("tracking") if data.get("tracking") in ("percent", "check", "simple") else "percent",
     }
     scope = _contractor_scope()
     if scope == "__none__":
@@ -7143,11 +7518,11 @@ def update_contractor_job(job_id):
     allowed = [
         "title", "description", "client_name", "location", "status",
         "priority", "crew", "start_date", "due_date", "completed_date",
-        "notes", "tracking", "progress_pct"
+        "notes", "tracking", "progress_pct", "client_email"
     ]
     payload = {k: data[k] for k in allowed if k in data}
-    if "tracking" in payload and payload["tracking"] not in ("percent", "check"):
-        return jsonify({"ok": False, "error": "tracking must be percent or check"}), 400
+    if "tracking" in payload and payload["tracking"] not in ("percent", "check", "simple"):
+        return jsonify({"ok": False, "error": "tracking must be percent, check or simple"}), 400
     if "progress_pct" in payload:
         payload["progress_pct"] = max(0.0, min(100.0, float(payload["progress_pct"] or 0)))
     if not payload:
@@ -7411,7 +7786,7 @@ def contractor_dashboard():
 @app.route("/api/contractor/projects", methods=["GET"])
 def get_contractor_projects():
     scope = _contractor_scope()
-    if scope == "__none__":
+    if scope == "__none__" or _ct_is_member_only(_contractor_caller()):
         return jsonify([])
     company_filter = f"&company=eq.{scope}" if scope else ""
     # Single query using PostgREST embedded join (FK: contractor_jobs.project_id → contractor_projects.id)
@@ -7451,6 +7826,8 @@ def create_contractor_project():
     scope = _contractor_scope()
     if scope == "__none__":
         return jsonify({"ok": False, "error": "You are not assigned to a company yet"}), 403
+    if _ct_is_member_only(_contractor_caller()):
+        return jsonify({"ok": False, "error": "Users can't create projects"}), 403
     if scope:
         payload["company"] = scope
     r = requests.post(

@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{ company_name }} Invoicing – BSynch</title>
 <script src="/static/contractor-scope.js"></script>
-<script src="/static/theme.js"></script>
-<link rel="stylesheet" href="/static/themes.css">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;}
@@ -50,6 +48,7 @@ h1{font-size:22px;font-weight:700;margin-bottom:4px;}
 .btn{padding:11px 18px;background:#1e9484;border:none;border-radius:9px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;margin-left:auto;}
 .btn:disabled{background:#334155;color:#94a3b8;cursor:not-allowed;}
 .why{font-size:12px;color:#f59e0b;margin-top:8px;text-align:right;}
+.fill-visits{margin-left:8px;padding:2px 8px;border-radius:6px;border:1px solid #1e9484;background:transparent;color:#1e9484;font-size:11px;cursor:pointer;text-transform:none;letter-spacing:0;}
 .saved{font-size:11px;color:#22c55e;margin-left:6px;opacity:0;transition:opacity .2s;}
 .saved.on{opacity:1;}
 .inv-link{color:#4f8ef7;font-weight:700;text-decoration:none;}
@@ -143,7 +142,10 @@ function renderJobs(){
         '<div class="field"><label>Customer ID</label><input data-k="customer_id" value="' + esc(j.customer_id || '') + '" maxlength="60"' + dis + '></div>' +
         '<div class="field"><label>Job site</label><input data-k="location" value="' + esc(j.location || '') + '" maxlength="200"' + dis + '></div>' +
       '</div>' +
-      '<div class="field" style="margin-top:10px;"><label>Description on the invoice <span class="saved">Saved &#10003;</span></label><textarea data-k="invoice_description" maxlength="2000"' + dis + '>' + esc(desc) + '</textarea></div>' +
+      '<div class="field" style="margin-top:10px;"><label>Client email (to send the invoice)</label><input data-k="client_email" type="email" value="' + esc(j.client_email || '') + '" maxlength="160"' + dis + '></div>' +
+      '<div class="field" style="margin-top:10px;"><label>Description on the invoice <span class="saved">Saved &#10003;</span>' +
+        ((j.visits || []).length && !locked ? ' <button type="button" class="fill-visits">Fill from ' + j.visits.length + ' visit' + (j.visits.length === 1 ? '' : 's') + '</button>' : '') +
+        '</label><textarea data-k="invoice_description" maxlength="2000"' + dis + '>' + esc(desc) + '</textarea></div>' +
       (locked
         ? '<div class="price-row"><div>Invoice <a class="inv-link" href="/contractor/invoice/' + esc(j.invoice.id) + '">' + esc(j.invoice.invoice_number) + '</a> &middot; ' + money(j.invoice.total) + '</div></div>'
         : '<div class="price-row">' +
@@ -176,6 +178,14 @@ document.getElementById('jobList').addEventListener('input', function(e){
   if(e.target.dataset.k !== 'service_price') return;
   var card = e.target.closest('.job'), j = jobById(card.dataset.id), v = parseFloat(e.target.value) || 0;
   card.querySelector('.create').disabled = !(j.is_done && v > 0);
+});
+document.getElementById('jobList').addEventListener('click', function(e){
+  if(!e.target.classList.contains('fill-visits')) return;
+  var card = e.target.closest('.job'), j = jobById(card.dataset.id), ta = card.querySelector('[data-k="invoice_description"]');
+  ta.value = (j.visits || []).map(function(v){
+    var d = (v.date || '').split('-'); return (d.length === 3 ? (+d[1]) + '/' + (+d[2]) + ': ' : '') + v.description;
+  }).join('\n');
+  ta.dispatchEvent(new Event('change', {bubbles: true}));
 });
 document.getElementById('jobList').addEventListener('click', function(e){
   if(!e.target.classList.contains('create')) return;
@@ -217,9 +227,9 @@ function loadInvoices(){
   fetch(API + '/invoices').then(function(r){ return r.json(); }).then(function(list){
     var box = document.getElementById('invList');
     if(!Array.isArray(list) || !list.length){ box.innerHTML = '<div class="empty">No invoices yet.</div>'; return; }
-    box.innerHTML = '<div class="table-wrap card"><table><thead><tr><th>Invoice</th><th>Date</th><th>Bill to</th><th>Job site</th><th class="r">Total</th></tr></thead><tbody>' +
+    box.innerHTML = '<div class="table-wrap card"><table><thead><tr><th>Invoice</th><th>Date</th><th>Bill to</th><th>Job site</th><th>Sent</th><th class="r">Total</th></tr></thead><tbody>' +
       list.map(function(i){
-        return '<tr><td><a class="inv-link" href="/contractor/invoice/' + esc(i.id) + '">' + esc(i.invoice_number) + '</a></td><td>' + esc(i.invoice_date || '') + '</td><td>' + esc(i.bill_to) + '</td><td>' + esc(i.job_site) + '</td><td class="r"><b>' + money(i.total) + '</b></td></tr>';
+        return '<tr><td><a class="inv-link" href="/contractor/invoice/' + esc(i.id) + '">' + esc(i.invoice_number) + '</a></td><td>' + esc(i.invoice_date || '') + '</td><td>' + esc(i.bill_to) + '</td><td>' + esc(i.job_site) + '</td><td>' + (i.sent_at ? '<span class="chip chip-done">Sent</span>' : '<span class="chip chip-wip">Not sent</span>') + '</td><td class="r"><b>' + money(i.total) + '</b></td></tr>';
       }).join('') + '</tbody></table></div>';
   });
 }

@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{ company_name }} Settings – BSynch</title>
 <script src="/static/contractor-scope.js"></script>
-<script src="/static/theme.js"></script>
-<link rel="stylesheet" href="/static/themes.css">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;}
@@ -259,7 +257,7 @@ document.getElementById('profileForm').onsubmit = function(e){
   fetch(API + '/profile', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)})
     .then(function(r){ return r.json(); }).then(function(res){
       btn.disabled = false;
-      if(res.ok){ var s = document.getElementById('saved'); s.classList.add('on'); setTimeout(function(){ s.classList.remove('on'); }, 1500); }
+      if(res.ok){ try { sessionStorage.removeItem('ctBrand_' + COMPANY); } catch(x) {} var s = document.getElementById('saved'); s.classList.add('on'); setTimeout(function(){ s.classList.remove('on'); }, 1500); }
       else alert('Could not save: ' + (res.error || 'error'));
     }).catch(function(){ btn.disabled = false; alert('Connection error.'); });
 };

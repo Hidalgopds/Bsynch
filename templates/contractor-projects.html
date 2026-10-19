@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Projects – Contractor</title>
 <script src="/static/contractor-scope.js"></script>
-<script src="/static/theme.js"></script>
-<link rel="stylesheet" href="/static/themes.css">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0!important;min-height:100vh;display:flex;flex-direction:column;}
@@ -152,6 +150,28 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
 .rc-info{flex:1;min-width:0;display:flex;flex-direction:column;font-size:13px;}
 .rc-info span{font-size:11px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .rc-amt{font-weight:700;font-size:14px;}
+.mode-pick{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.mode-btn{text-align:left;padding:12px;border-radius:10px;border:1px solid #334155;background:transparent;color:inherit;cursor:pointer;font-family:inherit;}
+.mode-btn b{display:block;font-size:13px;}
+.mode-btn small{display:block;font-size:11px;color:#64748b;margin-top:3px;}
+.mode-btn.on{border-color:#1e9484;background:rgba(30,148,132,.12);}
+.before-drop{display:block;text-align:center;padding:14px;border:2px dashed #334155;border-radius:10px;color:#1e9484;font-weight:600;font-size:13px;cursor:pointer;}
+.before-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px;margin-top:8px;}
+.before-thumb{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;}
+.before-thumb img{width:100%;height:100%;object-fit:cover;}
+.before-thumb button{position:absolute;top:2px;right:2px;width:22px;height:22px;border-radius:50%;border:none;background:rgba(0,0,0,.6);color:#fff;cursor:pointer;line-height:1;}
+.simple-job{padding:4px 0;}
+.simple-desc{font-size:14px;line-height:1.6;padding:14px;border-radius:12px;background:rgba(148,163,184,.07);margin-bottom:16px;}
+.btn-finish{width:100%;padding:16px;border:none;border-radius:12px;background:#22c55e;color:#04220f;font-size:16px;font-weight:800;cursor:pointer;}
+.btn-reopen{width:100%;padding:10px;border:1px solid #334155;border-radius:10px;background:transparent;color:#94a3b8;font-size:13px;cursor:pointer;margin-top:8px;}
+.finish-state{padding:14px;border-radius:12px;text-align:center;font-weight:800;font-size:15px;}
+.finish-state.done{background:rgba(34,197,94,.14);color:#22c55e;}
+.finish-hint{font-size:12px;color:#64748b;text-align:center;margin-top:8px;}
+.visit{padding:12px 14px;border-radius:12px;background:rgba(148,163,184,.07);margin-bottom:8px;}
+.visit-top{display:flex;align-items:center;gap:8px;font-size:12px;color:#64748b;margin-bottom:6px;}
+.visit-top b{color:#1e9484;font-size:13px;}
+.visit-top .step-del{margin-left:auto;}
+.visit-desc{font-size:14px;line-height:1.5;white-space:pre-line;}
 .steps-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
 .steps-header h4{font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;}
 .btn-add-step{padding:5px 12px;background:rgba(30,148,132,.12);border:1px solid #1e9484;border-radius:7px;color:#1e9484;font-size:12px;cursor:pointer;}
@@ -275,7 +295,7 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
   <span class="hdr-title">Projects</span>
   <div class="hdr-right">
     <button class="btn-primary" onclick="openWoModal(null)">+ Work Order</button>
-    <button class="btn-icon" onclick="openCreateProject()">+ Project</button>
+    <button class="btn-icon" id="newProjBtn" onclick="openCreateProject()">+ Project</button>
     <a href="/contractor-hub" class="btn-icon">&#8592; Hub</a>
   </div>
 </header>
@@ -330,9 +350,10 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
     </div>
   </div>
   <div class="jp-tabs">
-    <div class="jptab active" data-tab="steps" onclick="switchJobTab(this)">Steps</div>
+    <div class="jptab active" data-tab="steps" onclick="switchJobTab(this)">Work</div>
     <div class="jptab" data-tab="info" onclick="switchJobTab(this)">Info</div>
     <div class="jptab" data-tab="materials" onclick="switchJobTab(this)">Materials</div>
+    <div class="jptab" data-tab="visits" onclick="switchJobTab(this)">Visits</div>
     <div class="jptab" data-tab="receipts" onclick="switchJobTab(this)">Receipts</div>
     <div class="jptab" data-tab="photos" onclick="switchJobTab(this)">Photos</div>
   </div>
@@ -376,12 +397,18 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
         <div class="form-group"><label>Client (bill to)</label><input id="woClient" placeholder="e.g. Newmark"></div>
         <div class="form-group"><label>Job site</label><input id="woSite" placeholder="e.g. 31106 Marlow Manor"></div>
       </div>
-      <div class="form-group"><label>Project (optional)</label><select id="woProject"></select></div>
+      <div class="form-group"><label>Client email (to send the invoice)</label><input id="woClientEmail" type="email" placeholder="client@email.com"></div>
+      <div class="form-group"><label>How will this job be done?</label>
+        <div class="mode-pick" id="woModePick">
+          <button type="button" class="mode-btn on" data-mode="simple"><b>&#128221; Description only</b><small>One job. Mark it finished when it's done.</small></button>
+          <button type="button" class="mode-btn" data-mode="steps"><b>&#129692; With steps</b><small>Break it into steps and track each one.</small></button>
+        </div>
+      </div>
       <div class="form-2col">
         <div class="form-group"><label>Priority</label>
           <select id="woPriority"><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option><option value="low">Low</option></select>
         </div>
-        <div class="form-group"><label>Track progress by</label>
+        <div class="form-group steps-only" style="display:none;"><label>Track steps by</label>
           <select id="woTracking"><option value="percent">% complete</option><option value="check">Done / not done</option></select>
         </div>
         <div class="form-group"><label>Status</label>
@@ -394,6 +421,11 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
       </div>
     </div>
     <div class="modal-section">
+      <div class="modal-section-title">Before photos (optional)</div>
+      <label class="before-drop"><input type="file" id="woBeforeFiles" accept="image/*" multiple hidden>&#128247; Add photos of how it looks before starting</label>
+      <div class="before-grid" id="woBeforeGrid"></div>
+    </div>
+    <div class="modal-section steps-only" style="display:none;">
       <div class="modal-section-title">Steps (max 10)</div>
       <div id="woStepFields"></div>
       <button class="btn-add-step-field" id="woAddStepBtn" onclick="addWoStepField()">+ Add Step</button>
@@ -413,23 +445,32 @@ var openJobId=null, openJobData=null, openJobTab='steps';
 var selectedPhotoFile=null;
 var woStepCount=0;
 var woForProjectId=null; // captured when modal opens
-var userName=localStorage.getItem('mbrName')||localStorage.getItem('companyUser')||'User';
+var userName=(window.CT&&CT.user)||localStorage.getItem('mbrName')||localStorage.getItem('companyUser')||'User';
 var NO_PROJECT='__none__';
 
 // ── Boot ──
-loadAll();
+fetch('/api/contractor/me').then(r=>r.json()).then(me=>{
+  window._memberOnly=!!me.member_only;
+  if(window._memberOnly){
+    var b=document.getElementById('newProjBtn');if(b)b.style.display='none';
+    var t=document.querySelector('.hdr-title');if(t)t.textContent='My Work Orders';
+    var k=document.getElementById('kpiProj');if(k&&k.parentElement)k.parentElement.style.display='none';
+  }
+}).catch(()=>{}).finally(loadAll);
 function loadAll(){
   Promise.all([fetch('/api/contractor/projects').then(r=>r.json()),fetch('/api/contractor/jobs').then(r=>r.json())])
     .then(([projs,jobs])=>{
       projs=Array.isArray(projs)?projs:[];jobs=Array.isArray(jobs)?jobs:[];
       var loose=jobs.filter(j=>!j.project_id);
       allProjects=projs;
-      if(loose.length) allProjects=[{id:NO_PROJECT,name:'Work orders without project',jobs:loose,virtual:true}].concat(projs);
+      if(loose.length) allProjects=[{id:NO_PROJECT,name:window._memberOnly?'My work orders':'Work orders (no project)',jobs:loose,virtual:true}].concat(projs);
       var full={};jobs.forEach(j=>{full[j.id]=j;});
       allJobs=allProjects.reduce((acc,p)=>acc.concat(p.jobs||[]),[]).map(j=>full[j.id]?Object.assign({},j,full[j.id]):j);
       updateKPIs(); renderProjects();
       if(!window._woAutoOpened&&new URLSearchParams(location.search).get('new')==='1'){window._woAutoOpened=true;openWoModal(null);}
+      var qJob=new URLSearchParams(location.search).get('job');if(qJob&&!window._jobAutoOpened){window._jobAutoOpened=true;var qj=allJobs.find(j=>j.id===qJob);if(qj){selectProject(qj.project_id||NO_PROJECT);openJobDetail(qJob);}}
       if(openProjId) renderPanel(openProjId);
+      if(window._openAfterLoad){var nid=window._openAfterLoad;window._openAfterLoad=null;var nj=allJobs.find(j=>j.id===nid);if(nj){selectProject(nj.project_id||NO_PROJECT);openJobDetail(nid);}}
     }).catch(()=>document.getElementById('projList').innerHTML='<div class="spinner">Error loading data.</div>');
 }
 
@@ -573,6 +614,7 @@ function switchJobTab(el){
   else if(openJobTab==='info') renderInfoTab(openJobData);
   else if(openJobTab==='materials') loadMaterials();
   else if(openJobTab==='receipts') loadReceipts();
+  else if(openJobTab==='visits') loadVisits();
   else if(openJobTab==='photos') loadPhotos();
 }
 
@@ -583,12 +625,35 @@ function loadSteps(){
     .then(r=>r.json()).then(renderSteps);
 }
 function sfill(p){return p>=100?'sfill-done':p>=60?'sfill-high':p>=30?'sfill-mid':'sfill-low';}
-function jobTracking(){return (openJobData&&openJobData.tracking)==='check'?'check':'percent';}
+function jobTracking(){var t=openJobData&&openJobData.tracking;return t==='check'||t==='simple'?t:'percent';}
+function renderSimple(){
+  var j=openJobData||{}, done=j.status==='completed'||parseFloat(j.progress_pct||0)>=100;
+  var html='<div class="simple-job">'
+    +'<div class="simple-desc">'+(j.description?esc(j.description).replace(/\n/g,'<br>'):'<span style="color:#64748b">No description.</span>')+'</div>'
+    +(j.invoice_id?'<div class="finish-state done">&#10003; Finished and invoiced</div>'
+      :done?'<div class="finish-state done">&#10003; Job finished</div><button class="btn-reopen" onclick="finishJob(false)">Reopen job</button>'
+      :'<button class="btn-finish" onclick="finishJob(true)">&#9989; Mark job finished</button><div class="finish-hint">Add visits, photos and receipts first. When it\'s finished, the invoice can be created.</div>')
+    +'</div>'
+    +'<div class="track-toggle" style="margin-top:18px;">Need steps instead? <button class="tt-btn" onclick="setTracking(\'percent\')">Switch to steps</button></div>';
+  document.getElementById('jpBody').innerHTML=html;
+}
+function finishJob(done){
+  if(done&&!confirm('Mark this job as finished?'))return;
+  fetch('/api/contractor/jobs/'+openJobId+'/finish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({done:done})})
+    .then(r=>r.json()).then(res=>{
+      if(!res.ok){alert(res.error||'Could not update');return;}
+      openJobData.status=res.status;openJobData.progress_pct=res.progress_pct;
+      var idx=allJobs.findIndex(j=>j.id===openJobId);if(idx>=0){allJobs[idx].status=res.status;allJobs[idx].progress_pct=res.progress_pct;}
+      updateJpProgress(res.progress_pct);renderSimple();flash(done?'Job finished':'Job reopened');
+    });
+}
 function renderSteps(steps){
+  if(jobTracking()==='simple'){renderSimple();return;}
   var canAdd=steps.length<10, mode=jobTracking();
   var html='<div class="track-toggle">Track by '
     +'<button class="tt-btn'+(mode==='percent'?' on':'')+'" onclick="setTracking(\'percent\')">% complete</button>'
-    +'<button class="tt-btn'+(mode==='check'?' on':'')+'" onclick="setTracking(\'check\')">&#10003; Done / not done</button></div>';
+    +'<button class="tt-btn'+(mode==='check'?' on':'')+'" onclick="setTracking(\'check\')">&#10003; Done / not done</button>'
+    +'<button class="tt-btn" onclick="setTracking(\'simple\')">&#128221; Description only</button></div>';
   html+='<div class="steps-header"><h4>Steps ('+steps.length+'/10)</h4>'
     +(canAdd?'<button class="btn-add-step" onclick="addNewStep()">+ Add Step</button>':'')
     +'</div>';
@@ -731,14 +796,30 @@ function deleteProject(id){
 function openWoModal(projectId){
   if(projectId===undefined) projectId=openProjId;
   if(projectId===NO_PROJECT) projectId=null;
-  var sel=document.getElementById('woProject');
-  sel.innerHTML='<option value="">— No project —</option>'+allProjects.filter(p=>p.id!==NO_PROJECT).map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>').join('');
-  sel.value=projectId||'';
+  woForProjectId=projectId||null;
+  woBefore=[];renderWoBefore();setWoMode('simple');
   var proj=allProjects.find(p=>p.id===projectId);
   document.getElementById('woClient').value=proj&&proj.client_name?proj.client_name:'';
   document.getElementById('woModal').classList.add('open');
   document.getElementById('woStart').value=new Date().toISOString().split('T')[0];
   initWoSteps();
+}
+var woMode='simple', woBefore=[];
+function setWoMode(m){
+  woMode=m;
+  document.querySelectorAll('#woModePick .mode-btn').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));
+  document.querySelectorAll('#woModal .steps-only').forEach(el=>el.style.display=m==='steps'?'':'none');
+}
+document.getElementById('woModePick').addEventListener('click',function(e){var b=e.target.closest('.mode-btn');if(b)setWoMode(b.dataset.mode);});
+function renderWoBefore(){
+  document.getElementById('woBeforeGrid').innerHTML=woBefore.map((d,i)=>'<div class="before-thumb"><img src="'+d+'" alt=""><button type="button" onclick="woBefore.splice('+i+',1);renderWoBefore()">&#215;</button></div>').join('');
+}
+document.getElementById('woBeforeFiles').addEventListener('change',function(){
+  var files=Array.from(this.files||[]).slice(0,10-woBefore.length);this.value='';
+  Promise.all(files.map(f=>rcShrink(f).catch(()=>null))).then(list=>{list.forEach(d=>{if(d)woBefore.push(d);});renderWoBefore();});
+});
+function uploadWoBefore(jobId){
+  return woBefore.reduce((p,d)=>p.then(()=>fetch('/api/contractor/jobs/'+jobId+'/photos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({photo_data:d,photo_type:'before',caption:'Before',uploaded_by:userName})})),Promise.resolve()).then(()=>{woBefore=[];renderWoBefore();});
 }
 function closeWoModal(){document.getElementById('woModal').classList.remove('open');}
 function initWoSteps(){var c=document.getElementById('woStepFields');c.innerHTML='';woStepCount=0;addWoStepField('');updateWoStepBtn();}
@@ -760,21 +841,25 @@ function submitWo(){
   if(!title){alert('Title required');return;}
   var stepNames=[];
   document.querySelectorAll('#woStepFields .step-field-input').forEach(inp=>{if(inp.value.trim())stepNames.push(inp.value.trim());});
-  if(!stepNames.length) stepNames.push(title);
-  woForProjectId=document.getElementById('woProject').value||null;
+  var mode=woMode==='steps'?document.getElementById('woTracking').value:'simple';
+  if(mode==='simple') stepNames=[];
+  else if(!stepNames.length) stepNames.push(title);
   var btn=document.querySelector('#woModal .btn-submit');
   if(btn){btn.disabled=true;btn.textContent='Creating...';}
-  fetch('/api/contractor/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:title,description:document.getElementById('woDesc').value.trim(),priority:document.getElementById('woPriority').value,status:document.getElementById('woStatus').value,start_date:document.getElementById('woStart').value||null,due_date:document.getElementById('woDue').value||null,created_by:userName,project_id:woForProjectId,client_name:document.getElementById('woClient').value.trim(),location:document.getElementById('woSite').value.trim(),tracking:document.getElementById('woTracking').value})})
+  fetch('/api/contractor/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:title,description:document.getElementById('woDesc').value.trim(),priority:document.getElementById('woPriority').value,status:document.getElementById('woStatus').value,start_date:document.getElementById('woStart').value||null,due_date:document.getElementById('woDue').value||null,created_by:userName,project_id:woForProjectId,client_name:document.getElementById('woClient').value.trim(),location:document.getElementById('woSite').value.trim(),client_email:document.getElementById('woClientEmail').value.trim(),tracking:mode})})
     .then(r=>r.json()).then(function(res){
       if(!res.ok){alert('Error creating work order: '+(res.error||'unknown'));return;}
       if(!res.job||!res.job.id){
         // job created but no id returned — still reload
         closeWoModal();loadAll();return;
       }
-      return fetch('/api/contractor/jobs/'+res.job.id+'/steps',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({steps:stepNames})})
+      var newId=res.job.id;
+      var work=stepNames.length?fetch('/api/contractor/jobs/'+newId+'/steps',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({steps:stepNames})}):Promise.resolve();
+      return work.then(function(){return uploadWoBefore(newId);})
         .then(function(){
+          window._openAfterLoad=newId;
           closeWoModal();
-          ['woTitle','woDesc','woClient','woSite'].forEach(function(id){document.getElementById(id).value='';});
+          ['woTitle','woDesc','woClient','woSite','woClientEmail'].forEach(function(id){document.getElementById(id).value='';});
           document.getElementById('woPriority').value='normal';document.getElementById('woTracking').value='percent';
           document.getElementById('woStatus').value='open';
           loadAll();

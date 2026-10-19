@@ -38,6 +38,41 @@
     }).catch(function () {});
   }
 
+  // Location: only while the app is open and visible. Nothing runs in the background.
+  var LOC_EVERY = 5 * 60 * 1000, locTimer = null, lastSent = 0;
+  function sampleLocation() {
+    if (document.visibilityState !== 'visible' || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(function (p) {
+      CT.lastPos = {lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy, at: Date.now()};
+      if (Date.now() - lastSent < 60 * 1000) return;
+      lastSent = Date.now();
+      window.fetch('/api/contractor/location', {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({lat: CT.lastPos.lat, lng: CT.lastPos.lng, accuracy: CT.lastPos.accuracy, page: location.pathname})}).catch(function () {});
+    }, function () {}, {enableHighAccuracy: false, timeout: 20000, maximumAge: 2 * 60 * 1000});
+  }
+  function startLocation() {
+    if (locTimer || document.visibilityState !== 'visible') return;
+    sampleLocation();
+    locTimer = setInterval(sampleLocation, LOC_EVERY);
+  }
+  function stopLocation() { if (locTimer) { clearInterval(locTimer); locTimer = null; } }
+  CT.startLocation = startLocation;
+  function locationAllowed(cb) {
+    if (navigator.permissions && navigator.permissions.query) {
+      navigator.permissions.query({name: 'geolocation'}).then(function (st) { cb(st.state === 'granted'); }).catch(function () { cb(ls('ctLocOk') === '1'); });
+    } else cb(ls('ctLocOk') === '1');
+  }
+  if (!window.CT_SKIP_AGREEMENT && navigator.geolocation) {
+    locationAllowed(function (ok) {
+      if (!ok) return;
+      startLocation();
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') startLocation(); else stopLocation();
+      });
+      window.addEventListener('pagehide', stopLocation);
+    });
+  }
+
   // Installable app (PWA)
   var mf = document.createElement('link');
   mf.rel = 'manifest'; mf.href = '/contractor/manifest.webmanifest';
@@ -86,8 +121,40 @@
     }
   }
 
+  function applyBrand(b) {
+    if (!b || !b.ok) return;
+    var hex = /^#[0-9a-fA-F]{6}$/;
+    var primary = hex.test(b.primary || '') ? b.primary : '#0d1b36';
+    var accent = hex.test(b.accent || '') ? b.accent : '#e8a317';
+    var css = document.createElement('style');
+    css.textContent = 'header{background:' + primary + ' !important;border-bottom:3px solid ' + accent + ' !important;}' +
+      '.ct-logo{height:36px;max-width:120px;padding:3px 8px;border-radius:9px;background:#fff;display:flex;align-items:center;flex-shrink:0;}' +
+      '.ct-logo img{max-height:30px;max-width:104px;object-fit:contain;display:block;}';
+    document.head.appendChild(css);
+    var logoOk = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+\/=]+$/.test(b.logo || '') || /^\/static\/brand\/[\w.-]+\.(png|jpg|webp)$/.test(b.logo || '');
+    var badge = document.querySelector('header .logo-badge');
+    if (badge && logoOk) {
+      var box = document.createElement('div');
+      box.className = 'ct-logo';
+      var img = document.createElement('img');
+      img.src = b.logo; img.alt = b.name || '';
+      box.appendChild(img);
+      badge.replaceWith(box);
+    }
+  }
+  function loadBrand() {
+    if (!company) return;
+    var key = 'ctBrand_' + company, cached = ss(key);
+    if (cached) { try { applyBrand(JSON.parse(cached)); return; } catch (e) {} }
+    window.fetch('/api/contractor/' + company + '/brand').then(function (r) { return r.json(); }).then(function (b) {
+      if (b.ok) ss(key, JSON.stringify(b));
+      applyBrand(b);
+    }).catch(function () {});
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     addNavArrows();
+    loadBrand();
     if (!company) return;
     var title = document.querySelector('.hdr-title');
     if (title && !document.body.hasAttribute('data-ct-hub')) {

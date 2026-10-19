@@ -24,6 +24,13 @@ h1{font-size:22px;text-align:center;margin-bottom:6px;}
 .err{color:#f87171;font-size:13px;margin-top:10px;min-height:16px;text-align:center;}
 .alt{text-align:center;font-size:13px;color:#94a3b8;margin-top:16px;}
 .alt a{color:#1e9484;}
+.roles{display:flex;flex-direction:column;gap:8px;}
+.role{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid #334155;border-radius:10px;cursor:pointer;}
+.role:has(input:checked){border-color:#1e9484;background:rgba(30,148,132,.08);}
+.role input{margin-top:3px;accent-color:#1e9484;}
+.role b{display:block;font-size:14px;}
+.role small{display:block;font-size:12px;color:#94a3b8;margin-top:2px;}
+.hint{font-size:12px;color:#94a3b8;margin-top:8px;}
 .steps{display:flex;justify-content:center;gap:6px;margin-bottom:18px;font-size:11px;color:#64748b;flex-wrap:wrap;}
 .steps span{padding:3px 10px;border-radius:20px;background:#1e2533;}
 .steps span.on{background:rgba(30,148,132,.15);color:#1e9484;font-weight:700;}
@@ -35,16 +42,30 @@ h1{font-size:22px;text-align:center;margin-bottom:6px;}
   {% if valid %}
   <h1>Join {{ company_name }}</h1>
   <p class="sub">Create your account to see {{ company_name }}'s projects and work orders.</p>
-  <div class="steps"><span class="on">1. Account</span><span>2. Agreement</span><span>3. Install app</span></div>
+  <div class="steps"><span class="on">1. Account</span><span>2. Approval</span><span>3. Agreement</span><span>4. Install app</span></div>
   <form class="card" id="f" autocomplete="on">
     <div class="field"><label for="name">Full name</label><input id="name" autocomplete="name" required maxlength="80"></div>
     <div class="field"><label for="username">Username</label><input id="username" autocomplete="username" autocapitalize="none" required maxlength="60" placeholder="e.g. jperez"></div>
     <div class="field"><label for="email">Email</label><input id="email" type="email" autocomplete="email" required maxlength="160"></div>
     <div class="field"><label for="phone">Phone</label><input id="phone" type="tel" autocomplete="tel" maxlength="30"></div>
     <div class="field"><label for="password">Password (6+ characters)</label><input id="password" type="password" autocomplete="new-password" required minlength="6"></div>
+    <div class="field"><label>I am joining as</label>
+      <div class="roles" id="roles">
+        <label class="role"><input type="radio" name="role" value="member" checked><span><b>User</b><small>I do the work: create work orders, photos, receipts and visits.</small></span></label>
+        <label class="role"><input type="radio" name="role" value="lead"><span><b>Leader</b><small>I lead a crew and follow its projects.</small></span></label>
+        <label class="role"><input type="radio" name="role" value="admin"><span><b>Manager</b><small>I manage the company, its people and invoices.</small></span></label>
+      </div>
+      <div class="hint" id="roleHint">A {{ company_name }} Manager will approve your account.</div>
+    </div>
     <button class="btn" id="btn" type="submit">Create account</button>
     <div class="err" id="err"></div>
   </form>
+  <div class="card done" id="doneBox" style="display:none;">
+    <div style="font-size:40px;text-align:center;">&#9203;</div>
+    <h2 style="text-align:center;font-size:18px;margin:6px 0;">Account created</h2>
+    <p class="sub" id="doneMsg" style="margin-bottom:12px;"></p>
+    <p class="sub" style="margin-bottom:0;">You'll get an email when it's approved. Then log in, sign the agreement, and install the app.</p>
+  </div>
   <p class="alt">Already have an account? <a href="/login?next=/contractor/{{ company }}">Log in</a></p>
   {% else %}
   <h1>Invite link expired</h1>
@@ -61,16 +82,21 @@ document.getElementById('f').onsubmit = function(e){
   err.textContent = ''; btn.disabled = true; btn.textContent = 'Creating…';
   var body = {};
   ['name','username','email','phone','password'].forEach(function(k){ body[k] = document.getElementById(k).value; });
+  body.role = (document.querySelector('input[name=role]:checked') || {}).value || 'member';
   fetch('/api/join/' + {{ company|tojson }} + '/' + {{ token|tojson }}, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)})
     .then(function(r){ return r.json(); }).then(function(res){
       if(!res.ok){ err.textContent = res.error || 'Could not create account.'; btn.disabled = false; btn.textContent = 'Create account'; return; }
-      try {
-        ['mbrName','mbrRole','companyUser','companySlug'].forEach(function(k){ localStorage.removeItem(k); });
-        localStorage.setItem('bsynchAuth', res.name);
-        localStorage.setItem('bsynchRole', res.role || 'worker');
-      } catch(x) {}
-      location.href = '/contractor/agreement?next=' + encodeURIComponent('/contractor/' + {{ company|tojson }});
+      document.getElementById('f').style.display = 'none';
+      document.querySelector('.steps').style.display = 'none';
+      document.getElementById('doneMsg').textContent = res.name + ', your ' + res.role_label + ' account is waiting for approval by ' + res.approver + '.';
+      document.getElementById('doneBox').style.display = '';
     }).catch(function(){ err.textContent = 'Connection error. Try again.'; btn.disabled = false; btn.textContent = 'Create account'; });
+};
+document.getElementById('roles').onchange = function(){
+  var v = (document.querySelector('input[name=role]:checked') || {}).value;
+  document.getElementById('roleHint').textContent = v === 'admin'
+    ? 'Manager accounts are approved by the platform administrator.'
+    : 'A {{ company_name }} Manager will approve your account.';
 };
 {% endif %}
 </script>

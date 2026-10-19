@@ -6,8 +6,6 @@
 <title>Agreement – BSynch</title>
 <script>window.CT_SKIP_AGREEMENT = true;</script>
 <script src="/static/contractor-scope.js"></script>
-<script src="/static/theme.js"></script>
-<link rel="stylesheet" href="/static/themes.css">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;}
@@ -92,7 +90,7 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
     <div class="card">
       <h2>Device permissions</h2>
       <div class="perm-row"><span>&#128247; Camera — photos of your work</span><span class="perm-state" id="pCamera">Not asked</span></div>
-      <div class="perm-row"><span>&#128205; Location — where the work is done</span><span class="perm-state" id="pLocation">Not asked</span></div>
+      <div class="perm-row"><span>&#128205; Location — only while the app is open</span><span class="perm-state" id="pLocation">Not asked</span></div>
       <div class="perm-row"><span>&#128276; Notifications — assignments and alerts</span><span class="perm-state" id="pNotifications">Not asked</span></div>
     </div>
     <button class="btn" id="permBtn">Allow permissions</button>
@@ -195,7 +193,7 @@ function askCamera(){
 function askLocation(){
   if(!navigator.geolocation) return Promise.resolve(setState('location','unsupported'));
   return new Promise(function(res){
-    navigator.geolocation.getCurrentPosition(function(){ setState('location','granted'); res(); }, function(){ setState('location','denied'); res(); }, {timeout:15000});
+    navigator.geolocation.getCurrentPosition(function(){ setState('location','granted'); try { localStorage.setItem('ctLocOk','1'); } catch(e) {} res(); }, function(){ setState('location','denied'); res(); }, {timeout:15000});
   });
 }
 function askNotifications(){

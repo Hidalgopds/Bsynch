@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{ company_name }} Admin – BSynch</title>
 <script src="/static/contractor-scope.js"></script>
-<script src="/static/theme.js"></script>
-<link rel="stylesheet" href="/static/themes.css">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;}
@@ -45,6 +43,8 @@ input[type=checkbox]{width:17px;height:17px;accent-color:#1e9484;cursor:pointer;
 .add-row input{flex:1;min-width:180px;background:#0f1117;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:8px 12px;font-size:13px;}
 .msg{font-size:13px;margin-top:10px;min-height:16px;}
 .btn-rm{background:none;border:1px solid #3f1d1d;color:#f87171;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;}
+.map-link{color:#1e9484;text-decoration:none;font-size:12px;white-space:nowrap;}
+.pending-card{border-color:#f59e0b !important;}
 .empty{padding:18px;text-align:center;color:#64748b;font-size:13px;}
 .warn{padding:12px 14px;border-radius:10px;background:rgba(245,158,11,.1);color:#fbbf24;font-size:13px;line-height:1.5;}
 footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1px solid #1e2533;}
@@ -72,6 +72,11 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
   </div>
 
   <div class="panel active" id="panel-users">
+    <div class="card pending-card" id="pendingCard" style="display:none;margin-bottom:14px;">
+      <h2>&#9203; Waiting for approval</h2>
+      <p class="hint">People who signed up with the invite link. You approve Users and Leaders; Manager requests are approved by the platform administrator.</p>
+      <div class="table-wrap"><table><thead><tr><th>Person</th><th>Asked to be</th><th>Approve as</th><th></th></tr></thead><tbody id="pendingRows"></tbody></table></div>
+    </div>
     <div class="card" style="margin-bottom:14px;">
       <h2>&#128279; Invite link</h2>
       <p class="hint">Send this link to new people. They create their account, sign the agreement, and install the app. They join {{ company_name }} automatically.</p>
@@ -100,12 +105,12 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
     </div>
     <div class="card">
       <h2>Members</h2>
-      <p class="hint"><b>Member</b> and <b>Lead</b> get what you allow in Roles &amp; Permissions. <b>Admin</b> can open everything, including this page. Changes save immediately.</p>
+      <p class="hint"><b>User</b>: only creates and follows their own work orders. <b>Leader</b>: gets what you allow in Roles &amp; Permissions. <b>Manager</b>: everything, including this page (only the platform administrator can make someone a Manager). Changes save immediately.</p>
       <input type="search" id="userSearch" placeholder="Search by name or email">
       <div class="table-wrap">
         <table>
-          <thead><tr><th>User</th><th>Role</th><th></th></tr></thead>
-          <tbody id="userRows"><tr><td colspan="3" class="empty">Loading&hellip;</td></tr></tbody>
+          <thead><tr><th>Person</th><th>Role</th><th>Last location</th><th></th></tr></thead>
+          <tbody id="userRows"><tr><td colspan="4" class="empty">Loading&hellip;</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -114,7 +119,7 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
   <div class="panel" id="panel-perms">
     <div class="card">
       <h2>Roles &amp; Permissions</h2>
-      <p class="hint">What Members and Leads can open inside {{ company_name }}. Admins always have full access.</p>
+      <p class="hint">What Leaders can open inside {{ company_name }}. Users only see Create Work Order and their own work orders. Managers always have full access.</p>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Role</th>{% for f in features %}<th class="c">{{ f.replace('_', ' ')|title }}</th>{% endfor %}</tr></thead>
@@ -148,7 +153,9 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
 var COMPANY = {{ company|tojson }};
 var COMPANY_NAME = {{ company_name|tojson }};
 var ROLES = {{ roles|tojson }};
-var PERM_ROLES = ['member', 'lead'];
+var PERM_ROLES = ['lead'];
+var ROLE_LABEL = {member:'User', lead:'Leader', admin:'Manager'};
+var IS_SUPER = false;
 var FEATURES = {{ features|tojson }};
 var API = '/api/contractor/' + COMPANY + '/admin';
 
@@ -166,22 +173,63 @@ document.querySelectorAll('.tab').forEach(function(t){
 });
 
 var members = [];
+function roleOptions(sel){
+  return ROLES.filter(function(r){ return IS_SUPER || r !== 'admin' || sel === 'admin'; })
+    .map(function(r){ return '<option value="'+r+'"'+(sel===r?' selected':'')+'>'+ROLE_LABEL[r]+'</option>'; }).join('');
+}
+function ago(iso){
+  var m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if(isNaN(m)) return '';
+  if(m < 60) return m + ' min ago';
+  if(m < 1440) return Math.round(m / 60) + ' h ago';
+  return Math.round(m / 1440) + ' d ago';
+}
 function renderUsers(){
   var q = (document.getElementById('userSearch').value || '').toLowerCase();
   var rows = members.filter(function(u){ return !q || (u.name||'').toLowerCase().indexOf(q) >= 0 || (u.email||'').toLowerCase().indexOf(q) >= 0; });
   var tb = document.getElementById('userRows');
-  if(!rows.length){ tb.innerHTML = '<tr><td colspan="3" class="empty">'+(members.length ? 'No matches.' : 'No members yet. Add someone above.')+'</td></tr>'; return; }
+  if(!rows.length){ tb.innerHTML = '<tr><td colspan="4" class="empty">'+(members.length ? 'No matches.' : 'No members yet. Add someone above.')+'</td></tr>'; return; }
   tb.innerHTML = rows.map(function(u){
-    var self = u.name === CT.user;
+    var self = u.name === CT.user, locked = self || (u.company_role === 'admin' && !IS_SUPER);
+    var loc = u.last_location;
+    var locHtml = loc ? '<a class="map-link" target="_blank" rel="noopener" href="https://www.google.com/maps?q=' + encodeURIComponent(loc.lat + ',' + loc.lng) + '">&#128205; ' + esc(ago(loc.recorded_at)) + '</a>' : '<span class="muted">—</span>';
     return '<tr data-name="'+esc(u.name)+'"><td><strong>'+esc(u.name)+'</strong>'+(self?' <span class="muted">(you)</span>':'')+(u.email?'<br><span class="muted">'+esc(u.email)+'</span>':'')+'</td>'+
-      '<td><select'+(self?' disabled':'')+'>'+ROLES.map(function(r){ return '<option value="'+r+'"'+(u.company_role===r?' selected':'')+'>'+cap(r)+'</option>'; }).join('')+'</select> <span class="saved">Saved &#10003;</span></td>'+
-      '<td style="text-align:right;">'+(self?'':'<button class="btn-rm">Remove</button>')+'</td></tr>';
+      '<td><select'+(locked?' disabled':'')+'>'+roleOptions(u.company_role)+'</select> <span class="saved">Saved &#10003;</span></td>'+
+      '<td>'+locHtml+'</td>'+
+      '<td style="text-align:right;">'+(locked?'':'<button class="btn-rm">Remove</button>')+'</td></tr>';
   }).join('');
 }
+function renderPending(list){
+  var card = document.getElementById('pendingCard');
+  if(!list.length){ card.style.display = 'none'; return; }
+  card.style.display = '';
+  document.getElementById('pendingRows').innerHTML = list.map(function(p){
+    var mgr = p.requested_role === 'admin', canDecide = IS_SUPER || !mgr;
+    return '<tr data-name="'+esc(p.name)+'"><td><strong>'+esc(p.name)+'</strong><br><span class="muted">'+esc(p.email||'')+(p.phone?' · '+esc(p.phone):'')+'</span></td>'+
+      '<td>'+ROLE_LABEL[p.requested_role]+'</td>'+
+      '<td>'+(canDecide ? '<select class="pend-role">'+roleOptions(p.requested_role)+'</select>' : '<span class="muted">Platform admin approves</span>')+'</td>'+
+      '<td style="text-align:right;white-space:nowrap;">'+(canDecide ? '<button class="btn pend-ok" style="margin-top:0;padding:6px 12px;">Approve</button> <button class="btn-rm pend-no">Reject</button>' : '')+'</td></tr>';
+  }).join('');
+}
+document.getElementById('pendingRows').addEventListener('click', function(e){
+  var ok = e.target.classList.contains('pend-ok'), no = e.target.classList.contains('pend-no');
+  if(!ok && !no) return;
+  var tr = e.target.closest('tr'), name = tr.dataset.name;
+  if(no && !confirm('Reject and delete the sign-up of ' + name + '?')) return;
+  var body = {name: name, action: ok ? 'approve' : 'reject'};
+  if(ok) body.role = tr.querySelector('.pend-role').value;
+  e.target.disabled = true;
+  send('POST', API + '/pending', body).then(function(res){
+    if(!res.ok){ e.target.disabled = false; alert(res.error || 'Could not save'); return; }
+    loadUsers();
+  });
+});
 function loadUsers(){
   fetch(API + '/users').then(function(r){ return r.json(); }).then(function(d){
+    IS_SUPER = !!d.is_super;
     members = d.members || [];
     renderUsers();
+    renderPending(d.pending || []);
     var un = d.unassigned || [];
     var box = document.getElementById('unassignedBox');
     if(un.length){
@@ -224,10 +272,11 @@ document.getElementById('addPickBtn').onclick = function(){ addUser(document.get
 function loadPerms(){
   fetch(API + '/permissions').then(function(r){ return r.json(); }).then(function(p){
     document.getElementById('permRows').innerHTML = PERM_ROLES.map(function(role){
-      return '<tr><td><strong>'+cap(role)+'</strong></td>' + FEATURES.map(function(f){
+      return '<tr><td><strong>'+ROLE_LABEL[role]+'</strong></td>' + FEATURES.map(function(f){
         return '<td class="c"><input type="checkbox" data-role="'+role+'" data-feature="'+f+'"'+(p[role] && p[role][f]?' checked':'')+'></td>';
       }).join('') + '</tr>';
-    }).join('') + '<tr><td><strong>Admin</strong></td>' + FEATURES.map(function(){ return '<td class="c"><input type="checkbox" checked disabled></td>'; }).join('') + '</tr>';
+    }).join('') + '<tr><td><strong>User</strong></td>' + FEATURES.map(function(f){ return '<td class="c"><input type="checkbox" disabled' + (f === 'workorders' ? ' checked' : '') + '></td>'; }).join('') + '</tr>'
+      + '<tr><td><strong>Manager</strong></td>' + FEATURES.map(function(){ return '<td class="c"><input type="checkbox" checked disabled></td>'; }).join('') + '</tr>';
   });
 }
 document.getElementById('savePerms').onclick = function(){

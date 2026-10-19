@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Work Orders – Contractor</title>
 <script src="/static/contractor-scope.js"></script>
-<script src="/static/theme.js"></script>
-<link rel="stylesheet" href="/static/themes.css">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;}
@@ -208,7 +206,7 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
   <span class="hdr-sub">Work Orders</span>
   <div class="hdr-right">
     <a href="/contractor/dashboard" class="btn-back">&#128202; Dashboard</a>
-    <button class="btn-new" onclick="openCreate()">+ New Job</button>
+    <button class="btn-new" onclick="location.href='/contractor/projects?company='+encodeURIComponent(CT.company||'')+'&new=1'">+ New Work Order</button>
     <a href="/contractor-hub" class="btn-back">&#8592; Hub</a>
   </div>
 </header>
@@ -353,7 +351,7 @@ function renderList(jobs){
     var pct = parseFloat(j.progress_pct||0);
     var proj = allProjects.find(function(p){return p.id===j.project_id;});
     var fillClass = pct>=100?'sfill-done':pct>=60?'sfill-high':pct>=30?'sfill-mid':'sfill-low';
-    return '<div class="wo-card" onclick="openPanel(\''+j.id+'\')">'+
+    return '<div class="wo-card" onclick="location.href=\'/contractor/projects?company=\'+encodeURIComponent(CT.company||\'\')+\'&job='+j.id+'\'">'+
       '<div class="wo-card-top"><div class="wo-card-info">'+
       '<div class="wo-number">'+esc(j.job_number)+'</div>'+
       '<div class="wo-title">'+esc(j.title)+'</div>'+

@@ -4,8 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Invoice – BSynch</title>
+{% if not public_token %}
 <script>window.CT_SKIP_AGREEMENT = true;</script>
 <script src="/static/contractor-scope.js"></script>
+{% endif %}
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--navy:#0d1b36;--gold:#e8a317;--muted:#6b7280;--line:#e5e7eb;}
@@ -14,6 +16,18 @@ body{font-family:Arial,Helvetica,sans-serif;background:#e5e7eb;color:#111827;}
 .toolbar button,.toolbar a{padding:9px 16px;border-radius:8px;border:none;font-weight:700;font-size:14px;cursor:pointer;text-decoration:none;font-family:'Segoe UI',system-ui,sans-serif;}
 .b-print{background:#1e9484;color:#fff;}
 .b-sec{background:#374151;color:#e5e7eb;}
+.b-send{background:#e8a317;color:#111827;}
+.sent-note{text-align:center;padding:8px;background:#ecfdf5;color:#065f46;font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:5;align-items:center;justify-content:center;padding:16px;}
+.overlay.open{display:flex;}
+.modal{background:#fff;border-radius:14px;padding:22px;width:100%;max-width:460px;font-family:'Segoe UI',system-ui,sans-serif;}
+.modal h3{margin-bottom:12px;color:#0d1b36;}
+.modal label{display:block;font-size:12px;color:#6b7280;margin:10px 0 4px;}
+.modal input,.modal textarea{width:100%;border:1px solid #d1d5db;border-radius:8px;padding:9px 11px;font-size:14px;font-family:inherit;}
+.modal .note{font-size:12px;color:#6b7280;margin-top:10px;}
+.m-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;}
+.m-actions button{padding:9px 16px;border-radius:8px;border:none;font-weight:700;cursor:pointer;}
+.m-msg{font-size:13px;margin-top:10px;min-height:16px;}
 .sheet{position:relative;width:8.5in;min-height:11in;margin:24px auto;background:#fff;padding:.55in .6in .5in;box-shadow:0 4px 24px rgba(0,0,0,.12);overflow:hidden;display:flex;flex-direction:column;}
 @media(max-width:860px){.sheet{width:100%;min-height:0;margin:0;padding:24px 18px;}}
 .top{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;}
@@ -54,7 +68,7 @@ tbody td.desc{white-space:pre-line;}
 .msg{text-align:center;padding:80px 20px;color:var(--muted);font-family:'Segoe UI',system-ui,sans-serif;}
 @media print{
   body{background:#fff;}
-  .toolbar{display:none;}
+  .toolbar,.sent-note,.overlay{display:none !important;}
   .sheet{margin:0;box-shadow:none;width:auto;min-height:10.4in;padding:0;}
   @page{size:letter;margin:.5in .55in;}
   thead th,.due,.meta{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
@@ -63,10 +77,24 @@ tbody td.desc{white-space:pre-line;}
 </head>
 <body>
 <div class="toolbar">
-  <button class="b-sec" onclick="history.back()">&#8592; Back</button>
+  {% if not public_token %}<button class="b-sec" onclick="history.back()">&#8592; Back</button>{% endif %}
   <button class="b-print" onclick="window.print()">&#128424; Print / Save PDF</button>
-  <a class="b-sec" id="mailBtn" href="#">&#9993; Email</a>
+  {% if not public_token %}<button class="b-send" id="sendBtn" style="display:none;">&#9993; Send</button>{% endif %}
 </div>
+<div class="sent-note" id="sentNote" style="display:none;"></div>
+{% if not public_token %}
+<div class="overlay" id="sendModal">
+  <div class="modal">
+    <h3>Send invoice</h3>
+    <label>To (client)</label><input id="sTo" type="email" placeholder="client@email.com">
+    <label>CC (comma separated)</label><input id="sCc" placeholder="office@company.com">
+    <label>Message</label><textarea id="sMsg" rows="4"></textarea>
+    <p class="note">The client gets a summary and a link to view and download the invoice. Replies go to your company email.</p>
+    <div class="m-actions"><button class="b-sec" id="sCancel">Cancel</button><button class="b-print" id="sGo">Send</button></div>
+    <div class="m-msg" id="sOut"></div>
+  </div>
+</div>
+{% endif %}
 <div class="sheet" id="sheet"><div class="msg">Loading&hellip;</div></div>
 
 <script>
@@ -75,9 +103,12 @@ function money(n){ return '$' + (parseFloat(n) || 0).toLocaleString('en-US', {mi
 function qty(n){ n = parseFloat(n) || 0; return n % 1 ? n.toFixed(2) : String(n); }
 function safeImg(u){ return /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+\/=]+$/.test(u || '') || /^\/static\/brand\/[\w.-]+\.(png|jpg|webp)$/.test(u || '') ? u : ''; }
 function safeColor(c, d){ return /^#[0-9a-fA-F]{6}$/.test(c || '') ? c : d; }
+function showSent(to, at){ var n = document.getElementById('sentNote'); if(!n) return; n.textContent = '\u2713 Sent to ' + to + ' on ' + new Date(at).toLocaleString(); n.style.display = ''; }
 function fmtDate(d){ if(!d) return ''; var p = d.split('-'); return p.length === 3 ? (+p[1]) + '/' + (+p[2]) + '/' + p[0] : d; }
 
-fetch('/api/contractor/invoices/' + encodeURIComponent({{ invoice_id|tojson }})).then(function(r){ return r.json(); }).then(function(d){
+var PUBLIC_TOKEN = {{ (public_token or '')|tojson }};
+var INVOICE_URL = PUBLIC_TOKEN ? '/api/public/invoice/' + encodeURIComponent(PUBLIC_TOKEN) : '/api/contractor/invoices/' + encodeURIComponent({{ invoice_id|tojson }});
+fetch(INVOICE_URL).then(function(r){ return r.json(); }).then(function(d){
   var sheet = document.getElementById('sheet');
   if(!d.ok){ sheet.innerHTML = '<div class="msg">' + (d.error === 'not found' ? 'Invoice not found.' : 'You do not have access to this invoice.') + '</div>'; return; }
   var inv = d.invoice, co = inv.company_snapshot || {}, logo = safeImg(co.logo);
@@ -114,9 +145,36 @@ fetch('/api/contractor/invoices/' + encodeURIComponent({{ invoice_id|tojson }}))
     (co.footer_note ? '<div class="thanks">' + esc(co.footer_note) + '</div><div class="rule"></div>' : '') +
     '<div class="foot">' + footer + '</div>';
   document.title = 'Invoice ' + inv.invoice_number + ' – ' + (inv.job_site || inv.bill_to || '');
-  var subject = 'Invoice ' + inv.invoice_number + ' from ' + (co.display_name || '');
-  var body = 'Hello,\n\nPlease find invoice ' + inv.invoice_number + ' for ' + money(inv.total) + (inv.job_site ? ' (job site: ' + inv.job_site + ')' : '') + ' attached.\n\n' + (co.footer_note || 'Thank you.') + '\n' + (co.display_name || '');
-  document.getElementById('mailBtn').href = 'mailto:?cc=' + encodeURIComponent(emails.join(',')) + '&subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+  if(PUBLIC_TOKEN) return;
+  if(inv.sent_at) showSent(inv.sent_to, inv.sent_at);
+  var btn = document.getElementById('sendBtn'); btn.style.display = '';
+  btn.onclick = function(){
+    document.getElementById('sTo').value = inv.client_email || '';
+    document.getElementById('sCc').value = emails.join(', ');
+    document.getElementById('sMsg').value = 'Hello ' + (inv.bill_to || '') + ',\n\nPlease find invoice ' + inv.invoice_number + ' for ' + money(inv.total) + (inv.job_site ? ' (job site: ' + inv.job_site + ')' : '') + '.\n\n' + (co.footer_note || 'Thank you.');
+    document.getElementById('sOut').textContent = '';
+    document.getElementById('sendModal').classList.add('open');
+  };
+  document.getElementById('sCancel').onclick = function(){ document.getElementById('sendModal').classList.remove('open'); };
+  document.getElementById('sGo').onclick = function(){
+    var go = this, out = document.getElementById('sOut');
+    var to = document.getElementById('sTo').value.split(/[,;\s]+/).filter(Boolean);
+    var cc = document.getElementById('sCc').value.split(/[,;\s]+/).filter(Boolean);
+    if(!to.length){ out.style.color = '#b91c1c'; out.textContent = "Enter the client's email."; return; }
+    go.disabled = true; go.textContent = 'Sending...';
+    fetch('/api/contractor/invoices/' + encodeURIComponent(inv.id) + '/send', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({to: to, cc: cc, message: document.getElementById('sMsg').value})})
+      .then(function(r){ return r.json(); }).then(function(res){
+        go.disabled = false; go.textContent = 'Send';
+        if(!res.ok){
+          out.style.color = '#b91c1c';
+          out.innerHTML = esc(res.error || 'Could not send.') + (res.link ? '<br>You can share this link instead: <a href="' + esc(res.link) + '" target="_blank" rel="noopener">' + esc(res.link) + '</a>' : '');
+          return;
+        }
+        document.getElementById('sendModal').classList.remove('open');
+        showSent(to.join(', '), res.sent_at);
+      }).catch(function(){ go.disabled = false; go.textContent = 'Send'; out.style.color = '#b91c1c'; out.textContent = 'Connection error.'; });
+  };
 });
 </script>
 </body>

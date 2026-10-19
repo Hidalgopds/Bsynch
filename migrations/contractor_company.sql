@@ -163,3 +163,39 @@ create index if not exists contractor_files_company_idx on contractor_files (com
 alter table job_receipts        enable row level security;
 alter table contractor_invoices enable row level security;
 alter table contractor_files    enable row level security;
+
+-- Visits per job, in-use location samples, invoice sending
+alter table contractor_jobs     add column if not exists client_email text default '';
+alter table contractor_invoices add column if not exists public_token text;
+alter table contractor_invoices add column if not exists sent_at timestamptz;
+alter table contractor_invoices add column if not exists sent_to text;
+create unique index if not exists contractor_invoices_token_idx on contractor_invoices (public_token);
+
+create table if not exists job_visits (
+  id          uuid primary key default gen_random_uuid(),
+  job_id      uuid not null references contractor_jobs(id) on delete cascade,
+  visit_date  date default current_date,
+  description text not null,
+  hours       numeric,
+  created_by  text default '',
+  lat         double precision,
+  lng         double precision,
+  created_at  timestamptz default now()
+);
+create index if not exists job_visits_job_idx on job_visits (job_id);
+
+create table if not exists contractor_locations (
+  id          uuid primary key default gen_random_uuid(),
+  user_name   text not null,
+  company     text,
+  lat         double precision not null,
+  lng         double precision not null,
+  accuracy    double precision,
+  page        text default '',
+  recorded_at timestamptz default now()
+);
+create index if not exists contractor_locations_user_idx    on contractor_locations (user_name, recorded_at desc);
+create index if not exists contractor_locations_company_idx on contractor_locations (company, recorded_at desc);
+
+alter table job_visits           enable row level security;
+alter table contractor_locations enable row level security;
