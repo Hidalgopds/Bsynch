@@ -208,6 +208,11 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
 .slot-btn{flex:1;min-width:90px;padding:9px 10px;border-radius:9px;border:1px solid #cbd5e1;background:#fff;color:#475569;font-size:13px;font-weight:600;cursor:pointer;}
 .slot-btn.on{border-color:#1e9484;background:#e3f3ef;color:#0f766e;}
 .hrs-pick .slot-btn{min-width:60px;}
+.addr-more{margin-top:6px;background:none;border:none;color:#0f766e;font-size:12px;font-weight:700;cursor:pointer;padding:2px 0;}
+.addr-extra{display:none;margin-top:8px;padding:10px 12px 2px;border:1px dashed #cbd5e1;border-radius:10px;}
+.addr-extra.open{display:block;}
+.addr-hint{font-size:12px;color:#0f766e;margin-top:4px;min-height:0;}
+.jp-addr{font-size:12px;color:#64748b;margin:-1px 0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .hrs-in{width:86px;flex:0 0 86px;padding:9px 10px;border-radius:9px;border:1px solid #cbd5e1;font-size:13px;}
 .steps-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
 .steps-header h4{font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;}
@@ -380,6 +385,7 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
         <span class="jp-job-num" id="jpJobNum"></span>
         <span class="jp-title" id="jpTitle"></span>
       </div>
+      <div class="jp-addr" id="jpAddr"></div>
       <div class="jp-pct-row">
         <span class="jp-pct-big" id="jpPct">0%</span>
         <div class="jp-prog-track"><div class="jp-prog-fill" id="jpProgFill" style="width:0%"></div></div>
@@ -438,11 +444,20 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
     <div class="modal-section">
       <div class="modal-section-title">Job Details</div>
       <div class="form-group"><label>Title *</label><input id="woTitle" placeholder="e.g. Roof panel repair – Bldg A"></div>
-      <div class="form-group"><label>Description</label><textarea id="woDesc" placeholder="What needs to be done..."></textarea></div>
-      <div class="form-2col">
-        <div class="form-group"><label>Client (bill to)</label><input id="woClient" placeholder="e.g. Newmark"></div>
-        <div class="form-group"><label>Job site</label><input id="woSite" placeholder="e.g. 31106 Marlow Manor"></div>
+      <div class="form-group"><label>Address</label><input id="woSite" list="addrList" autocomplete="off" placeholder="e.g. 31106 Marlow Manor"><datalist id="addrList"></datalist>
+        <button type="button" class="addr-more" id="addrMore" aria-expanded="false">+ Residence, Apt, Area / Zone, Zip code</button>
+        <div class="addr-extra" id="addrExtra">
+          <div class="form-2col">
+            <div class="form-group"><label>Residence</label><input id="woResidence" list="resList" autocomplete="off" maxlength="120" placeholder="e.g. Marlow Manor"><datalist id="resList"></datalist></div>
+            <div class="form-group"><label>Apt / Unit</label><input id="woApt" maxlength="30" placeholder="e.g. 4B"></div>
+            <div class="form-group"><label>Area / Zone</label><input id="woZone" list="zoneList" autocomplete="off" maxlength="80" placeholder="e.g. Katy"><datalist id="zoneList"></datalist></div>
+            <div class="form-group"><label>Zip code</label><input id="woZip" list="zipList" autocomplete="off" maxlength="12" inputmode="numeric" placeholder="e.g. 77494"><datalist id="zipList"></datalist></div>
+          </div>
+        </div>
+        <div class="addr-hint" id="addrHint"></div>
       </div>
+      <div class="form-group"><label>Description</label><textarea id="woDesc" placeholder="What needs to be done..."></textarea></div>
+      <div class="form-group"><label>Client (bill to)</label><input id="woClient" placeholder="e.g. Newmark"></div>
       <div class="form-group"><label>Client email (to send the invoice)</label><input id="woClientEmail" type="email" placeholder="client@email.com"></div>
       <div class="form-group"><label>How will this job be done?</label>
         <div class="mode-pick" id="woModePick">
@@ -652,6 +667,7 @@ function openJobDetail(jobId){
   if(!openJobData) return;
   document.getElementById('jpJobNum').textContent=openJobData.job_number;
   document.getElementById('jpTitle').textContent=openJobData.title;
+  document.getElementById('jpAddr').textContent=fullAddr(openJobData)?'\ud83d\udccd '+fullAddr(openJobData):'';
   updateJpProgress(parseFloat(openJobData.progress_pct||0));
   document.getElementById('jobPanel').classList.add('open');
   document.querySelectorAll('.jptab').forEach(t=>t.classList.remove('active'));
@@ -781,7 +797,8 @@ function renderInfoTab(j){
       +['open','in_progress','on_hold','completed','cancelled'].map(s=>'<option value="'+s+'"'+(j.status===s?' selected':'')+'>'+statusLabel(s)+'</option>').join('')
       +'</select>':'<div class="field-value"><span class="s-chip s-'+esc(j.status||'open')+'">'+statusLabel(j.status||'open')+'</span></div>')
     +'</div>';
-  if(j.client_name||j.location) html+='<div class="field-row"><div class="field-label">Client / Location</div><div class="field-value">'+esc(j.client_name||'')+(j.location?' &mdash; '+esc(j.location):'')+'</div></div>';
+  if(j.client_name) html+='<div class="field-row"><div class="field-label">Client</div><div class="field-value">'+esc(j.client_name)+'</div></div>';
+  if(fullAddr(j)) html+='<div class="field-row"><div class="field-label">Address</div><div class="field-value">'+esc(fullAddr(j))+' &nbsp;<a href="https://maps.google.com/?q='+encodeURIComponent(fullAddr(j))+'" target="_blank" rel="noopener" style="color:#0f766e;font-weight:600;">Map</a></div></div>';
   if(j.description) html+='<div class="field-row"><div class="field-label">Description</div><div class="field-value">'+esc(j.description).replace(/\n/g,'<br>')+'</div></div>';
   var dates=[];if(j.start_date)dates.push('Start: '+fmtDate(j.start_date));if(j.due_date)dates.push('Due: '+fmtDate(j.due_date));
   if(dates.length) html+='<div class="field-row"><div class="field-label">Dates</div><div class="field-value">'+dates.join(' &middot; ')+'</div></div>';
@@ -796,7 +813,11 @@ function renderInfoTab(j){
       +'<label class="mat-lbl">Description<textarea class="editable-input" id="editDesc" rows="3">'+esc(j.description||'')+'</textarea></label>'
       +'<div class="mat-grid" style="grid-template-columns:1fr 1fr;">'
       +'<label class="mat-lbl">Client (bill to)<input class="editable-input" id="editClient" value="'+esc(j.client_name||'')+'"></label>'
-      +'<label class="mat-lbl">Job site<input class="editable-input" id="editSite" value="'+esc(j.location||'')+'"></label>'
+      +'<label class="mat-lbl">Address<input class="editable-input" id="editSite" value="'+esc(j.location||'')+'"></label>'
+      +'<label class="mat-lbl">Residence<input class="editable-input" id="editResidence" maxlength="120" value="'+esc(j.residence||'')+'"></label>'
+      +'<label class="mat-lbl">Apt / Unit<input class="editable-input" id="editApt" maxlength="30" value="'+esc(j.apt||'')+'"></label>'
+      +'<label class="mat-lbl">Area / Zone<input class="editable-input" id="editZone" maxlength="80" value="'+esc(j.zone||'')+'"></label>'
+      +'<label class="mat-lbl">Zip code<input class="editable-input" id="editZip" maxlength="12" value="'+esc(j.zipcode||'')+'"></label>'
       +'<label class="mat-lbl">Client email<input class="editable-input" id="editEmail" type="email" value="'+esc(j.client_email||'')+'"></label>'
       +'<label class="mat-lbl">Priority<select class="editable-input" id="editPriority">'+pr.map(x=>'<option value="'+x+'"'+((j.priority||'normal')===x?' selected':'')+'>'+ucfirst(x)+'</option>').join('')+'</select></label>'
       +'<label class="mat-lbl">Time of day<select class="editable-input" id="editSlot">'+[['','Any time'],['morning','Morning'],['afternoon','Afternoon']].map(o=>'<option value="'+o[0]+'"'+((j.time_slot||'')===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+'</select></label>'
@@ -817,13 +838,14 @@ function saveEdits(){
   var title=document.getElementById('editTitle').value.trim();
   if(!title){alert('The title can\'t be empty');return;}
   var p={title:title,description:document.getElementById('editDesc').value.trim(),client_name:document.getElementById('editClient').value.trim(),
-    location:document.getElementById('editSite').value.trim(),client_email:document.getElementById('editEmail').value.trim(),
+    location:document.getElementById('editSite').value.trim(),residence:document.getElementById('editResidence').value.trim(),
+    apt:document.getElementById('editApt').value.trim(),zone:document.getElementById('editZone').value.trim(),zipcode:document.getElementById('editZip').value.trim(),client_email:document.getElementById('editEmail').value.trim(),
     priority:document.getElementById('editPriority').value,time_slot:document.getElementById('editSlot').value,est_hours:parseFloat(document.getElementById('editHours').value)||0,start_date:document.getElementById('editStart').value||null,
     due_date:document.getElementById('editDue').value||null,notes:document.getElementById('editNotes').value.trim()};
   fetch('/api/contractor/jobs/'+openJobId,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)}).then(r=>r.json()).then(res=>{
     if(!res.ok){alert(res.error||'Could not save');return;}
     Object.assign(openJobData,p);var idx=allJobs.findIndex(j=>j.id===openJobId);if(idx>=0)Object.assign(allJobs[idx],p);
-    document.getElementById('jpTitle').textContent=p.title;renderInfoTab(openJobData);flash('Saved &#10003;');
+    document.getElementById('jpTitle').textContent=p.title;document.getElementById('jpAddr').textContent=fullAddr(openJobData)?'\ud83d\udccd '+fullAddr(openJobData):'';renderInfoTab(openJobData);flash('Saved &#10003;');
   });
 }
 function confirmDeleteJob(){if(!confirm('Delete this work order?'))return;fetch('/api/contractor/jobs/'+openJobId,{method:'DELETE'}).then(()=>{allJobs=allJobs.filter(j=>j.id!==openJobId);closeJobPanel();});}
@@ -904,10 +926,51 @@ function openWoModal(projectId){
   var proj=allProjects.find(p=>p.id===projectId);
   document.getElementById('woClient').value=proj&&proj.client_name?proj.client_name:'';
   document.getElementById('woModal').classList.add('open');
-  document.getElementById('woStart').value=window._woSchedDate||new Date().toISOString().split('T')[0];
+  document.getElementById('woStart').value=window._woSchedDate||ymdLocal(new Date());
+  document.getElementById('woDue').value=document.getElementById('woStart').value;woDueTouched=false;
+  ['woResidence','woApt','woZone','woZip'].forEach(function(id){document.getElementById(id).value='';});
+  showAddrExtra(false);document.getElementById('addrHint').textContent='';loadAddresses();
   initWoSteps();
 }
-var woMode='simple', woBefore=[], woSlot='';
+var woMode='simple', woBefore=[], woSlot='', woDueTouched=false, knownAddrs=[];
+function ymdLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function fullAddr(j){
+  var street=(j.location||'').trim();if((j.apt||'').trim())street=(street+' Apt '+j.apt.trim()).trim();
+  var line=[(j.residence||'').trim(),street,(j.zone||'').trim()].filter(Boolean).join(', ');
+  return ((line+' '+(j.zipcode||'').trim()).trim());
+}
+// Due date follows the start (service) day until someone changes it by hand
+document.getElementById('woStart').addEventListener('change',function(){if(!woDueTouched||!document.getElementById('woDue').value)document.getElementById('woDue').value=this.value;});
+document.getElementById('woDue').addEventListener('change',function(){woDueTouched=true;});
+function showAddrExtra(on){document.getElementById('addrExtra').classList.toggle('open',on);var b=document.getElementById('addrMore');b.setAttribute('aria-expanded',on?'true':'false');b.textContent=on?'\u2212 Hide residence, apt, area and zip':'+ Residence, Apt, Area / Zone, Zip code';}
+document.getElementById('addrMore').onclick=function(){showAddrExtra(!document.getElementById('addrExtra').classList.contains('open'));};
+function loadAddresses(){
+  var co=(window.CT&&CT.company)||'';if(!co)return;
+  fetch('/api/contractor/'+encodeURIComponent(co)+'/addresses').then(r=>r.json()).then(function(d){
+    if(!d.ok)return;knownAddrs=d.addresses||[];
+    var uniq=function(k){return Array.from(new Set(knownAddrs.map(a=>a[k]).filter(Boolean))).slice(0,300);};
+    [['addrList','location'],['resList','residence'],['zoneList','zone'],['zipList','zipcode']].forEach(function(p){
+      document.getElementById(p[0]).innerHTML=uniq(p[1]).map(v=>'<option value="'+esc(v)+'">').join('');
+    });
+  }).catch(function(){});
+}
+var ADDR_FIELDS={location:'woSite',residence:'woResidence',apt:'woApt',zone:'woZone',zipcode:'woZip'};
+// When a known address, residence or zip is entered, fill the blank fields from the last job there
+function autofillFrom(key){
+  var v=document.getElementById(ADDR_FIELDS[key]).value.trim().toLowerCase();if(!v)return;
+  var m=knownAddrs.filter(a=>(a[key]||'').toLowerCase()===v);
+  if(key==='zipcode'||key==='zone'){ // many streets share a zip or area: only fill the area/zip, never the street
+    var a=m[0];if(!a)return;var other=key==='zipcode'?'zone':'zipcode';var el=document.getElementById(ADDR_FIELDS[other]);
+    if(!el.value&&a[other]){el.value=a[other];document.getElementById('addrHint').textContent='\u2728 Filled from a past job.';}
+    return;
+  }
+  if(!m.length)return;var a=m[0],filled=[];
+  Object.keys(ADDR_FIELDS).forEach(function(k){var el=document.getElementById(ADDR_FIELDS[k]);if(k!==key&&!el.value&&a[k]&&(k!=='location'||key==='location'||m.length===1)){el.value=a[k];filled.push(k);}});
+  [['client_name','woClient'],['client_email','woClientEmail']].forEach(function(p){var el=document.getElementById(p[1]);if(!el.value&&a[p[0]]){el.value=a[p[0]];filled.push(p[0]);}});
+  if(filled.some(k=>k in ADDR_FIELDS&&k!=='location'))showAddrExtra(true);
+  document.getElementById('addrHint').textContent=filled.length?'\u2728 Filled from a past job at this address. Check it.':'';
+}
+Object.keys(ADDR_FIELDS).forEach(function(k){document.getElementById(ADDR_FIELDS[k]).addEventListener('change',function(){autofillFrom(k);});});
 var SLOT_LABEL={morning:'\ud83c\udf05 Morning',afternoon:'\ud83c\udf07 Afternoon'};
 function setWoSlot(v){woSlot=v||'';document.querySelectorAll('#woSlotPick .slot-btn').forEach(b=>b.classList.toggle('on',b.dataset.slot===woSlot));}
 document.getElementById('woSlotPick').addEventListener('click',function(e){var b=e.target.closest('.slot-btn');if(b)setWoSlot(b.dataset.slot);});
@@ -956,7 +1019,7 @@ function submitWo(){
   else if(!stepNames.length) stepNames.push(title);
   var btn=document.querySelector('#woModal .btn-submit');
   if(btn){btn.disabled=true;btn.textContent='Creating...';}
-  fetch('/api/contractor/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:title,description:document.getElementById('woDesc').value.trim(),priority:document.getElementById('woPriority').value,status:document.getElementById('woStatus').value,start_date:document.getElementById('woStart').value||null,due_date:document.getElementById('woDue').value||null,created_by:userName,project_id:woForProjectId,client_name:document.getElementById('woClient').value.trim(),location:document.getElementById('woSite').value.trim(),client_email:document.getElementById('woClientEmail').value.trim(),time_slot:woSlot,est_hours:parseFloat(document.getElementById('woHours').value)||0,tracking:mode,scheduled_date:window._woSchedDate||null,lat:(window.CT&&CT.lastPos)?CT.lastPos.lat:null,lng:(window.CT&&CT.lastPos)?CT.lastPos.lng:null})})
+  fetch('/api/contractor/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:title,description:document.getElementById('woDesc').value.trim(),priority:document.getElementById('woPriority').value,status:document.getElementById('woStatus').value,start_date:document.getElementById('woStart').value||null,due_date:document.getElementById('woDue').value||null,created_by:userName,project_id:woForProjectId,client_name:document.getElementById('woClient').value.trim(),location:document.getElementById('woSite').value.trim(),residence:document.getElementById('woResidence').value.trim(),apt:document.getElementById('woApt').value.trim(),zone:document.getElementById('woZone').value.trim(),zipcode:document.getElementById('woZip').value.trim(),client_email:document.getElementById('woClientEmail').value.trim(),time_slot:woSlot,est_hours:parseFloat(document.getElementById('woHours').value)||0,tracking:mode,scheduled_date:window._woSchedDate||null,lat:(window.CT&&CT.lastPos)?CT.lastPos.lat:null,lng:(window.CT&&CT.lastPos)?CT.lastPos.lng:null})})
     .then(r=>r.json()).then(function(res){
       if(!res.ok){alert('Error creating work order: '+(res.error||'unknown'));return;}
       if(!res.job||!res.job.id){
@@ -969,7 +1032,7 @@ function submitWo(){
         .then(function(){
           window._openAfterLoad=newId;
           closeWoModal();
-          ['woTitle','woDesc','woClient','woSite','woClientEmail'].forEach(function(id){document.getElementById(id).value='';});
+          ['woTitle','woDesc','woClient','woSite','woClientEmail','woResidence','woApt','woZone','woZip'].forEach(function(id){document.getElementById(id).value='';});
           document.getElementById('woPriority').value='normal';document.getElementById('woTracking').value='percent';
           document.getElementById('woStatus').value='open';
           loadAll();

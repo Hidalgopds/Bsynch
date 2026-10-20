@@ -6104,6 +6104,38 @@ def contractor_projects_page():
 
 CONTRACTOR_COMPANIES = {"hicons": "Hicons", "bsynch": "Bsynch"}
 CONTRACTOR_TIME_SLOTS = ["morning", "afternoon"]
+CONTRACTOR_ADDRESS_PARTS = {"residence": 120, "apt": 30, "zone": 80, "zipcode": 12}
+
+
+def _ct_full_address(job):
+    """One line for invoices: residence, street + apt, area, zip."""
+    street = (job.get("location") or "").strip()
+    if (job.get("apt") or "").strip():
+        street = f"{street} Apt {job['apt'].strip()}".strip()
+    parts = [(job.get("residence") or "").strip(), street, (job.get("zone") or "").strip()]
+    line = ", ".join(p for p in parts if p)
+    zipc = (job.get("zipcode") or "").strip()
+    return f"{line} {zipc}".strip() if zipc else line
+
+
+@app.route("/api/contractor/<company>/addresses", methods=["GET"])
+def contractor_addresses(company):
+    """Addresses already used by this company, newest first, to fill the work-order form."""
+    me = _contractor_caller()
+    if company not in CONTRACTOR_COMPANIES or not _ct_can_view(me, company):
+        return jsonify({"ok": False, "error": "not your company"}), 403
+    r = requests.get(f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?company=eq.{company}"
+                     f"&select=location,residence,apt,zone,zipcode,client_name,client_email&order=created_at.desc&limit=1000",
+                     headers=sb_headers(), timeout=8)
+    seen, out = set(), []
+    for j in (r.json() if r.ok else []):
+        rec = {k: (j.get(k) or "").strip() for k in ("location", "residence", "apt", "zone", "zipcode", "client_name", "client_email")}
+        key = tuple(rec[k].lower() for k in ("location", "residence", "apt", "zone", "zipcode"))
+        if not any(key) or key in seen:
+            continue
+        seen.add(key)
+        out.append(rec)
+    return jsonify({"ok": True, "addresses": out[:400]})
 
 
 def _ct_hours(v):
@@ -6116,12 +6148,12 @@ def _ct_hours(v):
         return None
     return round(h * 4) / 4
 CONTRACTOR_ROLES = ["member", "lead", "admin"]
-CONTRACTOR_FEATURES = ["projects", "dashboard", "workorders", "invoicing", "company_settings"]
+CONTRACTOR_FEATURES = ["projects", "dashboard", "workorders", "invoicing", "contacts", "company_settings"]
 CONTRACTOR_ROLE_LABELS = {"member": "User", "lead": "Leader", "admin": "Manager"}
 # Users (member) only create and follow their own work orders; Leaders get what the Manager allows.
-CONTRACTOR_MEMBER_PERMS = {"projects": False, "dashboard": False, "workorders": True, "invoicing": False, "company_settings": False}
+CONTRACTOR_MEMBER_PERMS = {"projects": False, "dashboard": False, "workorders": True, "invoicing": False, "contacts": False, "company_settings": False}
 CONTRACTOR_DEFAULT_PERMS = {
-    "lead": {"projects": True, "dashboard": True, "workorders": True, "invoicing": True, "company_settings": False},
+    "lead": {"projects": True, "dashboard": True, "workorders": True, "invoicing": True, "contacts": True, "company_settings": False},
 }
 _ALL_PERMS = {f: True for f in CONTRACTOR_FEATURES}
 
@@ -6150,31 +6182,85 @@ def _html_escape(v):
     return _h.escape(str(v or ""), quote=True)
 
 
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+CONTRACTOR_MAIL_FROM = os.environ.get("CONTRACTOR_MAIL_FROM", "BSynch <invoices@bsynch.com>")
+
+
 def _ct_send_email(to, cc, subject, html_body, reply_to=None):
-    """Send through the app's Gmail account. Returns (ok, error)."""
+    """Send an email. Uses Resend over HTTPS when RESEND_API_KEY is set (hosts like Render
+    block SMTP ports), otherwise the app's Gmail account. Returns (ok, error)."""
     to = [t for t in (to or []) if t]
     cc = [c for c in (cc or []) if c and c not in to]
     if not to:
         return False, "No recipient"
-    if not SMTP_EMAIL or not SMTP_PASSWORD:
-        return False, "Email is not configured on the server (SMTP_EMAIL / SMTP_PASSWORD)"
-    try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = SMTP_EMAIL
-        msg["To"] = ", ".join(to)
+    if RESEND_API_KEY:
+        body = {"from": CONTRACTOR_MAIL_FROM, "to": to, "subject": subject, "html": html_body}
         if cc:
-            msg["Cc"] = ", ".join(cc)
+            body["cc"] = cc
         if reply_to:
-            msg["Reply-To"] = reply_to
-        msg.attach(MIMEText(html_body, "html"))
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as srv:
-            srv.login(SMTP_EMAIL, SMTP_PASSWORD)
-            srv.sendmail(SMTP_EMAIL, to + cc, msg.as_string())
-        return True, None
-    except Exception as e:
-        logger.error("[Contractor email] %s", e)
-        return False, "Could not send the email"
+            body["reply_to"] = reply_to
+        try:
+            r = requests.post("https://api.resend.com/emails", json=body, timeout=15,
+                              headers={"Authorization": f"Bearer {RESEND_API_KEY}"})
+        except requests.RequestException as e:
+            logger.error("[Contractor email] resend: %s", e)
+            return False, "Could not reach the email service. Try again."
+        if r.ok:
+            return True, None
+        try:
+            detail = r.json().get("message") or r.text
+        except ValueError:
+            detail = r.text
+        logger.error("[Contractor email] resend %s: %s", r.status_code, detail)
+        return False, f"The email service refused the message: {str(detail)[:200]}"
+    if not SMTP_EMAIL or not SMTP_PASSWORD:
+        return False, "Email is not configured on the server (SMTP_EMAIL / SMTP_PASSWORD or RESEND_API_KEY)"
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = SMTP_EMAIL
+    msg["To"] = ", ".join(to)
+    if cc:
+        msg["Cc"] = ", ".join(cc)
+    if reply_to:
+        msg["Reply-To"] = reply_to
+    msg.attach(MIMEText(html_body, "html"))
+    last = None
+    for port in (465, 587):
+        try:
+            if port == 465:
+                srv = smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10)
+            else:
+                srv = smtplib.SMTP("smtp.gmail.com", 587, timeout=10)
+                srv.starttls()
+            with srv:
+                srv.login(SMTP_EMAIL, SMTP_PASSWORD)
+                srv.sendmail(SMTP_EMAIL, to + cc, msg.as_string())
+            return True, None
+        except smtplib.SMTPAuthenticationError as e:
+            logger.error("[Contractor email] gmail login: %s", e)
+            return False, "Gmail rejected the login. SMTP_PASSWORD must be a Gmail app password for SMTP_EMAIL."
+        except smtplib.SMTPRecipientsRefused as e:
+            logger.error("[Contractor email] recipients: %s", e)
+            return False, "The email address was rejected. Check it and try again."
+        except (OSError, smtplib.SMTPException) as e:
+            logger.error("[Contractor email] smtp %s: %s", port, e)
+            last = e
+    return False, ("The server cannot connect to Gmail (the mail ports are blocked by the host). "
+                   "Set RESEND_API_KEY on the server to send over HTTPS." if not isinstance(last, smtplib.SMTPException)
+                   else "Could not send the email")
+
+
+@app.route("/api/contractor/email-test", methods=["POST"])
+def contractor_email_test():
+    """Managers check that invoice email works; the reason is shown when it fails."""
+    me = _contractor_caller()
+    company = (request.get_json() or {}).get("company") or me["company"]
+    if company not in CONTRACTOR_COMPANIES or not _ct_can_admin(me, company):
+        return jsonify({"ok": False, "error": "Only Managers can test email"}), 403
+    to = (_ct_profile(company).get("emails") or [ADMIN_EMAIL])[0]
+    ok, e = _ct_send_email([to], [], "BSynch test email",
+                           "<p>Email from BSynch is working. Invoices and reminders will be delivered.</p>")
+    return jsonify({"ok": ok, "error": e, "to": to, "via": "resend" if RESEND_API_KEY else "gmail"})
 
 
 def _ct_send_email_async(to, cc, subject, html_body, reply_to=None):
@@ -6511,10 +6597,11 @@ def contractor_unassigned_projects(company):
 
 CONTRACTOR_PROFILE_TEXT = {
     "display_name": 120, "subtitle": 120, "tagline": 120, "contact_name": 120, "phone": 40,
-    "address": 300, "notify_email": 160, "invoice_prefix": 6, "payment_terms": 60,
+    "address": 300, "notify_email": 160, "invoice_prefix": 20, "payment_terms": 60,
     "payment_note": 400, "footer_note": 200,
 }
 _HEX_COLOR = re.compile(r"#[0-9a-fA-F]{6}")
+_CT_INV_NUM = re.compile(r"([A-Za-z0-9 _./#-]{0,20}?)(\d{1,12})")
 _IMG_DATA = re.compile(r"data:image/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+")
 
 
@@ -6522,7 +6609,8 @@ def _ct_profile(company):
     p = {"display_name": CONTRACTOR_COMPANIES.get(company, ""), "invoice_prefix": company[:1].upper(),
          "invoice_next": 1000, "payment_terms": "Due on receipt", "footer_note": "Thank you for your business!",
          "brand_primary": "#0d1b36", "brand_accent": "#e8a317", "emails": [],
-         "hours_morning": 4, "hours_afternoon": 4}
+         "hours_morning": 4, "hours_afternoon": 4,
+         "invoice_pad": 6, "invoice_end": None, "reminder_days": 15}
     p.update(_ct_config(f"contractor_company_{company}", {}) or {})
     if not p.get("emails") and p.get("email"):
         p["emails"] = [p["email"]]
@@ -6558,7 +6646,27 @@ def contractor_company_profile(company):
             if h is None or h > 12:
                 return jsonify({"ok": False, "error": "Workday hours must be between 0 and 12"}), 400
             out[k] = h
-    if "invoice_next" in data:
+    if "reminder_days" in data:
+        try:
+            out["reminder_days"] = max(0, min(365, int(data.get("reminder_days") or 0)))
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "Reminder days must be a number"}), 400
+    if "invoice_start" in data:
+        m = _CT_INV_NUM.fullmatch(str(data.get("invoice_start") or "").strip())
+        if not m:
+            return jsonify({"ok": False, "error": "The next invoice number must end in digits, e.g. H001001 or SSDE-983478"}), 400
+        out["invoice_prefix"], out["invoice_next"], out["invoice_pad"] = m.group(1), int(m.group(2)), len(m.group(2))
+        end = str(data.get("invoice_end") or "").strip()
+        if end:
+            e = _CT_INV_NUM.fullmatch(end)
+            if not e or e.group(1) != m.group(1):
+                return jsonify({"ok": False, "error": f"The end of the range must look like {m.group(1)}999999 (same letters)"}), 400
+            if int(e.group(2)) < int(m.group(2)):
+                return jsonify({"ok": False, "error": "The end of the range is before the next number"}), 400
+            out["invoice_end"] = int(e.group(2))
+        else:
+            out["invoice_end"] = None
+    if "invoice_next" in data and "invoice_start" not in data:
         try:
             out["invoice_next"] = max(1, min(99_999_999, int(data.get("invoice_next") or 1)))
         except (TypeError, ValueError):
@@ -7121,15 +7229,28 @@ def contractor_expenses(company):
         return jsonify({"ok": False, "error": "not your company"}), 403
     q = f"{sb_url()}/rest/v1/contractor_expenses?company=eq.{company}&select={_EXPENSE_FIELDS}&order=expense_date.desc,created_at.desc&limit=2000"
     month = request.args.get("month") or ""
-    if re.fullmatch(r"\d{4}-\d{2}", month):
+    d_from, d_to = _ct_valid_date(request.args.get("from")), _ct_valid_date(request.args.get("to"))
+    if d_from or d_to:
+        if d_from:
+            q += f"&expense_date=gte.{d_from}"
+        if d_to:
+            q += f"&expense_date=lte.{d_to}"
+    elif re.fullmatch(r"\d{4}-\d{2}", month):
         import calendar as _cal
         y, m = int(month[:4]), int(month[5:])
         if 1 <= m <= 12:
             q += f"&expense_date=gte.{month}-01&expense_date=lte.{month}-{_cal.monthrange(y, m)[1]:02d}"
     if request.args.get("category") in CONTRACTOR_EXPENSE_CATEGORIES:
         q += f"&category=eq.{request.args['category']}"
+    job = request.args.get("job") or ""
+    if job == "none":
+        q += "&job_id=is.null"
+    elif re.fullmatch(r"[0-9a-fA-F-]{36}", job):
+        q += f"&job_id=eq.{job}"
     if not sees_all:
         q += f"&added_by=eq.{requests.utils.quote(me['name'])}"
+    elif request.args.get("person"):
+        q += f"&added_by=eq.{requests.utils.quote(request.args['person'][:80])}"
     r = requests.get(q, headers=sb_headers(), timeout=10)
     rows = r.json() if r.ok else []
     job_ids = sorted({e["job_id"] for e in rows if e.get("job_id")})
@@ -7138,12 +7259,17 @@ def contractor_expenses(company):
         jr = requests.get(f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?id=in.({','.join(job_ids)})&select=id,job_number,title",
                           headers=sb_headers(), timeout=8)
         titles = {j["id"]: j for j in (jr.json() if jr.ok else [])}
-    by_cat = {}
+    text = (request.args.get("q") or "").strip().lower()
+    if text:
+        rows = [e for e in rows if text in " ".join(str(e.get(k) or "") for k in ("vendor", "description", "payment_method", "added_by")).lower()]
+    by_cat, by_person = {}, {}
     for e in rows:
+        by_person[e.get("added_by") or "?"] = round(by_person.get(e.get("added_by") or "?", 0) + _ct_money(e.get("amount")), 2)
         by_cat[e.get("category") or "other"] = round(by_cat.get(e.get("category") or "other", 0) + _ct_money(e.get("amount")), 2)
         j = titles.get(e.get("job_id"))
         e["job"] = {"job_number": j.get("job_number"), "title": j.get("title")} if j else None
-    return jsonify({"ok": True, "expenses": rows, "by_category": by_cat, "sees_all": sees_all,
+    return jsonify({"ok": True, "expenses": rows, "by_category": by_cat, "by_person": by_person, "sees_all": sees_all,
+                    "people": _ct_company_people(company) if sees_all else [],
                     "total": round(sum(_ct_money(e.get("amount")) for e in rows), 2)})
 
 
@@ -7222,7 +7348,9 @@ def contractor_expenses_csv(company):
         w.writerow([e.get("expense_date"), e.get("vendor"), e.get("category"), e.get("description"),
                     " ".join(filter(None, [job.get("job_number"), job.get("title")])), e.get("amount"), e.get("tax"),
                     e.get("payment_method"), e.get("added_by")])
-    name = f"{company}-expenses-{request.args.get('month') or 'all'}.csv"
+    period = (f"{request.args.get('from') or ''}_{request.args.get('to') or ''}" if request.args.get("from") or request.args.get("to")
+              else request.args.get("month") or "all")
+    name = f"{company}-expenses-{re.sub(r'[^0-9A-Za-z_-]', '', period)}.csv"
     return Response(out.getvalue(), mimetype="text/csv", headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
@@ -7610,7 +7738,8 @@ def contractor_invoicing_jobs(company):
     r = requests.get(
         f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?company=eq.{company}"
         f"&select=id,job_number,title,description,client_name,location,status,progress_pct,completed_date,"
-        f"customer_id,invoice_description,service_price,invoice_id,project_id,created_at,client_email,tracking,bill_address"
+        f"customer_id,invoice_description,service_price,invoice_id,project_id,created_at,client_email,tracking,bill_address,"
+        f"residence,apt,zone,zipcode"
         f"&order=created_at.desc&limit=500",
         headers=sb_headers(), timeout=10
     )
@@ -7648,7 +7777,8 @@ def contractor_invoicing_update_job(company, job_id):
     payload = {}
     if "client_email" in data and data["client_email"] and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", str(data["client_email"]).strip()):
         return jsonify({"ok": False, "error": "Enter a valid client email"}), 400
-    for k, n in (("client_name", 160), ("location", 200), ("customer_id", 60), ("invoice_description", 2000), ("client_email", 160), ("bill_address", 300)):
+    for k, n in (("client_name", 160), ("location", 200), ("customer_id", 60), ("invoice_description", 2000), ("client_email", 160), ("bill_address", 300),
+                 *CONTRACTOR_ADDRESS_PARTS.items()):
         if k in data:
             payload[k] = str(data.get(k) or "").strip()[:n]
     if "service_price" in data:
@@ -7671,6 +7801,11 @@ def contractor_invoicing_update_job(company, job_id):
     return jsonify({"ok": True})
 
 
+_CT_INV_LIST_FIELDS = ("id,invoice_number,bill_to,customer_id,job_site,invoice_date,total,status,created_by,job_id,"
+                       "sent_at,sent_to,sent_cc,paid_at,payment_ref,status_history,last_reminder_at,reminder_count,created_at")
+CONTRACTOR_INVOICE_STATUSES = {"issued": "Not sent", "sent": "Sent", "in_process": "In process", "paid": "Paid"}
+
+
 @app.route("/api/contractor/<company>/invoices", methods=["GET"])
 def contractor_invoices_list(company):
     me, err = _ct_invoice_guard(company)
@@ -7678,7 +7813,7 @@ def contractor_invoices_list(company):
         return err
     r = requests.get(
         f"{sb_url()}/rest/v1/contractor_invoices?company=eq.{company}"
-        f"&select=id,invoice_number,bill_to,job_site,invoice_date,total,status,created_by,job_id,sent_at,sent_to&order=seq.desc&limit=500",
+        f"&select={_CT_INV_LIST_FIELDS}&order=created_at.desc&limit=1000",
         headers=sb_headers(), timeout=8
     )
     return jsonify(r.json() if r.ok else [])
@@ -7722,16 +7857,23 @@ def contractor_create_invoice(company):
 
     profile = _ct_profile(company)
     import datetime as dt
-    last = requests.get(f"{sb_url()}/rest/v1/contractor_invoices?company=eq.{company}&select=seq&order=seq.desc&limit=1",
+    prefix = re.sub(r"[^A-Za-z0-9 _./#-]", "", str(profile.get("invoice_prefix") or ""))[:20]
+    pad = max(1, min(12, int(profile.get("invoice_pad") or 6)))
+    # Only invoices of the current range (same prefix) push the number forward
+    last = requests.get(f"{sb_url()}/rest/v1/contractor_invoices?company=eq.{company}"
+                        f"&invoice_number=like.{requests.utils.quote(prefix)}*&select=seq,invoice_number&order=seq.desc&limit=50",
                         headers=sb_headers(), timeout=5)
-    last_seq = last.json()[0]["seq"] if last.ok and last.json() else 0
-    seq = max(int(profile.get("invoice_next") or 1), last_seq + 1)
+    same = [x for x in (last.json() if last.ok else []) if re.fullmatch(re.escape(prefix) + r"\d+", x.get("invoice_number") or "")]
+    seq = max([int(profile.get("invoice_next") or 1)] + [int(x["seq"] or 0) + 1 for x in same])
+    if profile.get("invoice_end") and seq > int(profile["invoice_end"]):
+        return jsonify({"ok": False, "error": f"The invoice range ended at {prefix}{int(profile['invoice_end']):0{pad}d}. "
+                                              "Set a new range in Company Settings."}), 409
     snapshot = {k: profile.get(k) for k in ("display_name", "subtitle", "tagline", "phone", "address", "emails", "logo",
                                              "payment_note", "footer_note", "brand_primary", "brand_accent")}
     row = {
-        "company": company, "seq": seq, "invoice_number": f"{profile.get('invoice_prefix') or ''}{seq:06d}",
+        "company": company, "seq": seq, "invoice_number": f"{prefix}{seq:0{pad}d}",
         "job_id": job_id, "bill_to": job.get("client_name") or "", "customer_id": job.get("customer_id") or "",
-        "job_site": job.get("location") or "", "bill_address": job.get("bill_address") or "",
+        "job_site": _ct_full_address(job), "bill_address": job.get("bill_address") or "",
         "invoice_date": dt.date.today().isoformat(),
         "payment_terms": profile.get("payment_terms") or "", "items": items, "subtotal": subtotal, "total": subtotal,
         "company_snapshot": snapshot, "created_by": me["name"][:80],
@@ -7829,8 +7971,12 @@ def contractor_invoice_send(invoice_id):
     if not ok:
         return jsonify({"ok": False, "error": e, "link": link}), 502
     now = dt.datetime.utcnow().isoformat() + "Z"
-    requests.patch(f"{sb_url()}/rest/v1/contractor_invoices?id=eq.{inv['id']}",
-                   json={"sent_at": now, "sent_to": ", ".join(to), "status": "sent"}, headers=sb_headers(), timeout=5)
+    upd = {"sent_at": now, "sent_to": ", ".join(to), "sent_cc": ", ".join(cc),
+           "status_history": (inv.get("status_history") or []) + [{"status": "sent", "at": now, "by": me["name"][:80], "note": "Sent to " + ", ".join(to)}]}
+    if (inv.get("status") or "issued") == "issued":
+        upd["status"] = "sent"
+    requests.patch(f"{sb_url()}/rest/v1/contractor_invoices?id=eq.{inv['id']}", json=upd, headers=sb_headers(), timeout=5)
+    _ct_remember_contacts(inv["company"], to, inv.get("bill_to") or "", me["name"])
     return jsonify({"ok": True, "sent_at": now, "link": link})
 
 
@@ -7850,6 +7996,474 @@ def contractor_public_invoice(token):
     if not inv:
         return jsonify({"ok": False, "error": "not found"}), 404
     return jsonify({"ok": True, "invoice": inv})
+
+
+def _ct_inv_for_manager(invoice_id):
+    """(invoice, me, error) for status changes, which only Managers make."""
+    r = requests.get(f"{sb_url()}/rest/v1/contractor_invoices?id=eq.{requests.utils.quote(str(invoice_id))}&select=*&limit=1",
+                     headers=sb_headers(), timeout=8)
+    inv = r.json()[0] if r.ok and r.json() else None
+    if not inv:
+        return None, None, (jsonify({"ok": False, "error": "Invoice not found"}), 404)
+    me = _contractor_caller()
+    if not _ct_can_admin(me, inv["company"]):
+        return None, me, (jsonify({"ok": False, "error": "Only a Manager can change the invoice status"}), 403)
+    return inv, me, None
+
+
+def _ct_status_update(inv, me, status, paid_at=None, payment_ref=None, note=""):
+    """Payload that moves an invoice to a status and records who did it and when."""
+    import datetime as dt
+    now = dt.datetime.utcnow().isoformat() + "Z"
+    upd = {"status": status}
+    entry = {"status": status, "at": now, "by": me["name"][:80]}
+    if status == "paid":
+        upd["paid_at"] = paid_at or dt.date.today().isoformat()
+        entry["paid_at"] = upd["paid_at"]
+        if payment_ref is not None:
+            upd["payment_ref"] = payment_ref
+        if upd.get("payment_ref") or inv.get("payment_ref"):
+            entry["ref"] = upd.get("payment_ref", inv.get("payment_ref"))
+    else:
+        upd["paid_at"] = None
+    if note:
+        entry["note"] = note[:200]
+    upd["status_history"] = (inv.get("status_history") or []) + [entry]
+    return upd
+
+
+def _ct_valid_date(v):
+    return v if re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(v or "")) else None
+
+
+@app.route("/api/contractor/invoices/<invoice_id>/status", methods=["PATCH"])
+def contractor_invoice_status(invoice_id):
+    inv, me, err = _ct_inv_for_manager(invoice_id)
+    if err:
+        return err
+    data = request.get_json() or {}
+    status = data.get("status")
+    if status not in CONTRACTOR_INVOICE_STATUSES:
+        return jsonify({"ok": False, "error": "Status must be Not sent, Sent, In process or Paid"}), 400
+    if data.get("paid_at") and not _ct_valid_date(data.get("paid_at")):
+        return jsonify({"ok": False, "error": "Invalid paid date"}), 400
+    ref = str(data["payment_ref"]).strip()[:80] if "payment_ref" in data else None
+    upd = _ct_status_update(inv, me, status, _ct_valid_date(data.get("paid_at")), ref, str(data.get("note") or ""))
+    r = requests.patch(f"{sb_url()}/rest/v1/contractor_invoices?id=eq.{inv['id']}", json=upd,
+                       headers={**sb_headers(), "Prefer": "return=representation"}, timeout=8)
+    if not (r.ok and r.json()):
+        return jsonify({"ok": False, "error": "Could not save"}), 500
+    row = r.json()[0]
+    return jsonify({"ok": True, "invoice": {k: row.get(k) for k in _CT_INV_LIST_FIELDS.split(",")}})
+
+
+@app.route("/api/contractor/<company>/invoices/pay", methods=["POST"])
+def contractor_invoices_bulk_pay(company):
+    """Mark several invoices paid at once, e.g. the ones listed on one check."""
+    me = _contractor_caller()
+    if company not in CONTRACTOR_COMPANIES or not _ct_can_admin(me, company):
+        return jsonify({"ok": False, "error": "Only a Manager can mark invoices paid"}), 403
+    data = request.get_json() or {}
+    ids = [str(i) for i in (data.get("ids") or []) if re.fullmatch(r"[0-9a-fA-F-]{36}", str(i))][:200]
+    if not ids:
+        return jsonify({"ok": False, "error": "Select the invoices that were paid"}), 400
+    if data.get("paid_at") and not _ct_valid_date(data.get("paid_at")):
+        return jsonify({"ok": False, "error": "Invalid paid date"}), 400
+    ref = str(data.get("payment_ref") or "").strip()[:80]
+    r = requests.get(f"{sb_url()}/rest/v1/contractor_invoices?company=eq.{company}&id=in.({','.join(ids)})&select=*",
+                     headers=sb_headers(), timeout=8)
+    done = 0
+    for inv in (r.json() if r.ok else []):
+        upd = _ct_status_update(inv, me, "paid", _ct_valid_date(data.get("paid_at")), ref, "Marked paid together")
+        if requests.patch(f"{sb_url()}/rest/v1/contractor_invoices?id=eq.{inv['id']}", json=upd,
+                          headers=sb_headers(), timeout=8).ok:
+            done += 1
+    return jsonify({"ok": True, "updated": done})
+
+
+def _ct_reminder_email_html(inv, link, days):
+    co = inv.get("company_snapshot") or {}
+    navy = co.get("brand_primary") if _HEX_COLOR.fullmatch(str(co.get("brand_primary") or "")) else "#0d1b36"
+    return f"""<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#111827">
+  <div style="background:{navy};color:#fff;padding:16px 20px;border-radius:8px 8px 0 0;font-size:18px;font-weight:bold">{_html_escape(co.get('display_name'))}</div>
+  <div style="border:1px solid #e5e7eb;border-top:none;padding:20px;border-radius:0 0 8px 8px;font-size:14px;line-height:1.6">
+    <p>Hello {_html_escape(inv.get('bill_to'))},</p>
+    <p>This is a friendly reminder that invoice <b>{_html_escape(inv.get('invoice_number'))}</b> for
+       <b>${_ct_money(inv.get('total')):,.2f}</b> (job site: {_html_escape(inv.get('job_site'))}) was sent {days} days ago and is still open.</p>
+    <p>If you already sent the payment, thank you, and please ignore this message.</p>
+    <div style="text-align:center;margin:22px 0"><a href="{link}" style="background:{navy};color:#fff;text-decoration:none;padding:11px 20px;border-radius:6px;font-weight:bold;display:inline-block">View the invoice</a></div>
+    <p style="font-size:12px;color:#6b7280">{_html_escape(co.get('payment_note'))}</p>
+  </div>
+</div>"""
+
+
+def _ct_days_since(ts):
+    import datetime as dt
+    try:
+        d = dt.datetime.fromisoformat(str(ts).replace("Z", "+00:00")).date()
+    except ValueError:
+        return 0
+    return max(0, (dt.datetime.utcnow().date() - d).days)
+
+
+@app.route("/api/contractor/invoices/<invoice_id>/remind", methods=["POST"])
+def contractor_invoice_remind(invoice_id):
+    import datetime as dt
+    r = requests.get(f"{sb_url()}/rest/v1/contractor_invoices?id=eq.{requests.utils.quote(invoice_id)}&select=*&limit=1",
+                     headers=sb_headers(), timeout=8)
+    inv = r.json()[0] if r.ok and r.json() else None
+    if not inv:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    me, err = _ct_invoice_guard(inv["company"])
+    if err:
+        return err
+    if inv.get("status") == "paid":
+        return jsonify({"ok": False, "error": "This invoice is already paid"}), 409
+    if not inv.get("sent_at") or not inv.get("public_token"):
+        return jsonify({"ok": False, "error": "Send the invoice first"}), 409
+    to = [e.strip() for e in (inv.get("sent_to") or "").split(",") if e.strip()]
+    cc = [e.strip() for e in (inv.get("sent_cc") or "").split(",") if e.strip()]
+    co = inv.get("company_snapshot") or {}
+    days = _ct_days_since(inv["sent_at"])
+    ok, e = _ct_send_email(to, cc, f"Reminder: invoice {inv['invoice_number']} from {co.get('display_name') or ''}".strip(),
+                           _ct_reminder_email_html(inv, f"{request.host_url}i/{inv['public_token']}", days),
+                           reply_to=(co.get("emails") or [None])[0])
+    if not ok:
+        return jsonify({"ok": False, "error": e}), 502
+    now = dt.datetime.utcnow().isoformat() + "Z"
+    requests.patch(f"{sb_url()}/rest/v1/contractor_invoices?id=eq.{inv['id']}", headers=sb_headers(), timeout=5,
+                   json={"last_reminder_at": now, "reminder_count": int(inv.get("reminder_count") or 0) + 1,
+                         "status_history": (inv.get("status_history") or []) + [{"status": "reminder", "at": now, "by": me["name"][:80], "note": "Reminder sent to " + ", ".join(to)}]})
+    return jsonify({"ok": True, "last_reminder_at": now})
+
+
+_CT_XLSX_COLS = ["Invoice #", "Status", "Invoice date", "Bill to", "Customer ID", "Job site", "Total",
+                 "Sent on", "Sent to", "Days open", "Paid on", "Check / payment #", "Reminders sent", "Last reminder"]
+
+
+@app.route("/api/contractor/<company>/invoices.xlsx", methods=["GET"])
+def contractor_invoices_xlsx(company):
+    import io, openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.worksheet.datavalidation import DataValidation
+    me, err = _ct_invoice_guard(company)
+    if err:
+        return err
+    r = requests.get(f"{sb_url()}/rest/v1/contractor_invoices?company=eq.{company}&select={_CT_INV_LIST_FIELDS}&order=created_at.asc&limit=5000",
+                     headers=sb_headers(), timeout=10)
+    rows = r.json() if r.ok else []
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Invoices"
+    ws.append(_CT_XLSX_COLS)
+    navy = PatternFill("solid", fgColor="0D1B36")
+    for c in ws[1]:
+        c.font = Font(bold=True, color="FFFFFF")
+        c.fill = navy
+        c.alignment = Alignment(vertical="center")
+    fills = {"paid": "DCFCE7", "in_process": "FEF3C7", "sent": "FEE2E2", "issued": "F1F5F9"}
+    for i in rows:
+        st = i.get("status") or "issued"
+        open_days = _ct_days_since(i["sent_at"]) if i.get("sent_at") and st != "paid" else ""
+        ws.append([i.get("invoice_number"), CONTRACTOR_INVOICE_STATUSES.get(st, st), i.get("invoice_date") or "",
+                   i.get("bill_to") or "", i.get("customer_id") or "", i.get("job_site") or "", _ct_money(i.get("total")),
+                   (i.get("sent_at") or "")[:10], i.get("sent_to") or "", open_days, i.get("paid_at") or "",
+                   i.get("payment_ref") or "", int(i.get("reminder_count") or 0), (i.get("last_reminder_at") or "")[:10]])
+        ws.cell(ws.max_row, 2).fill = PatternFill("solid", fgColor=fills.get(st, "FFFFFF"))
+        ws.cell(ws.max_row, 7).number_format = '"$"#,##0.00'
+    dv = DataValidation(type="list", formula1='"' + ",".join(CONTRACTOR_INVOICE_STATUSES.values()) + '"', allow_blank=False)
+    ws.add_data_validation(dv)
+    dv.add(f"B2:B{max(2, ws.max_row + 200)}")
+    for col, w in zip("ABCDEFGHIJKLMN", (14, 12, 12, 26, 14, 30, 12, 12, 28, 10, 12, 18, 10, 12)):
+        ws.column_dimensions[col].width = w
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = f"A1:N{max(1, ws.max_row)}"
+    buf = io.BytesIO()
+    wb.save(buf)
+    import datetime as dt
+    return Response(buf.getvalue(), mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f'attachment; filename="{company}-invoices-{dt.date.today().isoformat()}.xlsx"'})
+
+
+@app.route("/api/contractor/<company>/invoices/import", methods=["POST"])
+def contractor_invoices_import(company):
+    """Apply the Status / Paid on / Check # columns of the downloaded Excel back to the invoices."""
+    import io, base64, openpyxl, datetime as dt
+    me = _contractor_caller()
+    if company not in CONTRACTOR_COMPANIES or not _ct_can_admin(me, company):
+        return jsonify({"ok": False, "error": "Only a Manager can update invoices from Excel"}), 403
+    raw = str((request.get_json() or {}).get("data") or "")
+    try:
+        blob = base64.b64decode(raw.split(",", 1)[-1], validate=True)
+        if len(blob) > 5 * 1024 * 1024:
+            raise ValueError("too big")
+        ws = openpyxl.load_workbook(io.BytesIO(blob), read_only=True, data_only=True).worksheets[0]
+        it = ws.iter_rows(values_only=True)
+        head = [str(h or "").strip().lower() for h in next(it)]
+    except Exception:
+        return jsonify({"ok": False, "error": "That file is not the invoices Excel (.xlsx) downloaded from here"}), 400
+    col = lambda name: head.index(name.lower()) if name.lower() in head else None
+    ci, cs, cp, cr = col("Invoice #"), col("Status"), col("Paid on"), col("Check / payment #")
+    if ci is None or cs is None:
+        return jsonify({"ok": False, "error": "The Excel needs the 'Invoice #' and 'Status' columns"}), 400
+    by_label = {v.lower(): k for k, v in CONTRACTOR_INVOICE_STATUSES.items()}
+    wanted = {}
+    for row in it:
+        num = str(row[ci] or "").strip() if ci < len(row) else ""
+        st = by_label.get(str(row[cs] or "").strip().lower()) if cs < len(row) else None
+        if not num or not st:
+            continue
+        paid = row[cp] if cp is not None and cp < len(row) else None
+        if isinstance(paid, (dt.date, dt.datetime)):
+            paid = paid.strftime("%Y-%m-%d")
+        ref = str(row[cr]).strip()[:80] if cr is not None and cr < len(row) and row[cr] is not None else None
+        wanted[num] = (st, _ct_valid_date(paid), ref)
+    if not wanted:
+        return jsonify({"ok": True, "updated": 0, "unchanged": 0})
+    r = requests.get(f"{sb_url()}/rest/v1/contractor_invoices?company=eq.{company}&select=*&limit=5000",
+                     headers=sb_headers(), timeout=10)
+    updated = unchanged = 0
+    for inv in (r.json() if r.ok else []):
+        if inv.get("invoice_number") not in wanted:
+            continue
+        st, paid, ref = wanted[inv["invoice_number"]]
+        same = st == (inv.get("status") or "issued") and (st != "paid" or (
+            (paid or inv.get("paid_at")) == inv.get("paid_at") and (ref is None or ref == (inv.get("payment_ref") or ""))))
+        if same:
+            unchanged += 1
+            continue
+        upd = _ct_status_update(inv, me, st, paid, ref, "Updated from Excel")
+        if requests.patch(f"{sb_url()}/rest/v1/contractor_invoices?id=eq.{inv['id']}", json=upd,
+                          headers=sb_headers(), timeout=8).ok:
+            updated += 1
+    return jsonify({"ok": True, "updated": updated, "unchanged": unchanged})
+
+
+def _ct_overdue_digest(company):
+    """Once a day: email the company the sent invoices that are still unpaid after the reminder days."""
+    prof = _ct_profile(company)
+    days = int(prof.get("reminder_days") or 15)
+    to = prof.get("emails") or []
+    if not to or days <= 0:
+        return
+    r = requests.get(f"{sb_url()}/rest/v1/contractor_invoices?company=eq.{company}&status=in.(sent,in_process)"
+                     f"&sent_at=not.is.null&select=invoice_number,bill_to,job_site,total,sent_at,sent_to,status,last_reminder_at&limit=1000",
+                     headers=sb_headers(), timeout=10)
+    late = [i for i in (r.json() if r.ok else []) if _ct_days_since(i["sent_at"]) >= days]
+    if not late:
+        return
+    late.sort(key=lambda i: i["sent_at"])
+    rows = "".join(
+        f"<tr><td style='padding:6px;border-bottom:1px solid #e5e7eb'>{_html_escape(i['invoice_number'])}</td>"
+        f"<td style='padding:6px;border-bottom:1px solid #e5e7eb'>{_html_escape(i.get('bill_to'))}<br><span style='color:#6b7280'>{_html_escape(i.get('job_site'))}</span></td>"
+        f"<td style='padding:6px;border-bottom:1px solid #e5e7eb;text-align:right'>${_ct_money(i.get('total')):,.2f}</td>"
+        f"<td style='padding:6px;border-bottom:1px solid #e5e7eb;text-align:center'><b>{_ct_days_since(i['sent_at'])}</b></td></tr>"
+        for i in late)
+    total = sum(_ct_money(i.get("total")) for i in late)
+    html = f"""<div style="font-family:Arial,Helvetica,sans-serif;max-width:620px;margin:0 auto;color:#111827">
+  <h2 style="font-size:18px">{len(late)} invoice{'s' if len(late) != 1 else ''} unpaid for {days}+ days &middot; ${total:,.2f}</h2>
+  <p style="font-size:14px">Open Invoicing &rarr; Invoices to send a reminder to the client or mark them paid.</p>
+  <table style="width:100%;border-collapse:collapse;font-size:13px">
+    <tr style="background:#0d1b36;color:#fff"><th style="padding:6px;text-align:left">Invoice</th><th style="padding:6px;text-align:left">Client</th><th style="padding:6px;text-align:right">Total</th><th style="padding:6px">Days</th></tr>
+    {rows}
+  </table>
+</div>"""
+    _ct_send_email(to, [], f"{prof.get('display_name') or CONTRACTOR_COMPANIES[company]}: {len(late)} unpaid invoice{'s' if len(late) != 1 else ''}", html)
+
+
+_ct_digest_day = {}
+_ct_digest_lock = _threading.Lock()
+
+
+def _ct_today_local():
+    import datetime as dt
+    try:
+        import pytz
+        return dt.datetime.now(pytz.timezone("America/Chicago")).date().isoformat()
+    except Exception:
+        return dt.date.today().isoformat()
+
+
+def _ct_maybe_daily_digest(today):
+    """Hosts like Render sleep, so instead of a timer the first contractor request of the day sends
+    the digest. The app_config row keeps it to one email per company per day across restarts."""
+    if not _ct_digest_lock.acquire(blocking=False):
+        return
+    try:
+        for co in CONTRACTOR_COMPANIES:
+            if _ct_digest_day.get(co) == today:
+                continue
+            _ct_digest_day[co] = today
+            if (_ct_config(f"contractor_digest_{co}", {}) or {}).get("day") == today:
+                continue
+            _ct_set_config(f"contractor_digest_{co}", {"day": today})
+            try:
+                _ct_overdue_digest(co)
+            except Exception as e:
+                logger.error("[Contractor digest] %s: %s", co, e)
+    finally:
+        _ct_digest_lock.release()
+
+
+@app.before_request
+def _ct_digest_hook():
+    if not request.path.startswith("/api/contractor/"):
+        return
+    today = _ct_today_local()
+    if any(_ct_digest_day.get(co) != today for co in CONTRACTOR_COMPANIES):
+        _threading.Thread(target=_ct_maybe_daily_digest, args=(today,), daemon=True).start()
+
+
+# ── Contractor: contacts (potential clients, clients, crew) ─────────
+CONTRACTOR_CONTACT_KINDS = {"potential": "Potential client", "client": "Client", "worker": "Worker / crew", "other": "Other"}
+CONTRACTOR_CONTACT_CHANNELS = ["", "whatsapp", "call", "text", "email"]
+CONTRACTOR_CONTACT_ROLES = ["End client", "Superintendent", "Project manager", "Builder", "Property manager",
+                            "Painter", "Sheetrock", "Electrician", "Plumber", "Supplier"]
+_EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
+
+
+def _ct_contacts_guard(company):
+    me = _contractor_caller()
+    if company not in CONTRACTOR_COMPANIES or not _ct_can_view(me, company) or not (
+            _ct_can_admin(me, company) or _ct_perms(company).get(me["company_role"] or "member", {}).get("contacts")):
+        return me, (jsonify({"ok": False, "error": "no contacts permission"}), 403)
+    return me, None
+
+
+def _ct_contact_payload(data, partial=False):
+    """Clean contact fields from the request. Returns (payload, error)."""
+    out = {}
+    for k, n in (("name", 120), ("org", 120), ("role_desc", 80), ("notes", 2000)):
+        if k in data or not partial:
+            out[k] = str(data.get(k) or "").strip()[:n]
+    if "kind" in data or not partial:
+        if data.get("kind", "potential") not in CONTRACTOR_CONTACT_KINDS:
+            return None, "Unknown contact type"
+        out["kind"] = data.get("kind", "potential")
+    if "channel" in data or not partial:
+        if (data.get("channel") or "") not in CONTRACTOR_CONTACT_CHANNELS:
+            return None, "Unknown contact channel"
+        out["channel"] = data.get("channel") or ""
+    if "emails" in data or not partial:
+        emails = [str(e).strip().lower() for e in (data.get("emails") or []) if str(e).strip()]
+        bad = [e for e in emails if not _EMAIL_RE.fullmatch(e)]
+        if bad:
+            return None, f"Check this email: {bad[0]}"
+        out["emails"] = list(dict.fromkeys(emails))[:5]
+    if "phones" in data or not partial:
+        phones = [re.sub(r"[^0-9+()\- .x]", "", str(p)).strip()[:30] for p in (data.get("phones") or [])]
+        out["phones"] = [p for p in phones if sum(c.isdigit() for c in p) >= 7][:5]
+    if not partial and not (out.get("name") or out.get("org") or out.get("emails") or out.get("phones")):
+        return None, "Add at least a name, company, email or phone"
+    return out, None
+
+
+def _ct_contacts_all(company):
+    r = requests.get(f"{sb_url()}/rest/v1/contractor_contacts?company=eq.{company}&select=*&order=name.asc&limit=5000",
+                     headers=sb_headers(), timeout=10)
+    return r.json() if r.ok else []
+
+
+def _ct_remember_contacts(company, emails, org, by):
+    """Invoice recipients become Clients in Contacts (a potential client is promoted)."""
+    try:
+        existing = _ct_contacts_all(company)
+        for email in emails:
+            email = email.lower()
+            match = next((c for c in existing if email in [e.lower() for e in (c.get("emails") or [])]), None)
+            if match:
+                if match.get("kind") == "potential":
+                    requests.patch(f"{sb_url()}/rest/v1/contractor_contacts?id=eq.{match['id']}",
+                                   json={"kind": "client"}, headers=sb_headers(), timeout=5)
+                continue
+            requests.post(f"{sb_url()}/rest/v1/contractor_contacts", headers=sb_headers(), timeout=5,
+                          json={"company": company, "kind": "client", "name": "", "org": org[:120], "emails": [email],
+                                "phones": [], "source": "invoice", "created_by": by[:80]})
+    except Exception as e:
+        logger.warning("[Contacts] remember: %s", e)
+
+
+@app.route("/contractor/<company>/contacts")
+def contractor_contacts_page(company):
+    return _ct_page(company, "contractor-contacts.html")
+
+
+@app.route("/api/contractor/<company>/contacts", methods=["GET"])
+def contractor_contacts_list(company):
+    me, err = _ct_contacts_guard(company)
+    if err:
+        return err
+    rows = _ct_contacts_all(company)
+    roles = list(dict.fromkeys(CONTRACTOR_CONTACT_ROLES + sorted({(c.get("role_desc") or "").strip() for c in rows} - {""})))
+    return jsonify({"ok": True, "contacts": rows, "kinds": CONTRACTOR_CONTACT_KINDS, "roles": roles,
+                    "can_delete": _ct_can_admin(me, company)})
+
+
+@app.route("/api/contractor/<company>/contacts", methods=["POST"])
+def contractor_contacts_create(company):
+    me, err = _ct_contacts_guard(company)
+    if err:
+        return err
+    payload, e = _ct_contact_payload(request.get_json() or {})
+    if e:
+        return jsonify({"ok": False, "error": e}), 400
+    payload.update(company=company, created_by=me["name"][:80], source="manual")
+    r = requests.post(f"{sb_url()}/rest/v1/contractor_contacts", json=payload,
+                      headers={**sb_headers(), "Prefer": "return=representation"}, timeout=8)
+    if not (r.ok and r.json()):
+        return jsonify({"ok": False, "error": "Could not save the contact"}), 500
+    return jsonify({"ok": True, "contact": r.json()[0]})
+
+
+@app.route("/api/contractor/<company>/contacts/<contact_id>", methods=["PATCH", "DELETE"])
+def contractor_contacts_edit(company, contact_id):
+    import datetime as dt
+    me, err = _ct_contacts_guard(company)
+    if err:
+        return err
+    url = f"{sb_url()}/rest/v1/contractor_contacts?id=eq.{requests.utils.quote(contact_id)}&company=eq.{company}"
+    if request.method == "DELETE":
+        if not _ct_can_admin(me, company):
+            return jsonify({"ok": False, "error": "Only a Manager can delete contacts"}), 403
+        r = requests.delete(url, headers={**sb_headers(), "Prefer": "return=representation"}, timeout=8)
+        return jsonify({"ok": bool(r.ok and r.json())})
+    payload, e = _ct_contact_payload(request.get_json() or {}, partial=True)
+    if e:
+        return jsonify({"ok": False, "error": e}), 400
+    if not payload:
+        return jsonify({"ok": False, "error": "nothing to update"}), 400
+    payload["updated_at"] = dt.datetime.utcnow().isoformat() + "Z"
+    r = requests.patch(url, json=payload, headers={**sb_headers(), "Prefer": "return=representation"}, timeout=8)
+    if not (r.ok and r.json()):
+        return jsonify({"ok": False, "error": "Contact not found"}), 404
+    return jsonify({"ok": True, "contact": r.json()[0]})
+
+
+@app.route("/api/contractor/<company>/contacts.xlsx", methods=["GET"])
+def contractor_contacts_xlsx(company):
+    import io, openpyxl, datetime as dt
+    from openpyxl.styles import Font, PatternFill
+    me, err = _ct_contacts_guard(company)
+    if err:
+        return err
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Contacts"
+    ws.append(["Type", "Name", "Company", "Description", "Emails", "Phones", "Preferred contact", "Notes", "Added"])
+    for c in ws[1]:
+        c.font = Font(bold=True, color="FFFFFF")
+        c.fill = PatternFill("solid", fgColor="0D1B36")
+    for c in _ct_contacts_all(company):
+        ws.append([CONTRACTOR_CONTACT_KINDS.get(c.get("kind"), c.get("kind")), c.get("name") or "", c.get("org") or "",
+                   c.get("role_desc") or "", ", ".join(c.get("emails") or []), ", ".join(c.get("phones") or []),
+                   (c.get("channel") or "").capitalize(), c.get("notes") or "", (c.get("created_at") or "")[:10]])
+    for col, w in zip("ABCDEFGHI", (16, 22, 22, 18, 32, 22, 16, 40, 12)):
+        ws.column_dimensions[col].width = w
+    ws.freeze_panes = "A2"
+    buf = io.BytesIO()
+    wb.save(buf)
+    return Response(buf.getvalue(), mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f'attachment; filename="{company}-contacts-{dt.date.today().isoformat()}.xlsx"'})
 
 
 # ── Helpers ──────────────────────────────────────────────────────
@@ -7909,7 +8523,8 @@ def create_contractor_job():
         "title":        title,
         "description":  data.get("description", ""),
         "client_name":  data.get("client_name", ""),
-        "location":     data.get("location", ""),
+        "location":     str(data.get("location") or "").strip()[:200],
+        **{k: str(data.get(k) or "").strip()[:n] for k, n in CONTRACTOR_ADDRESS_PARTS.items()},
         "status":       data.get("status", "open"),
         "priority":     data.get("priority", "normal"),
         "crew":         data.get("crew", []),
@@ -7980,9 +8595,12 @@ def update_contractor_job(job_id):
     allowed = [
         "title", "description", "client_name", "location", "status",
         "priority", "crew", "start_date", "due_date", "completed_date",
-        "notes", "tracking", "progress_pct", "client_email", "time_slot", "est_hours"
+        "notes", "tracking", "progress_pct", "client_email", "time_slot", "est_hours", *CONTRACTOR_ADDRESS_PARTS
     ]
     payload = {k: data[k] for k in allowed if k in data}
+    for k, n in CONTRACTOR_ADDRESS_PARTS.items():
+        if k in payload:
+            payload[k] = str(payload[k] or "").strip()[:n]
     if "est_hours" in payload:
         payload["est_hours"] = _ct_hours(payload["est_hours"])
         if payload["est_hours"] is None:
@@ -8248,7 +8866,33 @@ def _recalc_job_progress(job_id):
 
 @app.route("/contractor/dashboard")
 def contractor_dashboard():
-    return render_template("contractor-dashboard.html")
+    company = (request.args.get("company") or "").lower()
+    if company in CONTRACTOR_COMPANIES:
+        return _ct_page(company, "contractor-dashboard.html")
+    return redirect("/contractor-hub")
+
+
+@app.route("/api/contractor/<company>/dashboard", methods=["GET"])
+def contractor_dashboard_data(company):
+    """Raw rows for the business dashboard; the page aggregates them so filters and drill-down stay instant."""
+    me = _contractor_caller()
+    if company not in CONTRACTOR_COMPANIES or not _ct_can_view(me, company) or not (
+            _ct_can_admin(me, company) or _ct_perms(company).get(me["company_role"] or "member", {}).get("dashboard")):
+        return jsonify({"ok": False, "error": "no dashboard permission"}), 403
+    get = lambda url: (lambda r: r.json() if r.ok else [])(requests.get(url, headers=sb_headers(), timeout=10))
+    invoices = get(f"{sb_url()}/rest/v1/contractor_invoices?company=eq.{company}"
+                   f"&select=id,invoice_number,bill_to,job_site,total,status,invoice_date,sent_at,paid_at,payment_ref,job_id&limit=5000")
+    jobs = get(f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?company=eq.{company}"
+               f"&select=id,job_number,title,client_name,status,progress_pct,service_price,invoice_id,created_at,completed_date,"
+               f"scheduled_date,est_hours,assigned_to&limit=5000")
+    expenses = get(f"{sb_url()}/rest/v1/contractor_expenses?company=eq.{company}"
+                   f"&select=id,expense_date,amount,category,added_by,job_id,vendor&limit=10000")
+    for j in jobs:
+        j["is_done"] = _ct_job_is_done(j)
+    prof = _ct_profile(company)
+    return jsonify({"ok": True, "invoices": invoices, "jobs": jobs, "expenses": expenses,
+                    "reminder_days": int(prof.get("reminder_days") or 15),
+                    "can_invoice": bool(_ct_can_invoice(me, company))})
 
 
 @app.route("/api/contractor/projects", methods=["GET"])

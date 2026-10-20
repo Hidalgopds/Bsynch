@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ company_name }} Contacts – BSynch</title>
+<script src="/static/contractor-scope.js"></script>
+<script src="/static/theme.js"></script>
+<script>document.documentElement.setAttribute('data-theme','light');</script>
+<link rel="stylesheet" href="/static/themes.css">
+<link rel="stylesheet" href="/static/contractor-light.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f4f8;color:#0f172a;min-height:100vh;display:flex;flex-direction:column;}
+header{padding:14px 20px;display:flex;align-items:center;gap:12px;background:#19354d;color:#e2e8f0;}
+.logo-badge{width:36px;height:36px;background:linear-gradient(135deg,#1e9484,#4f8ef7);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;flex-shrink:0;}
+.hdr-title{font-size:17px;font-weight:700;}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.btn-back{padding:6px 14px;border:1px solid rgba(255,255,255,.3);border-radius:7px;color:#e2e8f0;font-size:12px;text-decoration:none;}
+.content{flex:1;padding:22px 16px 60px;max-width:980px;width:100%;margin:0 auto;}
+h1{font-size:22px;margin-bottom:4px;}
+.sub{font-size:14px;color:#64748b;margin-bottom:16px;}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+.tab{padding:8px 14px;border-radius:9px;border:1px solid #cbd5e1;background:#fff;color:#475569;font-size:13px;font-weight:600;cursor:pointer;}
+.tab.active{border-color:#1e9484;background:#e3f3ef;color:#0f766e;}
+.tab small{font-weight:700;margin-left:4px;color:#94a3b8;}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+.tools input{flex:1;min-width:200px;padding:9px 12px;border:1px solid #cbd5e1;border-radius:9px;font-size:14px;background:#fff;color:#0f172a;}
+.btn{padding:9px 14px;border-radius:9px;border:none;background:#1e9484;color:#fff;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;}
+.btn.alt{background:#fff;color:#0f766e;border:1px solid #8fcfc2;}
+.btn.danger{background:#fff;color:#b91c1c;border:1px solid #fca5a5;}
+.list{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:10px;}
+.ct{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;cursor:pointer;display:flex;flex-direction:column;gap:6px;}
+.ct:hover{border-color:#8fcfc2;}
+.ct-top{display:flex;gap:8px;align-items:flex-start;}
+.ct-name{font-weight:700;font-size:15px;flex:1;min-width:0;}
+.ct-org{font-size:13px;color:#64748b;}
+.chip{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap;}
+.k-potential{background:#fef3c7;color:#b45309;}.k-client{background:#dcfce7;color:#15803d;}.k-worker{background:#dbeafe;color:#1d4ed8;}.k-other{background:#f1f5f9;color:#475569;}
+.role{background:#f1f5f9;color:#334155;}
+.ways{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px;}
+.way{font-size:12px;padding:4px 9px;border-radius:8px;border:1px solid #e2e8f0;color:#0f172a;text-decoration:none;background:#f8fafc;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.way.pref{border-color:#1e9484;background:#e3f3ef;color:#0f766e;font-weight:700;}
+.notes{font-size:12px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.empty{color:#64748b;text-align:center;padding:40px 10px;font-size:14px;grid-column:1/-1;}
+.ct-modal{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:flex-start;justify-content:center;padding:24px 12px;z-index:50;overflow-y:auto;}
+.ct-modal.open{display:flex;}
+.box{background:#fff;border-radius:16px;padding:20px;width:100%;max-width:520px;}
+.box h3{font-size:18px;margin-bottom:12px;}
+.field{margin-bottom:11px;}
+.field label{display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;}
+.field input,.field textarea,.field select{width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:9px;font-size:14px;font-family:inherit;background:#fff;color:#0f172a;}
+.field textarea{min-height:70px;resize:vertical;}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+@media(max-width:520px){.row2{grid-template-columns:1fr;}}
+.seg{display:flex;gap:6px;flex-wrap:wrap;}
+.seg button{flex:1;min-width:90px;padding:8px;border-radius:9px;border:1px solid #cbd5e1;background:#fff;color:#475569;font-size:12px;font-weight:600;cursor:pointer;}
+.seg button.on{border-color:#1e9484;background:#e3f3ef;color:#0f766e;}
+.multi{display:flex;flex-direction:column;gap:6px;}
+.multi div{display:flex;gap:6px;}
+.multi input{flex:1;}
+.x{border:1px solid #e2e8f0;background:#fff;border-radius:8px;width:36px;cursor:pointer;color:#64748b;}
+.add{background:none;border:none;color:#0f766e;font-weight:700;font-size:12px;cursor:pointer;text-align:left;padding:2px 0;}
+.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap;}
+.actions .btn.danger{margin-right:auto;}
+.msg{font-size:12px;color:#dc2626;min-height:14px;margin-top:6px;}
+footer{text-align:center;padding:16px;font-size:12px;color:#94a3b8;}
+</style>
+</head>
+<body data-ct-hub>
+<header>
+  <div class="logo-badge">B</div>
+  <span class="hdr-title">{{ company_name }} · Contacts</span>
+  <div class="hdr-right"><a href="/contractor/{{ company }}" class="btn-back">&#8592; {{ company_name }}</a></div>
+</header>
+
+<div class="content" id="content" style="visibility:hidden;">
+  <h1>&#128101; Contacts</h1>
+  <p class="sub">Potential clients, current clients and crew in one place. People you send invoices to are added as clients automatically.</p>
+  <div class="tabs" id="tabs"></div>
+  <div class="tools">
+    <input id="q" type="search" placeholder="Search name, company, description, email or phone">
+    <button class="btn" id="newBtn">+ New contact</button>
+    <button class="btn alt" id="xlsBtn">&#11015;&#65039; Excel</button>
+  </div>
+  <div class="list" id="list"></div>
+</div>
+
+<div class="ct-modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+  <div class="box">
+    <h3 id="mTitle">New contact</h3>
+    <div class="field"><label>Type</label><div class="seg" id="mKind"></div></div>
+    <div class="row2">
+      <div class="field"><label for="mName">Name</label><input id="mName" maxlength="120" placeholder="Joe Smith"></div>
+      <div class="field"><label for="mOrg">Company</label><input id="mOrg" maxlength="120" placeholder="DR Horton"></div>
+    </div>
+    <div class="field"><label for="mRole">Description</label><input id="mRole" maxlength="80" list="roleList" placeholder="Superintendent, end client, painter, sheetrock..."><datalist id="roleList"></datalist></div>
+    <div class="field"><label>Emails</label><div class="multi" id="mEmails"></div><button type="button" class="add" data-add="mEmails">+ Add another email</button></div>
+    <div class="field"><label>Phones</label><div class="multi" id="mPhones"></div><button type="button" class="add" data-add="mPhones">+ Add another phone</button></div>
+    <div class="field"><label>Best way to reach them</label><div class="seg" id="mChannel"></div></div>
+    <div class="field"><label for="mNotes">Notes</label><textarea id="mNotes" maxlength="2000" placeholder="Where you met, jobs they have, rates..."></textarea></div>
+    <div class="actions">
+      <button class="btn danger" id="mDel" type="button" style="display:none;">Delete</button>
+      <button class="btn alt" id="mCancel" type="button">Cancel</button>
+      <button class="btn" id="mSave" type="button">Save</button>
+    </div>
+    <div class="msg" id="mMsg"></div>
+  </div>
+</div>
+
+<footer>BSynch &middot; Contractor Module</footer>
+
+<script>
+var COMPANY = {{ company|tojson }};
+var API = '/api/contractor/' + COMPANY + '/contacts';
+var data = {contacts: [], kinds: {}, roles: [], can_delete: false}, tab = 'potential', editing = null, mKind = 'potential', mChannel = '';
+var CHANNELS = [['', 'Any'], ['whatsapp', '💬 WhatsApp'], ['call', '📞 Call'], ['text', '✉️ Text'], ['email', '📧 Email']];
+
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+var KIND_ORDER = ['potential', 'client', 'worker', 'other'];
+function kindKeys(){ return KIND_ORDER.filter(function(k){ return data.kinds[k]; }).concat(Object.keys(data.kinds).filter(function(k){ return KIND_ORDER.indexOf(k) < 0; })); }
+function digits(p){ return String(p || '').replace(/[^0-9]/g, ''); }
+function waNum(p){ var d = digits(p); return d.length === 10 ? '1' + d : d; }
+
+function renderTabs(){
+  var counts = {all: data.contacts.length};
+  data.contacts.forEach(function(c){ counts[c.kind] = (counts[c.kind] || 0) + 1; });
+  var tabs = kindKeys().map(function(k){ return [k, data.kinds[k]]; }).concat([['all', 'All']]);
+  document.getElementById('tabs').innerHTML = tabs.map(function(t){
+    return '<button class="tab' + (t[0] === tab ? ' active' : '') + '" data-t="' + t[0] + '">' + esc(t[1]) + '<small>' + (counts[t[0]] || 0) + '</small></button>';
+  }).join('');
+}
+function render(){
+  renderTabs();
+  var q = document.getElementById('q').value.trim().toLowerCase();
+  var list = data.contacts.filter(function(c){
+    if(tab !== 'all' && c.kind !== tab) return false;
+    if(!q) return true;
+    return [c.name, c.org, c.role_desc, c.notes].concat(c.emails || [], c.phones || []).join(' ').toLowerCase().indexOf(q) >= 0 ||
+      (digits(q).length >= 3 && (c.phones || []).some(function(p){ return digits(p).indexOf(digits(q)) >= 0; }));
+  });
+  list.sort(function(a, b){ return (a.name || a.org || '').localeCompare(b.name || b.org || ''); });
+  document.getElementById('list').innerHTML = list.length ? list.map(function(c){
+    var ways = (c.phones || []).map(function(p, i){
+      return (i === 0 && c.channel === 'whatsapp' ? '<a class="way pref" href="https://wa.me/' + waNum(p) + '" target="_blank" rel="noopener">💬 ' + esc(p) + '</a>' : '') +
+        '<a class="way' + (i === 0 && (c.channel === 'call') ? ' pref' : '') + '" href="tel:' + esc(digits(p)) + '">📞 ' + esc(p) + '</a>' +
+        (i === 0 && c.channel === 'text' ? '<a class="way pref" href="sms:' + esc(digits(p)) + '">✉️ Text</a>' : '');
+    }).concat((c.emails || []).map(function(e, i){
+      return '<a class="way' + (i === 0 && c.channel === 'email' ? ' pref' : '') + '" href="mailto:' + esc(e) + '">📧 ' + esc(e) + '</a>';
+    })).join('');
+    return '<div class="ct" data-id="' + esc(c.id) + '">' +
+      '<div class="ct-top"><div class="ct-name">' + esc(c.name || c.org || (c.emails || [])[0] || 'No name') +
+        (c.name && c.org ? '<div class="ct-org">' + esc(c.org) + '</div>' : '') + '</div>' +
+        '<span class="chip k-' + esc(c.kind) + '">' + esc(data.kinds[c.kind] || c.kind) + '</span></div>' +
+      (c.role_desc ? '<div><span class="chip role">' + esc(c.role_desc) + '</span></div>' : '') +
+      (ways ? '<div class="ways">' + ways + '</div>' : '') +
+      (c.notes ? '<div class="notes">' + esc(c.notes) + '</div>' : '') + '</div>';
+  }).join('') : '<div class="empty">' + (q ? 'Nobody matches.' : 'No contacts here yet. Tap <b>+ New contact</b>.') + '</div>';
+}
+
+function multiRow(id, v){
+  var type = id === 'mEmails' ? 'email' : 'tel';
+  var d = document.createElement('div');
+  d.innerHTML = '<input type="' + type + '" maxlength="' + (type === 'email' ? 160 : 30) + '" placeholder="' + (type === 'email' ? 'name@company.com' : '(281) 555-0101') + '"><button type="button" class="x" aria-label="Remove">&times;</button>';
+  d.querySelector('input').value = v || '';
+  document.getElementById(id).appendChild(d);
+}
+function seg(id, items, cur){
+  document.getElementById(id).innerHTML = items.map(function(it){ return '<button type="button" data-v="' + it[0] + '"' + (it[0] === cur ? ' class="on"' : '') + '>' + esc(it[1]) + '</button>'; }).join('');
+}
+function openModal(c){
+  editing = c || null;
+  mKind = c ? c.kind : (tab === 'all' ? 'potential' : tab); mChannel = c ? (c.channel || '') : '';
+  document.getElementById('mTitle').textContent = c ? 'Edit contact' : 'New contact';
+  seg('mKind', kindKeys().map(function(k){ return [k, data.kinds[k]]; }), mKind);
+  seg('mChannel', CHANNELS, mChannel);
+  document.getElementById('mName').value = c ? c.name || '' : '';
+  document.getElementById('mOrg').value = c ? c.org || '' : '';
+  document.getElementById('mRole').value = c ? c.role_desc || '' : '';
+  document.getElementById('mNotes').value = c ? c.notes || '' : '';
+  ['mEmails', 'mPhones'].forEach(function(id){
+    document.getElementById(id).innerHTML = '';
+    var vals = c ? (id === 'mEmails' ? c.emails : c.phones) || [] : [];
+    (vals.length ? vals : ['']).forEach(function(v){ multiRow(id, v); });
+  });
+  document.getElementById('roleList').innerHTML = data.roles.map(function(r){ return '<option value="' + esc(r) + '">'; }).join('');
+  document.getElementById('mDel').style.display = c && data.can_delete ? '' : 'none';
+  document.getElementById('mMsg').textContent = '';
+  document.getElementById('modal').classList.add('open');
+  document.getElementById('mName').focus();
+}
+function closeModal(){ document.getElementById('modal').classList.remove('open'); editing = null; }
+function vals(id){ return Array.prototype.map.call(document.querySelectorAll('#' + id + ' input'), function(i){ return i.value.trim(); }).filter(Boolean); }
+
+document.getElementById('modal').addEventListener('click', function(e){
+  var t = e.target;
+  if(t === this){ closeModal(); return; }
+  if(t.closest('#mKind button')){ mKind = t.closest('button').dataset.v; seg('mKind', kindKeys().map(function(k){ return [k, data.kinds[k]]; }), mKind); }
+  if(t.closest('#mChannel button')){ mChannel = t.closest('button').dataset.v; seg('mChannel', CHANNELS, mChannel); }
+  if(t.classList.contains('x')){ var box = t.closest('.multi'); t.parentNode.remove(); if(!box.children.length) multiRow(box.id, ''); }
+  if(t.dataset.add){ if(document.getElementById(t.dataset.add).children.length < 5) multiRow(t.dataset.add, ''); }
+});
+document.getElementById('mCancel').onclick = closeModal;
+document.getElementById('mSave').onclick = function(){
+  var b = this, body = {kind: mKind, channel: mChannel, name: document.getElementById('mName').value.trim(), org: document.getElementById('mOrg').value.trim(),
+    role_desc: document.getElementById('mRole').value.trim(), notes: document.getElementById('mNotes').value.trim(), emails: vals('mEmails'), phones: vals('mPhones')};
+  b.disabled = true;
+  fetch(editing ? API + '/' + editing.id : API, {method: editing ? 'PATCH' : 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)})
+    .then(function(r){ return r.json(); }).then(function(res){
+      b.disabled = false;
+      if(!res.ok){ document.getElementById('mMsg').textContent = res.error || 'Could not save'; return; }
+      tab = res.contact.kind; closeModal(); load();
+    }).catch(function(){ b.disabled = false; document.getElementById('mMsg').textContent = 'Connection error.'; });
+};
+document.getElementById('mDel').onclick = function(){
+  if(!editing || !confirm('Delete ' + (editing.name || editing.org || 'this contact') + '?')) return;
+  fetch(API + '/' + editing.id, {method:'DELETE'}).then(function(r){ return r.json(); }).then(function(){ closeModal(); load(); });
+};
+document.getElementById('tabs').onclick = function(e){ var t = e.target.closest('.tab'); if(t){ tab = t.dataset.t; render(); } };
+document.getElementById('q').oninput = render;
+document.getElementById('newBtn').onclick = function(){ openModal(null); };
+document.getElementById('list').onclick = function(e){
+  if(e.target.closest('a')) return;
+  var c = e.target.closest('.ct'); if(c) openModal(data.contacts.find(function(x){ return x.id === c.dataset.id; }));
+};
+document.getElementById('xlsBtn').onclick = function(){
+  fetch(API.replace('/contacts', '/contacts.xlsx')).then(function(r){ if(!r.ok) throw 0; return r.blob(); }).then(function(b){
+    var a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = COMPANY + '-contacts.xlsx'; a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 5000);
+  }).catch(function(){ alert('Could not download the Excel'); });
+};
+document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeModal(); });
+
+function load(){
+  fetch(API).then(function(r){ return r.json(); }).then(function(d){
+    if(!d.ok){ location.replace('/contractor/' + COMPANY); return; }
+    data = d; render();
+    document.getElementById('content').style.visibility = '';
+  }).catch(function(){ location.replace('/contractor/' + COMPANY); });
+}
+load();
+</script>
+</body>
+</html>

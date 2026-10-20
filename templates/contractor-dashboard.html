@@ -3,305 +3,392 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Contractor Dashboard</title>
+<title>{{ company_name }} Dashboard – BSynch</title>
 <script src="/static/contractor-scope.js"></script>
 <script src="/static/theme.js"></script>
 <script>document.documentElement.setAttribute('data-theme','light');</script>
 <link rel="stylesheet" href="/static/themes.css">
 <link rel="stylesheet" href="/static/contractor-light.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;}
-header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #1e2533;background:#0f1117;position:sticky;top:0;z-index:50;}
-.logo-badge{width:32px;height:32px;background:linear-gradient(135deg,#1e9484,#4f8ef7);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;flex-shrink:0;}
-.hdr-title{font-size:16px;font-weight:700;}
-.hdr-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
-.btn-back{padding:5px 12px;background:none;border:1px solid #334155;border-radius:7px;color:#94a3b8;font-size:12px;text-decoration:none;line-height:1.4;}
-.btn-back:hover{border-color:#1e9484;color:#1e9484;}
-.btn-new{padding:6px 14px;background:#1e9484;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;}
-.btn-new:hover{background:#178070;}
-
-/* KPI row */
-.kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;padding:20px 20px 0;max-width:960px;margin:0 auto;width:100%;}
-.kpi-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.06);}
-.kpi-label{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
-.kpi-value{font-size:26px;font-weight:800;color:#0f172a;}
-.kpi-sub{font-size:12px;color:#64748b;margin-top:2px;}
-
-/* Content */
-.dash-content{padding:20px;max-width:960px;margin:0 auto;width:100%;flex:1;}
-
-/* Unassigned jobs section */
-.section-title{font-size:14px;font-weight:700;color:#94a3b8;margin:20px 0 12px;display:flex;align-items:center;gap:8px;}
-.section-title span{font-size:12px;font-weight:500;background:#1e2533;padding:2px 8px;border-radius:10px;color:#64748b;}
-
-/* Project card */
-.proj-card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;margin-bottom:16px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06);}
-.proj-head{padding:18px 20px;cursor:pointer;display:flex;align-items:center;gap:14px;}
-.proj-head:hover{background:rgba(30,148,132,.04);}
-.proj-icon{width:40px;height:40px;background:linear-gradient(135deg,rgba(30,148,132,.2),rgba(79,142,247,.2));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
-.proj-info{flex:1;min-width:0;}
-.proj-name{font-size:16px;font-weight:700;margin-bottom:2px;}
-.proj-client{font-size:13px;color:#64748b;}
-.proj-pct-col{text-align:right;flex-shrink:0;}
-.proj-pct-big{font-size:24px;font-weight:800;color:#1e9484;}
-.proj-pct-lbl{font-size:11px;color:#64748b;}
-.proj-chevron{font-size:16px;color:#334155;margin-left:8px;transition:transform .2s;}
-.proj-chevron.open{transform:rotate(90deg);}
-/* Project progress bar */
-.proj-prog-bar{margin:0 20px 14px;height:8px;background:#0f1117;border-radius:5px;overflow:hidden;}
-.proj-prog-fill{height:100%;border-radius:5px;background:linear-gradient(90deg,#1e9484,#4f8ef7);transition:width .5s ease;}
-
-/* Jobs inside project */
-.proj-jobs{border-top:1px solid #e2e8f0;}
-.job-row{padding:14px 20px 14px 60px;border-bottom:1px solid #1e2533;cursor:pointer;}
-.job-row:last-child{border-bottom:none;}
-.job-row:hover{background:rgba(30,148,132,.04);}
-.job-row-top{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
-.job-row-num{font-size:11px;font-weight:700;color:#64748b;}
-.job-row-title{font-size:14px;font-weight:600;flex:1;}
-.job-pct{font-size:13px;font-weight:700;color:#1e9484;width:40px;text-align:right;}
-.job-prog-track{height:5px;background:#0f1117;border-radius:4px;overflow:hidden;margin-bottom:8px;}
-.job-prog-fill{height:100%;border-radius:4px;transition:width .4s ease;}
-.fill-low{background:linear-gradient(90deg,#ef4444,#f59e0b);}
-.fill-mid{background:linear-gradient(90deg,#f59e0b,#4f8ef7);}
-.fill-high{background:linear-gradient(90deg,#1e9484,#22c55e);}
-.fill-done{background:linear-gradient(90deg,#22c55e,#4ade80);}
-/* Steps inside job (collapsed by default) */
-.job-steps-area{display:none;padding:0 0 8px;}
-.job-steps-area.open{display:block;}
-.step-row{display:flex;align-items:center;gap:10px;padding:6px 0;}
-.step-num{width:18px;height:18px;background:#1e2533;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#64748b;flex-shrink:0;}
-.step-name{font-size:12px;color:#94a3b8;flex:1;}
-.step-pct-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap;}
-.spct-done{background:rgba(34,197,94,.12);color:#22c55e;}
-.spct-high{background:rgba(30,148,132,.12);color:#1e9484;}
-.spct-mid{background:rgba(245,158,11,.12);color:#f59e0b;}
-.spct-low{background:rgba(239,68,68,.1);color:#ef4444;}
-.spct-zero{background:#1e2533;color:#475569;}
-.step-mini-track{flex:2;height:4px;background:#1e2533;border-radius:3px;overflow:hidden;}
-.step-mini-fill{height:100%;border-radius:3px;}
-.job-expand-btn{background:none;border:none;color:#64748b;font-size:12px;cursor:pointer;padding:0;}
-.job-expand-btn:hover{color:#1e9484;}
-
-/* Status chips */
-.s-chip{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;}
-.s-open{background:rgba(79,142,247,.14);color:#4f8ef7;}
-.s-in_progress{background:rgba(34,197,94,.12);color:#22c55e;}
-.s-on_hold{background:rgba(245,158,11,.12);color:#f59e0b;}
-.s-completed{background:rgba(100,116,139,.12);color:#64748b;}
-.s-cancelled{background:rgba(239,68,68,.1);color:#ef4444;}
-
-/* Create project modal */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:none;align-items:center;justify-content:center;padding:20px;}
-.modal-overlay.open{display:flex;}
-.modal{background:#111520;border:1px solid #1e2533;border-radius:18px;width:100%;max-width:460px;padding:26px 24px;}
-.modal h2{font-size:18px;font-weight:700;margin-bottom:18px;}
-.form-group{margin-bottom:12px;}
-.form-group label{display:block;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;}
-.form-group input,.form-group textarea,.form-group select{width:100%;padding:8px 11px;background:#1a1d27;border:1px solid #2a2d3e;border-radius:9px;color:#e2e8f0;font-size:14px;font-family:inherit;}
-.form-group input:focus,.form-group textarea:focus,.form-group select:focus{outline:none;border-color:#1e9484;}
-.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;}
-.btn-cancel{padding:8px 18px;background:none;border:1px solid #334155;border-radius:8px;color:#94a3b8;font-size:14px;cursor:pointer;}
-.btn-submit{padding:8px 20px;background:#1e9484;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:600;cursor:pointer;}
-.spinner{text-align:center;padding:40px;color:#475569;}
-.empty-state{text-align:center;padding:48px 20px;color:#475569;}
-.empty-state .icon{font-size:40px;margin-bottom:10px;}
+.viz-root{
+  --surface-1:#fcfcfb; --page:#f0f4f8; --text-primary:#0b0b0b; --text-secondary:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10);
+  --series-1:#2a78d6; --series-2:#eb6834; --series-3:#1baf7a;
+  --good:#0ca30c; --warning:#fab219; --serious:#ec835a; --critical:#d03b3b; --neutral:#c3c2b7;
+}
+body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#f0f4f8;color:#0b0b0b;min-height:100vh;display:flex;flex-direction:column;}
+header{padding:14px 20px;display:flex;align-items:center;gap:12px;background:#19354d;color:#e2e8f0;}
+.logo-badge{width:36px;height:36px;background:linear-gradient(135deg,#1e9484,#4f8ef7);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;flex-shrink:0;}
+.hdr-title{font-size:17px;font-weight:700;}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.btn-back{padding:6px 14px;border:1px solid rgba(255,255,255,.3);border-radius:7px;color:#e2e8f0;font-size:12px;text-decoration:none;}
+.content{flex:1;padding:18px 16px 50px;max-width:1240px;width:100%;margin:0 auto;}
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px;}
+.filters select{padding:8px 10px;border:1px solid #cbd5e1;border-radius:9px;font-size:14px;background:#fff;color:#0b0b0b;font-family:inherit;}
+.drill{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:20px;background:#e3f3ef;color:#0f766e;font-size:12px;font-weight:700;border:1px solid #8fcfc2;cursor:pointer;}
+.updated{margin-left:auto;font-size:12px;color:var(--muted);}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+@media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr);}}
+.kpi{background:var(--surface-1);border:1px solid var(--border);border-radius:14px;padding:13px 15px;text-decoration:none;color:inherit;display:block;transition:border-color .15s;}
+.kpi:hover{border-color:#8fcfc2;}
+.kpi-label{font-size:12px;color:var(--text-secondary);font-weight:600;display:flex;align-items:center;gap:6px;}
+.kpi-val{font-size:24px;font-weight:700;margin-top:4px;letter-spacing:-.3px;}
+.kpi-sub{font-size:12px;color:var(--muted);margin-top:2px;}
+.kpi .kdot{width:9px;height:9px;border-radius:50%;background:var(--c);flex-shrink:0;}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media(max-width:900px){.grid{grid-template-columns:1fr;}}
+.card{background:var(--surface-1);border:1px solid var(--border);border-radius:16px;padding:14px 16px;min-width:0;}
+.card.wide{grid-column:1/-1;}
+.card h3{font-size:15px;font-weight:700;}
+.card .hint{font-size:12px;color:var(--muted);margin:2px 0 8px;}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text-secondary);margin-bottom:6px;}
+.legend span{display:inline-flex;align-items:center;gap:6px;}
+.legend i{width:10px;height:10px;border-radius:3px;background:var(--c);display:inline-block;}
+.chart{position:relative;height:250px;}
+.chart.tall{height:290px;}
+.empty{color:var(--muted);font-size:13px;text-align:center;padding:40px 10px;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{text-align:left;color:var(--text-secondary);font-size:11px;text-transform:uppercase;letter-spacing:.4px;padding:8px;border-bottom:1px solid var(--grid);white-space:nowrap;}
+td{padding:9px 8px;border-bottom:1px solid #f0efec;font-variant-numeric:tabular-nums;}
+td.r,th.r{text-align:right;}
+.tbl-wrap{overflow-x:auto;}
+.tbl-wrap table{min-width:820px;}
+.tbl-wrap td{white-space:nowrap;}
+.st{display:inline-flex;align-items:center;gap:6px;font-weight:600;white-space:nowrap;}
+.st i{width:9px;height:9px;border-radius:50%;background:var(--c);display:inline-block;}
+.lnk{color:#1c5cab;font-weight:700;text-decoration:none;}
+.tbl-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;}
+.tbl-head a{margin-left:auto;font-size:13px;}
+.late{color:var(--critical);font-weight:700;}
+.loading{opacity:.55;transition:opacity .2s;}
+footer{text-align:center;padding:16px;font-size:12px;color:#94a3b8;}
 </style>
 </head>
-<body>
-
+<body data-ct-hub class="viz-root">
 <header>
   <div class="logo-badge">B</div>
-  <span class="hdr-title">Contractor Dashboard</span>
-  <div class="hdr-right">
-    <a href="/contractor/workorders" class="btn-back">&#128203; Work Orders</a>
-    <button class="btn-new" onclick="openCreateProject()">+ New Project</button>
-    <a href="/contractor-hub" class="btn-back">&#8592; Hub</a>
-  </div>
+  <span class="hdr-title">{{ company_name }} · Dashboard</span>
+  <div class="hdr-right"><a href="/contractor/{{ company }}" class="btn-back">&#8592; {{ company_name }}</a></div>
 </header>
 
-<div class="kpi-row" id="kpiRow">
-  <div class="kpi-card"><div class="kpi-label">Projects</div><div class="kpi-value" id="kpiProjects">—</div></div>
-  <div class="kpi-card"><div class="kpi-label">Total Jobs</div><div class="kpi-value" id="kpiJobs">—</div></div>
-  <div class="kpi-card"><div class="kpi-label">In Progress</div><div class="kpi-value" id="kpiInProgress">—</div></div>
-  <div class="kpi-card"><div class="kpi-label">Overall Progress</div><div class="kpi-value" id="kpiOverall">—</div><div class="kpi-sub">avg across all jobs</div></div>
-</div>
+<div class="content" id="content" style="visibility:hidden;">
+  <div class="filters">
+    <select id="period" aria-label="Period">
+      <option value="month">This month</option>
+      <option value="last">Last month</option>
+      <option value="q">Last 3 months</option>
+      <option value="year" selected>This year</option>
+      <option value="12m">Last 12 months</option>
+      <option value="all">All time</option>
+    </select>
+    <select id="client" aria-label="Client"><option value="">All clients</option></select>
+    <span id="drills"></span>
+    <span class="updated" id="updated"></span>
+  </div>
 
-<div class="dash-content" id="dashContent">
-  <div class="spinner">Loading...</div>
-</div>
+  <div class="kpis" id="kpis"></div>
 
-<!-- Create project modal -->
-<div class="modal-overlay" id="projModal">
-  <div class="modal">
-    <h2>&#128196; New Project</h2>
-    <div class="form-group"><label>Project Name *</label><input id="projName" placeholder="e.g. Data Center Roofing – Phase 2"></div>
-    <div class="form-group"><label>Client / Company</label><input id="projClient" placeholder="Client name"></div>
-    <div class="form-group"><label>Description</label><textarea id="projDesc" rows="2" placeholder="Brief scope..."></textarea></div>
-    <div class="form-group"><label>Status</label>
-      <select id="projStatus"><option value="active">Active</option><option value="on_hold">On Hold</option></select>
+  <div class="grid">
+    <div class="card wide">
+      <h3>Invoiced, collected and expenses by month</h3>
+      <div class="hint">Tap a month to see only that month.</div>
+      <div class="legend"><span><i style="--c:var(--series-1)"></i>Invoiced</span><span><i style="--c:var(--series-3)"></i>Collected</span><span><i style="--c:var(--series-2)"></i>Expenses</span></div>
+      <div class="chart"><canvas id="cMonths" aria-label="Invoiced, collected and expenses by month" role="img"></canvas></div>
     </div>
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeCreateProject()">Cancel</button>
-      <button class="btn-submit" onclick="submitProject()">Create Project</button>
+    <div class="card">
+      <h3>Who owes you</h3>
+      <div class="hint">Invoices in the period by client. Tap a client to see only theirs.</div>
+      <div class="legend"><span><i style="--c:var(--series-3)"></i>Paid</span><span><i style="--c:var(--series-1)"></i>Waiting for payment</span><span><i style="--c:var(--neutral)"></i>Not sent</span></div>
+      <div class="chart tall"><canvas id="cClients" aria-label="Invoice totals by client" role="img"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Unpaid invoices by age</h3>
+      <div class="hint">Days since the invoice was sent. Tap a bar to list those invoices.</div>
+      <div class="chart tall"><canvas id="cAging" aria-label="Unpaid invoices by days since sent" role="img"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Invoices by status</h3>
+      <div class="hint">Count in the period. Tap a status to list those invoices.</div>
+      <div class="chart"><canvas id="cStatus" aria-label="Invoices by status" role="img"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Expenses by category</h3>
+      <div class="hint">Tickets in the period. Tap to open them in Expenses.</div>
+      <div class="chart"><canvas id="cExp" aria-label="Expenses by category" role="img"></canvas></div>
+    </div>
+    <div class="card wide">
+      <h3>Work orders</h3>
+      <div class="hint">Every work order that is not cancelled, by stage.</div>
+      <div class="chart" style="height:180px;"><canvas id="cJobs" aria-label="Work orders by stage" role="img"></canvas></div>
+    </div>
+    <div class="card wide">
+      <div class="tbl-head"><h3 id="tblTitle">Invoices</h3><a class="lnk" id="tblLink" href="#">Open in Invoicing &#8594;</a></div>
+      <div class="tbl-wrap" id="tbl"></div>
     </div>
   </div>
 </div>
 
+<footer>BSynch &middot; Contractor Module</footer>
+
 <script>
-var allProjects=[];
-var allJobs=[];
-var stepsCache={};
-var openProjIds={};
-var openJobSteps={};
-var userName=localStorage.getItem('mbrName')||localStorage.getItem('companyUser')||'User';
+var COMPANY = {{ company|tojson }};
+var D = null, drill = {month: null, status: null, aging: null}, charts = {};
+var css = getComputedStyle(document.body), V = function(n){ return css.getPropertyValue(n).trim(); };
+var ST = {issued:['Not sent','--neutral'], sent:['Sent','--critical'], in_process:['In process','--warning'], paid:['Paid','--good']};
+var CATS = {materials:'Materials', paint:'Paint', tools:'Tools', fuel:'Gas / fuel', repairs:'Repairs', equipment_rental:'Equipment rental', meals:'Meals', supplies:'Supplies', other:'Other'};
+var AGES = [['0–15 days', 0, 15], ['16–30', 16, 30], ['31–60', 31, 60], ['61–90', 61, 90], ['90+', 91, 1e9]];
 
-loadDashboard();
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function num(v){ return parseFloat(v) || 0; }
+function money(n){ return '$' + num(n).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function short(n){ n = num(n); return Math.abs(n) >= 1e6 ? '$' + (n / 1e6).toFixed(1) + 'M' : Math.abs(n) >= 1e4 ? '$' + Math.round(n / 1e3) + 'k' : Math.abs(n) >= 1e3 ? '$' + (n / 1e3).toFixed(1) + 'k' : '$' + Math.round(n); }
+function ymd(d){ return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function day(v){ return v ? String(v).slice(0, 10) : ''; }
+function fmtD(v){ if(!v) return ''; var p = day(v).split('-'); return (+p[1]) + '/' + (+p[2]) + '/' + p[0].slice(2); }
+function daysSince(ts){ return ts ? Math.max(0, Math.floor((Date.now() - new Date(ts).getTime()) / 864e5)) : null; }
+function monthLabel(k){ var p = k.split('-'); return new Date(+p[0], +p[1] - 1, 1).toLocaleDateString(undefined, {month:'short', year:'2-digit'}); }
 
-function loadDashboard(){
-  fetch('/api/contractor/projects')
-    .then(function(r){return r.json();})
-    .then(function(projects){
-      allProjects=projects;
-      // Jobs are embedded in each project — flatten for KPI and unassigned-job views
-      allJobs=projects.reduce(function(acc,p){return acc.concat(p.jobs||[]);},[]);
-      updateKPIs();
-      renderDash();
-    }).catch(function(){document.getElementById('dashContent').innerHTML='<div class="empty-state"><div class="icon">&#9888;</div><p>Error loading data.</p></div>';});
+function range(){
+  if(drill.month){ var p = drill.month.split('-'); return [drill.month + '-01', ymd(new Date(+p[0], +p[1], 0))]; }
+  var v = document.getElementById('period').value, n = new Date();
+  if(v === 'month') return [ymd(new Date(n.getFullYear(), n.getMonth(), 1)), ymd(new Date(n.getFullYear(), n.getMonth() + 1, 0))];
+  if(v === 'last') return [ymd(new Date(n.getFullYear(), n.getMonth() - 1, 1)), ymd(new Date(n.getFullYear(), n.getMonth(), 0))];
+  if(v === 'q') return [ymd(new Date(n.getFullYear(), n.getMonth() - 2, 1)), ymd(new Date(n.getFullYear(), n.getMonth() + 1, 0))];
+  if(v === 'year') return [n.getFullYear() + '-01-01', n.getFullYear() + '-12-31'];
+  if(v === '12m') return [ymd(new Date(n.getFullYear(), n.getMonth() - 11, 1)), ymd(new Date(n.getFullYear(), n.getMonth() + 1, 0))];
+  return ['0000-01-01', '9999-12-31'];
+}
+function inRange(d, r){ d = day(d); return !!d && d >= r[0] && d <= r[1]; }
+function clientOk(name){ var c = document.getElementById('client').value; return !c || (name || '') === c; }
+function openInv(i){ return i.status === 'sent' || i.status === 'in_process'; }
+function overdue(i){ return openInv(i) && daysSince(i.sent_at) >= D.reminder_days; }
+function ageIdx(i){ var d = daysSince(i.sent_at); for(var k = 0; k < AGES.length; k++) if(d >= AGES[k][1] && d <= AGES[k][2]) return k; return 0; }
+function sum(l, f){ return l.reduce(function(a, x){ return a + num(f ? f(x) : x.total); }, 0); }
+
+// ── Chart.js defaults: thin marks, recessive grid, values in the tooltip ──
+function baseOpts(extra){
+  var o = {
+    responsive: true, maintainAspectRatio: false, animation: false,
+    plugins: {legend: {display: false}, tooltip: {backgroundColor: '#ffffff', titleColor: V('--text-secondary'), bodyColor: V('--text-primary'),
+      borderColor: 'rgba(11,11,11,.12)', borderWidth: 1, padding: 10, boxWidth: 10, boxHeight: 2, usePointStyle: false,
+      titleFont: {weight: '600', size: 12}, bodyFont: {weight: '700', size: 13}}},
+    scales: {
+      x: {grid: {display: false}, border: {color: V('--axis')}, ticks: {color: V('--muted'), font: {size: 11}}},
+      y: {grid: {color: V('--grid')}, border: {display: false}, ticks: {color: V('--muted'), font: {size: 11}}, beginAtZero: true}
+    },
+    onHover: function(e, els){ e.native.target.style.cursor = els.length ? 'pointer' : 'default'; }
+  };
+  return Object.assign(o, extra || {});
+}
+function draw(id, cfg){
+  if(charts[id]) charts[id].destroy();
+  charts[id] = new Chart(document.getElementById(id), cfg);
+}
+var BAR = {borderRadius: 4, borderSkipped: 'start', maxBarThickness: 26, borderWidth: 0};
+
+function renderKpis(r){
+  var inv = D.invoices.filter(function(i){ return clientOk(i.bill_to); });
+  var open = inv.filter(openInv), late = inv.filter(overdue);
+  var invoiced = inv.filter(function(i){ return inRange(i.invoice_date, r); });
+  var paid = inv.filter(function(i){ return i.status === 'paid' && inRange(i.paid_at, r); });
+  var exp = D.expenses.filter(function(e){ return inRange(e.expense_date, r); });
+  var jobs = D.jobs.filter(function(j){ return clientOk(j.client_name) && j.status !== 'cancelled'; });
+  var wip = jobs.filter(function(j){ return !j.is_done && !j.invoice_id; });
+  var ready = jobs.filter(function(j){ return j.is_done && !j.invoice_id; });
+  var inv_url = '/contractor/' + COMPANY + '/invoicing?tab=invoices' + (document.getElementById('client').value ? '&client=' + encodeURIComponent(document.getElementById('client').value) : '');
+  var k = [
+    ['To collect', money(sum(open)), open.length + ' sent, waiting for payment', '--serious', inv_url + '&status=unpaid'],
+    ['Overdue ' + D.reminder_days + '+ days', money(sum(late)), late.length + ' invoice' + (late.length === 1 ? '' : 's') + ' to follow up', '--critical', inv_url + '&status=overdue'],
+    ['Invoiced', money(sum(invoiced)), invoiced.length + ' invoice' + (invoiced.length === 1 ? '' : 's') + ' in the period', '--series-1', inv_url],
+    ['Collected', money(sum(paid)), paid.length + ' paid in the period', '--series-3', inv_url + '&status=paid'],
+    ['Expenses', money(sum(exp, function(e){ return e.amount; })), exp.length + ' ticket' + (exp.length === 1 ? '' : 's') + ' in the period', '--series-2', '/contractor/' + COMPANY + '/expenses'],
+    ['Invoiced − expenses', money(sum(invoiced) - sum(exp, function(e){ return e.amount; })), 'Rough margin for the period', '', null],
+    ['Jobs in progress', String(wip.length), 'Open or not finished yet', '', '/contractor/workorders?company=' + COMPANY],
+    ['Finished, not invoiced', String(ready.length), money(sum(ready, function(j){ return j.service_price; })) + ' priced, ready to bill', '', '/contractor/' + COMPANY + '/invoicing']
+  ];
+  document.getElementById('kpis').innerHTML = k.map(function(x){
+    var inner = '<div class="kpi-label">' + (x[3] ? '<span class="kdot" style="--c:var(' + x[3] + ')"></span>' : '') + esc(x[0]) + '</div><div class="kpi-val">' + esc(x[1]) + '</div><div class="kpi-sub">' + esc(x[2]) + '</div>';
+    return x[4] ? '<a class="kpi" href="' + esc(x[4]) + '">' + inner + '</a>' : '<div class="kpi">' + inner + '</div>';
+  }).join('');
 }
 
-function updateKPIs(){
-  document.getElementById('kpiProjects').textContent=allProjects.length;
-  document.getElementById('kpiJobs').textContent=allJobs.length;
-  document.getElementById('kpiInProgress').textContent=allJobs.filter(function(j){return j.status==='in_progress';}).length;
-  var totalPct = allJobs.length
-    ? Math.round(allJobs.reduce(function(s,j){return s+parseFloat(j.progress_pct||0);},0)/allJobs.length)
-    : 0;
-  document.getElementById('kpiOverall').textContent=totalPct+'%';
-}
-
-function renderDash(){
-  var el=document.getElementById('dashContent');
-  if(!allProjects.length && !allJobs.length){
-    el.innerHTML='<div class="empty-state"><div class="icon">&#128202;</div><p>No projects yet.<br>Create a project and assign work orders to it.</p></div>';
-    return;
+function renderMonths(r){
+  var today = ymd(new Date()), end = (drill.month ? range()[1] : r[1] > today ? today : r[1]).slice(0, 7), first = r[0].slice(0, 7);
+  if(r[0] === '0000-01-01'){
+    var ds = D.invoices.map(function(i){ return day(i.invoice_date); }).concat(D.expenses.map(function(e){ return day(e.expense_date); })).filter(Boolean).sort();
+    first = (ds[0] || today).slice(0, 7);
   }
-  var html='';
+  // the selected months, with at least 6 months of context and at most 24
+  var keys = [], e = new Date(+end.slice(0, 4), +end.slice(5, 7) - 1, 1);
+  for(var i = 0; i < 24; i++){
+    var d = new Date(e.getFullYear(), e.getMonth() - i, 1), k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    if(i >= 6 && k < first) break;
+    keys.unshift(k);
+  }
+  var inv = D.invoices.filter(function(i){ return clientOk(i.bill_to); });
+  var byM = function(list, field, val){ var m = {}; list.forEach(function(x){ var k = day(x[field]).slice(0, 7); if(k) m[k] = (m[k] || 0) + num(val(x)); }); return keys.map(function(k){ return Math.round((m[k] || 0) * 100) / 100; }); };
+  var tot = function(x){ return x.total; };
+  draw('cMonths', {type: 'bar', data: {labels: keys.map(monthLabel), datasets: [
+    Object.assign({label: 'Invoiced', data: byM(inv, 'invoice_date', tot), backgroundColor: V('--series-1')}, BAR),
+    Object.assign({label: 'Collected', data: byM(inv.filter(function(i){ return i.status === 'paid'; }), 'paid_at', tot), backgroundColor: V('--series-3')}, BAR),
+    Object.assign({label: 'Expenses', data: byM(D.expenses, 'expense_date', function(x){ return x.amount; }), backgroundColor: V('--series-2')}, BAR)
+  ]}, options: baseOpts({
+    interaction: {mode: 'index', intersect: false},
+    plugins: Object.assign(baseOpts().plugins, {tooltip: Object.assign(baseOpts().plugins.tooltip, {callbacks: {label: function(c){ return ' ' + money(c.raw) + '  ' + c.dataset.label; }}})}),
+    scales: {x: baseOpts().scales.x, y: Object.assign(baseOpts().scales.y, {ticks: {color: V('--muted'), font: {size: 11}, callback: function(v){ return short(v); }}})},
+    onClick: function(e, els){ if(!els.length) return; var k = keys[els[0].index]; drill.month = drill.month === k ? null : k; rerender(); }
+  })});
+}
 
-  // Projects
-  allProjects.forEach(function(proj){
-    var pjobs=allJobs.filter(function(j){return j.project_id===proj.id;});
-    var pct=pjobs.length?Math.round(pjobs.reduce(function(s,j){return s+parseFloat(j.progress_pct||0);},0)/pjobs.length):0;
-    var open=openProjIds[proj.id];
-    html+='<div class="proj-card">'
-      +'<div class="proj-head" onclick="toggleProj(\''+proj.id+'\')">'
-      +'<div class="proj-icon">&#128196;</div>'
-      +'<div class="proj-info"><div class="proj-name">'+esc(proj.name)+'</div>'
-      +(proj.client_name?'<div class="proj-client">'+esc(proj.client_name)+' &middot; '+pjobs.length+' jobs</div>':'<div class="proj-client">'+pjobs.length+' jobs</div>')
-      +'</div>'
-      +'<div class="proj-pct-col"><div class="proj-pct-big">'+pct+'%</div><div class="proj-pct-lbl">complete</div></div>'
-      +'<span class="proj-chevron'+(open?' open':'')+'">&#10095;</span>'
-      +'</div>'
-      +'<div class="proj-prog-bar"><div class="proj-prog-fill" style="width:'+pct+'%"></div></div>';
-    if(open){
-      html+='<div class="proj-jobs">';
-      if(!pjobs.length){html+='<div style="padding:16px 20px;color:#64748b;font-size:13px;">No jobs assigned to this project yet.</div>';}
-      pjobs.forEach(function(j){html+=renderJobRow(j,true);});
-      html+='</div>';
-    }
-    html+='</div>';
+function renderClients(r){
+  var inv = D.invoices.filter(function(i){ return inRange(i.invoice_date, r) && clientOk(i.bill_to); });
+  var by = {};
+  inv.forEach(function(i){ var c = i.bill_to || '(no client)'; var b = by[c] || (by[c] = {paid: 0, open: 0, issued: 0}); b[i.status === 'paid' ? 'paid' : openInv(i) ? 'open' : 'issued'] += num(i.total); });
+  var names = Object.keys(by).sort(function(a, b){ var A = by[a], B = by[b]; return (B.paid + B.open + B.issued) - (A.paid + A.open + A.issued); });
+  if(names.length > 8){
+    var other = {paid: 0, open: 0, issued: 0};
+    names.slice(7).forEach(function(n){ ['paid', 'open', 'issued'].forEach(function(k){ other[k] += by[n][k]; }); });
+    names = names.slice(0, 7); by['Other clients'] = other; names.push('Other clients');
+  }
+  if(!names.length){ draw('cClients', {type: 'bar', data: {labels: [], datasets: []}, options: baseOpts()}); return; }
+  var ds = [['paid', 'Paid', '--series-3'], ['open', 'Waiting for payment', '--series-1'], ['issued', 'Not sent', '--neutral']].map(function(s){
+    return Object.assign({label: s[1], data: names.map(function(n){ return Math.round(by[n][s[0]] * 100) / 100; }), backgroundColor: V(s[2]), borderColor: V('--surface-1'), stack: 'a'}, BAR, {borderWidth: {right: 2}, borderSkipped: false});
   });
+  draw('cClients', {type: 'bar', data: {labels: names, datasets: ds}, options: baseOpts({
+    indexAxis: 'y', interaction: {mode: 'index', intersect: false, axis: 'y'},
+    plugins: Object.assign(baseOpts().plugins, {tooltip: Object.assign(baseOpts().plugins.tooltip, {callbacks: {label: function(c){ return c.raw ? ' ' + money(c.raw) + '  ' + c.dataset.label : null; }}})}),
+    scales: {
+      x: {stacked: true, grid: {color: V('--grid')}, border: {display: false}, ticks: {color: V('--muted'), font: {size: 11}, callback: function(v){ return short(v); }}, beginAtZero: true},
+      y: {stacked: true, grid: {display: false}, border: {color: V('--axis')}, ticks: {color: V('--text-secondary'), font: {size: 12}, callback: function(v){ var l = names[v]; return l.length > 18 ? l.slice(0, 17) + '…' : l; }}}
+    },
+    onClick: function(e, els){ if(!els.length) return; var n = names[els[0].index]; if(n === 'Other clients') return; var sel = document.getElementById('client'); sel.value = sel.value === n ? '' : n; rerender(); }
+  })});
+}
 
-  // Unassigned jobs
-  var unassigned=allJobs.filter(function(j){return !j.project_id;});
-  if(unassigned.length){
-    html+='<div class="section-title">Unassigned Jobs <span>'+unassigned.length+'</span></div>';
-    html+='<div class="proj-card"><div class="proj-jobs">';
-    unassigned.forEach(function(j){html+=renderJobRow(j,false);});
-    html+='</div></div>';
+function renderAging(){
+  var open = D.invoices.filter(function(i){ return openInv(i) && clientOk(i.bill_to); });
+  var vals = AGES.map(function(){ return 0; }), counts = AGES.map(function(){ return 0; });
+  open.forEach(function(i){ var k = ageIdx(i); vals[k] += num(i.total); counts[k]++; });
+  var ramp = ['#86b6ef', '#5598e7', '#2a78d6', '#1c5cab', '#104281'];
+  draw('cAging', {type: 'bar', data: {labels: AGES.map(function(a){ return a[0]; }), datasets: [Object.assign({label: 'Unpaid', data: vals.map(function(v){ return Math.round(v * 100) / 100; }), backgroundColor: ramp}, BAR, {maxBarThickness: 46})]},
+    options: baseOpts({
+      plugins: Object.assign(baseOpts().plugins, {tooltip: Object.assign(baseOpts().plugins.tooltip, {callbacks: {label: function(c){ return ' ' + money(c.raw) + '  ' + counts[c.dataIndex] + ' invoice' + (counts[c.dataIndex] === 1 ? '' : 's'); }}})}),
+      scales: {x: baseOpts().scales.x, y: Object.assign(baseOpts().scales.y, {ticks: {color: V('--muted'), font: {size: 11}, callback: function(v){ return short(v); }}})},
+      onClick: function(e, els){ if(!els.length) return; var k = els[0].index; drill.aging = drill.aging === k ? null : k; drill.status = null; rerender(); }
+    })});
+}
+
+function renderStatus(r){
+  var inv = D.invoices.filter(function(i){ return inRange(i.invoice_date, r) && clientOk(i.bill_to); });
+  var keys = ['sent', 'in_process', 'paid', 'issued'];
+  var cnt = keys.map(function(k){ return inv.filter(function(i){ return (i.status || 'issued') === k; }).length; });
+  var amt = keys.map(function(k){ return sum(inv.filter(function(i){ return (i.status || 'issued') === k; })); });
+  draw('cStatus', {type: 'bar', data: {labels: keys.map(function(k){ return ST[k][0]; }), datasets: [Object.assign({label: 'Invoices', data: cnt, backgroundColor: keys.map(function(k){ return V(ST[k][1]); })}, BAR, {maxBarThickness: 30})]},
+    options: baseOpts({indexAxis: 'y',
+      plugins: Object.assign(baseOpts().plugins, {tooltip: Object.assign(baseOpts().plugins.tooltip, {callbacks: {label: function(c){ return ' ' + c.raw + ' invoice' + (c.raw === 1 ? '' : 's') + ' · ' + money(amt[c.dataIndex]); }}})}),
+      scales: {x: {grid: {color: V('--grid')}, border: {display: false}, ticks: {color: V('--muted'), precision: 0, font: {size: 11}}, beginAtZero: true},
+               y: {grid: {display: false}, border: {color: V('--axis')}, ticks: {color: V('--text-secondary'), font: {size: 12}}}},
+      onClick: function(e, els){ if(!els.length) return; var k = keys[els[0].index]; drill.status = drill.status === k ? null : k; drill.aging = null; rerender(); }
+    })});
+}
+
+function renderExpenses(r){
+  var exp = D.expenses.filter(function(e){ return inRange(e.expense_date, r); }), by = {};
+  exp.forEach(function(e){ var c = e.category || 'other'; by[c] = (by[c] || 0) + num(e.amount); });
+  var cats = Object.keys(by).sort(function(a, b){ return by[b] - by[a]; });
+  draw('cExp', {type: 'bar', data: {labels: cats.map(function(c){ return CATS[c] || c; }), datasets: [Object.assign({label: 'Expenses', data: cats.map(function(c){ return Math.round(by[c] * 100) / 100; }), backgroundColor: V('--series-2')}, BAR, {maxBarThickness: 22})]},
+    options: baseOpts({indexAxis: 'y',
+      plugins: Object.assign(baseOpts().plugins, {tooltip: Object.assign(baseOpts().plugins.tooltip, {callbacks: {label: function(c){ return ' ' + money(c.raw); }}})}),
+      scales: {x: {grid: {color: V('--grid')}, border: {display: false}, ticks: {color: V('--muted'), font: {size: 11}, callback: function(v){ return short(v); }}, beginAtZero: true},
+               y: {grid: {display: false}, border: {color: V('--axis')}, ticks: {color: V('--text-secondary'), font: {size: 12}}}},
+      onClick: function(){ location.href = '/contractor/' + COMPANY + '/expenses'; }
+    })});
+}
+
+function renderJobs(){
+  var jobs = D.jobs.filter(function(j){ return clientOk(j.client_name) && j.status !== 'cancelled'; });
+  var stages = [['Open', function(j){ return !j.is_done && !j.invoice_id && (j.status === 'open' || !j.status) && !(num(j.progress_pct) > 0); }],
+                ['In progress', function(j){ return !j.is_done && !j.invoice_id && !(j.status === 'open' && !(num(j.progress_pct) > 0)) && j.status !== 'on_hold'; }],
+                ['On hold', function(j){ return j.status === 'on_hold' && !j.is_done && !j.invoice_id; }],
+                ['Finished, not invoiced', function(j){ return j.is_done && !j.invoice_id; }],
+                ['Invoiced', function(j){ return !!j.invoice_id; }]];
+  var cnt = stages.map(function(s){ return jobs.filter(s[1]).length; });
+  draw('cJobs', {type: 'bar', data: {labels: stages.map(function(s){ return s[0]; }), datasets: [Object.assign({label: 'Work orders', data: cnt, backgroundColor: V('--series-1')}, BAR, {maxBarThickness: 40})]},
+    options: baseOpts({
+      plugins: Object.assign(baseOpts().plugins, {tooltip: Object.assign(baseOpts().plugins.tooltip, {callbacks: {label: function(c){ return ' ' + c.raw + ' work order' + (c.raw === 1 ? '' : 's'); }}})}),
+      scales: {x: baseOpts().scales.x, y: Object.assign(baseOpts().scales.y, {ticks: {color: V('--muted'), precision: 0, font: {size: 11}}})},
+      onClick: function(e, els){ if(!els.length) return; location.href = els[0].index >= 3 ? '/contractor/' + COMPANY + '/invoicing' : '/contractor/workorders?company=' + COMPANY; }
+    })});
+}
+
+function renderTable(r){
+  var list = D.invoices.filter(function(i){ return clientOk(i.bill_to); });
+  var title = 'Invoices in the period';
+  if(drill.aging !== null){ list = list.filter(function(i){ return openInv(i) && ageIdx(i) === drill.aging; }); title = 'Unpaid, ' + AGES[drill.aging][0] + (drill.aging === 0 ? '' : ' days') + ' since sent'; }
+  else {
+    list = list.filter(function(i){ return inRange(i.invoice_date, r); });
+    if(drill.status){ list = list.filter(function(i){ return (i.status || 'issued') === drill.status; }); title = ST[drill.status][0] + ' invoices in the period'; }
   }
-
-  el.innerHTML=html;
+  var cl = document.getElementById('client').value;
+  if(cl) title += ' · ' + cl;
+  list.sort(function(a, b){ return day(b.invoice_date).localeCompare(day(a.invoice_date)); });
+  document.getElementById('tblTitle').textContent = title;
+  var st = drill.aging !== null ? 'unpaid' : (drill.status || '');
+  document.getElementById('tblLink').href = '/contractor/' + COMPANY + '/invoicing?tab=invoices' + (cl ? '&client=' + encodeURIComponent(cl) : '') + (st ? '&status=' + st : '');
+  if(!list.length){ document.getElementById('tbl').innerHTML = '<div class="empty">No invoices here.</div>'; return; }
+  var paidN = list.filter(function(i){ return i.status === 'paid'; }).length;
+  document.getElementById('tbl').innerHTML = '<table><thead><tr><th>Invoice</th><th>Client</th><th>Address</th><th>Date</th><th class="r">Total</th><th>Status</th><th class="r">Days open</th><th>Paid on</th><th>Check #</th></tr></thead><tbody>' +
+    list.map(function(i){
+      var s = ST[i.status || 'issued'] || ST.issued, d = openInv(i) ? daysSince(i.sent_at) : null;
+      return '<tr><td><a class="lnk" href="/contractor/invoice/' + esc(i.id) + '">' + esc(i.invoice_number) + '</a></td><td>' + esc(i.bill_to) + '</td><td>' + esc(i.job_site) + '</td><td>' + fmtD(i.invoice_date) + '</td>' +
+        '<td class="r"><b>' + money(i.total) + '</b></td><td><span class="st" style="--c:var(' + s[1] + ')"><i></i>' + s[0] + '</span></td>' +
+        '<td class="r">' + (d !== null ? '<span class="' + (overdue(i) ? 'late' : '') + '">' + d + '</span>' : '') + '</td><td>' + fmtD(i.paid_at) + '</td><td>' + esc(i.payment_ref || '') + '</td></tr>';
+    }).join('') + '</tbody><tfoot><tr><td colspan="4"><b>' + list.length + ' invoices · ' + paidN + ' paid · ' + (list.length - paidN) + ' not paid</b></td><td class="r"><b>' + money(sum(list)) + '</b></td><td colspan="4"></td></tr></tfoot></table>';
 }
 
-function renderJobRow(j,inProj){
-  var pct=parseFloat(j.progress_pct||0);
-  var fc=pct>=100?'fill-done':pct>=60?'fill-high':pct>=30?'fill-mid':'fill-low';
-  var stepsOpen=openJobSteps[j.id];
-  var indent=inProj?'padding-left:60px':'padding-left:20px';
-  var steps=stepsCache[j.id];
-  var stepsHtml='';
-  if(stepsOpen && steps){
-    stepsHtml='<div class="job-steps-area open">';
-    steps.forEach(function(s){
-      var sp=parseFloat(s.progress_pct||0);
-      var sc=sp>=100?'spct-done':sp>=60?'spct-high':sp>=30?'spct-mid':sp>0?'spct-low':'spct-zero';
-      var mf=sp>=100?'fill-done':sp>=60?'fill-high':sp>=30?'fill-mid':'fill-low';
-      stepsHtml+='<div class="step-row">'
-        +'<div class="step-num">'+(s.order_num+1)+'</div>'
-        +'<span class="step-name">'+esc(s.step_name)+'</span>'
-        +(j.tracking==='check'
-          ? '<span class="step-pct-badge '+(sp>=100?'spct-done':'spct-zero')+'">'+(sp>=100?'&#10003; Done':'Not done')+'</span>'
-          : '<div class="step-mini-track"><div class="step-mini-fill '+mf+'" style="width:'+sp+'%"></div></div>'
-            +'<span class="step-pct-badge '+sc+'">'+Math.round(sp)+'%</span>')
-        +'</div>';
-    });
-    stepsHtml+='</div>';
-  } else if(stepsOpen){
-    stepsHtml='<div class="job-steps-area open"><div style="padding:6px 0;font-size:12px;color:#64748b;">Loading steps...</div></div>';
-    fetchSteps(j.id);
-  }
-  return '<div class="job-row" style="'+indent+'">'
-    +'<div class="job-row-top">'
-    +'<span class="job-row-num">'+esc(j.job_number)+'</span>'
-    +'<span class="job-row-title">'+esc(j.title)+'</span>'
-    +'<span class="s-chip s-'+j.status+'">'+statusLabel(j.status)+'</span>'
-    +'<span class="job-pct">'+Math.round(pct)+'%</span>'
-    +'<button class="job-expand-btn" onclick="event.stopPropagation();toggleJob(\''+j.id+'\')">'+(stepsOpen?'&#9650;':'&#9660;')+' steps</button>'
-    +'</div>'
-    +'<div class="job-prog-track"><div class="job-prog-fill '+fc+'" style="width:'+pct+'%"></div></div>'
-    +stepsHtml
-    +'</div>';
+function renderDrills(){
+  var chips = [];
+  if(drill.month) chips.push(['month', 'Month: ' + monthLabel(drill.month)]);
+  if(drill.status) chips.push(['status', 'Status: ' + ST[drill.status][0]]);
+  if(drill.aging !== null) chips.push(['aging', 'Age: ' + AGES[drill.aging][0]]);
+  if(document.getElementById('client').value) chips.push(['client', 'Client: ' + document.getElementById('client').value]);
+  document.getElementById('drills').innerHTML = chips.map(function(c){ return '<button class="drill" data-k="' + c[0] + '">' + esc(c[1]) + ' &times;</button> '; }).join('');
 }
 
-function fetchSteps(jobId){
-  fetch('/api/contractor/jobs/'+jobId+'/steps')
-    .then(function(r){return r.json();})
-    .then(function(steps){
-      stepsCache[jobId]=steps;
-      renderDash();
-    });
+// Charts redraw on the next tick so a chart is never destroyed inside its own click handler
+function rerender(){ setTimeout(render, 0); }
+
+function render(){
+  var r = range();
+  renderDrills(); renderKpis(r); renderMonths(r); renderClients(r); renderAging(); renderStatus(r); renderExpenses(r); renderJobs(); renderTable(r);
 }
 
-function toggleProj(projId){
-  openProjIds[projId]=!openProjIds[projId];
-  renderDash();
-}
-function toggleJob(jobId){
-  openJobSteps[jobId]=!openJobSteps[jobId];
-  if(openJobSteps[jobId] && !stepsCache[jobId]) fetchSteps(jobId);
-  renderDash();
-}
+document.getElementById('period').onchange = function(){ drill.month = null; render(); };
+document.getElementById('client').onchange = render;
+document.getElementById('drills').onclick = function(e){
+  var k = e.target.closest('.drill'); if(!k) return; k = k.dataset.k;
+  if(k === 'client') document.getElementById('client').value = ''; else drill[k] = null;
+  render();
+};
 
-// ── Create project ──
-function openCreateProject(){document.getElementById('projModal').classList.add('open');}
-function closeCreateProject(){document.getElementById('projModal').classList.remove('open');}
-function submitProject(){
-  var name=document.getElementById('projName').value.trim();
-  if(!name){alert('Project name required');return;}
-  fetch('/api/contractor/projects',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({name:name,client_name:document.getElementById('projClient').value.trim(),description:document.getElementById('projDesc').value.trim(),status:document.getElementById('projStatus').value,created_by:userName})
-  }).then(function(r){return r.json();}).then(function(res){
-    if(res.ok){closeCreateProject();loadDashboard();['projName','projClient','projDesc'].forEach(function(id){document.getElementById(id).value='';});}
-    else alert('Error: '+res.error);
-  });
+function load(){
+  document.getElementById('content').classList.add('loading');
+  fetch('/api/contractor/' + COMPANY + '/dashboard').then(function(r){ return r.json(); }).then(function(d){
+    if(!d.ok){ location.replace('/contractor/' + COMPANY); return; }
+    D = d;
+    var names = Array.from(new Set(d.invoices.map(function(i){ return i.bill_to; }).concat(d.jobs.map(function(j){ return j.client_name; })).filter(Boolean))).sort();
+    var sel = document.getElementById('client'), cur = sel.value;
+    sel.innerHTML = '<option value="">All clients</option>' + names.map(function(n){ return '<option' + (n === cur ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('');
+    if(typeof Chart === 'undefined'){ document.getElementById('content').innerHTML = '<div class="empty">The charts could not load. Check the internet connection and reload.</div>'; }
+    else render();
+    document.getElementById('updated').textContent = 'Updated ' + new Date().toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'});
+    document.getElementById('content').classList.remove('loading');
+    document.getElementById('content').style.visibility = '';
+  }).catch(function(){ location.replace('/contractor/' + COMPANY); });
 }
-
-function statusLabel(s){return{open:'Open',in_progress:'In Progress',on_hold:'On Hold',completed:'Completed',cancelled:'Cancelled'}[s]||s;}
-function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-
-document.getElementById('projModal').addEventListener('click',function(e){if(e.target===this)closeCreateProject();});
+load();
 </script>
 </body>
 </html>

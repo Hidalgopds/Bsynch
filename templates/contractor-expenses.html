@@ -38,6 +38,11 @@ h1{font-size:22px;margin-bottom:4px;}
 .actions{display:flex;gap:8px;margin-top:12px;align-items:center;flex-wrap:wrap;}
 .msg{font-size:13px;min-height:16px;}
 .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;}
+.toolbar select,.toolbar input[type=date],.toolbar input[type=search]{padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#fff;color:#0f172a;font-family:inherit;}
+.toolbar input[type=search]{flex:1;min-width:150px;}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media(max-width:700px){.split{grid-template-columns:1fr;}}
+.bars-title{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;margin:4px 0 6px;}
 .toolbar input[type=month]{padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#fff;color:#0f172a;}
 .chips{display:flex;gap:6px;flex-wrap:wrap;}
 .chip{padding:5px 12px;border-radius:20px;border:1px solid #cbd5e1;background:#fff;font-size:12px;color:#475569;cursor:pointer;}
@@ -99,13 +104,20 @@ footer{text-align:center;padding:16px;font-size:12px;color:#94a3b8;}
 
   <div class="card">
     <div class="toolbar">
-      <input type="month" id="month">
-      <div class="chips" id="cats"></div>
+      <select id="period" aria-label="Period">
+        <option value="month">This month</option><option value="last">Last month</option><option value="q">Last 3 months</option>
+        <option value="year">This year</option><option value="custom">Custom dates</option>
+      </select>
+      <span id="customDates" style="display:none;"><input type="date" id="dFrom" aria-label="From"> &ndash; <input type="date" id="dTo" aria-label="To"></span>
+      <select id="fPerson" aria-label="Person" style="display:none;"><option value="">Everyone</option></select>
+      <select id="fJob" aria-label="Work order"><option value="">All work orders</option><option value="none">Not for a job</option></select>
+      <input type="search" id="fQ" placeholder="Search store, note..." aria-label="Search">
       <button class="btn alt" id="csvBtn" style="margin-left:auto;display:none;">&#11015;&#65039; Export CSV</button>
     </div>
+    <div class="toolbar"><div class="chips" id="cats"></div></div>
     <div class="totals">
       <div class="big" id="total">$0.00<small id="count"></small></div>
-      <div id="bars"></div>
+      <div class="split"><div><div class="bars-title">By category</div><div id="bars"></div></div><div id="peopleBox" style="display:none;"><div class="bars-title">By person</div><div id="pbars"></div></div></div>
     </div>
   </div>
 
@@ -130,7 +142,6 @@ function today(){ var d = new Date(); return d.getFullYear() + '-' + String(d.ge
 
 document.getElementById('exCat').innerHTML = Object.keys(CATS).map(function(k){ return '<option value="' + k + '"' + (k === 'other' ? ' selected' : '') + '>' + CATS[k] + '</option>'; }).join('');
 document.getElementById('exDate').value = today();
-document.getElementById('month').value = today().slice(0, 7);
 document.getElementById('cats').innerHTML = '<button class="chip on" data-c="">All</button>' + Object.keys(CATS).map(function(k){ return '<button class="chip" data-c="' + k + '">' + CATS[k] + '</button>'; }).join('');
 
 document.querySelectorAll('.exIn').forEach(function(inp){
@@ -180,10 +191,34 @@ document.getElementById('cats').onclick = function(e){
   document.querySelectorAll('#cats .chip').forEach(function(c){ c.classList.toggle('on', c === e.target); });
   load();
 };
-document.getElementById('month').onchange = load;
+function ymd(d){ return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function range(){
+  var p = document.getElementById('period').value, n = new Date(), f, t;
+  if(p === 'custom') return [document.getElementById('dFrom').value, document.getElementById('dTo').value];
+  if(p === 'month'){ f = new Date(n.getFullYear(), n.getMonth(), 1); t = new Date(n.getFullYear(), n.getMonth() + 1, 0); }
+  if(p === 'last'){ f = new Date(n.getFullYear(), n.getMonth() - 1, 1); t = new Date(n.getFullYear(), n.getMonth(), 0); }
+  if(p === 'q'){ f = new Date(n.getFullYear(), n.getMonth() - 2, 1); t = new Date(n.getFullYear(), n.getMonth() + 1, 0); }
+  if(p === 'year'){ f = new Date(n.getFullYear(), 0, 1); t = new Date(n.getFullYear(), 11, 31); }
+  return [ymd(f), ymd(t)];
+}
+function query(){
+  var r = range(), p = [];
+  if(r[0]) p.push('from=' + r[0]); if(r[1]) p.push('to=' + r[1]);
+  if(catFilter) p.push('category=' + catFilter);
+  [['fPerson', 'person'], ['fJob', 'job'], ['fQ', 'q']].forEach(function(x){ var v = document.getElementById(x[0]).value.trim(); if(v) p.push(x[1] + '=' + encodeURIComponent(v)); });
+  return '?' + p.join('&');
+}
+document.getElementById('period').onchange = function(){
+  var custom = this.value === 'custom';
+  document.getElementById('customDates').style.display = custom ? '' : 'none';
+  if(custom && !document.getElementById('dFrom').value){ document.getElementById('dFrom').value = today().slice(0, 8) + '01'; document.getElementById('dTo').value = today(); }
+  load();
+};
+['dFrom', 'dTo', 'fPerson', 'fJob'].forEach(function(id){ document.getElementById(id).onchange = load; });
+var qTimer = null; document.getElementById('fQ').oninput = function(){ clearTimeout(qTimer); qTimer = setTimeout(load, 300); };
 document.getElementById('csvBtn').onclick = function(){
-  fetch(API + '.csv?month=' + document.getElementById('month').value).then(function(r){ return r.blob(); }).then(function(b){
-    var a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = COMPANY + '-expenses-' + document.getElementById('month').value + '.csv'; a.click();
+  fetch(API + '.csv' + query()).then(function(r){ return r.blob(); }).then(function(b){
+    var a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = COMPANY + '-expenses-' + range().join('_') + '.csv'; a.click();
     setTimeout(function(){ URL.revokeObjectURL(a.href); }, 5000);
   });
 };
@@ -200,8 +235,7 @@ document.getElementById('list').addEventListener('click', function(e){
 });
 
 function load(){
-  var q = '?month=' + document.getElementById('month').value + (catFilter ? '&category=' + catFilter : '');
-  fetch(API + q).then(function(r){ return r.json(); }).then(function(d){
+  fetch(API + query()).then(function(r){ return r.json(); }).then(function(d){
     if(!d.ok){ location.replace('/contractor/' + COMPANY); return; }
     document.getElementById('content').style.visibility = '';
     document.getElementById('csvBtn').style.display = d.sees_all ? '' : 'none';
@@ -210,21 +244,32 @@ function load(){
     var max = Math.max.apply(null, cats.map(function(c){ return d.by_category[c]; }).concat([1]));
     document.getElementById('bars').innerHTML = cats.map(function(c){
       return '<div class="bar-row"><span>' + (CATS[c] || c) + '</span><div class="bar"><span style="width:' + Math.round(d.by_category[c] / max * 100) + '%"></span></div><b>' + money(d.by_category[c]) + '</b></div>';
-    }).join('') || '<div class="empty" style="padding:6px;">No expenses this month.</div>';
+    }).join('') || '<div class="empty" style="padding:6px;">No expenses in this period.</div>';
+    var ps = document.getElementById('fPerson');
+    if(d.sees_all && ps.options.length === 1){ ps.innerHTML += (d.people || []).map(function(n){ return '<option>' + esc(n) + '</option>'; }).join(''); }
+    ps.style.display = d.sees_all ? '' : 'none';
+    var people = Object.keys(d.by_person || {}).sort(function(a, b){ return d.by_person[b] - d.by_person[a]; });
+    var pmax = Math.max.apply(null, people.map(function(c){ return d.by_person[c]; }).concat([1]));
+    document.getElementById('peopleBox').style.display = d.sees_all && people.length ? '' : 'none';
+    document.getElementById('pbars').innerHTML = people.map(function(n){
+      return '<div class="bar-row"><span>' + esc(n) + '</span><div class="bar"><span style="width:' + Math.round(d.by_person[n] / pmax * 100) + '%"></span></div><b>' + money(d.by_person[n]) + '</b></div>';
+    }).join('');
     document.getElementById('list').innerHTML = d.expenses.length ? d.expenses.map(function(e){
       return '<div class="row"><button class="ic" data-photo="' + esc(e.id) + '" title="View ticket">' + (ICON[e.category] || ICON.other) + '</button>' +
         '<div class="info"><b>' + esc(e.vendor || CATS[e.category] || 'Expense') + (e.ai_read ? '<span class="ai-tag">AI</span>' : '') + '</b>' +
         '<span>' + esc(e.expense_date || '') + ' · ' + esc(CATS[e.category] || e.category) + (e.job ? ' · ' + esc(e.job.job_number || '') + ' ' + esc(e.job.title || '') : '') + (e.description ? ' · ' + esc(e.description) : '') + (d.sees_all ? ' · ' + esc(e.added_by) : '') + '</span></div>' +
         '<div class="amt">' + money(e.amount) + '</div><button class="del" data-del="' + esc(e.id) + '" title="Delete">&#215;</button></div>';
-    }).join('') : '<div class="empty">No expenses for this month.</div>';
+    }).join('') : '<div class="empty">No expenses match.</div>';
   });
 }
 
 fetch('/api/contractor/jobs').then(function(r){ return r.json(); }).then(function(jobs){
   if(!Array.isArray(jobs)) return;
-  document.getElementById('exJob').innerHTML += jobs.filter(function(j){ return j.status !== 'cancelled'; }).map(function(j){
+  var opts = jobs.filter(function(j){ return j.status !== 'cancelled'; }).map(function(j){
     return '<option value="' + esc(j.id) + '">' + esc((j.job_number || '') + ' ' + j.title) + '</option>';
   }).join('');
+  document.getElementById('exJob').innerHTML += opts;
+  document.getElementById('fJob').innerHTML += opts;
 });
 load();
 </script>

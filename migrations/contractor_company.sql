@@ -234,3 +234,33 @@ alter table contractor_jobs     add column if not exists time_slot    text defau
 alter table contractor_jobs     add column if not exists bill_address text default '';
 alter table contractor_invoices add column if not exists bill_address text default '';
 alter table contractor_jobs add column if not exists est_hours numeric default 0;
+
+-- Invoice payment status, reminders, structured address, contacts
+alter table contractor_invoices add column if not exists sent_cc text;
+alter table contractor_invoices add column if not exists paid_at date;
+alter table contractor_invoices add column if not exists payment_ref text default '';
+alter table contractor_invoices add column if not exists status_history jsonb default '[]'::jsonb;
+alter table contractor_invoices add column if not exists last_reminder_at timestamptz;
+alter table contractor_invoices add column if not exists reminder_count integer default 0;
+alter table contractor_jobs add column if not exists residence text default '';
+alter table contractor_jobs add column if not exists apt text default '';
+alter table contractor_jobs add column if not exists zone text default '';
+alter table contractor_jobs add column if not exists zipcode text default '';
+create table if not exists contractor_contacts (
+  id uuid primary key default gen_random_uuid(),
+  company text not null,
+  kind text not null default 'potential',
+  name text not null default '',
+  org text default '',
+  role_desc text default '',
+  emails jsonb default '[]'::jsonb,
+  phones jsonb default '[]'::jsonb,
+  channel text default '',
+  notes text default '',
+  source text default '',
+  created_by text default '',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+create index if not exists contractor_contacts_company_idx on contractor_contacts(company);
+alter table contractor_contacts enable row level security;

@@ -39,6 +39,8 @@ h1{font-size:22px;font-weight:700;margin-bottom:4px;}
 .cost span{display:block;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.4px;}
 .cost b{font-size:16px;}
 .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+.grid4{display:grid;grid-template-columns:2fr 1fr 1.4fr 1fr;gap:10px;margin-top:10px;}
+@media(max-width:640px){.grid4{grid-template-columns:1fr 1fr;}}
 @media(max-width:640px){.grid{grid-template-columns:1fr;}}
 .field label{display:block;font-size:11px;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px;}
 .field input,.field textarea{width:100%;background:#0f1117;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:9px 11px;font-size:14px;font-family:inherit;}
@@ -77,6 +79,40 @@ td{padding:10px 8px;border-bottom:1px solid #1e2533;}
 td.r,th.r{text-align:right;}
 .table-wrap{overflow-x:auto;background:#1a1d27;border:1px solid #2a2d3e;border-radius:14px;padding:6px 10px;}
 footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1px solid #1e2533;}
+.content{max-width:1180px !important;}
+.jobs-count{font-size:13px;font-weight:700;color:#0f766e;align-self:center;}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+@media(max-width:760px){.kpis{grid-template-columns:1fr 1fr;}}
+.kpi{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:12px 14px;cursor:pointer;}
+.kpi span{display:block;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.4px;font-weight:700;}
+.kpi b{font-size:20px;display:block;margin-top:2px;}
+.kpi small{font-size:12px;color:#64748b;}
+.kpi.red b{color:#b91c1c;}.kpi.amber b{color:#b45309;}.kpi.green b{color:#15803d;}
+.inv-tools{margin-bottom:10px;}
+.inv-row2{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.inv-row2 select,.inv-row2 input{padding:8px 10px;border:1px solid #cbd5e1;border-radius:9px;font-size:13px;background:#fff;color:#0f172a;font-family:inherit;}
+.inv-row2 input{flex:1;min-width:180px;}
+.tool-btn{padding:8px 12px;border-radius:9px;border:1px solid #8fcfc2;background:#fff;color:#0f766e;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;white-space:nowrap;}
+.bulk{display:flex;gap:8px;align-items:center;margin-top:10px;padding:8px 12px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;font-size:13px;font-weight:600;color:#065f46;flex-wrap:wrap;}
+.btn-sm{padding:7px 12px;border-radius:8px;border:none;background:#1e9484;color:#fff;font-weight:700;font-size:12px;cursor:pointer;}
+.btn-sm.alt{background:#fff;color:#0f766e;border:1px solid #8fcfc2;}
+.btn-sm:disabled{opacity:.5;cursor:default;}
+.light{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:12px;white-space:nowrap;}
+.light i{width:11px;height:11px;border-radius:50%;display:inline-block;background:var(--c);box-shadow:0 0 0 3px var(--h);}
+.st-sel{padding:5px 8px;border-radius:8px;border:1px solid #cbd5e1;font-size:12px;font-weight:700;background:#fff;color:#0f172a;font-family:inherit;}
+.days{font-weight:800;}.days.late{color:#b91c1c;}
+.cell-sub{display:block;font-size:11px;color:#64748b;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+tr.hist-row td{background:#f8fafc;font-size:12px;color:#475569;}
+.hist-btn{border:none;background:none;color:#64748b;cursor:pointer;font-size:13px;}
+.hist li{margin-left:16px;line-height:1.6;}
+.remind{padding:4px 9px;border-radius:7px;border:1px solid #f59e0b;background:#fff;color:#b45309;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.ct-modal{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:50;}
+.ct-modal.open{display:flex;}
+.modal-box{background:#fff;border-radius:16px;padding:20px;width:100%;max-width:380px;color:#0f172a;}
+.modal-box h3{font-size:17px;margin-bottom:4px;}
+.modal-sub{font-size:13px;color:#64748b;margin-bottom:12px;}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;}
+.msg{font-size:12px;margin-top:8px;min-height:14px;color:#dc2626;}
 </style>
 </head>
 <body data-ct-hub>
@@ -98,19 +134,45 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
   </div>
 
   <div id="panel-jobs">
-    <div class="filters" id="filters">
-      <button class="filter active" data-f="pending">To invoice</button>
-      <button class="filter" data-f="ready">Ready</button>
-      <button class="filter" data-f="wip">Not finished</button>
-      <button class="filter" data-f="invoiced">Invoiced</button>
-      <button class="filter" data-f="all">All</button>
+    <div class="filters">
+      <span class="jobs-count" id="jobsCount">Jobs to invoice</span>
       <button class="exp-all" id="expAll" type="button">Expand all</button>
     </div>
     <div id="jobList"><div class="empty">Loading&hellip;</div></div>
   </div>
 
   <div id="panel-invoices" style="display:none;">
+    <div class="kpis" id="invKpis"></div>
+    <div class="inv-tools">
+      <div class="filters" id="stFilters">
+        <button class="filter active" data-s="all">All</button>
+        <button class="filter" data-s="unpaid">Unpaid</button>
+        <button class="filter" data-s="overdue">Overdue</button>
+        <button class="filter" data-s="issued">Not sent</button>
+        <button class="filter" data-s="sent">Sent</button>
+        <button class="filter" data-s="in_process">In process</button>
+        <button class="filter" data-s="paid">Paid</button>
+      </div>
+      <div class="inv-row2">
+        <select id="clientSel" aria-label="Client"><option value="">All clients</option></select>
+        <input id="invSearch" type="search" placeholder="Search invoice, client, address, check #">
+        <a class="tool-btn" id="xlsxBtn" href="#">&#11015;&#65039; Excel</a>
+        <label class="tool-btn mgr-only" id="xlsxUp">&#11014;&#65039; Update from Excel<input type="file" accept=".xlsx" hidden></label>
+      </div>
+      <div class="bulk mgr-only" id="bulkBar" style="display:none;"><span id="bulkTxt"></span><button class="btn-sm" id="bulkPay">&#9989; Mark paid (one check)</button><button class="btn-sm alt" id="bulkClear">Clear</button></div>
+    </div>
     <div id="invList"><div class="empty">Loading&hellip;</div></div>
+  </div>
+
+  <div class="ct-modal" id="payModal" role="dialog" aria-modal="true" aria-labelledby="payTitle">
+    <div class="modal-box">
+      <h3 id="payTitle">Mark paid</h3>
+      <p class="modal-sub" id="paySub"></p>
+      <div class="field"><label for="payDate">Paid on</label><input id="payDate" type="date"></div>
+      <div class="field" style="margin-top:10px;"><label for="payRef">Check # / payment reference</label><input id="payRef" maxlength="80" placeholder="e.g. Check 10482"></div>
+      <div class="modal-actions"><button class="btn-sm alt" id="payCancel" type="button">Cancel</button><button class="btn-sm" id="payOk" type="button">Save</button></div>
+      <div class="msg" id="payMsg"></div>
+    </div>
   </div>
 </div>
 
@@ -119,20 +181,14 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
 <script>
 var COMPANY = {{ company|tojson }};
 var API = '/api/contractor/' + COMPANY;
-var jobs = [], filter = 'pending';
+var jobs = [], invoices = [], isManager = false, stFilter = 'all', selected = {}, histOpen = {}, payFor = null, reminderDays = 15;
 
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 function money(n){ return '$' + (parseFloat(n) || 0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
 function price(j){ return parseFloat(j.service_price) || 0; }
 function ready(j){ return j.is_done && price(j) > 0 && !j.invoice; }
 
-function matches(j){
-  if(filter === 'all') return true;
-  if(filter === 'invoiced') return !!j.invoice;
-  if(filter === 'ready') return ready(j);
-  if(filter === 'wip') return !j.is_done && !j.invoice;
-  return !j.invoice;
-}
+function matches(j){ return !j.invoice; }
 
 function whyNot(j){
   if(!j.is_done) return 'Waiting for the job to be finished in Projects (' + Math.round(parseFloat(j.progress_pct) || 0) + '% done).';
@@ -142,7 +198,9 @@ function whyNot(j){
 
 function renderJobs(){
   var list = jobs.filter(matches), box = document.getElementById('jobList');
-  if(!list.length){ box.innerHTML = '<div class="empty">No jobs here.</div>'; return; }
+  var nReady = list.filter(ready).length;
+  document.getElementById('jobsCount').textContent = list.length + ' job' + (list.length === 1 ? '' : 's') + ' to invoice' + (nReady ? ' · ' + nReady + ' ready' : '');
+  if(!list.length){ box.innerHTML = '<div class="empty">Nothing to invoice. &#10003;</div>'; return; }
   box.innerHTML = list.map(function(j){
     var locked = !!j.invoice, pct = Math.round(parseFloat(j.progress_pct) || 0);
     var chip = locked ? '<span class="chip chip-inv">Invoiced</span>'
@@ -161,9 +219,15 @@ function renderJobs(){
       '<div class="grid">' +
         '<div class="field"><label>Bill to</label><input data-k="client_name" value="' + esc(j.client_name || '') + '" maxlength="160"' + dis + '></div>' +
         '<div class="field"><label>Customer ID</label><input data-k="customer_id" value="' + esc(j.customer_id || '') + '" maxlength="60"' + dis + '></div>' +
-        '<div class="field"><label>Job site</label><input data-k="location" value="' + esc(j.location || '') + '" maxlength="200"' + dis + '></div>' +
+        '<div class="field"><label>Address</label><input data-k="location" value="' + esc(j.location || '') + '" maxlength="200"' + dis + '></div>' +
       '</div>' +
-      '<div class="field" style="margin-top:10px;"><label>Billing address (only if different from the job site)</label><textarea data-k="bill_address" rows="2" maxlength="300" placeholder="e.g. 123 Main St, Suite 4&#10;Houston, TX 77002"' + dis + '>' + esc(j.bill_address || '') + '</textarea></div>' +
+      '<div class="grid4">' +
+        '<div class="field"><label>Residence</label><input data-k="residence" value="' + esc(j.residence || '') + '" maxlength="120"' + dis + '></div>' +
+        '<div class="field"><label>Apt / Unit</label><input data-k="apt" value="' + esc(j.apt || '') + '" maxlength="30"' + dis + '></div>' +
+        '<div class="field"><label>Area / Zone</label><input data-k="zone" value="' + esc(j.zone || '') + '" maxlength="80"' + dis + '></div>' +
+        '<div class="field"><label>Zip code</label><input data-k="zipcode" value="' + esc(j.zipcode || '') + '" maxlength="12"' + dis + '></div>' +
+      '</div>' +
+      '<div class="field" style="margin-top:10px;"><label>Billing address (only if different from the job address)</label><textarea data-k="bill_address" rows="2" maxlength="300" placeholder="e.g. 123 Main St, Suite 4&#10;Houston, TX 77002"' + dis + '>' + esc(j.bill_address || '') + '</textarea></div>' +
       '<div class="field" style="margin-top:10px;"><label>Client email (to send the invoice)</label><input data-k="client_email" type="email" value="' + esc(j.client_email || '') + '" maxlength="160"' + dis + '></div>' +
       '<div class="field" style="margin-top:10px;"><label>Description on the invoice <span class="saved">Saved &#10003;</span>' +
         ((j.visits || []).length && !locked ? ' <button type="button" class="fill-visits">Fill from ' + j.visits.length + ' visit' + (j.visits.length === 1 ? '' : 's') + '</button>' : '') +
@@ -181,7 +245,7 @@ function renderJobs(){
 var openCards = {};
 function summaryHtml(j, chip){
   var price = j.invoice ? money(j.invoice.total) : (parseFloat(j.service_price) > 0 ? money(j.service_price) : '&mdash;');
-  var sub = [j.client_name, j.location].filter(Boolean).map(esc).join(' &middot; ');
+  var sub = [j.client_name, [j.residence, j.location, j.apt ? 'Apt ' + j.apt : ''].filter(Boolean).join(' ')].filter(Boolean).map(esc).join(' &middot; ');
   return '<span class="sum-main"><span class="sum-line"><span class="job-num">' + esc(j.job_number || '') + '</span> <b>' + esc(j.title) + '</b></span>' +
     (sub ? '<span class="sum-sub">' + sub + '</span>' : '') + '</span>' +
     '<span class="sum-right">' + chip + '<span class="sum-price">' + price + '</span>' + (ready(j) ? '<span class="ready-dot" title="Ready to invoice"></span>' : '') + '<span class="chev">&#9662;</span></span>';
@@ -256,31 +320,167 @@ document.getElementById('expAll').onclick = function(){
   this.textContent = anyClosed ? 'Collapse all' : 'Expand all';
   renderJobs();
 };
-document.getElementById('filters').onclick = function(e){
-  if(!e.target.dataset.f) return;
-  filter = e.target.dataset.f;
-  document.querySelectorAll('.filter').forEach(function(b){ b.classList.toggle('active', b === e.target); });
-  renderJobs();
-};
-document.querySelectorAll('.tab').forEach(function(t){
-  t.onclick = function(){
-    document.querySelectorAll('.tab').forEach(function(x){ x.classList.toggle('active', x === t); });
-    document.getElementById('panel-jobs').style.display = t.dataset.tab === 'jobs' ? '' : 'none';
-    document.getElementById('panel-invoices').style.display = t.dataset.tab === 'invoices' ? '' : 'none';
-    if(t.dataset.tab === 'invoices') loadInvoices();
-  };
-});
+function showTab(name){
+  document.querySelectorAll('.tab').forEach(function(x){ x.classList.toggle('active', x.dataset.tab === name); });
+  document.getElementById('panel-jobs').style.display = name === 'jobs' ? '' : 'none';
+  document.getElementById('panel-invoices').style.display = name === 'invoices' ? '' : 'none';
+  if(name === 'invoices') loadInvoices();
+}
+document.querySelectorAll('.tab').forEach(function(t){ t.onclick = function(){ showTab(t.dataset.tab); }; });
 
+var ST = {issued:['Not sent','#94a3b8','#f1f5f9'], sent:['Sent','#dc2626','#fee2e2'], in_process:['In process','#f59e0b','#fef3c7'], paid:['Paid','#16a34a','#dcfce7']};
+function daysSince(ts){ if(!ts) return null; var d = new Date(ts); return Math.max(0, Math.floor((Date.now() - d.getTime()) / 864e5)); }
+function fmtD(v){ if(!v) return ''; var p = String(v).slice(0, 10).split('-'); return (+p[1]) + '/' + (+p[2]) + '/' + p[0].slice(2); }
+function unpaid(i){ return i.status !== 'paid'; }
+function overdue(i){ return (i.status === 'sent' || i.status === 'in_process') && daysSince(i.sent_at) >= reminderDays; }
+function invMatches(i){
+  var cl = document.getElementById('clientSel').value, q = document.getElementById('invSearch').value.trim().toLowerCase();
+  if(cl && (i.bill_to || '') !== cl) return false;
+  if(stFilter === 'unpaid' && !unpaid(i)) return false;
+  if(stFilter === 'overdue' && !overdue(i)) return false;
+  if(ST[stFilter] && (i.status || 'issued') !== stFilter) return false;
+  if(q && [i.invoice_number, i.bill_to, i.job_site, i.payment_ref, i.sent_to, i.customer_id].join(' ').toLowerCase().indexOf(q) < 0) return false;
+  return true;
+}
+function lightHtml(st){ var s = ST[st] || ST.issued; return '<span class="light" style="--c:' + s[1] + ';--h:' + s[2] + '"><i></i>' + s[0] + '</span>'; }
+function renderKpis(){
+  var cl = document.getElementById('clientSel').value, base = invoices.filter(function(i){ return !cl || i.bill_to === cl; });
+  var sum = function(l){ return l.reduce(function(a, i){ return a + (parseFloat(i.total) || 0); }, 0); };
+  var un = base.filter(function(i){ return unpaid(i) && i.status !== 'issued'; }), od = base.filter(overdue), pd = base.filter(function(i){ return i.status === 'paid'; }), ns = base.filter(function(i){ return (i.status || 'issued') === 'issued'; });
+  document.getElementById('invKpis').innerHTML =
+    '<div class="kpi amber" data-s="unpaid"><span>To collect</span><b>' + money(sum(un)) + '</b><small>' + un.length + ' sent, unpaid</small></div>' +
+    '<div class="kpi red" data-s="overdue"><span>Overdue (' + reminderDays + '+ days)</span><b>' + money(sum(od)) + '</b><small>' + od.length + ' invoice' + (od.length === 1 ? '' : 's') + '</small></div>' +
+    '<div class="kpi green" data-s="paid"><span>Paid</span><b>' + money(sum(pd)) + '</b><small>' + pd.length + ' invoice' + (pd.length === 1 ? '' : 's') + '</small></div>' +
+    '<div class="kpi" data-s="issued"><span>Not sent yet</span><b>' + money(sum(ns)) + '</b><small>' + ns.length + ' invoice' + (ns.length === 1 ? '' : 's') + '</small></div>';
+}
+function histHtml(i){
+  var h = (i.status_history || []).slice().reverse();
+  if(!h.length) return '<div>No changes recorded yet.</div>';
+  return '<ul class="hist">' + h.map(function(e){
+    var what = e.status === 'reminder' ? '&#128276; Reminder' : (ST[e.status] ? ST[e.status][0] : esc(e.status));
+    return '<li><b>' + what + '</b> &middot; ' + esc(new Date(e.at).toLocaleString()) + ' &middot; ' + esc(e.by || '') +
+      (e.paid_at ? ' &middot; paid ' + fmtD(e.paid_at) : '') + (e.ref ? ' &middot; ' + esc(e.ref) : '') + (e.note ? ' &middot; <i>' + esc(e.note) + '</i>' : '') + '</li>';
+  }).join('') + '</ul>';
+}
+function renderInvoices(){
+  renderKpis();
+  var box = document.getElementById('invList'), list = invoices.filter(invMatches);
+  document.querySelectorAll('#stFilters .filter').forEach(function(b){ b.classList.toggle('active', b.dataset.s === stFilter); });
+  if(!invoices.length){ box.innerHTML = '<div class="empty">No invoices yet.</div>'; return; }
+  if(!list.length){ box.innerHTML = '<div class="empty">No invoices match.</div>'; renderBulk(); return; }
+  var total = list.reduce(function(a, i){ return a + (parseFloat(i.total) || 0); }, 0);
+  box.innerHTML = '<div class="table-wrap card"><table><thead><tr>' + (isManager ? '<th><input type="checkbox" id="selAll" aria-label="Select all"></th>' : '') +
+    '<th>Invoice</th><th>Bill to / address</th><th class="r">Total</th><th>Status</th><th>Sent</th><th class="r">Days</th><th>Paid</th><th></th></tr></thead><tbody>' +
+    list.map(function(i){
+      var st = i.status || 'issued', d = i.sent_at && st !== 'paid' ? daysSince(i.sent_at) : null;
+      var paidDays = st === 'paid' && i.sent_at && i.paid_at ? Math.max(0, Math.round((new Date(i.paid_at + 'T12:00:00') - new Date(i.sent_at)) / 864e5)) : null;
+      var stCell = isManager ? '<select class="st-sel" data-id="' + esc(i.id) + '" style="border-color:' + (ST[st] || ST.issued)[1] + '">' +
+          Object.keys(ST).map(function(k){ return '<option value="' + k + '"' + (k === st ? ' selected' : '') + '>' + (k === 'paid' ? '🟢 ' : k === 'in_process' ? '🟡 ' : k === 'sent' ? '🔴 ' : '⚪ ') + ST[k][0] + '</option>'; }).join('') + '</select>'
+        : lightHtml(st);
+      return '<tr>' + (isManager ? '<td><input type="checkbox" class="sel" data-id="' + esc(i.id) + '"' + (selected[i.id] ? ' checked' : '') + (st === 'paid' ? ' disabled' : '') + '></td>' : '') +
+        '<td><a class="inv-link" href="/contractor/invoice/' + esc(i.id) + '">' + esc(i.invoice_number) + '</a><span class="cell-sub">' + fmtD(i.invoice_date) + '</span></td>' +
+        '<td>' + esc(i.bill_to) + '<span class="cell-sub">' + esc(i.job_site) + '</span></td>' +
+        '<td class="r"><b>' + money(i.total) + '</b></td>' +
+        '<td>' + stCell + '</td>' +
+        '<td>' + (i.sent_at ? fmtD(i.sent_at) + '<span class="cell-sub" title="' + esc([i.sent_to, i.sent_cc].filter(Boolean).join(', ')) + '">' + esc(i.sent_to || '') + '</span>' : '<span class="cell-sub">Not sent</span>') + '</td>' +
+        '<td class="r">' + (d !== null ? '<span class="days' + (overdue(i) ? ' late' : '') + '">' + d + '</span>' : paidDays !== null ? '<span class="cell-sub">in ' + paidDays + 'd</span>' : '') + '</td>' +
+        '<td>' + (st === 'paid' ? fmtD(i.paid_at) + '<span class="cell-sub">' + esc(i.payment_ref || '') + '</span>' : '') + '</td>' +
+        '<td style="white-space:nowrap;">' + (i.sent_at && st !== 'paid' ? '<button class="remind" data-id="' + esc(i.id) + '" title="' + (i.reminder_count ? i.reminder_count + ' sent, last ' + fmtD(i.last_reminder_at) : 'Email the client a reminder') + '">&#128276; Remind' + (i.reminder_count ? ' (' + i.reminder_count + ')' : '') + '</button>' : '') +
+          ' <button class="hist-btn" data-id="' + esc(i.id) + '" title="History">&#128340;</button></td></tr>' +
+        (histOpen[i.id] ? '<tr class="hist-row"><td colspan="' + (isManager ? 9 : 8) + '">' + histHtml(i) + '</td></tr>' : '');
+    }).join('') + '</tbody><tfoot><tr><td colspan="' + (isManager ? 3 : 2) + '"><b>' + list.length + ' invoice' + (list.length === 1 ? '' : 's') + '</b></td><td class="r"><b>' + money(total) + '</b></td><td colspan="5"></td></tr></tfoot></table></div>';
+  renderBulk();
+}
+function renderBulk(){
+  var ids = Object.keys(selected).filter(function(k){ return selected[k]; }), bar = document.getElementById('bulkBar');
+  if(!isManager || !ids.length){ bar.style.display = 'none'; return; }
+  var t = invoices.filter(function(i){ return selected[i.id]; }).reduce(function(a, i){ return a + (parseFloat(i.total) || 0); }, 0);
+  bar.style.display = ''; document.getElementById('bulkTxt').textContent = ids.length + ' selected · ' + money(t);
+}
+function fillClients(){
+  var sel = document.getElementById('clientSel'), cur = sel.value;
+  var names = Array.from(new Set(invoices.map(function(i){ return i.bill_to || ''; }).filter(Boolean))).sort();
+  sel.innerHTML = '<option value="">All clients</option>' + names.map(function(n){ return '<option' + (n === cur ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('');
+}
 function loadInvoices(){
   fetch(API + '/invoices').then(function(r){ return r.json(); }).then(function(list){
-    var box = document.getElementById('invList');
-    if(!Array.isArray(list) || !list.length){ box.innerHTML = '<div class="empty">No invoices yet.</div>'; return; }
-    box.innerHTML = '<div class="table-wrap card"><table><thead><tr><th>Invoice</th><th>Date</th><th>Bill to</th><th>Job site</th><th>Sent</th><th class="r">Total</th></tr></thead><tbody>' +
-      list.map(function(i){
-        return '<tr><td><a class="inv-link" href="/contractor/invoice/' + esc(i.id) + '">' + esc(i.invoice_number) + '</a></td><td>' + esc(i.invoice_date || '') + '</td><td>' + esc(i.bill_to) + '</td><td>' + esc(i.job_site) + '</td><td>' + (i.sent_at ? '<span class="chip chip-done">Sent</span>' : '<span class="chip chip-wip">Not sent</span>') + '</td><td class="r"><b>' + money(i.total) + '</b></td></tr>';
-      }).join('') + '</tbody></table></div>';
+    invoices = Array.isArray(list) ? list : [];
+    fillClients();
+    var q = new URLSearchParams(location.search);
+    if(q.get('client') && !window._clientApplied){ window._clientApplied = true; document.getElementById('clientSel').value = q.get('client'); }
+    renderInvoices();
   });
 }
+function setStatus(id, status, extra){
+  var body = Object.assign({status: status}, extra || {});
+  return fetch('/api/contractor/invoices/' + id + '/status', {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)})
+    .then(function(r){ return r.json(); }).then(function(res){
+      if(!res.ok){ alert(res.error || 'Could not save'); renderInvoices(); return false; }
+      var i = invoices.find(function(x){ return x.id === id; }); Object.assign(i, res.invoice); renderInvoices(); return true;
+    });
+}
+function openPay(ids){
+  payFor = ids;
+  var l = invoices.filter(function(i){ return ids.indexOf(i.id) >= 0; });
+  document.getElementById('payTitle').textContent = ids.length > 1 ? 'Mark ' + ids.length + ' invoices paid' : 'Mark ' + l[0].invoice_number + ' paid';
+  document.getElementById('paySub').textContent = l.map(function(i){ return i.invoice_number; }).join(', ') + ' · ' + money(l.reduce(function(a, i){ return a + (parseFloat(i.total) || 0); }, 0));
+  document.getElementById('payDate').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('payRef').value = ''; document.getElementById('payMsg').textContent = '';
+  document.getElementById('payModal').classList.add('open'); document.getElementById('payRef').focus();
+}
+document.getElementById('payCancel').onclick = function(){ document.getElementById('payModal').classList.remove('open'); payFor = null; renderInvoices(); };
+document.getElementById('payOk').onclick = function(){
+  var b = this, ids = payFor || [], extra = {paid_at: document.getElementById('payDate').value, payment_ref: document.getElementById('payRef').value.trim()};
+  b.disabled = true;
+  var done = ids.length === 1 ? setStatus(ids[0], 'paid', extra) :
+    fetch(API + '/invoices/pay', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(Object.assign({ids: ids}, extra))})
+      .then(function(r){ return r.json(); }).then(function(res){ if(!res.ok){ document.getElementById('payMsg').textContent = res.error || 'Could not save'; return false; } selected = {}; loadInvoices(); return true; });
+  done.then(function(ok){ b.disabled = false; if(ok !== false){ document.getElementById('payModal').classList.remove('open'); payFor = null; } });
+};
+document.getElementById('invList').addEventListener('change', function(e){
+  var t = e.target;
+  if(t.classList.contains('st-sel')){ if(t.value === 'paid') openPay([t.dataset.id]); else setStatus(t.dataset.id, t.value); }
+  else if(t.classList.contains('sel')){ selected[t.dataset.id] = t.checked; renderBulk(); }
+  else if(t.id === 'selAll'){ invoices.filter(invMatches).forEach(function(i){ if(i.status !== 'paid') selected[i.id] = t.checked; }); renderInvoices(); }
+});
+document.getElementById('invList').addEventListener('click', function(e){
+  var t = e.target.closest('button'); if(!t) return;
+  if(t.classList.contains('hist-btn')){ histOpen[t.dataset.id] = !histOpen[t.dataset.id]; renderInvoices(); }
+  if(t.classList.contains('remind')){
+    var i = invoices.find(function(x){ return x.id === t.dataset.id; });
+    if(!confirm('Email ' + (i.sent_to || 'the client') + ' a payment reminder for ' + i.invoice_number + '?')) return;
+    t.disabled = true; t.textContent = 'Sending...';
+    fetch('/api/contractor/invoices/' + i.id + '/remind', {method:'POST'}).then(function(r){ return r.json(); }).then(function(res){
+      if(!res.ok){ alert(res.error || 'Could not send the reminder'); }
+      loadInvoices();
+    });
+  }
+});
+document.getElementById('stFilters').onclick = function(e){ if(e.target.dataset.s){ stFilter = e.target.dataset.s; renderInvoices(); } };
+document.getElementById('invKpis').onclick = function(e){ var k = e.target.closest('.kpi'); if(k){ stFilter = k.dataset.s; renderInvoices(); } };
+document.getElementById('clientSel').onchange = renderInvoices;
+document.getElementById('invSearch').oninput = renderInvoices;
+document.getElementById('bulkPay').onclick = function(){ openPay(Object.keys(selected).filter(function(k){ return selected[k]; })); };
+document.getElementById('bulkClear').onclick = function(){ selected = {}; renderInvoices(); };
+document.getElementById('xlsxBtn').onclick = function(e){
+  e.preventDefault();
+  fetch(API + '/invoices.xlsx').then(function(r){ if(!r.ok) throw 0; return r.blob(); }).then(function(b){
+    var a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = COMPANY + '-invoices-' + new Date().toISOString().slice(0, 10) + '.xlsx'; a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 5000);
+  }).catch(function(){ alert('Could not download the Excel'); });
+};
+document.querySelector('#xlsxUp input').onchange = function(){
+  var f = this.files && this.files[0]; this.value = ''; if(!f) return;
+  var rd = new FileReader();
+  rd.onload = function(ev){
+    fetch(API + '/invoices/import', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({data: ev.target.result})})
+      .then(function(r){ return r.json(); }).then(function(res){
+        alert(res.ok ? 'Excel applied: ' + res.updated + ' invoice' + (res.updated === 1 ? '' : 's') + ' updated, ' + res.unchanged + ' unchanged.' : (res.error || 'Could not read the Excel'));
+        loadInvoices();
+      });
+  };
+  rd.readAsDataURL(f);
+};
 
 function loadJobs(){
   fetch(API + '/invoicing/jobs').then(function(r){ return r.json(); }).then(function(list){
@@ -289,6 +489,17 @@ function loadJobs(){
     document.getElementById('content').style.visibility = '';
   }).catch(function(){ location.replace('/contractor/' + COMPANY); });
 }
+fetch('/api/contractor/me').then(function(r){ return r.json(); }).then(function(me){
+  var acc = (me.access || {})[COMPANY] || {};
+  isManager = !!(me.is_super || acc.is_admin);
+  document.querySelectorAll('.mgr-only').forEach(function(el){ if(!isManager) el.style.display = 'none'; });
+});
+fetch(API + '/profile').then(function(r){ return r.json(); }).then(function(d){ if(d.ok && d.profile && d.profile.reminder_days !== undefined) reminderDays = parseInt(d.profile.reminder_days, 10) || 15; }).catch(function(){});
+(function(){
+  var q = new URLSearchParams(location.search);
+  if(q.get('status')) stFilter = q.get('status');
+  if(q.get('tab') === 'invoices' || q.get('client') || q.get('status')) showTab('invoices');
+})();
 loadJobs();
 </script>
 </body>

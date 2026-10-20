@@ -111,14 +111,17 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
         <span class="hint">The first one is printed on invoices. Add as many as you need.</span>
       </div>
       <div class="field"><label for="notify_email">Send project and work-order alerts to</label><input id="notify_email" type="email" maxlength="160"></div>
+      <button type="button" class="btn-sm" id="mailTest">&#9993;&#65039; Send a test email</button>
+      <span class="hint" id="mailTestMsg" style="display:block;margin-top:6px;"></span>
     </div>
 
     <div class="card">
       <h2>Invoices</h2>
       <div class="row">
-        <div class="field"><label for="invoice_prefix">Invoice number prefix</label><input id="invoice_prefix" maxlength="6" placeholder="H"></div>
-        <div class="field"><label for="invoice_next">Next invoice number</label><input id="invoice_next" type="number" min="1" step="1"></div>
+        <div class="field"><label for="invoice_start">Next invoice number</label><input id="invoice_start" maxlength="32" placeholder="H001001 or SSDE-983478"></div>
+        <div class="field"><label for="invoice_end">Range ends at (optional)</label><input id="invoice_end" maxlength="32" placeholder="SSDE-999999"></div>
       </div>
+      <div class="field"><label for="reminder_days">Email me about unpaid invoices after (days)</label><input id="reminder_days" type="number" min="0" max="365" step="1" placeholder="15"><span class="hint">0 turns the daily reminder off.</span></div>
       <div class="field"><label for="payment_terms">Payment terms</label><input id="payment_terms" maxlength="60" placeholder="Due on receipt"></div>
       <div class="field"><label for="payment_note">Payment instructions</label><textarea id="payment_note" maxlength="400" placeholder="Make all checks payable to ..."></textarea></div>
       <div class="field"><label for="footer_note">Closing message</label><input id="footer_note" maxlength="200" placeholder="Thank you for your business!"></div>
@@ -150,7 +153,7 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
 
 <script>
 var COMPANY = {{ company|tojson }};
-var TEXT = ['display_name','subtitle','tagline','contact_name','phone','address','notify_email','invoice_prefix','invoice_next','payment_terms','payment_note','footer_note','brand_primary','brand_accent','hours_morning','hours_afternoon'];
+var TEXT = ['display_name','subtitle','tagline','contact_name','phone','address','notify_email','invoice_start','invoice_end','reminder_days','payment_terms','payment_note','footer_note','brand_primary','brand_accent','hours_morning','hours_afternoon'];
 var API = '/api/contractor/' + COMPANY;
 var emails = [], logo = '', canEdit = false;
 
@@ -177,11 +180,27 @@ document.getElementById('emailChips').onclick = function(e){
   if(e.target.dataset.i !== undefined){ emails.splice(+e.target.dataset.i, 1); renderEmails(); }
 };
 function updateNextPreview(){
-  var p = document.getElementById('invoice_prefix').value.trim(), n = parseInt(document.getElementById('invoice_next').value || '0', 10);
-  document.getElementById('nextPreview').textContent = n > 0 ? 'Next invoice will be ' + p + String(n).padStart(6, '0') : '';
+  var v = document.getElementById('invoice_start').value.trim(), e = document.getElementById('invoice_end').value.trim();
+  var m = v.match(/^(.*?)(\d+)$/), out = document.getElementById('nextPreview');
+  if(!v){ out.textContent = ''; return; }
+  if(!m){ out.textContent = 'The number must end in digits, e.g. SSDE-983478.'; return; }
+  var em = e.match(/^(.*?)(\d+)$/), left = em && em[1] === m[1] ? parseInt(em[2], 10) - parseInt(m[2], 10) + 1 : null;
+  out.textContent = 'Next invoices: ' + v + ', ' + m[1] + String(parseInt(m[2], 10) + 1).padStart(m[2].length, '0') + ', ...' +
+    (left !== null ? (left > 0 ? ' · ' + left.toLocaleString() + ' numbers left in the range' : ' · the end is before the start') : (e ? ' · the end must start with "' + m[1] + '"' : ''));
 }
-document.getElementById('invoice_prefix').oninput = updateNextPreview;
-document.getElementById('invoice_next').oninput = updateNextPreview;
+function composeNumber(p){ return p.invoice_next ? (p.invoice_prefix || '') + String(p.invoice_next).padStart(p.invoice_pad || 6, '0') : ''; }
+document.getElementById('mailTest').onclick = function(){
+  var m = document.getElementById('mailTestMsg'), b = this;
+  b.disabled = true; m.style.color = '#64748b'; m.textContent = 'Sending...';
+  fetch('/api/contractor/email-test', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({company: COMPANY})})
+    .then(function(r){ return r.json(); }).then(function(res){
+      b.disabled = false;
+      m.style.color = res.ok ? '#15803d' : '#dc2626';
+      m.textContent = res.ok ? 'Sent to ' + res.to + ' ✓ Check the inbox.' : (res.error || 'Could not send');
+    }).catch(function(){ b.disabled = false; m.style.color = '#dc2626'; m.textContent = 'Connection error.'; });
+};
+document.getElementById('invoice_start').oninput = updateNextPreview;
+document.getElementById('invoice_end').oninput = updateNextPreview;
 
 document.getElementById('logoFile').onchange = function(){
   var f = this.files && this.files[0]; if(!f) return;
@@ -247,6 +266,8 @@ if(CT.user) document.getElementById('hdrUser').textContent = 'Hi, ' + CT.user;
 fetch(API + '/profile').then(function(r){ return r.json(); }).then(function(d){
   if(!d.ok){ location.replace('/contractor-hub'); return; }
   var p = d.profile || {};
+  p.invoice_start = composeNumber(p);
+  p.invoice_end = p.invoice_end ? (p.invoice_prefix || '') + String(p.invoice_end).padStart(p.invoice_pad || 6, '0') : '';
   canEdit = !!d.can_edit;
   TEXT.forEach(function(f){ var el = document.getElementById(f); if(p[f] !== undefined && p[f] !== null) el.value = p[f]; el.disabled = !canEdit; });
   emails = (p.emails || []).slice(); logo = p.logo || '';
