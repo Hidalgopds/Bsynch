@@ -17,18 +17,45 @@
     return;
   }
 
+  // Who is calling comes from the signed session cookie. If it is missing or expired,
+  // go back to sign in; if the company requires two-step verification, set it up first.
+  var leaving = false;
+  function toLogin() {
+    if (leaving) return; leaving = true;
+    try { localStorage.removeItem('bsynchAuth'); sessionStorage.removeItem('ctAuth'); } catch (e) {}
+    location.replace('/login?next=' + encodeURIComponent(here));
+  }
+  function toTwoFactor() {
+    if (leaving || location.pathname === '/contractor/account') return; leaving = true;
+    location.replace('/contractor/account?setup2fa=1');
+  }
   var origFetch = window.fetch.bind(window);
   window.fetch = function (input, init) {
     var url = typeof input === 'string' ? input : (input && input.url) || '';
-    if (url.indexOf('/api/contractor') === 0) {
+    var mine = url.indexOf('/api/contractor') === 0;
+    if (mine) {
       init = init || {};
       var h = new Headers(init.headers || {});
-      h.set('X-User-Name', user);
       if (company) h.set('X-Contractor-Company', company);
       init.headers = h;
+      init.credentials = 'same-origin';
     }
-    return origFetch(input, init);
+    var p = origFetch(input, init);
+    if (!mine) return p;
+    return p.then(function (r) {
+      if (r.status === 401) toLogin();
+      else if (r.status === 403) r.clone().json().then(function (d) { if (d && d.error === '2fa_setup_required') toTwoFactor(); }).catch(function () {});
+      return r;
+    });
   };
+  if (ss('ctAuth') !== user) {
+    origFetch('/api/auth/whoami', {credentials: 'same-origin'}).then(function (r) { return r.json().then(function (d) { return [r.status, d]; }); })
+      .then(function (x) {
+        if (x[0] === 401 || !x[1].ok) { toLogin(); return; }
+        if (x[1].name !== user) { try { localStorage.setItem('bsynchAuth', x[1].name); } catch (e) {} }
+        if (x[1].needs_2fa_setup) toTwoFactor(); else ss('ctAuth', x[1].name);
+      }).catch(function () {});
+  }
 
   // Everyone must sign the confidentiality / data-use agreement before using the module.
   if (!window.CT_SKIP_AGREEMENT && ss('ctAgreementOk') !== user) {

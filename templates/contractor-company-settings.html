@@ -51,6 +51,8 @@ input[type=color]{height:40px;padding:4px;cursor:pointer;}
 .msg{font-size:13px;margin-top:8px;min-height:16px;}
 .btn{padding:10px 20px;background:#1e9484;border:none;border-radius:8px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;}
 .btn:disabled{opacity:.5;cursor:default;}
+.sec-tgl{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.45;cursor:pointer;}
+.sec-tgl input{width:20px;height:20px;flex-shrink:0;accent-color:#1e9484;margin-top:2px;}
 .app-row{display:flex;gap:12px;align-items:center;}
 .app-row img{border-radius:14px;border:1px solid #e2e8f0;background:#fff;flex-shrink:0;}
 .saved{font-size:13px;color:#22c55e;margin-left:10px;opacity:0;transition:opacity .2s;}
@@ -139,6 +141,13 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
       <span class="hint">The calendar uses this to show how many hours each person still has free every day.</span>
     </div>
 
+    <div class="card" id="secCard" style="display:none;">
+      <h2>&#128272; Security</h2>
+      <label class="sec-tgl"><input type="checkbox" id="req2fa"><span><b>Require two-step verification for everyone in this company</b><br><span class="hint">When they sign in, they also type a code from Google Authenticator, Microsoft Authenticator or Authy. Anyone without it is asked to turn it on at their next sign-in.</span></span></label>
+      <div class="hint" id="secStats" style="margin-top:8px;"></div>
+      <span class="hint" id="secMsg" style="display:block;margin-top:6px;"></span>
+    </div>
+
     <div class="card">
       <h2>App on the phone</h2>
       <div class="app-row">
@@ -219,6 +228,16 @@ document.getElementById('appShare').onclick = function(){
     var link = d.link || d.url || (location.origin + '/contractor/' + COMPANY);
     (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(function(){ b.textContent = 'Link copied ✓'; }, function(){ prompt('Copy this link:', link); });
   }).catch(function(){ prompt('Copy this link:', location.origin + '/contractor/' + COMPANY); });
+};
+document.getElementById('req2fa').onchange = function(){
+  var cb = this, m = document.getElementById('secMsg'), on = cb.checked;
+  if(on && !confirm('Everyone in this company will need an authenticator app to sign in. Turn it on?')){ cb.checked = false; return; }
+  fetch(API + '/profile', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({require_2fa: on})})
+    .then(function(r){ return r.json(); }).then(function(res){
+      m.style.color = res.ok ? '#15803d' : '#dc2626';
+      m.textContent = res.ok ? (on ? 'Required ✓ People without it will set it up at their next sign-in.' : 'No longer required.') : (res.error || 'Could not save');
+      if(!res.ok) cb.checked = !on;
+    });
 };
 document.getElementById('mailTest').onclick = function(){
   var m = document.getElementById('mailTestMsg'), b = this;
@@ -303,6 +322,12 @@ fetch(API + '/profile').then(function(r){ return r.json(); }).then(function(d){
   TEXT.forEach(function(f){ var el = document.getElementById(f); if(p[f] !== undefined && p[f] !== null) el.value = p[f]; el.disabled = !canEdit; });
   emails = (p.emails || []).slice(); logo = p.logo || '';
   renderEmails(); showLogo(); updateNextPreview(); loadFiles(); refreshAppCard(p);
+  if(d.can_security){
+    document.getElementById('secCard').style.display = '';
+    document.getElementById('req2fa').checked = !!p.require_2fa;
+    var t = d.two_factor || {total: 0, on: 0, missing: []};
+    document.getElementById('secStats').textContent = t.on + ' of ' + t.total + ' people have it on' + (t.missing.length ? '. Still off: ' + t.missing.join(', ') + '.' : '.');
+  }
   if(!canEdit){
     ['saveBtn','emailAdd','logoRemove','fileUploadBtn'].forEach(function(id){ document.getElementById(id).style.display = 'none'; });
     document.querySelector('.add-email').style.display = 'none';

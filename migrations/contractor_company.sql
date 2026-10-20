@@ -264,3 +264,8 @@ create table if not exists contractor_contacts (
 );
 create index if not exists contractor_contacts_company_idx on contractor_contacts(company);
 alter table contractor_contacts enable row level security;
+
+-- Two-step verification (authenticator app)
+alter table app_users add column if not exists totp_secret text;
+alter table app_users add column if not exists totp_enabled boolean default false;
+alter table app_users add column if not exists totp_recovery jsonb default '[]'::jsonb;

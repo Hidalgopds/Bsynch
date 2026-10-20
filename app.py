@@ -196,7 +196,6 @@ def send_registration_email(to_email, name, username, role="worker"):
         logger.error("[Email] %s", e)
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 300  # let browsers keep /static files for 5 minutes
 
 _MASTER_URL = os.environ.get("SUPABASE_URL")
@@ -204,6 +203,42 @@ SUPABASE_URL = _MASTER_URL  # kept for compatibility
 _MASTER_KEY = os.environ.get("SUPABASE_KEY")
 SUPABASE_KEY = _MASTER_KEY  # kept for compatibility
 TABLE = "daily_log"
+
+
+def _load_secret_key():
+    """The key that signs login cookies. Use SECRET_KEY when it is set; otherwise keep a random
+    one in app_config so it survives restarts (the old built-in default was public and guessable)."""
+    import secrets
+    env = os.environ.get("SECRET_KEY", "")
+    if env and env != "dev-secret-key-change-in-production":
+        return env
+    if _MASTER_URL and _MASTER_KEY:
+        h = {"apikey": _MASTER_KEY, "Authorization": f"Bearer {_MASTER_KEY}", "Content-Type": "application/json"}
+        try:
+            r = requests.get(f"{_MASTER_URL}/rest/v1/app_config?key=eq.flask_secret_key&select=value&limit=1", headers=h, timeout=8)
+            if r.ok and r.json() and (r.json()[0].get("value") or {}).get("k"):
+                return r.json()[0]["value"]["k"]
+            k = secrets.token_hex(32)
+            w = requests.post(f"{_MASTER_URL}/rest/v1/app_config", json={"key": "flask_secret_key", "value": {"k": k}},
+                              headers={**h, "Prefer": "resolution=ignore-duplicates,return=minimal"}, timeout=8)
+            if w.ok:  # another worker may have won the race: read back whichever key was stored
+                r = requests.get(f"{_MASTER_URL}/rest/v1/app_config?key=eq.flask_secret_key&select=value&limit=1", headers=h, timeout=8)
+                if r.ok and r.json() and (r.json()[0].get("value") or {}).get("k"):
+                    return r.json()[0]["value"]["k"]
+        except Exception as e:
+            logger.error("[Auth] could not load the signing key: %s", e)
+    logger.warning("[Auth] SECRET_KEY not set; using a temporary key (everyone signs in again after a restart)")
+    return secrets.token_hex(32)
+
+
+app.secret_key = _load_secret_key()
+app.config.update(
+    SESSION_COOKIE_NAME="bsynch_session",
+    SESSION_COOKIE_HTTPONLY=True,  # scripts on the page can't read it
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=os.environ.get("SESSION_COOKIE_SECURE", "1" if os.environ.get("RENDER") else "0") == "1",
+    PERMANENT_SESSION_LIFETIME=timedelta(days=30),
+)
 
 # ── Multi-tenant Supabase routing ────────────────────────────────────
 import threading as _threading, time as _time
@@ -1838,6 +1873,184 @@ def api_company_change_password():
     return jsonify({"ok": upd.ok})
 
 # ── End Platform API ──────────────────────────────────────────────────
+# ── Signed sessions + two-step verification ──────────────────────────
+# After the password (and the authenticator code, when on) the server sets a signed,
+# HttpOnly cookie. The contractor API reads who is calling from that cookie only.
+import hmac as _hmac, hashlib as _hashlib, struct as _struct, base64 as _b64
+
+CT_TRUST_HEADER = os.environ.get("CT_TRUST_HEADER") == "1"  # test harness only
+TOTP_ISSUER = os.environ.get("TOTP_ISSUER", "BSynch")
+
+
+def _pw_fingerprint(pw_hash):
+    """Changes when the password changes, which signs out every other session."""
+    return _hashlib.sha256((pw_hash or "").encode()).hexdigest()[:16]
+
+
+def _start_session(u):
+    session.clear()
+    session.permanent = True
+    session["uid"] = u["name"]
+    session["fp"] = _pw_fingerprint(u.get("password"))
+    session["iat"] = int(_ptime.time())
+
+
+def _session_user():
+    """Name of the signed-in user (cookie), or ''."""
+    if CT_TRUST_HEADER:
+        return (request.headers.get("X-User-Name") or request.args.get("caller") or "").strip()
+    return (session.get("uid") or "").strip()
+
+
+def _totp_code(secret_b32, t=None, step=30, digits=6):
+    key = _b64.b32decode(secret_b32 + "=" * (-len(secret_b32) % 8), casefold=True)
+    h = _hmac.new(key, _struct.pack(">Q", int((t if t is not None else _ptime.time()) // step)), _hashlib.sha1).digest()
+    o = h[-1] & 0x0F
+    return f"{(_struct.unpack('>I', h[o:o + 4])[0] & 0x7FFFFFFF) % 10 ** digits:0{digits}d}"
+
+
+def _totp_ok(secret_b32, code):
+    code = re.sub(r"\s", "", str(code or ""))
+    if not secret_b32 or not re.fullmatch(r"\d{6}", code):
+        return False
+    now = _ptime.time()
+    return any(_hmac.compare_digest(_totp_code(secret_b32, now + d * 30), code) for d in (-1, 0, 1))
+
+
+def _recovery_hash(code):
+    return _hashlib.sha256(("bsynch-recovery:" + re.sub(r"[^a-z0-9]", "", str(code).lower())).encode()).hexdigest()
+
+
+def _auth_user_row(name, fields="name,username,email,role,approved,password,contractor_company,totp_enabled,totp_secret,totp_recovery"):
+    r = requests.get(f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}&select={fields}&limit=1",
+                     headers=sb_headers(), timeout=6)
+    return r.json()[0] if r.ok and r.json() else None
+
+
+def _two_factor_required(u):
+    """True when the person's company asks everyone to use an authenticator app."""
+    co = u.get("contractor_company")
+    return co in CONTRACTOR_COMPANIES and bool((_ct_config(f"contractor_company_{co}", {}) or {}).get("require_2fa"))
+
+
+@app.route("/api/login/2fa", methods=["POST"])
+def api_login_two_factor():
+    """Second step of sign-in: the 6-digit code from the authenticator app, or a recovery code."""
+    pend = session.get("pending") or {}
+    if not pend or pend.get("exp", 0) < _ptime.time():
+        session.pop("pending", None)
+        return jsonify({"error": "Your sign-in expired. Enter your password again."}), 401
+    if pend.get("tries", 0) >= 5:
+        session.pop("pending", None)
+        return jsonify({"error": "Too many wrong codes. Enter your password again."}), 429
+    u = _auth_user_row(pend["uid"])
+    if not u or _pw_fingerprint(u.get("password")) != pend.get("fp") or not u.get("totp_enabled"):
+        session.pop("pending", None)
+        return jsonify({"error": "Enter your password again."}), 401
+    code = str((request.get_json() or {}).get("code") or "").strip()
+    ok = _totp_ok(u.get("totp_secret"), code)
+    if not ok and len(re.sub(r"[^A-Za-z0-9]", "", code)) == 10:
+        hashes = list(u.get("totp_recovery") or [])
+        hc = _recovery_hash(code)
+        if hc in hashes:  # each recovery code works once
+            hashes.remove(hc)
+            requests.patch(f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(u['name'])}",
+                           json={"totp_recovery": hashes}, headers=sb_headers(), timeout=5)
+            ok = True
+    if not ok:
+        pend["tries"] = pend.get("tries", 0) + 1
+        session["pending"] = pend
+        return jsonify({"error": "That code is not right. Use the newest code in the app."}), 401
+    _start_session(u)
+    return jsonify({"name": u["name"], "role": u.get("role", "worker"), "email": u.get("email", "")})
+
+
+@app.route("/api/logout", methods=["POST"])
+def api_logout():
+    session.clear()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/auth/whoami", methods=["GET"])
+def api_whoami():
+    name = _session_user()
+    if not name:
+        return jsonify({"ok": False, "error": "login_required"}), 401
+    me = _contractor_caller()
+    if not me["name"]:
+        return jsonify({"ok": False, "error": "login_required"}), 401
+    return jsonify({"ok": True, "name": me["name"], "needs_2fa_setup": bool(me.get("needs_2fa_setup"))})
+
+
+@app.route("/api/auth/2fa", methods=["GET"])
+def api_two_factor_status():
+    name = _session_user()
+    u = _auth_user_row(name) if name else None
+    if not u:
+        return jsonify({"ok": False, "error": "login_required"}), 401
+    return jsonify({"ok": True, "enabled": bool(u.get("totp_enabled")), "required": _two_factor_required(u),
+                    "recovery_left": len(u.get("totp_recovery") or [])})
+
+
+@app.route("/api/auth/2fa/setup", methods=["POST"])
+def api_two_factor_setup():
+    """A new secret and its QR code. Nothing is saved until a code from the app confirms it."""
+    import secrets, qrcode
+    from urllib.parse import quote
+    name = _session_user()
+    u = _auth_user_row(name) if name else None
+    if not u:
+        return jsonify({"ok": False, "error": "login_required"}), 401
+    secret = _b64.b32encode(secrets.token_bytes(20)).decode().rstrip("=")
+    session["totp_setup"] = {"secret": secret, "exp": int(_ptime.time()) + 900}
+    label = u.get("email") or u.get("username") or u["name"]
+    uri = f"otpauth://totp/{quote(TOTP_ISSUER)}:{quote(label)}?secret={secret}&issuer={quote(TOTP_ISSUER)}&digits=6&period=30"
+    img = qrcode.make(uri, box_size=6, border=2)
+    buf = io.BytesIO()
+    img.save(buf, "PNG")
+    return jsonify({"ok": True, "secret": " ".join(secret[i:i + 4] for i in range(0, len(secret), 4)), "uri": uri,
+                    "qr": "data:image/png;base64," + _b64.b64encode(buf.getvalue()).decode()})
+
+
+@app.route("/api/auth/2fa/enable", methods=["POST"])
+def api_two_factor_enable():
+    import secrets
+    name = _session_user()
+    u = _auth_user_row(name) if name else None
+    if not u:
+        return jsonify({"ok": False, "error": "login_required"}), 401
+    st = session.get("totp_setup") or {}
+    if not st or st.get("exp", 0) < _ptime.time():
+        return jsonify({"ok": False, "error": "Start again: scan a new QR code."}), 400
+    if not _totp_ok(st["secret"], (request.get_json() or {}).get("code")):
+        return jsonify({"ok": False, "error": "That code is not right. Check the phone's time and use the newest code."}), 400
+    codes = ["-".join([secrets.token_hex(3)[:5], secrets.token_hex(3)[:5]]) for _ in range(8)]
+    r = requests.patch(f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(u['name'])}", headers=sb_headers(), timeout=6,
+                       json={"totp_secret": st["secret"], "totp_enabled": True, "totp_recovery": [_recovery_hash(c) for c in codes]})
+    if not r.ok:
+        return jsonify({"ok": False, "error": "Could not save. Try again."}), 500
+    session.pop("totp_setup", None)
+    _ct_cache_clear()
+    return jsonify({"ok": True, "recovery_codes": codes})
+
+
+@app.route("/api/auth/2fa/disable", methods=["POST"])
+def api_two_factor_disable():
+    name = _session_user()
+    u = _auth_user_row(name) if name else None
+    if not u:
+        return jsonify({"ok": False, "error": "login_required"}), 401
+    if _two_factor_required(u):
+        return jsonify({"ok": False, "error": "Your company requires two-step verification, so it can't be turned off."}), 403
+    data = request.get_json() or {}
+    if not verify_password(str(data.get("password") or ""), u.get("password") or "") or not _totp_ok(u.get("totp_secret"), data.get("code")):
+        return jsonify({"ok": False, "error": "Password or code is not right."}), 400
+    requests.patch(f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(u['name'])}", headers=sb_headers(), timeout=6,
+                   json={"totp_secret": None, "totp_enabled": False, "totp_recovery": []})
+    _ct_cache_clear()
+    return jsonify({"ok": True})
+
+
 @app.route("/api/login", methods=["POST"])
 def api_login():
     data = request.get_json() or {}
@@ -1850,7 +2063,7 @@ def api_login():
     for field in ["username", "email", "name"]:
         r = requests.get(
             f"{sb_url()}/rest/v1/app_users"
-            f"?select=name,role,email,phone,username,approved,password"
+            f"?select=name,role,email,phone,username,approved,password,contractor_company,totp_enabled"
             f"&{field}=eq.{requests.utils.quote(username)}"
             f"&limit=1",
             headers=sb_headers()
@@ -1864,7 +2077,14 @@ def api_login():
     u = users[0]
     if u.get("approved") == False:
         return jsonify({"error": "pending_approval"}), 403
-    return jsonify({"name": u["name"], "role": u.get("role","worker"), "email": u.get("email","")})
+    if u.get("totp_enabled"):
+        # Password is right; the session starts only after the authenticator code
+        session.clear()
+        session["pending"] = {"uid": u["name"], "fp": _pw_fingerprint(u.get("password")), "exp": int(_ptime.time()) + 300, "tries": 0}
+        return jsonify({"two_factor": True, "name": u["name"]})
+    _start_session(u)
+    return jsonify({"name": u["name"], "role": u.get("role","worker"), "email": u.get("email",""),
+                    "setup_2fa": _two_factor_required(u)})
 
 @app.route("/api/check-username", methods=["POST"])
 def check_username():
@@ -5708,11 +5928,16 @@ def contractor_change_password():
     if not verify_password(curr_pw, users[0].get("password","")):
         return jsonify({"error":"Current password incorrect"}),403
     # Update password
+    new_hash = hash_password(new_pw)
     r2 = requests.patch(
         f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}",
-        json={"password": hash_password(new_pw)},
+        json={"password": new_hash},
         headers={**sb_headers(), "Prefer":"return=representation"}
     )
+    if r2.ok and session.get("uid") == name:
+        # A new password signs out every other device; this one stays signed in
+        session["fp"] = _pw_fingerprint(new_hash)
+    _ct_cache_clear()
     return jsonify({"ok": r2.ok})
 
 # ── Contractor: reset own PIN ─────────────────────────────────────────────────
@@ -6349,7 +6574,7 @@ def _contractor_caller():
     cached = getattr(g, "_ct_me", None)
     if cached is not None:
         return dict(cached)
-    ck = (sb_url(), (request.headers.get("X-User-Name") or request.args.get("caller") or "").strip(), request.host)
+    ck = (sb_url(), _session_user(), session.get("fp"), request.host)
     hit = _ct_me_cache.get(ck)
     if hit and _ptime.time() - hit[0] < _CT_CACHE_TTL:
         me = dict(hit[1])
@@ -6362,17 +6587,24 @@ def _contractor_caller():
 
 
 def _contractor_caller_uncached():
-    name = (request.headers.get("X-User-Name") or request.args.get("caller") or "").strip()
-    me = {"name": name, "company": None, "company_role": None, "is_super": False}
+    name = _session_user()
+    me = {"name": name, "company": None, "company_role": None, "is_super": False, "needs_2fa_setup": False}
     if not name:
         return me
     r = requests.get(
         f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}"
-        f"&approved=eq.true&select=role,contractor_company,username,email&limit=1",
+        f"&approved=eq.true&select=role,contractor_company,username,email,password,totp_enabled&limit=1",
         headers=sb_headers(), timeout=5
     )
     rows = r.json() if r.ok else []
+    if rows and not CT_TRUST_HEADER and _pw_fingerprint(rows[0].get("password")) != session.get("fp"):
+        # Password changed (or account replaced) since this cookie was issued
+        return {**me, "name": ""}
+    if not rows and not CT_TRUST_HEADER and not _get_client_co():
+        return {**me, "name": ""}  # account removed or suspended
     if rows:
+        if not rows[0].get("totp_enabled") and _two_factor_required(rows[0]):
+            me["needs_2fa_setup"] = True
         company = rows[0].get("contractor_company")
         owner = DEFAULT_COMPANY_ADMIN_USER.lower()
         if owner and owner in ((rows[0].get("username") or "").lower(), (rows[0].get("email") or "").lower()):
@@ -6782,7 +7014,15 @@ def contractor_company_profile(company):
     if company not in CONTRACTOR_COMPANIES or not _ct_can_view(me, company):
         return jsonify({"ok": False, "error": "not your company"}), 403
     if request.method == "GET":
-        return jsonify({"ok": True, "profile": _ct_profile(company), "can_edit": bool(_ct_can_edit_settings(me, company))})
+        out = {"ok": True, "profile": _ct_profile(company), "can_edit": bool(_ct_can_edit_settings(me, company)),
+               "can_security": _ct_can_admin(me, company)}
+        if out["can_security"]:
+            ur = requests.get(f"{sb_url()}/rest/v1/app_users?approved=eq.true&contractor_company=eq.{company}&select=name,totp_enabled&limit=1000",
+                              headers=sb_headers(), timeout=8)
+            people = ur.json() if ur.ok else []
+            out["two_factor"] = {"total": len(people), "on": sum(1 for u in people if u.get("totp_enabled")),
+                                 "missing": sorted(u["name"] for u in people if not u.get("totp_enabled"))[:50]}
+        return jsonify(out)
     if not _ct_can_edit_settings(me, company):
         return jsonify({"ok": False, "error": "no permission"}), 403
     data = request.get_json() or {}
@@ -6801,6 +7041,10 @@ def contractor_company_profile(company):
             if h is None or h > 12:
                 return jsonify({"ok": False, "error": "Workday hours must be between 0 and 12"}), 400
             out[k] = h
+    if "require_2fa" in data:
+        if not _ct_can_admin(me, company):
+            return jsonify({"ok": False, "error": "Only a Manager can change two-step verification"}), 403
+        out["require_2fa"] = bool(data.get("require_2fa"))
     if "reminder_days" in data:
         try:
             out["reminder_days"] = max(0, min(365, int(data.get("reminder_days") or 0)))
@@ -8570,6 +8814,25 @@ def _ct_maybe_daily_digest(today):
                 logger.error("[Contractor digest] %s: %s", co, e)
     finally:
         _ct_digest_lock.release()
+
+
+# Older ERP screens (PIN sign-in, no session) still call these; they check the person themselves
+_CT_PUBLIC_API = {"/api/contractor/status", "/api/contractor/profile", "/api/contractor/hours",
+                  "/api/contractor/password", "/api/contractor/reset-pin"}
+
+
+@app.before_request
+def _ct_auth_guard():
+    """The contractor API answers only a signed-in session (cookie set at sign-in)."""
+    p = request.path
+    if not p.startswith("/api/contractor/") or p in _CT_PUBLIC_API:
+        return None
+    me = _contractor_caller()
+    if not me["name"]:
+        return jsonify({"ok": False, "error": "login_required"}), 401
+    if me.get("needs_2fa_setup") and p != "/api/contractor/me":
+        return jsonify({"ok": False, "error": "2fa_setup_required"}), 403
+    return None
 
 
 @app.after_request

@@ -81,6 +81,22 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh;pad
   </div>
 </div>
 
+<!-- ── SCREEN 1b: Two-step verification code ── -->
+<div class="screen" id="screen-2fa">
+  <div class="card">
+    <h2 style="margin-bottom:6px;">&#128272; Two-step verification</h2>
+    <p class="sub" style="margin-bottom:18px;">Open your authenticator app (Google Authenticator, Microsoft Authenticator, Authy...) and type the 6-digit code for <b>BSynch</b>.</p>
+    <div class="field">
+      <label>Code</label>
+      <input type="text" id="inp-2fa" inputmode="numeric" autocomplete="one-time-code" maxlength="11" placeholder="123 456" style="font-size:22px;letter-spacing:4px;text-align:center;">
+    </div>
+    <div class="error-box" id="tfa-err"></div>
+    <button class="btn-primary" id="btn-2fa" onclick="doLogin2fa()">Verify</button>
+    <p class="sub" style="margin-top:12px;font-size:12px;">Lost your phone? Type one of your recovery codes instead (like <b>a1b2c-d3e4f</b>).</p>
+    <button class="btn-ghost" onclick="showScreen('login')">&#8592; Back to Login</button>
+  </div>
+</div>
+
 <!-- ── SCREEN 2: Register ── -->
 <div class="screen" id="screen-register">
   <div class="card">
@@ -239,6 +255,43 @@ async function doLogin() {
       return;
     }
     if (!r.ok) { setErr('login-err', d.error || 'Invalid username or password.'); return; }
+    if (d.two_factor) {
+      setErr('tfa-err', ''); document.getElementById('inp-2fa').value = '';
+      showScreen('2fa'); setTimeout(function(){ document.getElementById('inp-2fa').focus(); }, 50);
+      return;
+    }
+    await finishLogin(d);
+  } catch(e) {
+    setErr('login-err', 'Connection error. Please try again.');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Sign In';
+  }
+}
+
+async function doLogin2fa() {
+  var code = document.getElementById('inp-2fa').value.trim();
+  setErr('tfa-err', '');
+  if (!code) { setErr('tfa-err', 'Type the code from the app.'); return; }
+  var btn = document.getElementById('btn-2fa');
+  btn.disabled = true; btn.textContent = 'Checking...';
+  try {
+    var r = await fetch('/api/login/2fa', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({code: code})});
+    var d = await r.json();
+    if (!r.ok) {
+      setErr('tfa-err', d.error || 'That code is not right.');
+      if (r.status === 429 || /password again/i.test(d.error || '')) { setTimeout(function(){ showScreen('login'); setErr('login-err', d.error); }, 1500); }
+      return;
+    }
+    await finishLogin(d);
+  } catch(e) {
+    setErr('tfa-err', 'Connection error. Please try again.');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Verify';
+  }
+}
+
+async function finishLogin(d) {
+  {  // kept as a block: same steps as before for every sign-in path
     localStorage.setItem('bsynchAuth', d.name);
         // Store session version on login
         try {
@@ -254,12 +307,10 @@ async function doLogin() {
       if(pd.ok && !pd.pin_set){ localStorage.setItem('bsynchPinRequired','1'); }
       else { localStorage.removeItem('bsynchPinRequired'); }
     } catch(e2){}
+    try { sessionStorage.clear(); } catch(e3) {}
     var nx = new URLSearchParams(location.search).get('next') || '';
+    if (d.setup_2fa) { location.href = '/contractor/account?setup2fa=1'; return; }
     location.href = (/^\/[^\/\\]/.test(nx) ? nx : '/home');
-  } catch(e) {
-    setErr('login-err', 'Connection error. Please try again.');
-  } finally {
-    btn.disabled = false; btn.textContent = 'Sign In';
   }
 }
 
@@ -324,11 +375,17 @@ document.addEventListener('keydown', function(e) {
   if (e.key !== 'Enter') return;
   var active = document.querySelector('.screen.active').id;
   if (active === 'screen-login') doLogin();
+  else if (active === 'screen-2fa') doLogin2fa();
   else if (active === 'screen-register') showConsent();
 });
 
-// Already logged in → skip to home
-if (localStorage.getItem('bsynchAuth')) location.replace('/home');
+// Already signed in (valid session cookie) → skip to where they were going
+fetch('/api/auth/whoami').then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
+  if (!d || !d.ok) return;
+  localStorage.setItem('bsynchAuth', d.name);
+  var nx = new URLSearchParams(location.search).get('next') || '';
+  location.replace(/^\/[^\/\\]/.test(nx) ? nx : '/home');
+}).catch(function(){});
 </script>
 </body>
 </html>
