@@ -53,6 +53,20 @@ h1{font-size:22px;font-weight:700;margin-bottom:4px;}
 .btn:disabled{background:#334155;color:#94a3b8;cursor:not-allowed;}
 .why{font-size:12px;color:#f59e0b;margin-top:8px;text-align:right;}
 .fill-visits{margin-left:8px;padding:2px 8px;border-radius:6px;border:1px solid #1e9484;background:transparent;color:#1e9484;font-size:11px;cursor:pointer;text-transform:none;letter-spacing:0;}
+.job-sum{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;padding:0;text-align:left;cursor:pointer;color:inherit;font-family:inherit;}
+.sum-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.sum-line{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sum-sub{font-size:12px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sum-right{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.sum-price{font-weight:800;font-size:14px;min-width:70px;text-align:right;}
+.ready-dot{width:9px;height:9px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.2);}
+.chev{color:#94a3b8;transition:transform .2s;font-size:13px;}
+.job.open .chev{transform:rotate(180deg);}
+.job-body{display:none;margin-top:14px;padding-top:14px;border-top:1px solid #edf1f5;}
+.job.open .job-body{display:block;}
+.job{padding:12px 14px !important;margin-bottom:8px !important;}
+.exp-all{margin-left:auto;padding:5px 12px;border-radius:20px;border:1px solid #8fcfc2;background:#fff;color:#0f766e;font-size:12px;font-weight:600;cursor:pointer;}
+@media(max-width:560px){.sum-right .chip{font-size:10px;padding:2px 7px;}.sum-price{min-width:0;}}
 .saved{font-size:11px;color:#22c55e;margin-left:6px;opacity:0;transition:opacity .2s;}
 .saved.on{opacity:1;}
 .inv-link{color:#4f8ef7;font-weight:700;text-decoration:none;}
@@ -90,6 +104,7 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
       <button class="filter" data-f="wip">Not finished</button>
       <button class="filter" data-f="invoiced">Invoiced</button>
       <button class="filter" data-f="all">All</button>
+      <button class="exp-all" id="expAll" type="button">Expand all</button>
     </div>
     <div id="jobList"><div class="empty">Loading&hellip;</div></div>
   </div>
@@ -134,8 +149,10 @@ function renderJobs(){
       : j.is_done ? '<span class="chip chip-done">Finished</span>' : '<span class="chip chip-wip">' + pct + '% done</span>';
     var dis = locked ? ' disabled' : '';
     var desc = j.invoice_description || j.description || j.title || '';
-    return '<div class="job card" data-id="' + esc(j.id) + '">' +
-      '<div class="job-top"><span class="job-num">' + esc(j.job_number || '') + '</span><span class="job-title">' + esc(j.title) + '</span>' + chip + '</div>' +
+    var open = openCards[j.id];
+    return '<div class="job card' + (open ? ' open' : '') + '" data-id="' + esc(j.id) + '">' +
+      '<button type="button" class="job-sum" aria-expanded="' + (open ? 'true' : 'false') + '">' + summaryHtml(j, chip) + '</button>' +
+      '<div class="job-body">' +
       '<div class="costs">' +
         '<div class="cost"><span>Materials used</span><b>' + money(j.materials_total) + '</b></div>' +
         '<div class="cost"><span>Purchases (receipts)</span><b>' + money(j.receipts_total) + '</b></div>' +
@@ -146,6 +163,7 @@ function renderJobs(){
         '<div class="field"><label>Customer ID</label><input data-k="customer_id" value="' + esc(j.customer_id || '') + '" maxlength="60"' + dis + '></div>' +
         '<div class="field"><label>Job site</label><input data-k="location" value="' + esc(j.location || '') + '" maxlength="200"' + dis + '></div>' +
       '</div>' +
+      '<div class="field" style="margin-top:10px;"><label>Billing address (only if different from the job site)</label><textarea data-k="bill_address" rows="2" maxlength="300" placeholder="e.g. 123 Main St, Suite 4&#10;Houston, TX 77002"' + dis + '>' + esc(j.bill_address || '') + '</textarea></div>' +
       '<div class="field" style="margin-top:10px;"><label>Client email (to send the invoice)</label><input data-k="client_email" type="email" value="' + esc(j.client_email || '') + '" maxlength="160"' + dis + '></div>' +
       '<div class="field" style="margin-top:10px;"><label>Description on the invoice <span class="saved">Saved &#10003;</span>' +
         ((j.visits || []).length && !locked ? ' <button type="button" class="fill-visits">Fill from ' + j.visits.length + ' visit' + (j.visits.length === 1 ? '' : 's') + '</button>' : '') +
@@ -157,8 +175,21 @@ function renderJobs(){
             '<label class="incl"><input type="checkbox" class="incl-costs"> Also bill materials and purchases</label>' +
             '<button class="btn create"' + (ready(j) ? '' : ' disabled') + '>Create invoice</button>' +
           '</div><div class="why">' + esc(whyNot(j)) + '</div>') +
-    '</div>';
+    '</div></div>';
   }).join('');
+}
+var openCards = {};
+function summaryHtml(j, chip){
+  var price = j.invoice ? money(j.invoice.total) : (parseFloat(j.service_price) > 0 ? money(j.service_price) : '&mdash;');
+  var sub = [j.client_name, j.location].filter(Boolean).map(esc).join(' &middot; ');
+  return '<span class="sum-main"><span class="sum-line"><span class="job-num">' + esc(j.job_number || '') + '</span> <b>' + esc(j.title) + '</b></span>' +
+    (sub ? '<span class="sum-sub">' + sub + '</span>' : '') + '</span>' +
+    '<span class="sum-right">' + chip + '<span class="sum-price">' + price + '</span>' + (ready(j) ? '<span class="ready-dot" title="Ready to invoice"></span>' : '') + '<span class="chev">&#9662;</span></span>';
+}
+function refreshSummary(card, j){
+  var locked = !!j.invoice, pct = Math.round(parseFloat(j.progress_pct) || 0);
+  var chip = locked ? '<span class="chip chip-inv">Invoiced</span>' : j.is_done ? '<span class="chip chip-done">Finished</span>' : '<span class="chip chip-wip">' + pct + '% done</span>';
+  card.querySelector('.job-sum').innerHTML = summaryHtml(j, chip);
 }
 
 function jobById(id){ return jobs.find(function(j){ return j.id === id; }); }
@@ -172,11 +203,18 @@ document.getElementById('jobList').addEventListener('change', function(e){
       if(!res.ok){ alert(res.error || 'Could not save'); return; }
       j[k] = k === 'service_price' ? (el.value === '' ? null : parseFloat(el.value)) : el.value;
       var s = card.querySelector('.saved'); s.classList.add('on'); setTimeout(function(){ s.classList.remove('on'); }, 1200);
+      refreshSummary(card, j);
       if(k === 'service_price'){
         card.querySelector('.create').disabled = !ready(j);
         card.querySelector('.why').textContent = whyNot(j);
       }
     });
+});
+document.getElementById('jobList').addEventListener('click', function(e){
+  var sum = e.target.closest('.job-sum'); if(!sum) return;
+  var card = sum.closest('.job'), id = card.dataset.id;
+  openCards[id] = !openCards[id];
+  card.classList.toggle('open', openCards[id]); sum.setAttribute('aria-expanded', openCards[id] ? 'true' : 'false');
 });
 document.getElementById('jobList').addEventListener('input', function(e){
   if(e.target.dataset.k !== 'service_price') return;
@@ -212,6 +250,12 @@ document.getElementById('jobList').addEventListener('click', function(e){
   } else go();
 });
 
+document.getElementById('expAll').onclick = function(){
+  var list = jobs.filter(matches), anyClosed = list.some(function(j){ return !openCards[j.id]; });
+  list.forEach(function(j){ openCards[j.id] = anyClosed; });
+  this.textContent = anyClosed ? 'Collapse all' : 'Expand all';
+  renderJobs();
+};
 document.getElementById('filters').onclick = function(e){
   if(!e.target.dataset.f) return;
   filter = e.target.dataset.f;

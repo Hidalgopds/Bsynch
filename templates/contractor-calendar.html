@@ -104,6 +104,7 @@ var API = '/api/contractor/' + COMPANY + '/calendar';
 var cur = new Date(); cur.setDate(1);
 var data = {jobs: [], unscheduled: [], people: [], can_schedule: false};
 var selDay = null;
+var SLOT = {morning:['\ud83c\udf05','Morning'], afternoon:['\ud83c\udf07','Afternoon']};
 var COLORS = {open:['#dbeafe','#1d4ed8'], in_progress:['#fef3c7','#b45309'], completed:['#dcfce7','#15803d'], on_hold:['#f1f5f9','#64748b'], cancelled:['#f1f5f9','#64748b']};
 
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
@@ -129,7 +130,7 @@ function renderGrid(){
     var key = iso(d), list = jobsOn(key);
     html += '<div class="day' + (d.getMonth() !== cur.getMonth() ? ' out' : '') + (key === todayIso ? ' today' : '') + (key === selDay ? ' sel' : '') + '" data-day="' + key + '">' +
       '<span class="num">' + d.getDate() + '</span>' +
-      list.slice(0, 3).map(function(j){ var c = colorOf(j); return '<div class="ev" style="--bg:' + c[0] + ';--fg:' + c[1] + '" title="' + esc(j.title) + '">' + (j.scheduled_time ? esc(j.scheduled_time) + ' ' : '') + esc(j.title) + '</div>'; }).join('') +
+      list.slice(0, 3).map(function(j){ var c = colorOf(j); return '<div class="ev" style="--bg:' + c[0] + ';--fg:' + c[1] + '" title="' + esc(j.title) + '">' + (SLOT[j.time_slot] ? SLOT[j.time_slot][0] + ' ' : '') + (j.scheduled_time ? esc(j.scheduled_time) + ' ' : '') + esc(j.title) + '</div>'; }).join('') +
       (list.length > 3 ? '<div class="more">+' + (list.length - 3) + ' more</div>' : '') +
       '</div>';
   }
@@ -147,7 +148,7 @@ function renderDay(){
     var mats = (j.materials || []).length ? '<ul class="mats">' + j.materials.map(function(m){ return '<li>' + esc(m.qty || '') + ' ' + esc(m.unit && m.unit !== 'each' ? m.unit : '') + ' ' + esc(m.name) + '</li>'; }).join('') + '</ul>' : '';
     return '<div class="job" style="--bg:' + c[0] + ';--fg:' + c[1] + '">' +
       '<div class="job-top"><b>' + esc(j.title) + '</b><span class="chip">' + statusLabel(j) + '</span></div>' +
-      '<div class="meta">' + [j.scheduled_time ? '&#128339; ' + esc(j.scheduled_time) : '', j.client_name ? '&#128100; ' + esc(j.client_name) : '', j.location ? '&#128205; ' + esc(j.location) : '', j.assigned_to ? '&#128119; ' + esc(j.assigned_to) : '<i>Not assigned</i>'].filter(Boolean).join('<br>') + '</div>' +
+      '<div class="meta">' + [SLOT[j.time_slot] ? SLOT[j.time_slot][0] + ' ' + SLOT[j.time_slot][1] : '', j.scheduled_time ? '&#128339; ' + esc(j.scheduled_time) : '', j.client_name ? '&#128100; ' + esc(j.client_name) : '', j.location ? '&#128205; ' + esc(j.location) : '', j.assigned_to ? '&#128119; ' + esc(j.assigned_to) : '<i>Not assigned</i>'].filter(Boolean).join('<br>') + '</div>' +
       (j.description ? '<div class="desc">' + esc(j.description) + '</div>' : '') +
       (j.notes ? '<div class="desc"><b>Notes:</b> ' + esc(j.notes) + '</div>' : '') +
       (mats ? '<div class="mats"><b>Materials:</b>' + mats + '</div>' : '') +
@@ -169,7 +170,9 @@ function schedForm(j){
   return '<div class="sched-box" id="sb-' + esc(j.id) + '" data-id="' + esc(j.id) + '">' +
     '<div class="row2"><div class="field"><label>Date</label><input type="date" class="s-date" value="' + esc(j.scheduled_date || selDay) + '"></div>' +
     '<div class="field"><label>Until (optional)</label><input type="date" class="s-end" value="' + esc(j.scheduled_end || '') + '"></div></div>' +
-    '<div class="row2"><div class="field"><label>Time</label><input type="time" class="s-time" value="' + esc(j.scheduled_time || '') + '"></div>' +
+    '<div class="row2"><div class="field"><label>Time of day</label><select class="s-slot">' + [['','Any time'],['morning','Morning'],['afternoon','Afternoon']].map(function(o){ return '<option value="' + o[0] + '"' + ((j.time_slot || '') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>' +
+    '<div class="field"><label>Exact time (optional)</label><input type="time" class="s-time" value="' + esc(j.scheduled_time || '') + '"></div></div>' +
+    '<div class="row2">' +
     '<div class="field"><label>Assigned to</label><select class="s-who">' + peopleOptions(j.assigned_to) + '</select></div></div>' +
     '<div class="job-actions"><button class="btn s-save">Save</button><button class="btn alt s-clear">Remove from calendar</button></div><div class="msg"></div></div>';
 }
@@ -189,11 +192,12 @@ function renderUnscheduled(){
 
 function save(box, clear){
   var body = {job_id: box.dataset.id};
-  if(clear){ body.scheduled_date = null; body.scheduled_end = null; body.scheduled_time = ''; }
+  if(clear){ body.scheduled_date = null; body.scheduled_end = null; body.scheduled_time = ''; body.time_slot = ''; }
   else {
     body.scheduled_date = box.querySelector('.s-date').value || null;
     body.scheduled_end = box.querySelector('.s-end').value || null;
     body.scheduled_time = box.querySelector('.s-time').value || '';
+    body.time_slot = box.querySelector('.s-slot').value || '';
     body.assigned_to = box.querySelector('.s-who').value || '';
     if(!body.scheduled_date){ box.querySelector('.msg').textContent = 'Pick a date.'; return; }
   }

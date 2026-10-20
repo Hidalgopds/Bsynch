@@ -368,6 +368,8 @@ function renderList(jobs){
       '<div class="wo-card-meta">'+
         '<span class="status-badge s-'+j.status+'">'+statusLabel(j.status)+'</span>'+
         '<span class="priority-badge p-'+j.priority+'">'+ucfirst(j.priority)+'</span>'+
+        (j.time_slot?'<span class="wo-due">'+(j.time_slot==='morning'?'&#127749; Morning':'&#127751; Afternoon')+'</span>':'')+
+        (j.scheduled_date?'<span class="wo-due">&#128197; '+fmtDate(j.scheduled_date)+'</span>':'')+
         (j.due_date?'<span class="wo-due">Due '+fmtDate(j.due_date)+'</span>':'')+
         (proj?'<span class="wo-proj">&#128196; '+esc(proj.name)+'</span>':'')+
       '</div></div>';

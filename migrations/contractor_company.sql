@@ -228,3 +228,8 @@ create table if not exists contractor_expenses (
 create index if not exists contractor_expenses_company_idx on contractor_expenses (company, expense_date desc);
 create index if not exists contractor_expenses_job_idx     on contractor_expenses (job_id);
 alter table contractor_expenses enable row level security;
+
+-- Time of day for a job, and a billing address different from the job site
+alter table contractor_jobs     add column if not exists time_slot    text default '';
+alter table contractor_jobs     add column if not exists bill_address text default '';
+alter table contractor_invoices add column if not exists bill_address text default '';

@@ -6103,6 +6103,7 @@ def contractor_projects_page():
     return render_template("contractor-projects.html")
 
 CONTRACTOR_COMPANIES = {"hicons": "Hicons", "bsynch": "Bsynch"}
+CONTRACTOR_TIME_SLOTS = ["morning", "afternoon"]
 CONTRACTOR_ROLES = ["member", "lead", "admin"]
 CONTRACTOR_FEATURES = ["projects", "dashboard", "workorders", "invoicing", "company_settings"]
 CONTRACTOR_ROLE_LABELS = {"member": "User", "lead": "Leader", "admin": "Manager"}
@@ -7310,7 +7311,7 @@ def contractor_calendar(company):
     if not (1 <= m <= 12):
         return jsonify({"ok": False, "error": "bad month"}), 400
     first, last = f"{month}-01", f"{month}-{_cal.monthrange(y, m)[1]:02d}"
-    fields = ("id,job_number,title,description,notes,client_name,location,status,progress_pct,tracking,"
+    fields = ("id,job_number,title,description,notes,client_name,location,status,progress_pct,tracking,time_slot,"
               "assigned_to,created_by,scheduled_date,scheduled_end,scheduled_time,invoice_id")
     member = _ct_is_member_only(me)
     mf = _ct_member_filter(me["name"]) if member else ""
@@ -7360,6 +7361,10 @@ def contractor_schedule_job(company):
             payload[k] = v
     if payload.get("scheduled_end") and payload.get("scheduled_date") and payload["scheduled_end"] < payload["scheduled_date"]:
         return jsonify({"ok": False, "error": "The end date is before the start date"}), 400
+    if "time_slot" in data:
+        if data.get("time_slot") not in CONTRACTOR_TIME_SLOTS + ["", None]:
+            return jsonify({"ok": False, "error": "time_slot must be morning or afternoon"}), 400
+        payload["time_slot"] = data.get("time_slot") or ""
     if "scheduled_time" in data:
         payload["scheduled_time"] = str(data.get("scheduled_time") or "")[:20]
     if "assigned_to" in data:
@@ -7375,7 +7380,7 @@ def contractor_schedule_job(company):
     )
     if not (r.ok and r.json()):
         return jsonify({"ok": False, "error": "Job not found"}), 404
-    return jsonify({"ok": True, "job": {k: r.json()[0].get(k) for k in ("id", "scheduled_date", "scheduled_end", "scheduled_time", "assigned_to")}})
+    return jsonify({"ok": True, "job": {k: r.json()[0].get(k) for k in ("id", "scheduled_date", "scheduled_end", "scheduled_time", "time_slot", "assigned_to")}})
 
 
 CONTRACTOR_RECEIPT_MODEL = os.environ.get("CONTRACTOR_RECEIPT_MODEL", "claude-opus-5-5")
@@ -7413,8 +7418,9 @@ _WO_SCHEMA = {
                            "unit": {"type": "string", "enum": CONTRACTOR_UNITS}},
             "required": ["name", "qty", "unit"], "additionalProperties": False}},
         "date": {"type": "string", "description": "Day the job should be done as YYYY-MM-DD, empty if not said"},
+        "time_slot": {"type": "string", "enum": ["", "morning", "afternoon"], "description": "morning or afternoon if said, else empty"},
     },
-    "required": ["title", "description", "client_name", "location", "client_email", "priority", "mode", "steps", "materials", "date"],
+    "required": ["title", "description", "client_name", "location", "client_email", "priority", "mode", "steps", "materials", "date", "time_slot"],
     "additionalProperties": False,
 }
 
@@ -7475,6 +7481,7 @@ def contractor_wo_from_text():
         "steps": [str(x).strip()[:80] for x in (d.get("steps") or []) if str(x).strip()][:10],
         "materials": mats,
         "date": d["date"] if re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(d.get("date") or "")) else "",
+        "time_slot": d.get("time_slot") if d.get("time_slot") in CONTRACTOR_TIME_SLOTS else "",
     })
 
 
@@ -7573,7 +7580,7 @@ def contractor_invoicing_jobs(company):
     r = requests.get(
         f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?company=eq.{company}"
         f"&select=id,job_number,title,description,client_name,location,status,progress_pct,completed_date,"
-        f"customer_id,invoice_description,service_price,invoice_id,project_id,created_at,client_email,tracking"
+        f"customer_id,invoice_description,service_price,invoice_id,project_id,created_at,client_email,tracking,bill_address"
         f"&order=created_at.desc&limit=500",
         headers=sb_headers(), timeout=10
     )
@@ -7611,7 +7618,7 @@ def contractor_invoicing_update_job(company, job_id):
     payload = {}
     if "client_email" in data and data["client_email"] and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", str(data["client_email"]).strip()):
         return jsonify({"ok": False, "error": "Enter a valid client email"}), 400
-    for k, n in (("client_name", 160), ("location", 200), ("customer_id", 60), ("invoice_description", 2000), ("client_email", 160)):
+    for k, n in (("client_name", 160), ("location", 200), ("customer_id", 60), ("invoice_description", 2000), ("client_email", 160), ("bill_address", 300)):
         if k in data:
             payload[k] = str(data.get(k) or "").strip()[:n]
     if "service_price" in data:
@@ -7694,7 +7701,8 @@ def contractor_create_invoice(company):
     row = {
         "company": company, "seq": seq, "invoice_number": f"{profile.get('invoice_prefix') or ''}{seq:06d}",
         "job_id": job_id, "bill_to": job.get("client_name") or "", "customer_id": job.get("customer_id") or "",
-        "job_site": job.get("location") or "", "invoice_date": dt.date.today().isoformat(),
+        "job_site": job.get("location") or "", "bill_address": job.get("bill_address") or "",
+        "invoice_date": dt.date.today().isoformat(),
         "payment_terms": profile.get("payment_terms") or "", "items": items, "subtotal": subtotal, "total": subtotal,
         "company_snapshot": snapshot, "created_by": me["name"][:80],
     }
@@ -7746,7 +7754,7 @@ def _ct_invoice_email_html(inv, message, link):
   <div style="border:1px solid #e5e7eb;border-top:none;padding:22px;border-radius:0 0 8px 8px">
     <p style="font-size:14px;line-height:1.6">{msg}</p>
     <table style="width:100%;font-size:13px;margin:14px 0"><tr>
-      <td><b>Bill to:</b> {_html_escape(inv.get('bill_to'))}<br><b>Job site:</b> {_html_escape(inv.get('job_site'))}</td>
+      <td><b>Bill to:</b> {_html_escape(inv.get('bill_to'))}{('<br>' + _html_escape(inv.get('bill_address')).replace(chr(10), '<br>')) if inv.get('bill_address') else ''}<br><b>Job site:</b> {_html_escape(inv.get('job_site'))}</td>
       <td style="text-align:right"><b>Date:</b> {_html_escape(inv.get('invoice_date'))}<br><b>Terms:</b> {_html_escape(inv.get('payment_terms'))}</td>
     </tr></table>
     <table style="width:100%;border-collapse:collapse;font-size:13px">
@@ -7806,7 +7814,7 @@ def contractor_public_invoice(token):
     if not re.fullmatch(r"[A-Za-z0-9_-]{20,64}", token):
         return jsonify({"ok": False, "error": "not found"}), 404
     r = requests.get(f"{sb_url()}/rest/v1/contractor_invoices?public_token=eq.{token}"
-                     f"&select=invoice_number,bill_to,customer_id,job_site,invoice_date,payment_terms,items,subtotal,total,company_snapshot&limit=1",
+                     f"&select=invoice_number,bill_to,bill_address,customer_id,job_site,invoice_date,payment_terms,items,subtotal,total,company_snapshot&limit=1",
                      headers=sb_headers(), timeout=8)
     inv = r.json()[0] if r.ok and r.json() else None
     if not inv:
@@ -7880,6 +7888,7 @@ def create_contractor_job():
         "notes":        data.get("notes", ""),
         "created_by":   _contractor_caller()["name"] or data.get("created_by", ""),
         "client_email": str(data.get("client_email") or "").strip()[:160],
+        "time_slot":    data.get("time_slot") if data.get("time_slot") in CONTRACTOR_TIME_SLOTS else "",
         "project_id":   (data.get("project_id") or None) if not _ct_is_member_only(_contractor_caller()) else None,
         "tracking":     data.get("tracking") if data.get("tracking") in ("percent", "check", "simple") else "percent",
     }
@@ -7940,9 +7949,11 @@ def update_contractor_job(job_id):
     allowed = [
         "title", "description", "client_name", "location", "status",
         "priority", "crew", "start_date", "due_date", "completed_date",
-        "notes", "tracking", "progress_pct", "client_email"
+        "notes", "tracking", "progress_pct", "client_email", "time_slot"
     ]
     payload = {k: data[k] for k in allowed if k in data}
+    if "time_slot" in payload and payload["time_slot"] not in CONTRACTOR_TIME_SLOTS + [""]:
+        return jsonify({"ok": False, "error": "time_slot must be morning or afternoon"}), 400
     if "tracking" in payload and payload["tracking"] not in ("percent", "check", "simple"):
         return jsonify({"ok": False, "error": "tracking must be percent, check or simple"}), 400
     if "progress_pct" in payload:
