@@ -59,6 +59,26 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;background:#19
 .msg{font-size:12px;margin-top:6px;min-height:14px;}
 .sched-box{display:none;margin-top:10px;padding-top:10px;border-top:1px dashed #cbd5e1;}
 .sched-box.open{display:block;}
+.day-top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:2px;}
+.load{font-size:10px;font-weight:700;padding:1px 6px;border-radius:20px;background:#e3f3ef;color:#0f766e;white-space:nowrap;}
+.load.over{background:#fee2e2;color:#b91c1c;}
+@media(max-width:600px){.load{font-size:9px;padding:0 4px;}.day-top{justify-content:flex-start;}}
+.cap-row{padding:9px 0;border-bottom:1px solid #edf1f5;}
+.cap-row:last-child{border-bottom:none;}
+.cap-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:13px;margin-bottom:5px;}
+.cap-head b{font-weight:700;}
+.cap-free{font-size:12px;font-weight:700;color:#0f766e;white-space:nowrap;}
+.cap-free.over{color:#b91c1c;}
+.cap-free.full{color:#b45309;}
+.cap-bars{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.cap-bar{font-size:11px;color:#64748b;}
+.cap-track{height:7px;border-radius:5px;background:#edf1f5;overflow:hidden;margin-top:3px;}
+.cap-fill{height:100%;background:#1e9484;border-radius:5px;}
+.cap-fill.over{background:#dc2626;}
+.cap-note{font-size:11px;color:#94a3b8;margin-top:8px;}
+.s-free{font-size:12px;color:#0f766e;background:#f0faf7;border-radius:8px;padding:6px 9px;margin-bottom:8px;}
+.s-free.warn{color:#b91c1c;background:#fef2f2;}
+.s-free:empty{display:none;}
 footer{text-align:center;padding:16px;font-size:12px;color:#94a3b8;}
 </style>
 </head>
@@ -89,6 +109,11 @@ footer{text-align:center;padding:16px;font-size:12px;color:#94a3b8;}
       <div id="dayJobs"><div class="empty">Tap a day to see its jobs.</div></div>
       <div id="dayActions" style="display:none;" class="job-actions"></div>
     </div>
+    <div class="card" id="capCard" style="display:none;">
+      <h3>&#9201; Hours available</h3>
+      <div id="capList"></div>
+      <div class="cap-note" id="capNote"></div>
+    </div>
     <div class="card" id="unschedCard" style="display:none;">
       <h3>Not scheduled yet</h3>
       <div id="unsched"></div>
@@ -116,6 +141,34 @@ function statusLabel(j){ return (parseFloat(j.progress_pct || 0) >= 100 || j.sta
 function jobsOn(day){
   return data.jobs.filter(function(j){ var s = j.scheduled_date, e = j.scheduled_end || j.scheduled_date; return s && s <= day && day <= e; });
 }
+function capOf(){ var c = data.capacity || {}; return {m: parseFloat(c.morning == null ? 4 : c.morning) || 0, a: parseFloat(c.afternoon == null ? 4 : c.afternoon) || 0}; }
+function fh(h){ h = Math.round((h || 0) * 100) / 100; return h + 'h'; }
+// Hours a job takes on one day: multi-day jobs spread their hours evenly.
+function hoursOnDay(j){
+  var h = parseFloat(j.est_hours) || 0; if(!h) return 0;
+  var s = new Date(j.scheduled_date + 'T12:00:00'), e = new Date((j.scheduled_end || j.scheduled_date) + 'T12:00:00');
+  return h / Math.max(1, Math.round((e - s) / 864e5) + 1);
+}
+// Booked hours per person on a day. Morning overflow spills into the afternoon; "any time" fills the free space, morning first.
+function loadOn(day, skipId){
+  var per = {}, cap = capOf();
+  jobsOn(day).forEach(function(j){
+    if(j.status === 'cancelled' || j.id === skipId) return;
+    var p = per[j.assigned_to || ''] || (per[j.assigned_to || ''] = {m: 0, a: 0, x: 0, n: 0});
+    var h = hoursOnDay(j); p.n++;
+    if(j.time_slot === 'morning') p.m += h; else if(j.time_slot === 'afternoon') p.a += h; else p.x += h;
+  });
+  Object.keys(per).forEach(function(k){
+    var p = per[k], m = p.m, a = p.a, x = p.x;
+    if(m > cap.m){ a += m - cap.m; m = cap.m; }
+    var fill = Math.min(x, Math.max(0, cap.m - m)); m += fill; a += x - fill;
+    p.mUsed = m; p.aUsed = a; p.total = p.m + p.a + p.x;
+    p.freeM = Math.max(0, cap.m - m); p.freeA = Math.max(0, cap.a - a);
+    p.free = p.freeM + p.freeA; p.over = Math.max(0, a - cap.a);
+  });
+  return per;
+}
+function emptyLoad(){ var c = capOf(); return {m: 0, a: 0, x: 0, n: 0, mUsed: 0, aUsed: 0, total: 0, freeM: c.m, freeA: c.a, free: c.m + c.a, over: 0}; }
 function jobUrl(id){ return '/contractor/projects?company=' + encodeURIComponent(COMPANY) + '&job=' + encodeURIComponent(id); }
 
 function renderGrid(){
@@ -127,9 +180,10 @@ function renderGrid(){
   for(var i = 0; i < 42; i++){
     var d = new Date(start); d.setDate(start.getDate() + i);
     if(i >= 35 && d.getMonth() !== cur.getMonth()) break;
-    var key = iso(d), list = jobsOn(key);
+    var key = iso(d), list = jobsOn(key), ld = loadOn(key), booked = 0, over = false;
+    Object.keys(ld).forEach(function(k){ booked += ld[k].total; if(k && ld[k].over > 0) over = true; });
     html += '<div class="day' + (d.getMonth() !== cur.getMonth() ? ' out' : '') + (key === todayIso ? ' today' : '') + (key === selDay ? ' sel' : '') + '" data-day="' + key + '">' +
-      '<span class="num">' + d.getDate() + '</span>' +
+      '<div class="day-top"><span class="num">' + d.getDate() + '</span>' + (booked ? '<span class="load' + (over ? ' over' : '') + '" title="' + fh(booked) + ' booked">' + (booked >= 10 ? Math.round(booked) + 'h' : fh(booked)) + '</span>' : '') + '</div>' +
       list.slice(0, 3).map(function(j){ var c = colorOf(j); return '<div class="ev" style="--bg:' + c[0] + ';--fg:' + c[1] + '" title="' + esc(j.title) + '">' + (SLOT[j.time_slot] ? SLOT[j.time_slot][0] + ' ' : '') + (j.scheduled_time ? esc(j.scheduled_time) + ' ' : '') + esc(j.title) + '</div>'; }).join('') +
       (list.length > 3 ? '<div class="more">+' + (list.length - 3) + ' more</div>' : '') +
       '</div>';
@@ -148,7 +202,7 @@ function renderDay(){
     var mats = (j.materials || []).length ? '<ul class="mats">' + j.materials.map(function(m){ return '<li>' + esc(m.qty || '') + ' ' + esc(m.unit && m.unit !== 'each' ? m.unit : '') + ' ' + esc(m.name) + '</li>'; }).join('') + '</ul>' : '';
     return '<div class="job" style="--bg:' + c[0] + ';--fg:' + c[1] + '">' +
       '<div class="job-top"><b>' + esc(j.title) + '</b><span class="chip">' + statusLabel(j) + '</span></div>' +
-      '<div class="meta">' + [SLOT[j.time_slot] ? SLOT[j.time_slot][0] + ' ' + SLOT[j.time_slot][1] : '', j.scheduled_time ? '&#128339; ' + esc(j.scheduled_time) : '', j.client_name ? '&#128100; ' + esc(j.client_name) : '', j.location ? '&#128205; ' + esc(j.location) : '', j.assigned_to ? '&#128119; ' + esc(j.assigned_to) : '<i>Not assigned</i>'].filter(Boolean).join('<br>') + '</div>' +
+      '<div class="meta">' + [SLOT[j.time_slot] ? SLOT[j.time_slot][0] + ' ' + SLOT[j.time_slot][1] : '', parseFloat(j.est_hours) ? '&#9201; ' + fh(parseFloat(j.est_hours)) + (j.scheduled_end && j.scheduled_end !== j.scheduled_date ? ' total (' + fh(hoursOnDay(j)) + ' this day)' : '') : '', j.scheduled_time ? '&#128339; ' + esc(j.scheduled_time) : '', j.client_name ? '&#128100; ' + esc(j.client_name) : '', j.location ? '&#128205; ' + esc(j.location) : '', j.assigned_to ? '&#128119; ' + esc(j.assigned_to) : '<i>Not assigned</i>'].filter(Boolean).join('<br>') + '</div>' +
       (j.description ? '<div class="desc">' + esc(j.description) + '</div>' : '') +
       (j.notes ? '<div class="desc"><b>Notes:</b> ' + esc(j.notes) + '</div>' : '') +
       (mats ? '<div class="mats"><b>Materials:</b>' + mats + '</div>' : '') +
@@ -157,12 +211,51 @@ function renderDay(){
       (data.can_schedule ? schedForm(j) : '') +
     '</div>';
   }).join('') : '<div class="empty">No jobs this day.</div>';
+  renderCapacity();
   if(data.can_schedule){
     acts.style.display = '';
     acts.innerHTML = '<a class="btn" href="/contractor/projects?company=' + encodeURIComponent(COMPANY) + '&new=1&date=' + selDay + '">+ New work order this day</a>';
   }
 }
 
+function capBar(icon, used, cap){
+  var pct = cap ? Math.min(100, used / cap * 100) : (used ? 100 : 0);
+  return '<div class="cap-bar">' + icon + ' ' + fh(used) + ' / ' + fh(cap) + '<div class="cap-track"><div class="cap-fill' + (used > cap ? ' over' : '') + '" style="width:' + pct + '%"></div></div></div>';
+}
+function renderCapacity(){
+  var card = document.getElementById('capCard');
+  if(!selDay){ card.style.display = 'none'; return; }
+  var ld = loadOn(selDay), cap = capOf();
+  var names = data.can_schedule ? (data.people || []).slice() : [CT.user];
+  Object.keys(ld).forEach(function(k){ if(k && names.indexOf(k) < 0 && (data.can_schedule || k === CT.user)) names.push(k); });
+  names.sort(function(x, y){ return ((ld[y] || {}).n || 0) - ((ld[x] || {}).n || 0) || x.localeCompare(y); });
+  var html = names.map(function(n){
+    var p = ld[n] || emptyLoad();
+    var cls = p.over > 0 ? ' over' : (p.free <= 0 ? ' full' : '');
+    var txt = p.over > 0 ? fh(p.over) + ' over' : (p.free <= 0 ? 'Full' : fh(p.free) + ' free');
+    return '<div class="cap-row"><div class="cap-head"><b>' + esc(n) + '</b><span class="cap-free' + cls + '">' + txt + '</span></div>' +
+      '<div class="cap-bars">' + capBar('\ud83c\udf05', p.mUsed, cap.m) + capBar('\ud83c\udf07', p.aUsed, cap.a) + '</div></div>';
+  }).join('');
+  var un = ld[''];
+  if(un && data.can_schedule) html += '<div class="cap-row"><div class="cap-head"><b><i>Not assigned</i></b><span class="cap-free full">' + fh(un.total) + ' to assign</span></div></div>';
+  card.style.display = '';
+  document.getElementById('capList').innerHTML = html || '<div class="empty">Nobody in this company yet.</div>';
+  var noHours = jobsOn(selDay).filter(function(j){ return !(parseFloat(j.est_hours) > 0) && j.status !== 'cancelled'; }).length;
+  document.getElementById('capNote').textContent = 'Workday: ' + fh(cap.m) + ' morning + ' + fh(cap.a) + ' afternoon per person.' +
+    (noHours ? ' ' + noHours + ' job' + (noHours > 1 ? 's' : '') + ' this day ' + (noHours > 1 ? 'have' : 'has') + ' no hours yet.' : '');
+}
+function freeHint(box){
+  var el = box.querySelector('.s-free'); if(!el) return;
+  var day = box.querySelector('.s-date').value, who = box.querySelector('.s-who').value, slot = box.querySelector('.s-slot').value;
+  var need = parseFloat(box.querySelector('.s-hours').value) || 0;
+  if(!day || !who){ el.textContent = ''; el.classList.remove('warn'); return; }
+  var p = loadOn(day, box.dataset.id)[who] || emptyLoad();
+  var free = slot === 'morning' ? p.freeM : slot === 'afternoon' ? p.freeA : p.free;
+  var where = slot === 'morning' ? ' in the morning' : slot === 'afternoon' ? ' in the afternoon' : '';
+  var monthOk = day.slice(0, 7) === monthKey();
+  el.classList.toggle('warn', monthOk && need > free);
+  el.textContent = !monthOk ? '' : (monthOk && need > free ? '\u26a0\ufe0f ' : '') + who + ' has ' + fh(free) + ' free' + where + ' that day' + (need > free ? ' (this job needs ' + fh(need) + ')' : '') + '.';
+}
 function peopleOptions(sel){
   return '<option value="">— Not assigned —</option>' + data.people.map(function(p){ return '<option' + (p === sel ? ' selected' : '') + '>' + esc(p) + '</option>'; }).join('');
 }
@@ -173,7 +266,9 @@ function schedForm(j){
     '<div class="row2"><div class="field"><label>Time of day</label><select class="s-slot">' + [['','Any time'],['morning','Morning'],['afternoon','Afternoon']].map(function(o){ return '<option value="' + o[0] + '"' + ((j.time_slot || '') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>' +
     '<div class="field"><label>Exact time (optional)</label><input type="time" class="s-time" value="' + esc(j.scheduled_time || '') + '"></div></div>' +
     '<div class="row2">' +
-    '<div class="field"><label>Assigned to</label><select class="s-who">' + peopleOptions(j.assigned_to) + '</select></div></div>' +
+    '<div class="field"><label>Assigned to</label><select class="s-who">' + peopleOptions(j.assigned_to) + '</select></div>' +
+    '<div class="field"><label>Hours it takes</label><input type="number" class="s-hours" min="0" max="200" step="0.5" value="' + (parseFloat(j.est_hours) || '') + '" placeholder="e.g. 3"></div></div>' +
+    '<div class="s-free"></div>' +
     '<div class="job-actions"><button class="btn s-save">Save</button><button class="btn alt s-clear">Remove from calendar</button></div><div class="msg"></div></div>';
 }
 
@@ -184,7 +279,7 @@ function renderUnscheduled(){
   var list = data.unscheduled || [];
   document.getElementById('unsched').innerHTML = list.length ? list.map(function(j){
     return '<div class="job" style="--fg:#94a3b8"><div class="job-top"><b>' + esc(j.title) + '</b></div>' +
-      '<div class="meta">' + [j.client_name, j.location].filter(Boolean).map(esc).join(' · ') + '</div>' +
+      '<div class="meta">' + [j.client_name, j.location].filter(Boolean).map(esc).concat(parseFloat(j.est_hours) ? ['&#9201; ' + fh(parseFloat(j.est_hours))] : []).join(' · ') + '</div>' +
       '<div class="job-actions"><button class="btn" data-plan="' + esc(j.id) + '">Schedule' + (selDay ? ' on ' + selDay : '') + '</button></div>' +
       schedForm(j) + '</div>';
   }).join('') : '<div class="empty">Every open job has a date. &#10003;</div>';
@@ -199,6 +294,7 @@ function save(box, clear){
     body.scheduled_time = box.querySelector('.s-time').value || '';
     body.time_slot = box.querySelector('.s-slot').value || '';
     body.assigned_to = box.querySelector('.s-who').value || '';
+    body.est_hours = parseFloat(box.querySelector('.s-hours').value) || 0;
     if(!body.scheduled_date){ box.querySelector('.msg').textContent = 'Pick a date.'; return; }
   }
   fetch(API + '/schedule', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)})
@@ -213,10 +309,13 @@ function save(box, clear){
 document.addEventListener('click', function(e){
   var t = e.target, day = t.closest('.day');
   if(day){ selDay = day.dataset.day; renderGrid(); renderDay(); renderUnscheduled(); if(window.innerWidth < 900) document.getElementById('dayTitle').scrollIntoView({behavior:'smooth'}); return; }
-  if(t.dataset.edit){ document.getElementById('sb-' + t.dataset.edit).classList.toggle('open'); return; }
-  if(t.dataset.plan){ var b = t.closest('.job').querySelector('.sched-box'); b.classList.toggle('open'); if(selDay) b.querySelector('.s-date').value = selDay; return; }
+  if(t.dataset.edit){ var eb = document.getElementById('sb-' + t.dataset.edit); eb.classList.toggle('open'); freeHint(eb); return; }
+  if(t.dataset.plan){ var b = t.closest('.job').querySelector('.sched-box'); b.classList.toggle('open'); if(selDay) b.querySelector('.s-date').value = selDay; freeHint(b); return; }
   if(t.classList.contains('s-save')) save(t.closest('.sched-box'), false);
   if(t.classList.contains('s-clear') && confirm('Remove this job from the calendar?')) save(t.closest('.sched-box'), true);
+});
+['input', 'change'].forEach(function(ev){
+  document.addEventListener(ev, function(e){ var b = e.target.closest && e.target.closest('.sched-box'); if(b) freeHint(b); });
 });
 document.getElementById('prev').onclick = function(){ cur.setMonth(cur.getMonth() - 1); load(); };
 document.getElementById('next').onclick = function(){ cur.setMonth(cur.getMonth() + 1); load(); };

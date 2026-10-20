@@ -207,6 +207,8 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
 .slot-pick{display:flex;gap:6px;flex-wrap:wrap;}
 .slot-btn{flex:1;min-width:90px;padding:9px 10px;border-radius:9px;border:1px solid #cbd5e1;background:#fff;color:#475569;font-size:13px;font-weight:600;cursor:pointer;}
 .slot-btn.on{border-color:#1e9484;background:#e3f3ef;color:#0f766e;}
+.hrs-pick .slot-btn{min-width:60px;}
+.hrs-in{width:86px;flex:0 0 86px;padding:9px 10px;border-radius:9px;border:1px solid #cbd5e1;font-size:13px;}
 .steps-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
 .steps-header h4{font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;}
 .btn-add-step{padding:5px 12px;background:rgba(30,148,132,.12);border:1px solid #1e9484;border-radius:7px;color:#1e9484;font-size:12px;cursor:pointer;}
@@ -468,6 +470,15 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
           <button type="button" class="slot-btn on" data-slot="">Any time</button>
           <button type="button" class="slot-btn" data-slot="morning">&#127749; Morning</button>
           <button type="button" class="slot-btn" data-slot="afternoon">&#127751; Afternoon</button>
+        </div>
+      </div>
+      <div class="form-group"><label>How long will it take? (hours)</label>
+        <div class="slot-pick hrs-pick" id="woHoursPick">
+          <button type="button" class="slot-btn" data-h="1">1h</button>
+          <button type="button" class="slot-btn" data-h="2">2h</button>
+          <button type="button" class="slot-btn" data-h="4">4h &middot; half day</button>
+          <button type="button" class="slot-btn" data-h="8">8h &middot; full day</button>
+          <input id="woHours" type="number" min="0" max="200" step="0.5" placeholder="Other" class="hrs-in" aria-label="Estimated hours">
         </div>
       </div>
     </div>
@@ -761,7 +772,7 @@ function addNewStep(){
 
 // ── Info tab ──
 function renderInfoTab(j){
-  var sched=(j.scheduled_date?(j.scheduled_date+(j.scheduled_end&&j.scheduled_end!==j.scheduled_date?' → '+j.scheduled_end:'')+(j.scheduled_time?' · '+j.scheduled_time:'')):'Not scheduled')+(j.time_slot?' · '+SLOT_LABEL[j.time_slot]:'');
+  var sched=(j.scheduled_date?(j.scheduled_date+(j.scheduled_end&&j.scheduled_end!==j.scheduled_date?' → '+j.scheduled_end:'')+(j.scheduled_time?' · '+j.scheduled_time:'')):'Not scheduled')+(j.time_slot?' · '+SLOT_LABEL[j.time_slot]:'')+(parseFloat(j.est_hours)?' · \u23f1 '+fmtHours(j.est_hours):'');
   var schedRow='<div class="field-row"><div class="field-label">Calendar</div><div class="field-value">&#128197; '+esc(sched)+(j.assigned_to?' &middot; &#128119; '+esc(j.assigned_to):'')
     +(window._memberOnly?'':' &nbsp;<a href="/contractor/'+encodeURIComponent(CT.company||'')+'/calendar" style="color:#0f766e;font-weight:600;">Open calendar</a>')+'</div></div>';
   var mgr=!!window._isManager;
@@ -789,6 +800,7 @@ function renderInfoTab(j){
       +'<label class="mat-lbl">Client email<input class="editable-input" id="editEmail" type="email" value="'+esc(j.client_email||'')+'"></label>'
       +'<label class="mat-lbl">Priority<select class="editable-input" id="editPriority">'+pr.map(x=>'<option value="'+x+'"'+((j.priority||'normal')===x?' selected':'')+'>'+ucfirst(x)+'</option>').join('')+'</select></label>'
       +'<label class="mat-lbl">Time of day<select class="editable-input" id="editSlot">'+[['','Any time'],['morning','Morning'],['afternoon','Afternoon']].map(o=>'<option value="'+o[0]+'"'+((j.time_slot||'')===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+'</select></label>'
+      +'<label class="mat-lbl">Hours it takes<input class="editable-input" id="editHours" type="number" min="0" max="200" step="0.5" value="'+(parseFloat(j.est_hours)||'')+'"></label>'
       +'<label class="mat-lbl">Start date<input class="editable-input" id="editStart" type="date" value="'+(j.start_date||'')+'"></label>'
       +'<label class="mat-lbl">Due date<input class="editable-input" id="editDue" type="date" value="'+(j.due_date||'')+'"></label>'
       +'</div>'
@@ -806,7 +818,7 @@ function saveEdits(){
   if(!title){alert('The title can\'t be empty');return;}
   var p={title:title,description:document.getElementById('editDesc').value.trim(),client_name:document.getElementById('editClient').value.trim(),
     location:document.getElementById('editSite').value.trim(),client_email:document.getElementById('editEmail').value.trim(),
-    priority:document.getElementById('editPriority').value,time_slot:document.getElementById('editSlot').value,start_date:document.getElementById('editStart').value||null,
+    priority:document.getElementById('editPriority').value,time_slot:document.getElementById('editSlot').value,est_hours:parseFloat(document.getElementById('editHours').value)||0,start_date:document.getElementById('editStart').value||null,
     due_date:document.getElementById('editDue').value||null,notes:document.getElementById('editNotes').value.trim()};
   fetch('/api/contractor/jobs/'+openJobId,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)}).then(r=>r.json()).then(res=>{
     if(!res.ok){alert(res.error||'Could not save');return;}
@@ -887,7 +899,7 @@ function openWoModal(projectId){
   if(projectId===undefined) projectId=openProjId;
   if(projectId===NO_PROJECT) projectId=null;
   woForProjectId=projectId||null;
-  woBefore=[];renderWoBefore();setWoMode('simple');setWoSlot('');resetDictation();
+  woBefore=[];renderWoBefore();setWoMode('simple');setWoSlot('');setWoHours(0);resetDictation();
   var qd=new URLSearchParams(location.search).get('date');window._woSchedDate=/^\d{4}-\d{2}-\d{2}$/.test(qd||'')?qd:null;
   var proj=allProjects.find(p=>p.id===projectId);
   document.getElementById('woClient').value=proj&&proj.client_name?proj.client_name:'';
@@ -899,6 +911,10 @@ var woMode='simple', woBefore=[], woSlot='';
 var SLOT_LABEL={morning:'\ud83c\udf05 Morning',afternoon:'\ud83c\udf07 Afternoon'};
 function setWoSlot(v){woSlot=v||'';document.querySelectorAll('#woSlotPick .slot-btn').forEach(b=>b.classList.toggle('on',b.dataset.slot===woSlot));}
 document.getElementById('woSlotPick').addEventListener('click',function(e){var b=e.target.closest('.slot-btn');if(b)setWoSlot(b.dataset.slot);});
+function fmtHours(h){h=parseFloat(h)||0;return h?(+h.toFixed(2))+'h':'';}
+function setWoHours(h){h=parseFloat(h)||0;document.getElementById('woHours').value=h||'';document.querySelectorAll('#woHoursPick .slot-btn').forEach(b=>b.classList.toggle('on',parseFloat(b.dataset.h)===h));}
+document.getElementById('woHoursPick').addEventListener('click',function(e){var b=e.target.closest('.slot-btn');if(b)setWoHours(b.classList.contains('on')?0:b.dataset.h);});
+document.getElementById('woHours').addEventListener('input',function(){setWoHours(this.value);});
 function setWoMode(m){
   woMode=m;
   document.querySelectorAll('#woModePick .mode-btn').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));
@@ -940,7 +956,7 @@ function submitWo(){
   else if(!stepNames.length) stepNames.push(title);
   var btn=document.querySelector('#woModal .btn-submit');
   if(btn){btn.disabled=true;btn.textContent='Creating...';}
-  fetch('/api/contractor/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:title,description:document.getElementById('woDesc').value.trim(),priority:document.getElementById('woPriority').value,status:document.getElementById('woStatus').value,start_date:document.getElementById('woStart').value||null,due_date:document.getElementById('woDue').value||null,created_by:userName,project_id:woForProjectId,client_name:document.getElementById('woClient').value.trim(),location:document.getElementById('woSite').value.trim(),client_email:document.getElementById('woClientEmail').value.trim(),time_slot:woSlot,tracking:mode,scheduled_date:window._woSchedDate||null,lat:(window.CT&&CT.lastPos)?CT.lastPos.lat:null,lng:(window.CT&&CT.lastPos)?CT.lastPos.lng:null})})
+  fetch('/api/contractor/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:title,description:document.getElementById('woDesc').value.trim(),priority:document.getElementById('woPriority').value,status:document.getElementById('woStatus').value,start_date:document.getElementById('woStart').value||null,due_date:document.getElementById('woDue').value||null,created_by:userName,project_id:woForProjectId,client_name:document.getElementById('woClient').value.trim(),location:document.getElementById('woSite').value.trim(),client_email:document.getElementById('woClientEmail').value.trim(),time_slot:woSlot,est_hours:parseFloat(document.getElementById('woHours').value)||0,tracking:mode,scheduled_date:window._woSchedDate||null,lat:(window.CT&&CT.lastPos)?CT.lastPos.lat:null,lng:(window.CT&&CT.lastPos)?CT.lastPos.lng:null})})
     .then(r=>r.json()).then(function(res){
       if(!res.ok){alert('Error creating work order: '+(res.error||'unknown'));return;}
       if(!res.job||!res.job.id){

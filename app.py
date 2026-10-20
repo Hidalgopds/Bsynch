@@ -6104,6 +6104,17 @@ def contractor_projects_page():
 
 CONTRACTOR_COMPANIES = {"hicons": "Hicons", "bsynch": "Bsynch"}
 CONTRACTOR_TIME_SLOTS = ["morning", "afternoon"]
+
+
+def _ct_hours(v):
+    """Estimated hours for a job: 0-200, rounded to the quarter hour. None when not a number."""
+    try:
+        h = float(v or 0)
+    except (TypeError, ValueError):
+        return None
+    if h != h or h < 0 or h > 200:
+        return None
+    return round(h * 4) / 4
 CONTRACTOR_ROLES = ["member", "lead", "admin"]
 CONTRACTOR_FEATURES = ["projects", "dashboard", "workorders", "invoicing", "company_settings"]
 CONTRACTOR_ROLE_LABELS = {"member": "User", "lead": "Leader", "admin": "Manager"}
@@ -6506,7 +6517,8 @@ _IMG_DATA = re.compile(r"data:image/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+")
 def _ct_profile(company):
     p = {"display_name": CONTRACTOR_COMPANIES.get(company, ""), "invoice_prefix": company[:1].upper(),
          "invoice_next": 1000, "payment_terms": "Due on receipt", "footer_note": "Thank you for your business!",
-         "brand_primary": "#0d1b36", "brand_accent": "#e8a317", "emails": []}
+         "brand_primary": "#0d1b36", "brand_accent": "#e8a317", "emails": [],
+         "hours_morning": 4, "hours_afternoon": 4}
     p.update(_ct_config(f"contractor_company_{company}", {}) or {})
     if not p.get("emails") and p.get("email"):
         p["emails"] = [p["email"]]
@@ -6536,6 +6548,12 @@ def contractor_company_profile(company):
         if isinstance(emails, str):
             emails = re.split(r"[,;\s]+", emails)
         out["emails"] = [e.strip().lower() for e in emails if re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", str(e).strip())][:10]
+    for k in ("hours_morning", "hours_afternoon"):
+        if k in data:
+            h = _ct_hours(data.get(k))
+            if h is None or h > 12:
+                return jsonify({"ok": False, "error": "Workday hours must be between 0 and 12"}), 400
+            out[k] = h
     if "invoice_next" in data:
         try:
             out["invoice_next"] = max(1, min(99_999_999, int(data.get("invoice_next") or 1)))
@@ -7311,7 +7329,7 @@ def contractor_calendar(company):
     if not (1 <= m <= 12):
         return jsonify({"ok": False, "error": "bad month"}), 400
     first, last = f"{month}-01", f"{month}-{_cal.monthrange(y, m)[1]:02d}"
-    fields = ("id,job_number,title,description,notes,client_name,location,status,progress_pct,tracking,time_slot,"
+    fields = ("id,job_number,title,description,notes,client_name,location,status,progress_pct,tracking,time_slot,est_hours,"
               "assigned_to,created_by,scheduled_date,scheduled_end,scheduled_time,invoice_id")
     member = _ct_is_member_only(me)
     mf = _ct_member_filter(me["name"]) if member else ""
@@ -7335,10 +7353,12 @@ def contractor_calendar(company):
             mats.setdefault(row["job_id"], []).append({"name": row.get("material_name"), "qty": row.get("qty"), "unit": row.get("unit")})
         for j in jobs:
             j["materials"] = mats.get(j["id"], [])
-    out = {"ok": True, "month": month, "jobs": jobs, "can_schedule": _ct_can_schedule(me, company)}
+    prof = _ct_profile(company)
+    out = {"ok": True, "month": month, "jobs": jobs, "can_schedule": _ct_can_schedule(me, company),
+           "capacity": {"morning": prof.get("hours_morning", 4), "afternoon": prof.get("hours_afternoon", 4)}}
     if out["can_schedule"]:
         ur = requests.get(f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?company=eq.{company}&scheduled_date=is.null"
-                          f"&status=not.in.(completed,cancelled)&select=id,job_number,title,client_name,location&order=created_at.desc&limit=200",
+                          f"&status=not.in.(completed,cancelled)&select=id,job_number,title,client_name,location,time_slot,est_hours,assigned_to&order=created_at.desc&limit=200",
                           headers=sb_headers(), timeout=8)
         out["unscheduled"] = ur.json() if ur.ok else []
         out["people"] = _ct_company_people(company)
@@ -7367,6 +7387,10 @@ def contractor_schedule_job(company):
         payload["time_slot"] = data.get("time_slot") or ""
     if "scheduled_time" in data:
         payload["scheduled_time"] = str(data.get("scheduled_time") or "")[:20]
+    if "est_hours" in data:
+        payload["est_hours"] = _ct_hours(data.get("est_hours"))
+        if payload["est_hours"] is None:
+            return jsonify({"ok": False, "error": "Hours must be a number between 0 and 200"}), 400
     if "assigned_to" in data:
         who = (data.get("assigned_to") or "").strip()
         if who and who not in _ct_company_people(company):
@@ -7380,7 +7404,7 @@ def contractor_schedule_job(company):
     )
     if not (r.ok and r.json()):
         return jsonify({"ok": False, "error": "Job not found"}), 404
-    return jsonify({"ok": True, "job": {k: r.json()[0].get(k) for k in ("id", "scheduled_date", "scheduled_end", "scheduled_time", "time_slot", "assigned_to")}})
+    return jsonify({"ok": True, "job": {k: r.json()[0].get(k) for k in ("id", "scheduled_date", "scheduled_end", "scheduled_time", "time_slot", "est_hours", "assigned_to")}})
 
 
 CONTRACTOR_RECEIPT_MODEL = os.environ.get("CONTRACTOR_RECEIPT_MODEL", "claude-opus-5-5")
@@ -7419,8 +7443,9 @@ _WO_SCHEMA = {
             "required": ["name", "qty", "unit"], "additionalProperties": False}},
         "date": {"type": "string", "description": "Day the job should be done as YYYY-MM-DD, empty if not said"},
         "time_slot": {"type": "string", "enum": ["", "morning", "afternoon"], "description": "morning or afternoon if said, else empty"},
+        "est_hours": {"type": "number", "description": "How many hours the job takes if said (e.g. 'half a day' = 4), else 0"},
     },
-    "required": ["title", "description", "client_name", "location", "client_email", "priority", "mode", "steps", "materials", "date", "time_slot"],
+    "required": ["title", "description", "client_name", "location", "client_email", "priority", "mode", "steps", "materials", "date", "time_slot", "est_hours"],
     "additionalProperties": False,
 }
 
@@ -7482,6 +7507,7 @@ def contractor_wo_from_text():
         "materials": mats,
         "date": d["date"] if re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(d.get("date") or "")) else "",
         "time_slot": d.get("time_slot") if d.get("time_slot") in CONTRACTOR_TIME_SLOTS else "",
+        "est_hours": _ct_hours(d.get("est_hours")) or 0,
     })
 
 
@@ -7889,6 +7915,7 @@ def create_contractor_job():
         "created_by":   _contractor_caller()["name"] or data.get("created_by", ""),
         "client_email": str(data.get("client_email") or "").strip()[:160],
         "time_slot":    data.get("time_slot") if data.get("time_slot") in CONTRACTOR_TIME_SLOTS else "",
+        "est_hours":    _ct_hours(data.get("est_hours")) or 0,
         "project_id":   (data.get("project_id") or None) if not _ct_is_member_only(_contractor_caller()) else None,
         "tracking":     data.get("tracking") if data.get("tracking") in ("percent", "check", "simple") else "percent",
     }
@@ -7949,9 +7976,13 @@ def update_contractor_job(job_id):
     allowed = [
         "title", "description", "client_name", "location", "status",
         "priority", "crew", "start_date", "due_date", "completed_date",
-        "notes", "tracking", "progress_pct", "client_email", "time_slot"
+        "notes", "tracking", "progress_pct", "client_email", "time_slot", "est_hours"
     ]
     payload = {k: data[k] for k in allowed if k in data}
+    if "est_hours" in payload:
+        payload["est_hours"] = _ct_hours(payload["est_hours"])
+        if payload["est_hours"] is None:
+            return jsonify({"ok": False, "error": "Hours must be a number between 0 and 200"}), 400
     if "time_slot" in payload and payload["time_slot"] not in CONTRACTOR_TIME_SLOTS + [""]:
         return jsonify({"ok": False, "error": "time_slot must be morning or afternoon"}), 400
     if "tracking" in payload and payload["tracking"] not in ("percent", "check", "simple"):

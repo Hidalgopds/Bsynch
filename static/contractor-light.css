@@ -143,3 +143,4 @@ html[data-theme="light"] .dict-btn { color: #ffffff !important; }
 html[data-theme="light"] .dict-top b { color: #0f766e !important; }
 html[data-theme="light"] .slot-btn { color: #475569 !important; background: #ffffff !important; }
 html[data-theme="light"] .slot-btn.on { color: #0f766e !important; background: #e3f3ef !important; border-color: #1e9484 !important; }
+html[data-theme="light"] .hrs-in { color: #0f172a !important; background: #ffffff !important; border-color: #cbd5e1 !important; }

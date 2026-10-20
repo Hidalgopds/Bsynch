@@ -125,6 +125,15 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
       <span class="hint" id="nextPreview"></span>
     </div>
 
+    <div class="card">
+      <h2>Workday</h2>
+      <div class="row">
+        <div class="field"><label for="hours_morning">&#127749; Morning hours per person</label><input id="hours_morning" type="number" min="0" max="12" step="0.5" placeholder="4"></div>
+        <div class="field"><label for="hours_afternoon">&#127751; Afternoon hours per person</label><input id="hours_afternoon" type="number" min="0" max="12" step="0.5" placeholder="4"></div>
+      </div>
+      <span class="hint">The calendar uses this to show how many hours each person still has free every day.</span>
+    </div>
+
     <button class="btn" type="submit" id="saveBtn">Save settings</button><span class="saved" id="saved">Saved &#10003;</span>
   </form>
 
@@ -141,7 +150,7 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
 
 <script>
 var COMPANY = {{ company|tojson }};
-var TEXT = ['display_name','subtitle','tagline','contact_name','phone','address','notify_email','invoice_prefix','invoice_next','payment_terms','payment_note','footer_note','brand_primary','brand_accent'];
+var TEXT = ['display_name','subtitle','tagline','contact_name','phone','address','notify_email','invoice_prefix','invoice_next','payment_terms','payment_note','footer_note','brand_primary','brand_accent','hours_morning','hours_afternoon'];
 var API = '/api/contractor/' + COMPANY;
 var emails = [], logo = '', canEdit = false;
 

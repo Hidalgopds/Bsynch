@@ -48,6 +48,7 @@ function fillFromDictation() {
       document.getElementById('woPriority').value = d.priority || 'normal';
       if (d.date) { document.getElementById('woStart').value = d.date; window._woSchedDate = d.date; }
       if (d.time_slot && window.setWoSlot) setWoSlot(d.time_slot);
+      if (d.est_hours && window.setWoHours) setWoHours(d.est_hours);
       setWoMode(d.mode === 'steps' ? 'steps' : 'simple');
       if (d.mode === 'steps' && d.steps.length) {
         var c = document.getElementById('woStepFields'); c.innerHTML = ''; woStepCount = 0;

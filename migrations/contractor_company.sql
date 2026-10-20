@@ -233,3 +233,4 @@ alter table contractor_expenses enable row level security;
 alter table contractor_jobs     add column if not exists time_slot    text default '';
 alter table contractor_jobs     add column if not exists bill_address text default '';
 alter table contractor_invoices add column if not exists bill_address text default '';
+alter table contractor_jobs add column if not exists est_hours numeric default 0;
