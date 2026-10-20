@@ -6207,13 +6207,17 @@ def _contractor_caller_uncached():
         return me
     r = requests.get(
         f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}"
-        f"&approved=eq.true&select=role,contractor_company&limit=1",
+        f"&approved=eq.true&select=role,contractor_company,username,email&limit=1",
         headers=sb_headers(), timeout=5
     )
     rows = r.json() if r.ok else []
     if rows:
         company = rows[0].get("contractor_company")
-        if company in CONTRACTOR_COMPANIES:
+        owner = DEFAULT_COMPANY_ADMIN_USER.lower()
+        if owner and owner in ((rows[0].get("username") or "").lower(), (rows[0].get("email") or "").lower()):
+            # The platform owner is admin of every contractor company, even if assigned to one.
+            me["is_super"] = True
+        elif company in CONTRACTOR_COMPANIES:
             me["company"] = company
             me["company_role"] = _ct_company_roles(company).get(name, "member")
         elif (rows[0].get("role") or "").lower() in ("admin", "boss"):
