@@ -386,7 +386,12 @@ function load(){
     document.getElementById('updated').textContent = 'Updated ' + new Date().toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'});
     document.getElementById('content').classList.remove('loading');
     document.getElementById('content').style.visibility = '';
-  }).catch(function(){ location.replace('/contractor/' + COMPANY); });
+  }).catch(function(e){
+    if(window.console) console.error(e);
+    var c = document.getElementById('content');
+    c.classList.remove('loading'); c.style.visibility = '';
+    if(!D) c.innerHTML = '<div class="empty">Could not load the dashboard. <a class="lnk" href="">Try again</a></div>';
+  });
 }
 load();
 </script>

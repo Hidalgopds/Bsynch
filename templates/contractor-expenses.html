@@ -40,6 +40,16 @@ h1{font-size:22px;margin-bottom:4px;}
 .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;}
 .toolbar select,.toolbar input[type=date],.toolbar input[type=search]{padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#fff;color:#0f172a;font-family:inherit;}
 .toolbar input[type=search]{flex:1;min-width:150px;}
+.jp{position:relative;}
+.jp input[type=search]{width:100%;}
+.jp-filter{flex:1;min-width:180px;}
+.jp-list{display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,.12);max-height:280px;overflow-y:auto;z-index:30;}
+.jp-list.open{display:block;}
+.jp-opt{padding:8px 12px;cursor:pointer;font-size:13px;color:#0f172a;border-bottom:1px solid #f1f5f9;}
+.jp-opt:last-child{border-bottom:none;}
+.jp-opt small{display:block;color:#64748b;font-size:11px;margin-top:1px;}
+.jp-opt.hi,.jp-opt:hover{background:#e3f3ef;}
+.jp-none{padding:10px 12px;color:#64748b;font-size:13px;}
 .split{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
 @media(max-width:700px){.split{grid-template-columns:1fr;}}
 .bars-title{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;margin:4px 0 6px;}
@@ -97,7 +107,7 @@ footer{text-align:center;padding:16px;font-size:12px;color:#94a3b8;}
       <div class="field"><label>Date</label><input id="exDate" type="date"></div>
       <div class="field"><label>Payment</label><input id="exPay" maxlength="40" placeholder="Cash, card..."></div>
       <div class="field wide"><label>What was it for?</label><input id="exDesc" maxlength="500" placeholder="e.g. Gas for the truck"></div>
-      <div class="field wide"><label>Work order (optional)</label><select id="exJob"><option value="">— Not for a specific job —</option></select></div>
+      <div class="field wide"><label for="exJobQ">Work order (optional)</label><div class="jp"><input id="exJobQ" type="search" autocomplete="off" placeholder="&#128269; Search by WO #, title, client or address" role="combobox" aria-expanded="false" aria-controls="exJobList"><input type="hidden" id="exJob"><div class="jp-list" id="exJobList" role="listbox"></div></div></div>
     </div>
     <div class="actions"><button class="btn" id="exSave">Save expense</button><span class="msg" id="exMsg"></span></div>
   </div>
@@ -110,7 +120,7 @@ footer{text-align:center;padding:16px;font-size:12px;color:#94a3b8;}
       </select>
       <span id="customDates" style="display:none;"><input type="date" id="dFrom" aria-label="From"> &ndash; <input type="date" id="dTo" aria-label="To"></span>
       <select id="fPerson" aria-label="Person" style="display:none;"><option value="">Everyone</option></select>
-      <select id="fJob" aria-label="Work order"><option value="">All work orders</option><option value="none">Not for a job</option></select>
+      <div class="jp jp-filter"><input id="fJobQ" type="search" autocomplete="off" placeholder="&#128269; All work orders" aria-label="Work order" role="combobox" aria-expanded="false" aria-controls="fJobList"><input type="hidden" id="fJob"><div class="jp-list" id="fJobList" role="listbox"></div></div>
       <input type="search" id="fQ" placeholder="Search store, note..." aria-label="Search">
       <button class="btn alt" id="csvBtn" style="margin-left:auto;display:none;">&#11015;&#65039; Export CSV</button>
     </div>
@@ -180,7 +190,7 @@ document.getElementById('exSave').onclick = function(){
     m.style.color = '#15803d'; m.textContent = 'Saved ✓';
     photo = null; aiRead = false; document.getElementById('exPrev').style.display = 'none'; note('');
     ['exVendor','exAmount','exTax','exPay','exDesc'].forEach(function(id){ document.getElementById(id).value = ''; });
-    document.getElementById('exCat').value = 'other'; document.getElementById('exJob').value = '';
+    document.getElementById('exCat').value = 'other'; document.getElementById('exJob').value = ''; document.getElementById('exJobQ').value = '';
     load();
   }).catch(function(){ btn.disabled = false; m.style.color = '#dc2626'; m.textContent = 'Connection error.'; });
 };
@@ -191,6 +201,35 @@ document.getElementById('cats').onclick = function(e){
   document.querySelectorAll('#cats .chip').forEach(function(c){ c.classList.toggle('on', c === e.target); });
   load();
 };
+// Search box for picking a work order (there can be hundreds, a dropdown is too long)
+var allJobs = [];
+function jobLabel(j){ return ((j.job_number || '') + ' ' + (j.title || '')).trim(); }
+function jobPicker(qId, hidId, listId, extra, onPick){
+  var q = document.getElementById(qId), hid = document.getElementById(hidId), list = document.getElementById(listId), hi = -1, shown = [];
+  function close(){ list.classList.remove('open'); q.setAttribute('aria-expanded', 'false'); hi = -1; }
+  function pick(o){ hid.value = o.id; q.value = o.id ? o.label : ''; close(); if(onPick) onPick(); }
+  function show(){
+    var t = q.value.trim().toLowerCase();
+    shown = (t ? [] : extra).concat(allJobs.filter(function(j){
+      return !t || [j.job_number, j.title, j.client_name, j.location, j.residence].join(' ').toLowerCase().indexOf(t) >= 0;
+    }).slice(0, 40).map(function(j){ return {id: j.id, label: jobLabel(j), sub: [j.client_name, j.location].filter(Boolean).join(' · ')}; }));
+    list.innerHTML = shown.length ? shown.map(function(o, i){ return '<div class="jp-opt' + (i === hi ? ' hi' : '') + '" role="option" data-i="' + i + '">' + esc(o.label) + (o.sub ? '<small>' + esc(o.sub) + '</small>' : '') + '</div>'; }).join('')
+      : '<div class="jp-none">No work order matches.</div>';
+    list.classList.add('open'); q.setAttribute('aria-expanded', 'true');
+  }
+  q.addEventListener('focus', function(){ hi = -1; show(); });
+  q.addEventListener('input', function(){ hi = -1; if(!q.value.trim() && hid.value){ hid.value = ''; if(onPick) onPick(); } show(); });
+  q.addEventListener('keydown', function(e){
+    if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){ e.preventDefault(); if(!list.classList.contains('open')) show(); hi = Math.max(0, Math.min(shown.length - 1, hi + (e.key === 'ArrowDown' ? 1 : -1))); show(); }
+    else if(e.key === 'Enter' && list.classList.contains('open') && shown[hi < 0 ? 0 : hi]){ e.preventDefault(); pick(shown[hi < 0 ? 0 : hi]); }
+    else if(e.key === 'Escape') close();
+  });
+  list.addEventListener('mousedown', function(e){ var o = e.target.closest('.jp-opt'); if(o){ e.preventDefault(); pick(shown[+o.dataset.i]); } });
+  q.addEventListener('blur', function(){ setTimeout(close, 120); if(q.value.trim() && !hid.value) q.value = ''; });
+}
+jobPicker('exJobQ', 'exJob', 'exJobList', [{id: '', label: 'Not for a specific job'}]);
+jobPicker('fJobQ', 'fJob', 'fJobList', [{id: '', label: 'All work orders'}, {id: 'none', label: 'Not for a job'}], function(){ load(); });
+
 function ymd(d){ return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 function range(){
   var p = document.getElementById('period').value, n = new Date(), f, t;
@@ -214,7 +253,7 @@ document.getElementById('period').onchange = function(){
   if(custom && !document.getElementById('dFrom').value){ document.getElementById('dFrom').value = today().slice(0, 8) + '01'; document.getElementById('dTo').value = today(); }
   load();
 };
-['dFrom', 'dTo', 'fPerson', 'fJob'].forEach(function(id){ document.getElementById(id).onchange = load; });
+['dFrom', 'dTo', 'fPerson'].forEach(function(id){ document.getElementById(id).onchange = load; });
 var qTimer = null; document.getElementById('fQ').oninput = function(){ clearTimeout(qTimer); qTimer = setTimeout(load, 300); };
 document.getElementById('csvBtn').onclick = function(){
   fetch(API + '.csv' + query()).then(function(r){ return r.blob(); }).then(function(b){
@@ -265,11 +304,7 @@ function load(){
 
 fetch('/api/contractor/jobs').then(function(r){ return r.json(); }).then(function(jobs){
   if(!Array.isArray(jobs)) return;
-  var opts = jobs.filter(function(j){ return j.status !== 'cancelled'; }).map(function(j){
-    return '<option value="' + esc(j.id) + '">' + esc((j.job_number || '') + ' ' + j.title) + '</option>';
-  }).join('');
-  document.getElementById('exJob').innerHTML += opts;
-  document.getElementById('fJob').innerHTML += opts;
+  allJobs = jobs.filter(function(j){ return j.status !== 'cancelled'; });
 });
 load();
 </script>

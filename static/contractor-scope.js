@@ -123,6 +123,65 @@
     }
   }
 
+  // Hub icons under the header, only the ones this person can open
+  var HUBS = [
+    ['home', '&#127968;', 'Home', function (c) { return '/contractor/' + c; }, null],
+    ['workorders', '&#128203;', 'Work orders', function (c) { return '/contractor/workorders?company=' + c; }, 'workorders'],
+    ['calendar', '&#128197;', 'Calendar', function (c) { return '/contractor/' + c + '/calendar'; }, null],
+    ['expenses', '&#129534;', 'Expenses', function (c) { return '/contractor/' + c + '/expenses'; }, null],
+    ['invoicing', '&#128181;', 'Invoicing', function (c) { return '/contractor/' + c + '/invoicing'; }, 'invoicing'],
+    ['dashboard', '&#128202;', 'Dashboard', function (c) { return '/contractor/dashboard?company=' + c; }, 'dashboard'],
+    ['contacts', '&#128101;', 'Contacts', function (c) { return '/contractor/' + c + '/contacts'; }, 'contacts'],
+    ['settings', '&#9881;&#65039;', 'Settings', function (c) { return '/contractor/' + c + '/settings'; }, 'company_settings'],
+    ['admin', '&#128272;', 'Admin', function (c) { return '/contractor/' + c + '/admin'; }, '__admin']
+  ];
+  function activeHub() {
+    var p = location.pathname;
+    if (/^\/contractor\/(workorders|projects)$/.test(p) || /^\/contractor\/invoice\//.test(p)) return /invoice\//.test(p) ? 'invoicing' : 'workorders';
+    if (p === '/contractor/dashboard') return 'dashboard';
+    var m = p.match(/^\/contractor\/(?:hicons|bsynch)(?:\/(\w+))?$/);
+    return m ? (m[1] || 'home') : '';
+  }
+  function renderHubNav(me) {
+    if (!company || document.querySelector('.ct-hubs')) return;
+    var acc = (me.access || {})[company];
+    if (!acc) return;
+    var perms = acc.permissions || {}, member = me.member_only, active = activeHub();
+    var list = HUBS.filter(function (h) {
+      if (member) return ['home', 'workorders', 'calendar', 'expenses'].indexOf(h[0]) >= 0;
+      if (h[4] === '__admin') return acc.is_admin;
+      return !h[4] || perms[h[4]];
+    });
+    var style = document.createElement('style');
+    style.textContent = '.ct-hubs{display:flex;gap:4px;overflow-x:auto;padding:6px 12px;background:#fff;border-bottom:1px solid #e2e8f0;scrollbar-width:none;justify-content:center;}' +
+      '.ct-hubs::-webkit-scrollbar{display:none}' +
+      '.ct-hubs a{display:flex;flex-direction:column;align-items:center;gap:1px;min-width:66px;padding:5px 8px;border-radius:10px;text-decoration:none;color:#475569;font:600 11px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;white-space:nowrap;flex-shrink:0;}' +
+      '.ct-hubs a span{font-size:19px;line-height:1.2;}' +
+      '.ct-hubs a:hover{background:#f1f5f9;color:#0f172a;}' +
+      '.ct-hubs a.on{background:#e3f3ef;color:#0f766e;}' +
+      '@media(max-width:700px){.ct-hubs{justify-content:flex-start;}}' +
+      '@media print{.ct-hubs{display:none !important;}}';
+    document.head.appendChild(style);
+    var nav = document.createElement('nav');
+    nav.className = 'ct-hubs'; nav.setAttribute('aria-label', 'Hubs');
+    nav.innerHTML = list.map(function (h) {
+      return '<a href="' + h[3](company) + '"' + (h[0] === active ? ' class="on" aria-current="page"' : '') + '><span aria-hidden="true">' + h[1] + '</span>' + h[2] + '</a>';
+    }).join('');
+    var header = document.querySelector('header');
+    if (header) header.insertAdjacentElement('afterend', nav);
+    var on = nav.querySelector('.on');
+    if (on && on.scrollIntoView) on.scrollIntoView({block: 'nearest', inline: 'center'});
+  }
+  function loadHubNav() {
+    if (!company || window.CT_SKIP_AGREEMENT || location.pathname === '/contractor-hub') return;
+    var key = 'ctMe_' + user, cached = ss(key);
+    if (cached) { try { renderHubNav(JSON.parse(cached)); } catch (e) {} }
+    window.fetch('/api/contractor/me').then(function (r) { return r.json(); }).then(function (me) {
+      ss(key, JSON.stringify(me));
+      if (!cached) renderHubNav(me);
+    }).catch(function () {});
+  }
+
   function applyBrand(b) {
     if (!b || !b.ok) return;
     var hex = /^#[0-9a-fA-F]{6}$/;
@@ -157,6 +216,7 @@
   document.addEventListener('DOMContentLoaded', function () {
     addNavArrows();
     loadBrand();
+    loadHubNav();
     if (!company) return;
     var title = document.querySelector('.hdr-title');
     if (title && !document.body.hasAttribute('data-ct-hub')) {

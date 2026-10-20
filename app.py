@@ -7513,6 +7513,8 @@ def contractor_schedule_job(company):
             payload[k] = v
     if payload.get("scheduled_end") and payload.get("scheduled_date") and payload["scheduled_end"] < payload["scheduled_date"]:
         return jsonify({"ok": False, "error": "The end date is before the start date"}), 400
+    if payload.get("scheduled_date"):
+        payload["start_date"] = payload["scheduled_date"]  # the calendar day is the service day
     if "time_slot" in data:
         if data.get("time_slot") not in CONTRACTOR_TIME_SLOTS + ["", None]:
             return jsonify({"ok": False, "error": "time_slot must be morning or afternoon"}), 400
@@ -8538,10 +8540,14 @@ def create_contractor_job():
         "project_id":   (data.get("project_id") or None) if not _ct_is_member_only(_contractor_caller()) else None,
         "tracking":     data.get("tracking") if data.get("tracking") in ("percent", "check", "simple") else "percent",
     }
-    sd = str(data.get("scheduled_date") or "")
+    # A work order goes on the calendar on its service (start) day, through the due date if later
+    sd = str(data.get("scheduled_date") or "") or str(payload.get("start_date") or "")
     if re.fullmatch(r"\d{4}-\d{2}-\d{2}", sd):
         payload["scheduled_date"] = sd
         payload["scheduled_time"] = str(data.get("scheduled_time") or "")[:20]
+        due = str(payload.get("due_date") or "")
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", due) and due > sd:
+            payload["scheduled_end"] = due
     if data.get("assigned_to") and not _ct_is_member_only(_contractor_caller()):
         payload["assigned_to"] = str(data["assigned_to"])[:80]
     scope = _contractor_scope()
@@ -8613,6 +8619,16 @@ def update_contractor_job(job_id):
         payload["progress_pct"] = max(0.0, min(100.0, float(payload["progress_pct"] or 0)))
     if not payload:
         return jsonify({"ok": False, "error": "nothing to update"}), 400
+    if "start_date" in payload or "due_date" in payload:
+        # Keep the calendar on the service day when the dates change, unless it was moved there by hand
+        cur = requests.get(f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?id=eq.{requests.utils.quote(job_id)}"
+                           f"&select=start_date,due_date,scheduled_date,scheduled_end&limit=1", headers=sb_headers(), timeout=5)
+        old = cur.json()[0] if cur.ok and cur.json() else {}
+        start = payload.get("start_date", old.get("start_date")) or None
+        due = payload.get("due_date", old.get("due_date")) or None
+        if old and start and (not old.get("scheduled_date") or old.get("scheduled_date") == old.get("start_date")):
+            payload["scheduled_date"] = start
+            payload["scheduled_end"] = due if due and due > start else None
     payload["updated_at"] = __import__("datetime").datetime.utcnow().isoformat() + "Z"
     r = requests.patch(
         f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?id=eq.{job_id}",
