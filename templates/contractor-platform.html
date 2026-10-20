@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Platform Admin – BSynch</title>
+<script src="/static/contractor-scope.js"></script>
+<script src="/static/theme.js"></script>
+<script>document.documentElement.setAttribute('data-theme','light');</script>
+<link rel="stylesheet" href="/static/themes.css">
+<link rel="stylesheet" href="/static/contractor-light.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f4f8;color:#0f172a;min-height:100vh;display:flex;flex-direction:column;}
+header{padding:14px 20px;display:flex;align-items:center;gap:12px;background:#19354d;color:#e2e8f0;}
+.logo-badge{width:36px;height:36px;background:linear-gradient(135deg,#1e9484,#4f8ef7);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;flex-shrink:0;}
+.hdr-title{font-size:17px;font-weight:700;}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.btn-back{padding:6px 14px;border:1px solid rgba(255,255,255,.3);border-radius:7px;color:#e2e8f0;font-size:12px;text-decoration:none;}
+.content{flex:1;padding:22px 16px 60px;max-width:1100px;width:100%;margin:0 auto;}
+h1{font-size:22px;margin-bottom:4px;}
+.sub{font-size:14px;color:#64748b;margin-bottom:16px;}
+.cos{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-bottom:12px;}
+.co{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;}
+.co h3{font-size:16px;display:flex;align-items:center;gap:8px;}
+.co h3 a{margin-left:auto;font-size:12px;color:#0f766e;font-weight:700;text-decoration:none;}
+.co .nums{display:flex;gap:14px;margin-top:8px;font-size:13px;color:#475569;}
+.co .nums b{display:block;font-size:20px;color:#0f172a;}
+.lock{background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;border-radius:12px;padding:10px 14px;font-size:13px;margin-bottom:16px;line-height:1.5;}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+.tools input{flex:1;min-width:200px;padding:9px 12px;border:1px solid #cbd5e1;border-radius:9px;font-size:14px;background:#fff;color:#0f172a;}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+.chip{padding:6px 12px;border-radius:20px;border:1px solid #cbd5e1;background:#fff;color:#475569;font-size:12px;font-weight:600;cursor:pointer;}
+.chip.on{background:#1e9484;border-color:#1e9484;color:#fff;}
+.chip small{margin-left:4px;opacity:.75;}
+.wrap{background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:720px;}
+th{text-align:left;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:.4px;padding:10px;border-bottom:1px solid #e2e8f0;}
+td{padding:9px 10px;border-bottom:1px solid #f1f5f9;vertical-align:middle;}
+td small{display:block;color:#64748b;font-size:11px;}
+select{padding:6px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff;color:#0f172a;font-family:inherit;}
+select:disabled{opacity:.5;}
+.badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap;}
+.b-active{background:#dcfce7;color:#15803d;}.b-wait{background:#fef3c7;color:#b45309;}.b-owner{background:#e0e7ff;color:#3730a3;}
+.act{padding:5px 10px;border-radius:7px;border:1px solid #cbd5e1;background:#fff;font-size:12px;font-weight:700;cursor:pointer;color:#0f172a;}
+.act.ok{border-color:#8fcfc2;color:#0f766e;}.act.warn{border-color:#fca5a5;color:#b91c1c;}
+.saved{color:#15803d;font-size:12px;font-weight:700;}
+.empty{text-align:center;color:#64748b;padding:30px;}
+footer{text-align:center;padding:16px;font-size:12px;color:#94a3b8;}
+</style>
+</head>
+<body data-ct-hub>
+<header>
+  <div class="logo-badge">B</div>
+  <span class="hdr-title">Platform Admin</span>
+  <div class="hdr-right"><a href="/contractor-hub" class="btn-back">&#8592; Contractor Hub</a></div>
+</header>
+
+<div class="content" id="content" style="visibility:hidden;">
+  <h1>&#128737;&#65039; Platform Admin</h1>
+  <p class="sub">Every account and every company. Only you (the platform administrator) can open this page.</p>
+  <div class="cos" id="cos"></div>
+  <div class="lock">&#128274; <b>Companies are isolated.</b> People in Hicons only see Hicons, people in Bsynch only see Bsynch. Moving someone to another company takes away the old one at once. Only platform administrators see every company.</div>
+  <div class="chips" id="chips"></div>
+  <div class="tools"><input id="q" type="search" placeholder="Search name, email or username"></div>
+  <div class="wrap"><table><thead><tr><th>Person</th><th>Company</th><th>Role there</th><th>Status</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
+</div>
+
+<footer>BSynch &middot; Contractor Module</footer>
+
+<script>
+var COS = {{ companies|tojson }}, ROLES = {{ roles|tojson }};
+var users = [], filter = 'all';
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+var FILTERS = [['all', 'Everyone']].concat(Object.keys(COS).map(function(k){ return [k, COS[k]]; })).concat([['none', 'No company'], ['waiting', 'Waiting / suspended']]);
+function inFilter(u, f){
+  if(f === 'all') return true;
+  if(f === 'none') return !u.company && !u.platform_admin;
+  if(f === 'waiting') return !u.approved;
+  return u.company === f;
+}
+function render(){
+  document.getElementById('cos').innerHTML = Object.keys(COS).map(function(k){
+    var m = users.filter(function(u){ return u.company === k && u.approved; });
+    var mg = m.filter(function(u){ return u.company_role === 'admin'; }).length;
+    var w = users.filter(function(u){ return u.company === k && !u.approved; }).length;
+    return '<div class="co"><h3>' + esc(COS[k]) + '<a href="/contractor/' + k + '/admin">Admin settings &#8594;</a></h3><div class="nums"><span><b>' + m.length + '</b>members</span><span><b>' + mg + '</b>managers</span><span><b>' + w + '</b>waiting</span></div></div>';
+  }).join('');
+  document.getElementById('chips').innerHTML = FILTERS.map(function(f){
+    return '<button class="chip' + (f[0] === filter ? ' on' : '') + '" data-f="' + f[0] + '">' + esc(f[1]) + '<small>' + users.filter(function(u){ return inFilter(u, f[0]); }).length + '</small></button>';
+  }).join('');
+  var q = document.getElementById('q').value.trim().toLowerCase();
+  var list = users.filter(function(u){ return inFilter(u, filter) && (!q || [u.name, u.email, u.username].join(' ').toLowerCase().indexOf(q) >= 0); });
+  document.getElementById('rows').innerHTML = list.length ? list.map(function(u){
+    var dis = u.owner ? ' disabled' : '';
+    var co = '<select class="s-co" data-n="' + esc(u.name) + '"' + dis + '><option value="">— No company —</option>' + Object.keys(COS).map(function(k){ return '<option value="' + k + '"' + (u.company === k ? ' selected' : '') + '>' + esc(COS[k]) + '</option>'; }).join('') + '</select>' +
+      (u.other_company ? '<small>ERP: ' + esc(u.other_company) + '</small>' : '');
+    var role = !u.company ? '<span style="color:#94a3b8;">&mdash;</span>' : '<select class="s-role" data-n="' + esc(u.name) + '"' + (u.owner ? ' disabled' : '') + '>' + Object.keys(ROLES).map(function(k){ return '<option value="' + k + '"' + (u.company_role === k ? ' selected' : '') + '>' + esc(ROLES[k]) + '</option>'; }).join('') + '</select>';
+    var status = u.owner ? '<span class="badge b-owner">Owner · all companies</span>' : u.platform_admin && !u.company ? '<span class="badge b-owner">Platform admin</span>' :
+      u.approved ? '<span class="badge b-active">Active</span>' : '<span class="badge b-wait">' + (u.company ? 'Waiting for approval' : 'Suspended') + '</span>';
+    var act = u.owner || u.name === CT.user ? '' : u.approved ? '<button class="act warn" data-act="suspend" data-n="' + esc(u.name) + '">Suspend</button>' : '<button class="act ok" data-act="approve" data-n="' + esc(u.name) + '">' + (u.company ? 'Approve' : 'Re-activate') + '</button>';
+    return '<tr><td><b>' + esc(u.name) + '</b><small>' + esc(u.email || u.username || '') + '</small></td><td>' + co + '</td><td>' + role + '</td><td>' + status + '</td><td>' + act + ' <span class="saved" data-saved="' + esc(u.name) + '"></span></td></tr>';
+  }).join('') : '<tr><td colspan="5" class="empty">Nobody here.</td></tr>';
+}
+function save(name, body, confirmText){
+  if(confirmText && !confirm(confirmText)){ render(); return; }
+  fetch('/api/contractor/platform/users', {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(Object.assign({name: name}, body))})
+    .then(function(r){ return r.json(); }).then(function(res){
+      if(!res.ok){ alert(res.error || 'Could not save'); load(); return; }
+      load(function(){ var s = document.querySelector('[data-saved="' + CSS.escape(name) + '"]'); if(s){ s.textContent = 'Saved ✓'; setTimeout(function(){ s.textContent = ''; }, 1500); } });
+    });
+}
+document.getElementById('rows').addEventListener('change', function(e){
+  var t = e.target, n = t.dataset.n, u = users.find(function(x){ return x.name === n; });
+  if(t.classList.contains('s-co')){
+    var to = t.value;
+    save(n, {company: to || null, company_role: to ? (u.company === to ? u.company_role : 'member') : null},
+      to ? (u.company && u.company !== to ? 'Move ' + n + ' from ' + COS[u.company] + ' to ' + COS[to] + '? They will stop seeing ' + COS[u.company] + '.' : null)
+         : 'Remove ' + n + ' from ' + COS[u.company] + '? They will not see any company.');
+  }
+  if(t.classList.contains('s-role')) save(n, {company_role: t.value}, t.value === 'admin' ? 'Make ' + n + ' a Manager of ' + COS[u.company] + '?' : null);
+});
+document.getElementById('rows').addEventListener('click', function(e){
+  var b = e.target.closest('[data-act]'); if(!b) return;
+  if(b.dataset.act === 'suspend') save(b.dataset.n, {approved: false}, 'Suspend ' + b.dataset.n + '? They will not be able to use the app until approved again.');
+  else save(b.dataset.n, {approved: true});
+});
+document.getElementById('chips').onclick = function(e){ var c = e.target.closest('.chip'); if(c){ filter = c.dataset.f; render(); } };
+document.getElementById('q').oninput = render;
+function load(after){
+  fetch('/api/contractor/platform/users').then(function(r){ return r.json(); }).then(function(d){
+    if(!d.ok){ location.replace('/contractor-hub'); return; }
+    users = d.users; render(); document.getElementById('content').style.visibility = '';
+    if(after) after();
+  }).catch(function(){ location.replace('/contractor-hub'); });
+}
+load();
+</script>
+</body>
+</html>

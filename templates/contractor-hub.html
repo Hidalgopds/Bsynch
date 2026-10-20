@@ -84,6 +84,13 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
       <div class="tile-arrow">&#8594;</div>
     </a>
 
+    <a class="tile" href="/contractor/platform" id="tile-platform" style="display:none;">
+      <div class="tile-icon icon-red">&#128737;&#65039;</div>
+      <div class="tile-name">Platform Admin</div>
+      <div class="tile-desc">Every account and company: move people, set roles, approve or suspend. Only you see this.</div>
+      <div class="tile-arrow">&#8594;</div>
+    </a>
+
   </div>
   <div class="hub-empty" id="hubEmpty" style="display:none;">
     You haven't been assigned to a company yet. Ask your administrator to add you to Hicons or Bsynch .
@@ -118,6 +125,7 @@ if(!window._ctRedirecting) fetch('/api/contractor/me').then(function(r){ return 
     var t = document.getElementById('tile-' + slug);
     if(t) t.style.display = '';
   });
+  if(me.is_super) document.getElementById('tile-platform').style.display = '';
   if(!slugs.length) document.getElementById('hubEmpty').style.display = '';
 }).catch(function(){
   document.getElementById('hubLoading').textContent = 'Could not load your access. Refresh the page.';

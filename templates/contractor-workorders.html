@@ -22,6 +22,9 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
 .btn-back:hover{border-color:#1e9484;color:#1e9484;}
 .btn-new{padding:6px 14px;background:#1e9484;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;}
 .btn-new:hover{background:#178070;}
+.wo-search{padding:12px 20px 0;}
+.wo-search input{width:100%;padding:10px 14px;border-radius:10px;border:1px solid #cbd5e1;background:#fff;color:#0f172a;font-size:14px;font-family:inherit;}
+.wo-search input:focus{outline:2px solid #8fcfc2;border-color:#1e9484;}
 .filter-bar{padding:12px 20px;display:flex;gap:8px;overflow-x:auto;border-bottom:1px solid #1e2533;}
 .filter-bar::-webkit-scrollbar{display:none;}
 .filter-chip{padding:5px 14px;border-radius:20px;border:1px solid #2a2d3e;background:none;color:#94a3b8;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;transition:all .15s;}
@@ -215,6 +218,7 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
   </div>
 </header>
 
+<div class="wo-search"><input id="woSearch" type="search" placeholder="&#128269; Search by client, description, address or WO #" aria-label="Search work orders" autocomplete="off"></div>
 <div class="filter-bar">
   <button class="filter-chip active" data-status="">All</button>
   <button class="filter-chip" data-status="open">Open</button>
@@ -343,10 +347,21 @@ document.querySelectorAll('.filter-chip').forEach(function(chip){
   });
 });
 
+document.getElementById('woSearch').addEventListener('input', function(){ renderList(allJobs); });
 // ── Render list ──
+function woMatches(j, q){
+  if(!q) return true;
+  var hay = [j.job_number, j.title, j.client_name, j.client_email, j.description, j.notes, j.location, j.residence, j.apt, j.zone, j.zipcode, j.assigned_to].join(' ').toLowerCase();
+  return q.split(/\s+/).every(function(w){ return hay.indexOf(w) >= 0; });
+}
 function renderList(jobs){
-  var filtered = currentFilter ? jobs.filter(function(j){return j.status===currentFilter;}) : jobs;
+  var q = (document.getElementById('woSearch').value || '').trim().toLowerCase();
+  var filtered = (currentFilter ? jobs.filter(function(j){return j.status===currentFilter;}) : jobs).filter(function(j){ return woMatches(j, q); });
   var el = document.getElementById('woList');
+  if(!filtered.length && q){
+    el.innerHTML='<div class="empty-state"><div class="icon">&#128269;</div><p>No work order matches <strong>'+esc(q)+'</strong>.</p></div>';
+    return;
+  }
   if(!filtered.length){
     el.innerHTML='<div class="empty-state"><div class="icon">&#128203;</div><p>No work orders yet.<br>Tap <strong>+ New Job</strong> to create one.</p></div>';
     return;

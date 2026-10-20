@@ -75,9 +75,18 @@
 
   // Installable app (PWA)
   if (!window.CT_NO_MANIFEST) {
+    // Each company installs as its own app, with its own name and logo
     var mf = document.createElement('link');
-    mf.rel = 'manifest'; mf.href = '/contractor/manifest.webmanifest';
+    mf.rel = 'manifest'; mf.href = company ? '/contractor/' + company + '/manifest.webmanifest' : '/contractor/manifest.webmanifest';
     document.head.appendChild(mf);
+    if (company) {
+      var ai = document.createElement('link');
+      ai.rel = 'apple-touch-icon'; ai.href = '/contractor/' + company + '/icon-180.png';
+      document.head.appendChild(ai);
+      var at = document.createElement('meta');
+      at.name = 'apple-mobile-web-app-title'; at.content = company.charAt(0).toUpperCase() + company.slice(1);
+      document.head.appendChild(at);
+    }
   }
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(function () {});
   var deferredInstall = null;

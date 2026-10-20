@@ -11,6 +11,21 @@ from datetime import date, datetime, timezone, timedelta
 from flask import Flask, request, jsonify, render_template, Response, session, redirect
 import requests
 import uuid
+import copy as _copy
+import time as _ptime
+import http.cookiejar as _cookiejar
+from requests.adapters import HTTPAdapter as _HTTPAdapter
+
+# One pooled HTTP session for every Supabase / API call: reusing connections skips a
+# new TLS handshake per query, which was most of the wait on each page. Cookies are
+# refused so nothing can leak between users through the shared session.
+_HTTP = requests.Session()
+_HTTP.cookies.set_policy(_cookiejar.DefaultCookiePolicy(allowed_domains=[]))
+_HTTP.mount("https://", _HTTPAdapter(pool_connections=20, pool_maxsize=20))
+_HTTP.mount("http://", _HTTPAdapter(pool_connections=5, pool_maxsize=10))
+if requests.get is requests.api.get:  # tests swap these for fakes before importing the app
+    requests.get, requests.post, requests.patch, requests.put, requests.delete = (
+        _HTTP.get, _HTTP.post, _HTTP.patch, _HTTP.put, _HTTP.delete)
 import bcrypt
 try:
     import anthropic as _anthropic
@@ -182,6 +197,7 @@ def send_registration_email(to_email, name, username, role="worker"):
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 300  # let browsers keep /static files for 5 minutes
 
 _MASTER_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_URL = _MASTER_URL  # kept for compatibility
@@ -761,8 +777,20 @@ self.addEventListener('install', function(e){
   self.skipWaiting();
 });
 self.addEventListener('activate', function(e){ self.clients.claim(); });
+var STATIC_CACHE = 'bsynch-static-v1';
 self.addEventListener('fetch', function(e){
   if(e.request.method !== 'GET') return;
+  var url = new URL(e.request.url);
+  // Scripts, styles and images: answer from cache at once and refresh it in the background
+  if((url.origin === location.origin && url.pathname.indexOf('/static/') === 0) || url.hostname === 'cdnjs.cloudflare.com'){
+    e.respondWith(caches.open(STATIC_CACHE).then(function(c){
+      return c.match(e.request).then(function(hit){
+        var net = fetch(e.request).then(function(r){ if(r && r.ok) c.put(e.request, r.clone()); return r; }).catch(function(){ return hit; });
+        return hit || net;
+      });
+    }));
+    return;
+  }
   e.respondWith(fetch(e.request).catch(function(){ return caches.match(e.request); }));
 });
 """
@@ -6158,12 +6186,30 @@ CONTRACTOR_DEFAULT_PERMS = {
 _ALL_PERMS = {f: True for f in CONTRACTOR_FEATURES}
 
 
+# Settings rows (roles, permissions, company profile) are read on almost every request;
+# keep them a few seconds per process. Writes through _ct_set_config refresh the copy.
+_CT_CACHE_TTL = float(os.environ.get("CT_CACHE_TTL", "15"))
+_ct_cfg_cache, _ct_me_cache = {}, {}
+
+
+def _ct_cache_clear():
+    _ct_cfg_cache.clear()
+    _ct_me_cache.clear()
+
+
 def _ct_config(key, default=None):
+    ck = (sb_url(), key)
+    hit = _ct_cfg_cache.get(ck)
+    if hit and _ptime.time() - hit[0] < _CT_CACHE_TTL:
+        return _copy.deepcopy(hit[1]) or default
     r = requests.get(
         f"{sb_url()}/rest/v1/app_config?key=eq.{requests.utils.quote(key)}&select=value&limit=1",
         headers=sb_headers(), timeout=5
     )
-    return (r.json()[0].get("value") if r.ok and r.json() else None) or default
+    value = r.json()[0].get("value") if r.ok and r.json() else None
+    if r.ok and _CT_CACHE_TTL > 0:
+        _ct_cfg_cache[ck] = (_ptime.time(), _copy.deepcopy(value))
+    return value or default
 
 
 def _ct_set_config(key, value):
@@ -6174,6 +6220,7 @@ def _ct_set_config(key, value):
         json={"key": key, "value": value, "updated_at": dt.datetime.utcnow().isoformat()},
         timeout=5
     )
+    _ct_cache_clear()  # roles or permissions may have changed
     return r.ok, (r.text if not r.ok else None)
 
 
@@ -6183,18 +6230,32 @@ def _html_escape(v):
 
 
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
-CONTRACTOR_MAIL_FROM = os.environ.get("CONTRACTOR_MAIL_FROM", "BSynch <invoices@bsynch.com>")
+# Contractor emails (invoices, reminders) go out from this address, under the company's name
+CONTRACTOR_MAIL_ADDRESS = os.environ.get("CONTRACTOR_MAIL_ADDRESS", "info@hidalgoops.com")
+CONTRACTOR_MAIL_NAME = os.environ.get("CONTRACTOR_MAIL_NAME", "BSynch")
+# Its own mailbox (e.g. Namecheap Private Email: mail.privateemail.com); the rest of the app keeps Gmail
+CONTRACTOR_SMTP_HOST = os.environ.get("CONTRACTOR_SMTP_HOST", "")
+CONTRACTOR_SMTP_PORT = int(os.environ.get("CONTRACTOR_SMTP_PORT", "0") or 0)
+CONTRACTOR_SMTP_USER = os.environ.get("CONTRACTOR_SMTP_USER", "") or CONTRACTOR_MAIL_ADDRESS
+CONTRACTOR_SMTP_PASSWORD = os.environ.get("CONTRACTOR_SMTP_PASSWORD", "")
 
 
-def _ct_send_email(to, cc, subject, html_body, reply_to=None):
-    """Send an email. Uses Resend over HTTPS when RESEND_API_KEY is set (hosts like Render
-    block SMTP ports), otherwise the app's Gmail account. Returns (ok, error)."""
+def _ct_mail_via():
+    return "resend" if RESEND_API_KEY else "smtp" if CONTRACTOR_SMTP_HOST and CONTRACTOR_SMTP_PASSWORD else "gmail"
+
+
+def _ct_send_email(to, cc, subject, html_body, reply_to=None, from_name=None):
+    """Send an email. Order: Resend over HTTPS (RESEND_API_KEY; hosts like Render block SMTP
+    ports), the contractor mailbox (CONTRACTOR_SMTP_*), then the app's Gmail. Returns (ok, error)."""
+    from email.utils import formataddr
     to = [t for t in (to or []) if t]
     cc = [c for c in (cc or []) if c and c not in to]
     if not to:
         return False, "No recipient"
-    if RESEND_API_KEY:
-        body = {"from": CONTRACTOR_MAIL_FROM, "to": to, "subject": subject, "html": html_body}
+    name = re.sub(r"[\r\n<>\"]", "", str(from_name or CONTRACTOR_MAIL_NAME))[:80]
+    via = _ct_mail_via()
+    if via == "resend":
+        body = {"from": formataddr((name, CONTRACTOR_MAIL_ADDRESS)), "to": to, "subject": subject, "html": html_body}
         if cc:
             body["cc"] = cc
         if reply_to:
@@ -6213,11 +6274,16 @@ def _ct_send_email(to, cc, subject, html_body, reply_to=None):
             detail = r.text
         logger.error("[Contractor email] resend %s: %s", r.status_code, detail)
         return False, f"The email service refused the message: {str(detail)[:200]}"
-    if not SMTP_EMAIL or not SMTP_PASSWORD:
-        return False, "Email is not configured on the server (SMTP_EMAIL / SMTP_PASSWORD or RESEND_API_KEY)"
+    if via == "smtp":
+        host, user, password, ports = CONTRACTOR_SMTP_HOST, CONTRACTOR_SMTP_USER, CONTRACTOR_SMTP_PASSWORD, \
+            ([CONTRACTOR_SMTP_PORT] if CONTRACTOR_SMTP_PORT else [465, 587])
+    else:
+        if not SMTP_EMAIL or not SMTP_PASSWORD:
+            return False, "Email is not configured on the server (CONTRACTOR_SMTP_HOST / CONTRACTOR_SMTP_PASSWORD or RESEND_API_KEY)"
+        host, user, password, ports = "smtp.gmail.com", SMTP_EMAIL, SMTP_PASSWORD, [465, 587]
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
-    msg["From"] = SMTP_EMAIL
+    msg["From"] = formataddr((name, user))
     msg["To"] = ", ".join(to)
     if cc:
         msg["Cc"] = ", ".join(cc)
@@ -6225,27 +6291,27 @@ def _ct_send_email(to, cc, subject, html_body, reply_to=None):
         msg["Reply-To"] = reply_to
     msg.attach(MIMEText(html_body, "html"))
     last = None
-    for port in (465, 587):
+    for port in ports:
         try:
             if port == 465:
-                srv = smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10)
+                srv = smtplib.SMTP_SSL(host, 465, timeout=10)
             else:
-                srv = smtplib.SMTP("smtp.gmail.com", 587, timeout=10)
+                srv = smtplib.SMTP(host, port, timeout=10)
                 srv.starttls()
             with srv:
-                srv.login(SMTP_EMAIL, SMTP_PASSWORD)
-                srv.sendmail(SMTP_EMAIL, to + cc, msg.as_string())
+                srv.login(user, password)
+                srv.sendmail(user, to + cc, msg.as_string())
             return True, None
         except smtplib.SMTPAuthenticationError as e:
-            logger.error("[Contractor email] gmail login: %s", e)
-            return False, "Gmail rejected the login. SMTP_PASSWORD must be a Gmail app password for SMTP_EMAIL."
+            logger.error("[Contractor email] %s login: %s", host, e)
+            return False, f"The mail server ({host}) rejected the login for {user}. Check the password."
         except smtplib.SMTPRecipientsRefused as e:
             logger.error("[Contractor email] recipients: %s", e)
             return False, "The email address was rejected. Check it and try again."
         except (OSError, smtplib.SMTPException) as e:
-            logger.error("[Contractor email] smtp %s: %s", port, e)
+            logger.error("[Contractor email] smtp %s:%s: %s", host, port, e)
             last = e
-    return False, ("The server cannot connect to Gmail (the mail ports are blocked by the host). "
+    return False, (f"The server cannot connect to {host} (the mail ports are blocked by the host). "
                    "Set RESEND_API_KEY on the server to send over HTTPS." if not isinstance(last, smtplib.SMTPException)
                    else "Could not send the email")
 
@@ -6258,9 +6324,11 @@ def contractor_email_test():
     if company not in CONTRACTOR_COMPANIES or not _ct_can_admin(me, company):
         return jsonify({"ok": False, "error": "Only Managers can test email"}), 403
     to = (_ct_profile(company).get("emails") or [ADMIN_EMAIL])[0]
+    name = _ct_profile(company).get("display_name") or CONTRACTOR_COMPANIES[company]
     ok, e = _ct_send_email([to], [], "BSynch test email",
-                           "<p>Email from BSynch is working. Invoices and reminders will be delivered.</p>")
-    return jsonify({"ok": ok, "error": e, "to": to, "via": "resend" if RESEND_API_KEY else "gmail"})
+                           "<p>Email from BSynch is working. Invoices and reminders will be delivered.</p>", from_name=name)
+    sender = CONTRACTOR_MAIL_ADDRESS if _ct_mail_via() != "gmail" else SMTP_EMAIL
+    return jsonify({"ok": ok, "error": e, "to": to, "from": sender, "via": _ct_mail_via()})
 
 
 def _ct_send_email_async(to, cc, subject, html_body, reply_to=None):
@@ -6281,7 +6349,14 @@ def _contractor_caller():
     cached = getattr(g, "_ct_me", None)
     if cached is not None:
         return dict(cached)
-    me = _contractor_caller_uncached()
+    ck = (sb_url(), (request.headers.get("X-User-Name") or request.args.get("caller") or "").strip(), request.host)
+    hit = _ct_me_cache.get(ck)
+    if hit and _ptime.time() - hit[0] < _CT_CACHE_TTL:
+        me = dict(hit[1])
+    else:
+        me = _contractor_caller_uncached()
+        if _CT_CACHE_TTL > 0:
+            _ct_me_cache[ck] = (_ptime.time(), dict(me))
     g._ct_me = me
     return dict(me)
 
@@ -6506,6 +6581,86 @@ def contractor_admin_update_user(company):
     roles[name] = role
     ok, e = _ct_set_config(f"contractor_roles_{company}", roles)
     return jsonify({"ok": ok, "error": e})
+
+
+# ── Platform admin: every account, every company (only the platform administrator) ──
+def _ct_is_owner_account(u):
+    owner = DEFAULT_COMPANY_ADMIN_USER.lower()
+    return bool(owner) and owner in ((u.get("username") or "").lower(), (u.get("email") or "").lower())
+
+
+@app.route("/contractor/platform")
+def contractor_platform_page():
+    if not _client_can_access_module("contractor"):
+        return redirect("/home")
+    return render_template("contractor-platform.html", companies=CONTRACTOR_COMPANIES, roles=CONTRACTOR_ROLE_LABELS)
+
+
+@app.route("/api/contractor/platform/users", methods=["GET"])
+def contractor_platform_users():
+    me = _contractor_caller()
+    if not me["is_super"]:
+        return jsonify({"ok": False, "error": "Platform administrator only"}), 403
+    r = requests.get(f"{sb_url()}/rest/v1/app_users?select=name,username,email,role,approved,contractor_company,created_at"
+                     f"&order=name.asc&limit=2000", headers=sb_headers(), timeout=10)
+    roles = {co: _ct_company_roles(co) for co in CONTRACTOR_COMPANIES}
+    users = []
+    for u in (r.json() if r.ok else []):
+        co = u.get("contractor_company") if u.get("contractor_company") in CONTRACTOR_COMPANIES else None
+        users.append({"name": u.get("name"), "username": u.get("username"), "email": u.get("email"),
+                      "approved": bool(u.get("approved")), "company": co,
+                      "other_company": u.get("contractor_company") if u.get("contractor_company") and not co else None,
+                      "company_role": roles[co].get(u.get("name"), "member") if co else None,
+                      "platform_admin": _ct_is_owner_account(u) or (not co and (u.get("role") or "").lower() in ("admin", "boss")),
+                      "owner": _ct_is_owner_account(u), "created_at": u.get("created_at")})
+    return jsonify({"ok": True, "users": users, "companies": CONTRACTOR_COMPANIES})
+
+
+@app.route("/api/contractor/platform/users", methods=["PATCH"])
+def contractor_platform_update_user():
+    """Move someone between companies, set their role there, suspend or re-activate them."""
+    me = _contractor_caller()
+    if not me["is_super"]:
+        return jsonify({"ok": False, "error": "Platform administrator only"}), 403
+    data = request.get_json() or {}
+    name = str(data.get("name") or "").strip()
+    r = requests.get(f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}"
+                     f"&select=name,username,email,contractor_company,approved&limit=1", headers=sb_headers(), timeout=5)
+    user = r.json()[0] if r.ok and r.json() else None
+    if not user:
+        return jsonify({"ok": False, "error": "User not found"}), 404
+    if _ct_is_owner_account(user):
+        return jsonify({"ok": False, "error": "The platform owner account always keeps access to every company"}), 400
+    if name == me["name"] and data.get("approved") is False:
+        return jsonify({"ok": False, "error": "You can't suspend your own account"}), 400
+    upd = {}
+    old_co = user.get("contractor_company") if user.get("contractor_company") in CONTRACTOR_COMPANIES else None
+    new_co = old_co
+    if "company" in data:
+        new_co = data.get("company") or None
+        if new_co is not None and new_co not in CONTRACTOR_COMPANIES:
+            return jsonify({"ok": False, "error": "Unknown company"}), 400
+        upd["contractor_company"] = new_co
+    if "approved" in data:
+        upd["approved"] = bool(data.get("approved"))
+    role = data.get("company_role")
+    if role is not None and role not in CONTRACTOR_ROLES:
+        return jsonify({"ok": False, "error": "Unknown role"}), 400
+    if upd:
+        pr = requests.patch(f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}", json=upd,
+                            headers=sb_headers(), timeout=5)
+        if not pr.ok:
+            return jsonify({"ok": False, "error": "Could not update the account"}), 500
+    if old_co and old_co != new_co:
+        roles = _ct_company_roles(old_co)
+        if roles.pop(name, None) is not None:
+            _ct_set_config(f"contractor_roles_{old_co}", roles)
+    if new_co and (role or old_co != new_co):
+        roles = _ct_company_roles(new_co)
+        roles[name] = role or roles.get(name) or "member"
+        _ct_set_config(f"contractor_roles_{new_co}", roles)
+    _ct_cache_clear()
+    return jsonify({"ok": True})
 
 
 @app.route("/api/contractor/<company>/admin/pending", methods=["POST"])
@@ -7053,6 +7208,110 @@ def contractor_manifest():
             {"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
             {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
             {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+        ],
+    }), 200, {"Content-Type": "application/manifest+json"}
+
+
+_ct_icon_cache = {}
+
+
+def _ct_logo_bytes(logo):
+    """Raw image bytes of a company logo (data URL or a file in /static/brand), or None."""
+    import base64
+    if not logo:
+        return None
+    m = re.fullmatch(r"data:image/(?:png|jpeg|webp);base64,([A-Za-z0-9+/=]+)", logo)
+    if m:
+        try:
+            return base64.b64decode(m.group(1))
+        except ValueError:
+            return None
+    m = re.fullmatch(r"/static/brand/([\w.-]+\.(?:png|jpg|webp))", logo)
+    if m:
+        path = os.path.join(app.static_folder, "brand", m.group(1))
+        if os.path.isfile(path):
+            with open(path, "rb") as f:
+                return f.read()
+    return None
+
+
+def _ct_brand_version(prof):
+    import hashlib
+    return hashlib.sha1(f"{prof.get('logo') or ''}|{prof.get('display_name')}|{prof.get('brand_primary')}".encode()).hexdigest()[:10]
+
+
+def _ct_make_icon(prof, size, maskable):
+    """Square app icon: the company logo centered on white, or its initial on the brand color."""
+    from PIL import Image, ImageDraw, ImageFont
+    primary = prof.get("brand_primary") if _HEX_COLOR.fullmatch(str(prof.get("brand_primary") or "")) else "#0d1b36"
+    accent = prof.get("brand_accent") if _HEX_COLOR.fullmatch(str(prof.get("brand_accent") or "")) else "#e8a317"
+    raw = _ct_logo_bytes(prof.get("logo"))
+    logo = None
+    if raw:
+        try:
+            logo = Image.open(io.BytesIO(raw)).convert("RGBA")
+        except Exception:
+            logo = None
+    if logo is not None:
+        img = Image.new("RGBA", (size, size), (255, 255, 255, 255))
+        box = int(size * (0.62 if maskable else 0.8))  # maskable icons get cropped to a circle
+        logo.thumbnail((box, box), Image.LANCZOS)
+        img.alpha_composite(logo, ((size - logo.width) // 2, (size - logo.height) // 2))
+        bar = max(2, size // 40)
+        ImageDraw.Draw(img).rectangle([0, size - bar * (3 if maskable else 2), size, size], fill=accent)
+    else:
+        img = Image.new("RGBA", (size, size), primary)
+        letter = (prof.get("display_name") or "B").strip()[:1].upper() or "B"
+        try:
+            font = ImageFont.load_default(size=int(size * (0.42 if maskable else 0.56)))
+        except TypeError:
+            font = ImageFont.load_default()
+        d = ImageDraw.Draw(img)
+        l, t, r, b = d.textbbox((0, 0), letter, font=font)
+        d.text(((size - (r - l)) / 2 - l, (size - (b - t)) / 2 - t), letter, font=font, fill=accent)
+    out = io.BytesIO()
+    img.convert("RGB").save(out, "PNG", optimize=True)
+    return out.getvalue()
+
+
+@app.route("/contractor/<company>/icon-<int:size>.png")
+def contractor_company_icon(company, size):
+    """App icon made from the logo the company uploaded in Company Settings."""
+    if company not in CONTRACTOR_COMPANIES or size not in (180, 192, 512):
+        return "", 404
+    maskable = request.args.get("m") == "1"
+    prof = _ct_profile(company)
+    key = (sb_url(), company, size, maskable, _ct_brand_version(prof))
+    png = _ct_icon_cache.get(key)
+    if png is None:
+        png = _ct_make_icon(prof, size, maskable)
+        _ct_icon_cache[key] = png
+    return Response(png, mimetype="image/png", headers={"Cache-Control": "public, max-age=86400"})
+
+
+@app.route("/contractor/<company>/manifest.webmanifest")
+def contractor_company_manifest(company):
+    """Installable app for one company: its name, its logo, opening on its workspace."""
+    if company not in CONTRACTOR_COMPANIES:
+        return "", 404
+    prof = _ct_profile(company)
+    name = (prof.get("display_name") or CONTRACTOR_COMPANIES[company]).strip()
+    short = re.sub(r",?\s*(LLC|Inc\.?|Corp\.?|Co\.?)$", "", name, flags=re.I).strip()[:15] or CONTRACTOR_COMPANIES[company]
+    v = _ct_brand_version(prof)
+    icon = lambda size, m="": f"/contractor/{company}/icon-{size}.png?v={v}{'&m=1' if m else ''}"
+    primary = prof.get("brand_primary") if _HEX_COLOR.fullmatch(str(prof.get("brand_primary") or "")) else "#0d1b36"
+    return jsonify({
+        "id": f"/contractor/{company}", "name": name, "short_name": short,
+        "start_url": f"/contractor/{company}?source=pwa", "scope": "/", "display": "standalone",
+        "background_color": "#ffffff", "theme_color": primary,
+        "shortcuts": [
+            {"name": "Dictate work order", "short_name": "Dictate", "description": "Open a new work order and start dictating",
+             "url": "/contractor/dictate", "icons": [{"src": icon(192), "sizes": "192x192", "type": "image/png"}]},
+        ],
+        "icons": [
+            {"src": icon(192), "sizes": "192x192", "type": "image/png", "purpose": "any"},
+            {"src": icon(512), "sizes": "512x512", "type": "image/png", "purpose": "any"},
+            {"src": icon(512, "m"), "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
         ],
     }), 200, {"Content-Type": "application/manifest+json"}
 
@@ -7800,6 +8059,9 @@ def contractor_invoicing_update_job(company, job_id):
     )
     if not (r.ok and r.json()):
         return jsonify({"ok": False, "error": "Job not found or already invoiced"}), 409
+    if "client_name" in payload or "client_email" in payload:
+        row = r.json()[0]
+        _ct_remember_client(company, row.get("client_name"), row.get("client_email"), me["name"])
     return jsonify({"ok": True})
 
 
@@ -7969,7 +8231,8 @@ def contractor_invoice_send(invoice_id):
     co = inv.get("company_snapshot") or {}
     message = str(data.get("message") or "").strip()[:2000] or "Please find your invoice below."
     ok, e = _ct_send_email(to, cc, f"Invoice {inv['invoice_number']} from {co.get('display_name') or ''}".strip(),
-                           _ct_invoice_email_html(inv, message, link), reply_to=(co.get("emails") or [None])[0])
+                           _ct_invoice_email_html(inv, message, link), reply_to=(co.get("emails") or [None])[0],
+                           from_name=co.get("display_name") or CONTRACTOR_COMPANIES.get(inv["company"]))
     if not ok:
         return jsonify({"ok": False, "error": e, "link": link}), 502
     now = dt.datetime.utcnow().isoformat() + "Z"
@@ -8129,7 +8392,8 @@ def contractor_invoice_remind(invoice_id):
     days = _ct_days_since(inv["sent_at"])
     ok, e = _ct_send_email(to, cc, f"Reminder: invoice {inv['invoice_number']} from {co.get('display_name') or ''}".strip(),
                            _ct_reminder_email_html(inv, f"{request.host_url}i/{inv['public_token']}", days),
-                           reply_to=(co.get("emails") or [None])[0])
+                           reply_to=(co.get("emails") or [None])[0],
+                           from_name=co.get("display_name") or CONTRACTOR_COMPANIES.get(inv["company"]))
     if not ok:
         return jsonify({"ok": False, "error": e}), 502
     now = dt.datetime.utcnow().isoformat() + "Z"
@@ -8270,7 +8534,8 @@ def _ct_overdue_digest(company):
     {rows}
   </table>
 </div>"""
-    _ct_send_email(to, [], f"{prof.get('display_name') or CONTRACTOR_COMPANIES[company]}: {len(late)} unpaid invoice{'s' if len(late) != 1 else ''}", html)
+    _ct_send_email(to, [], f"{prof.get('display_name') or CONTRACTOR_COMPANIES[company]}: {len(late)} unpaid invoice{'s' if len(late) != 1 else ''}", html,
+                   from_name="BSynch reminders")
 
 
 _ct_digest_day = {}
@@ -8305,6 +8570,15 @@ def _ct_maybe_daily_digest(today):
                 logger.error("[Contractor digest] %s: %s", co, e)
     finally:
         _ct_digest_lock.release()
+
+
+@app.after_request
+def _ct_cache_after_write(resp):
+    # Account changes (approve, role, company, sign-up) must be seen at once, not after the cache expires
+    if request.method != "GET" and (request.path.startswith("/api/contractor/") and "/admin/" in request.path
+                                    or request.path.startswith(("/api/contractor/join", "/api/contractor/platform", "/api/register", "/api/users"))):
+        _ct_cache_clear()
+    return resp
 
 
 @app.before_request
@@ -8366,23 +8640,59 @@ def _ct_contacts_all(company):
     return r.json() if r.ok else []
 
 
-def _ct_remember_contacts(company, emails, org, by):
-    """Invoice recipients become Clients in Contacts (a potential client is promoted)."""
+def _ct_remember_client(company, name, email, by, source="work order"):
+    """Every client is a contact: match by email, then by name or company; add what is new."""
+    name = str(name or "").strip()[:120]
+    email = str(email or "").strip().lower()
+    if not _EMAIL_RE.fullmatch(email):
+        email = ""
+    if not name and not email:
+        return
     try:
         existing = _ct_contacts_all(company)
-        for email in emails:
-            email = email.lower()
-            match = next((c for c in existing if email in [e.lower() for e in (c.get("emails") or [])]), None)
-            if match:
-                if match.get("kind") == "potential":
-                    requests.patch(f"{sb_url()}/rest/v1/contractor_contacts?id=eq.{match['id']}",
-                                   json={"kind": "client"}, headers=sb_headers(), timeout=5)
-                continue
-            requests.post(f"{sb_url()}/rest/v1/contractor_contacts", headers=sb_headers(), timeout=5,
-                          json={"company": company, "kind": "client", "name": "", "org": org[:120], "emails": [email],
-                                "phones": [], "source": "invoice", "created_by": by[:80]})
+        lname = name.lower()
+        match = next((c for c in existing if email and email in [e.lower() for e in (c.get("emails") or [])]), None) or \
+            next((c for c in existing if lname and lname in ((c.get("name") or "").strip().lower(), (c.get("org") or "").strip().lower())), None)
+        if match:
+            upd = {}
+            emails = [e.lower() for e in (match.get("emails") or [])]
+            if email and email not in emails and len(emails) < 5:
+                upd["emails"] = emails + [email]
+            if match.get("kind") == "potential":
+                upd["kind"] = "client"
+            if upd:
+                requests.patch(f"{sb_url()}/rest/v1/contractor_contacts?id=eq.{match['id']}", json=upd, headers=sb_headers(), timeout=5)
+            return
+        requests.post(f"{sb_url()}/rest/v1/contractor_contacts", headers=sb_headers(), timeout=5,
+                      json={"company": company, "kind": "client", "name": name, "org": "", "emails": [email] if email else [],
+                            "phones": [], "source": source, "created_by": str(by or "")[:80]})
     except Exception as e:
-        logger.warning("[Contacts] remember: %s", e)
+        logger.warning("[Contacts] remember client: %s", e)
+
+
+def _ct_remember_contacts(company, emails, org, by):
+    """Invoice recipients become Clients in Contacts (a potential client is promoted)."""
+    for email in emails:
+        _ct_remember_client(company, org, email, by, source="invoice")
+
+
+@app.route("/api/contractor/<company>/clients", methods=["GET"])
+def contractor_client_suggestions(company):
+    """Clients to suggest while filling a work order: contacts plus anyone billed before."""
+    me = _contractor_caller()
+    if company not in CONTRACTOR_COMPANIES or not _ct_can_view(me, company):
+        return jsonify({"ok": False, "error": "not your company"}), 403
+    out, seen = [], set()
+    for c in _ct_contacts_all(company):
+        if c.get("kind") not in ("client", "potential"):
+            continue
+        label = (c.get("name") or c.get("org") or "").strip()
+        if not label or label.lower() in seen:
+            continue
+        seen.add(label.lower())
+        out.append({"name": label, "org": c.get("org") or "", "email": (c.get("emails") or [""])[0],
+                    "phone": (c.get("phones") or [""])[0], "kind": c.get("kind")})
+    return jsonify({"ok": True, "clients": out})
 
 
 @app.route("/contractor/<company>/contacts")
@@ -8550,6 +8860,7 @@ def create_contractor_job():
             payload["scheduled_end"] = due
     if data.get("assigned_to") and not _ct_is_member_only(_contractor_caller()):
         payload["assigned_to"] = str(data["assigned_to"])[:80]
+    _remember = (payload.get("client_name"), payload.get("client_email"))
     scope = _contractor_scope()
     if scope == "__none__":
         return jsonify({"ok": False, "error": "You are not assigned to a company yet"}), 403
@@ -8579,6 +8890,8 @@ def create_contractor_job():
         except (TypeError, ValueError):
             pass
         requests.post(f"{sb_url()}/rest/v1/job_visits", json=visit, headers=sb_headers(), timeout=5)
+        if job.get("company"):
+            _ct_remember_client(job["company"], _remember[0], _remember[1], payload["created_by"])
         return jsonify({"ok": True, "job": job})
     return jsonify({"ok": False, "error": r.text}), 400
 
@@ -8636,6 +8949,9 @@ def update_contractor_job(job_id):
         headers={**sb_headers(), "Prefer": "return=representation"},
         timeout=8
     )
+    if r.ok and r.json() and ("client_name" in payload or "client_email" in payload) and r.json()[0].get("company"):
+        row = r.json()[0]
+        _ct_remember_client(row["company"], row.get("client_name"), row.get("client_email"), _contractor_caller()["name"])
     return jsonify({"ok": r.ok})
 
 

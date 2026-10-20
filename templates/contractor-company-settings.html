@@ -51,6 +51,8 @@ input[type=color]{height:40px;padding:4px;cursor:pointer;}
 .msg{font-size:13px;margin-top:8px;min-height:16px;}
 .btn{padding:10px 20px;background:#1e9484;border:none;border-radius:8px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;}
 .btn:disabled{opacity:.5;cursor:default;}
+.app-row{display:flex;gap:12px;align-items:center;}
+.app-row img{border-radius:14px;border:1px solid #e2e8f0;background:#fff;flex-shrink:0;}
 .saved{font-size:13px;color:#22c55e;margin-left:10px;opacity:0;transition:opacity .2s;}
 .saved.on{opacity:1;}
 .readonly-note{font-size:13px;color:#64748b;margin-bottom:14px;}
@@ -137,6 +139,17 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
       <span class="hint">The calendar uses this to show how many hours each person still has free every day.</span>
     </div>
 
+    <div class="card">
+      <h2>App on the phone</h2>
+      <div class="app-row">
+        <img id="appIcon" alt="" width="64" height="64">
+        <div><b id="appName"></b><span class="hint" style="display:block;">The app uses your logo and company name. Save a new logo and the icon updates.</span></div>
+      </div>
+      <button type="button" class="btn-sm" id="appInstall" style="margin-top:10px;">&#128242; Install the app</button>
+      <span class="hint" id="appHint" style="display:block;margin-top:6px;"></span>
+      <button type="button" class="btn-sm" id="appShare" style="margin-top:8px;">&#128279; Copy the install link for your team</button>
+    </div>
+
     <button class="btn" type="submit" id="saveBtn">Save settings</button><span class="saved" id="saved">Saved &#10003;</span>
   </form>
 
@@ -189,6 +202,24 @@ function updateNextPreview(){
     (left !== null ? (left > 0 ? ' · ' + left.toLocaleString() + ' numbers left in the range' : ' · the end is before the start') : (e ? ' · the end must start with "' + m[1] + '"' : ''));
 }
 function composeNumber(p){ return p.invoice_next ? (p.invoice_prefix || '') + String(p.invoice_next).padStart(p.invoice_pad || 6, '0') : ''; }
+function refreshAppCard(p){
+  var v = Date.now();
+  document.getElementById('appIcon').src = '/contractor/' + COMPANY + '/icon-192.png?t=' + v;
+  document.getElementById('appName').textContent = (p && p.display_name) || COMPANY;
+  var btn = document.getElementById('appInstall'), hint = document.getElementById('appHint');
+  if(CT.isInstalled()){ btn.style.display = 'none'; hint.textContent = 'Already installed on this device ✓'; return; }
+  if(CT.canPromptInstall()){ btn.style.display = ''; hint.textContent = ''; }
+  else { btn.style.display = 'none'; hint.innerHTML = CT.isIOS() ? 'iPhone: in Safari tap <b>Share</b> → <b>Add to Home Screen</b>.' : 'Open the browser menu (&#8942;) → <b>Install app</b> or <b>Add to Home screen</b>.'; }
+}
+document.addEventListener('ct-installable', function(){ refreshAppCard(); });
+document.getElementById('appInstall').onclick = function(){ CT.install().then(function(){ refreshAppCard(); }); };
+document.getElementById('appShare').onclick = function(){
+  var b = this;
+  fetch('/api/contractor/' + COMPANY + '/admin/invite').then(function(r){ return r.json(); }).then(function(d){
+    var link = d.link || d.url || (location.origin + '/contractor/' + COMPANY);
+    (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(function(){ b.textContent = 'Link copied ✓'; }, function(){ prompt('Copy this link:', link); });
+  }).catch(function(){ prompt('Copy this link:', location.origin + '/contractor/' + COMPANY); });
+};
 document.getElementById('mailTest').onclick = function(){
   var m = document.getElementById('mailTestMsg'), b = this;
   b.disabled = true; m.style.color = '#64748b'; m.textContent = 'Sending...';
@@ -196,7 +227,7 @@ document.getElementById('mailTest').onclick = function(){
     .then(function(r){ return r.json(); }).then(function(res){
       b.disabled = false;
       m.style.color = res.ok ? '#15803d' : '#dc2626';
-      m.textContent = res.ok ? 'Sent to ' + res.to + ' ✓ Check the inbox.' : (res.error || 'Could not send');
+      m.textContent = res.ok ? 'Sent from ' + (res.from || '') + ' to ' + res.to + ' ✓ Check the inbox.' : (res.error || 'Could not send');
     }).catch(function(){ b.disabled = false; m.style.color = '#dc2626'; m.textContent = 'Connection error.'; });
 };
 document.getElementById('invoice_start').oninput = updateNextPreview;
@@ -271,7 +302,7 @@ fetch(API + '/profile').then(function(r){ return r.json(); }).then(function(d){
   canEdit = !!d.can_edit;
   TEXT.forEach(function(f){ var el = document.getElementById(f); if(p[f] !== undefined && p[f] !== null) el.value = p[f]; el.disabled = !canEdit; });
   emails = (p.emails || []).slice(); logo = p.logo || '';
-  renderEmails(); showLogo(); updateNextPreview(); loadFiles();
+  renderEmails(); showLogo(); updateNextPreview(); loadFiles(); refreshAppCard(p);
   if(!canEdit){
     ['saveBtn','emailAdd','logoRemove','fileUploadBtn'].forEach(function(id){ document.getElementById(id).style.display = 'none'; });
     document.querySelector('.add-email').style.display = 'none';
@@ -291,7 +322,7 @@ document.getElementById('profileForm').onsubmit = function(e){
   fetch(API + '/profile', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)})
     .then(function(r){ return r.json(); }).then(function(res){
       btn.disabled = false;
-      if(res.ok){ try { sessionStorage.removeItem('ctBrand_' + COMPANY); } catch(x) {} var s = document.getElementById('saved'); s.classList.add('on'); setTimeout(function(){ s.classList.remove('on'); }, 1500); }
+      if(res.ok){ try { sessionStorage.removeItem('ctBrand_' + COMPANY); } catch(x) {} refreshAppCard({display_name: document.getElementById('display_name').value}); var s = document.getElementById('saved'); s.classList.add('on'); setTimeout(function(){ s.classList.remove('on'); }, 1500); }
       else alert('Could not save: ' + (res.error || 'error'));
     }).catch(function(){ btn.disabled = false; alert('Connection error.'); });
 };
