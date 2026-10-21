@@ -6538,7 +6538,7 @@ def _ct_send_email(to, cc, subject, html_body, reply_to=None, from_name=None):
             last = e
     return False, (f"The server cannot connect to {host} (the mail ports are blocked by the host). "
                    "Set RESEND_API_KEY on the server to send over HTTPS." if not isinstance(last, smtplib.SMTPException)
-                   else "Could not send the email")
+                   else f"The mail server ({host}) refused the message: {str(last)[:160]}")
 
 
 @app.route("/api/contractor/email-test", methods=["POST"])
@@ -6548,12 +6548,18 @@ def contractor_email_test():
     company = (request.get_json() or {}).get("company") or me["company"]
     if company not in CONTRACTOR_COMPANIES or not _ct_can_admin(me, company):
         return jsonify({"ok": False, "error": "Only Managers can test email"}), 403
-    to = (_ct_profile(company).get("emails") or [ADMIN_EMAIL])[0]
-    name = _ct_profile(company).get("display_name") or CONTRACTOR_COMPANIES[company]
+    prof = _ct_profile(company)
+    allowed = [e.lower() for e in (prof.get("emails") or [])] + [str(prof.get("notify_email") or "").lower()]
+    to = str((request.get_json() or {}).get("to") or "").strip().lower()
+    if to not in allowed or not to:  # only to the company's own addresses
+        to = (prof.get("emails") or [ADMIN_EMAIL])[0]
+    name = prof.get("display_name") or CONTRACTOR_COMPANIES[company]
+    via = _ct_mail_via()
+    sender = {"resend": CONTRACTOR_MAIL_ADDRESS, "smtp": CONTRACTOR_SMTP_USER}.get(via, SMTP_EMAIL)
     ok, e = _ct_send_email([to], [], "BSynch test email",
-                           "<p>Email from BSynch is working. Invoices and reminders will be delivered.</p>", from_name=name)
-    sender = CONTRACTOR_MAIL_ADDRESS if _ct_mail_via() != "gmail" else SMTP_EMAIL
-    return jsonify({"ok": ok, "error": e, "to": to, "from": sender, "via": _ct_mail_via()})
+                           f"<p>Email from BSynch is working.</p><p>Sent from <b>{_html_escape(sender)}</b> to <b>{_html_escape(to)}</b>. "
+                           "Invoices and reminders will be delivered the same way.</p>", from_name=name)
+    return jsonify({"ok": ok, "error": e, "to": to, "from": sender, "via": via})
 
 
 def _ct_send_email_async(to, cc, subject, html_body, reply_to=None):
