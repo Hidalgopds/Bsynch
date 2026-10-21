@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ company_name }} Mail Room – BSynch</title>
+<script src="/static/contractor-scope.js"></script>
+<script src="/static/theme.js"></script>
+<script>document.documentElement.setAttribute('data-theme','light');</script>
+<link rel="stylesheet" href="/static/themes.css">
+<link rel="stylesheet" href="/static/contractor-light.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f4f8;color:#0f172a;min-height:100vh;display:flex;flex-direction:column;}
+header{padding:14px 20px;display:flex;align-items:center;gap:12px;background:#19354d;color:#e2e8f0;}
+.logo-badge{width:36px;height:36px;background:linear-gradient(135deg,#1e9484,#4f8ef7);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;flex-shrink:0;}
+.hdr-title{font-size:17px;font-weight:700;}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.btn-back{padding:6px 14px;border:1px solid rgba(255,255,255,.3);border-radius:7px;color:#e2e8f0;font-size:12px;text-decoration:none;}
+.content{flex:1;padding:22px 16px 60px;max-width:900px;width:100%;margin:0 auto;}
+h1{font-size:22px;margin-bottom:4px;}
+.sub{font-size:14px;color:#64748b;margin-bottom:14px;line-height:1.5;}
+.sender{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:10px 14px;font-size:13px;color:#475569;margin-bottom:14px;}
+.tabs{display:flex;gap:6px;margin-bottom:14px;}
+.tab{padding:8px 16px;border-radius:9px;border:1px solid #cbd5e1;background:#fff;color:#475569;font-size:13px;font-weight:700;cursor:pointer;}
+.tab.active{border-color:#1e9484;background:#e3f3ef;color:#0f766e;}
+.tab small{margin-left:4px;color:#b91c1c;}
+.alert{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px 16px;margin-bottom:10px;}
+.alert.off{opacity:.7;}
+.a-top{display:flex;align-items:center;gap:10px;}
+.a-icon{font-size:20px;}
+.a-title{font-weight:700;font-size:15px;flex:1;}
+.a-help{font-size:13px;color:#64748b;margin:4px 0 10px 30px;}
+.a-body{margin-left:30px;display:flex;flex-direction:column;gap:8px;}
+.alert.off .a-body{display:none;}
+.switch{position:relative;width:44px;height:24px;flex-shrink:0;}
+.switch input{opacity:0;width:0;height:0;}
+.switch span{position:absolute;inset:0;background:#cbd5e1;border-radius:24px;cursor:pointer;transition:background .15s;}
+.switch span::before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .15s;}
+.switch input:checked + span{background:#1e9484;}
+.switch input:checked + span::before{transform:translateX(20px);}
+.switch input:focus-visible + span{outline:2px solid #0f766e;outline-offset:2px;}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:13px;}
+.row .lbl{color:#64748b;font-weight:600;min-width:64px;}
+.chk{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid #cbd5e1;border-radius:20px;cursor:pointer;background:#fff;}
+.chk input{accent-color:#1e9484;}
+.row input[type=text],.row input[type=number],.row select{padding:7px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff;color:#0f172a;font-family:inherit;}
+.row input.emails{flex:1;min-width:200px;}
+.row input[type=number]{width:96px;}
+.goes{font-size:12px;color:#0f766e;}
+.goes.none{color:#b45309;}
+.sample{padding:6px 12px;border-radius:8px;border:1px solid #8fcfc2;background:#fff;color:#0f766e;font-size:12px;font-weight:700;cursor:pointer;}
+.saved{font-size:12px;color:#15803d;font-weight:700;}
+.err{font-size:12px;color:#dc2626;}
+.tools{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+.chip{padding:6px 12px;border-radius:20px;border:1px solid #cbd5e1;background:#fff;color:#475569;font-size:12px;font-weight:600;cursor:pointer;}
+.chip.on{background:#1e9484;border-color:#1e9484;color:#fff;}
+.tools input{flex:1;min-width:180px;padding:7px 12px;border:1px solid #cbd5e1;border-radius:9px;font-size:13px;background:#fff;color:#0f172a;}
+.wrap{background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:640px;}
+th{text-align:left;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:.4px;padding:10px;border-bottom:1px solid #e2e8f0;}
+td{padding:9px 10px;border-bottom:1px solid #f1f5f9;vertical-align:top;}
+td small{display:block;color:#64748b;font-size:11px;}
+.st-ok{color:#15803d;font-weight:700;white-space:nowrap;}
+.st-bad{color:#b91c1c;font-weight:700;white-space:nowrap;}
+.kind{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:#f1f5f9;color:#334155;white-space:nowrap;}
+.empty{text-align:center;color:#64748b;padding:30px;}
+footer{text-align:center;padding:16px;font-size:12px;color:#94a3b8;}
+</style>
+</head>
+<body data-ct-hub>
+<header>
+  <div class="logo-badge">B</div>
+  <span class="hdr-title">{{ company_name }} · Mail Room</span>
+  <div class="hdr-right"><a href="/contractor/{{ company }}" class="btn-back">&#8592; {{ company_name }}</a></div>
+</header>
+
+<div class="content" id="content" style="visibility:hidden;">
+  <h1>&#128236; Mail Room</h1>
+  <p class="sub">Choose which emails the app sends and who gets them, and see every email that went out.</p>
+  <div class="sender" id="sender"></div>
+  <div class="tabs">
+    <button class="tab active" data-tab="alerts">&#128276; Alerts</button>
+    <button class="tab" data-tab="sent" id="sentTab">&#128228; Sent</button>
+  </div>
+  <div id="panel-alerts"></div>
+  <div id="panel-sent" style="display:none;">
+    <div class="tools" id="kinds"></div>
+    <div class="tools"><input id="q" type="search" placeholder="Search recipient or subject"></div>
+    <div class="wrap"><table><thead><tr><th>When</th><th>Type</th><th>To</th><th>Subject</th><th>Status</th></tr></thead><tbody id="rows"></tbody></table></div>
+  </div>
+</div>
+
+<footer>BSynch &middot; Contractor Module</footer>
+
+<script>
+var COMPANY = {{ company|tojson }};
+var API = '/api/contractor/' + COMPANY + '/mailroom';
+var D = null, kindFilter = 'all';
+var ORDER = ['wo_created', 'job_finished', 'tomorrow_jobs', 'invoice_overdue', 'invoice_paid', 'expense_over', 'pending_approval'];
+var KINDS = [['all', 'All'], ['failed', 'Failed'], ['invoice', 'Invoices'], ['reminder', 'Reminders'], ['alert', 'Alerts'], ['test', 'Tests']];
+var KIND_LABEL = {invoice: 'Invoice', reminder: 'Reminder', test: 'Test', account: 'Account', notice: 'Notice'};
+
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function hourLabel(h){ return (h % 12 || 12) + ':00 ' + (h < 12 ? 'AM' : 'PM'); }
+function recipients(key, a){
+  var out = [];
+  if(a.to.indexOf('company') >= 0) out = out.concat(D.company_emails);
+  if(a.to.indexOf('managers') >= 0) out = out.concat(D.managers);
+  out = out.concat(a.emails || []);
+  out = out.filter(function(e, i){ return out.indexOf(e) === i; });
+  var txt = out.join(', ');
+  if(a.to.indexOf('assigned') >= 0) txt = 'each worker with jobs' + (txt ? ' + ' + txt : '');
+  return txt;
+}
+function renderAlerts(){
+  document.getElementById('panel-alerts').innerHTML = ORDER.map(function(k){
+    var a = D.alerts[k], c = D.catalog[k], targets = Object.keys(D.targets).filter(function(t){ return t !== 'assigned' || k === 'tomorrow_jobs'; });
+    var param = '';
+    if(k === 'tomorrow_jobs') param = '<div class="row"><span class="lbl">Send at</span><select data-p="hour">' + [12,13,14,15,16,17,18,19,20,21].map(function(h){ return '<option value="' + h + '"' + (h === a.hour ? ' selected' : '') + '>' + hourLabel(h) + '</option>'; }).join('') + '</select><span class="muted" style="color:#64748b;">Houston time</span></div>';
+    if(k === 'expense_over') param = '<div class="row"><span class="lbl">From $</span><input type="number" min="0" step="50" data-p="amount" value="' + a.amount + '"></div>';
+    if(k === 'invoice_overdue') param = '<div class="row"><span class="lbl">After</span><input type="number" min="1" max="365" data-p="days" value="' + a.days + '"> days unpaid</div>';
+    var who = recipients(k, a);
+    return '<div class="alert' + (a.on ? '' : ' off') + '" data-k="' + k + '">' +
+      '<div class="a-top"><span class="a-icon">' + c.icon + '</span><span class="a-title">' + esc(c.label) + '</span>' +
+        '<label class="switch" title="On / off"><input type="checkbox" data-p="on"' + (a.on ? ' checked' : '') + ' aria-label="' + esc(c.label) + '"><span></span></label></div>' +
+      '<div class="a-help">' + esc(c.help) + '</div>' +
+      '<div class="a-body">' +
+        '<div class="row"><span class="lbl">Send to</span>' + targets.map(function(t){ return '<label class="chk"><input type="checkbox" data-t="' + t + '"' + (a.to.indexOf(t) >= 0 ? ' checked' : '') + '>' + esc(D.targets[t]) + '</label>'; }).join('') + '</div>' +
+        '<div class="row"><span class="lbl">Also to</span><input type="text" class="emails" data-p="emails" value="' + esc((a.emails || []).join(', ')) + '" placeholder="other@email.com, another@email.com"></div>' +
+        param +
+        '<div class="row"><span class="goes' + (who ? '' : ' none') + '">' + (who ? '&#10140; Goes to: ' + esc(who) : '&#9888;&#65039; Nobody gets it yet: tick someone above.') + '</span></div>' +
+        '<div class="row"><button class="sample" data-sample="' + k + '">Send me a sample</button><span class="saved" data-msg></span></div>' +
+      '</div></div>';
+  }).join('');
+}
+function save(card, body){
+  var msg = card.querySelector('[data-msg]');
+  body.key = card.dataset.k;
+  fetch(API + '/alerts', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)})
+    .then(function(r){ return r.json(); }).then(function(res){
+      if(!res.ok){ if(msg){ msg.className = 'err'; msg.textContent = res.error || 'Could not save'; } return; }
+      D.alerts[card.dataset.k] = res.alert; renderAlerts();
+      var m2 = document.querySelector('.alert[data-k="' + card.dataset.k + '"] [data-msg]'); if(m2){ m2.className = 'saved'; m2.textContent = 'Saved ✓'; setTimeout(function(){ m2.textContent = ''; }, 1500); }
+    });
+}
+document.getElementById('panel-alerts').addEventListener('change', function(e){
+  var t = e.target, card = t.closest('.alert'); if(!card) return;
+  if(t.dataset.t){ var to = Array.prototype.filter.call(card.querySelectorAll('[data-t]'), function(x){ return x.checked; }).map(function(x){ return x.dataset.t; }); save(card, {to: to}); return; }
+  var p = t.dataset.p; if(!p) return;
+  var body = {};
+  if(p === 'on') body.on = t.checked;
+  else if(p === 'emails') body.emails = t.value.split(/[\s,;]+/).filter(Boolean);
+  else body[p] = t.value;
+  save(card, body);
+});
+document.getElementById('panel-alerts').addEventListener('click', function(e){
+  var b = e.target.closest('[data-sample]'); if(!b) return;
+  var msg = b.parentNode.querySelector('[data-msg]'); b.disabled = true; msg.className = 'saved'; msg.textContent = 'Sending...';
+  fetch(API + '/sample', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({key: b.dataset.sample})})
+    .then(function(r){ return r.json(); }).then(function(res){
+      b.disabled = false; msg.className = res.ok ? 'saved' : 'err';
+      msg.textContent = res.ok ? 'Sample sent to ' + res.to + ' ✓' : (res.error || 'Could not send');
+      loadLog();
+    });
+});
+
+function kindOf(l){ return l.kind.indexOf('alert:') === 0 || l.kind.indexOf('sample:') === 0 ? 'alert' : l.kind; }
+function kindLabel(l){
+  if(l.kind.indexOf('alert:') === 0){ var c = D.catalog[l.kind.slice(6)]; return c ? c.icon + ' ' + c.label : 'Alert'; }
+  if(l.kind.indexOf('sample:') === 0) return 'Sample';
+  return KIND_LABEL[l.kind] || l.kind;
+}
+function renderLog(){
+  var failed = D.log.filter(function(l){ return l.status !== 'sent'; }).length;
+  document.getElementById('sentTab').innerHTML = '&#128228; Sent' + (failed ? '<small>' + failed + ' failed</small>' : '');
+  document.getElementById('kinds').innerHTML = KINDS.map(function(k){ return '<button class="chip' + (k[0] === kindFilter ? ' on' : '') + '" data-kind="' + k[0] + '">' + k[1] + '</button>'; }).join('');
+  var q = document.getElementById('q').value.trim().toLowerCase();
+  var list = D.log.filter(function(l){
+    if(kindFilter === 'failed' && l.status === 'sent') return false;
+    if(kindFilter !== 'all' && kindFilter !== 'failed' && kindOf(l) !== kindFilter) return false;
+    return !q || (l.to_addrs + ' ' + l.cc_addrs + ' ' + l.subject).toLowerCase().indexOf(q) >= 0;
+  });
+  document.getElementById('rows').innerHTML = list.length ? list.map(function(l){
+    return '<tr><td style="white-space:nowrap;">' + esc(new Date(l.created_at).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})) + (l.sent_by ? '<small>by ' + esc(l.sent_by) + '</small>' : '') + '</td>' +
+      '<td><span class="kind">' + esc(kindLabel(l)) + '</span></td>' +
+      '<td>' + esc(l.to_addrs) + (l.cc_addrs ? '<small>CC ' + esc(l.cc_addrs) + '</small>' : '') + '</td>' +
+      '<td>' + esc(l.subject) + '</td>' +
+      '<td>' + (l.status === 'sent' ? '<span class="st-ok">&#10003; Sent</span>' : '<span class="st-bad">&#10007; Failed</span><small>' + esc(l.error) + '</small>') + '</td></tr>';
+  }).join('') : '<tr><td colspan="5" class="empty">' + (D.log.length ? 'Nothing matches.' : 'No emails yet. They will show up here as the app sends them.') + '</td></tr>';
+}
+document.getElementById('kinds').onclick = function(e){ var c = e.target.closest('[data-kind]'); if(c){ kindFilter = c.dataset.kind; renderLog(); } };
+document.getElementById('q').oninput = renderLog;
+document.querySelectorAll('.tab').forEach(function(t){
+  t.onclick = function(){
+    document.querySelectorAll('.tab').forEach(function(x){ x.classList.toggle('active', x === t); });
+    document.getElementById('panel-alerts').style.display = t.dataset.tab === 'alerts' ? '' : 'none';
+    document.getElementById('panel-sent').style.display = t.dataset.tab === 'sent' ? '' : 'none';
+    if(t.dataset.tab === 'sent') loadLog();
+  };
+});
+function loadLog(){
+  fetch(API).then(function(r){ return r.json(); }).then(function(d){ if(d.ok){ D.log = d.log; renderLog(); } });
+}
+fetch(API).then(function(r){ return r.json(); }).then(function(d){
+  if(!d.ok){ location.replace('/contractor/' + COMPANY); return; }
+  D = d;
+  document.getElementById('sender').innerHTML = '&#9993;&#65039; Emails go out from <b>' + esc(d.sender || 'not set') + '</b> with your company name. Replies go to your first company email. <a href="/contractor/' + COMPANY + '/settings" style="color:#0f766e;font-weight:600;">Send a test email</a>';
+  renderAlerts(); renderLog();
+  if(new URLSearchParams(location.search).get('tab') === 'sent') document.getElementById('sentTab').click();
+  document.getElementById('content').style.visibility = '';
+});
+</script>
+</body>
+</html>

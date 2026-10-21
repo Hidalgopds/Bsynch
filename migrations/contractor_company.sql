@@ -269,3 +269,22 @@ alter table contractor_contacts enable row level security;
 alter table app_users add column if not exists totp_secret text;
 alter table app_users add column if not exists totp_enabled boolean default false;
 alter table app_users add column if not exists totp_recovery jsonb default '[]'::jsonb;
+
+-- Mail room: every email the contractor module sends
+create table if not exists contractor_mail_log (
+  id uuid primary key default gen_random_uuid(),
+  company text,
+  kind text not null default '',
+  ref text default '',
+  to_addrs text default '',
+  cc_addrs text default '',
+  subject text default '',
+  status text not null default 'sent',
+  error text default '',
+  via text default '',
+  sent_by text default '',
+  created_at timestamptz default now()
+);
+create index if not exists contractor_mail_log_company_idx on contractor_mail_log(company, created_at desc);
+create index if not exists contractor_mail_log_ref_idx on contractor_mail_log(company, kind, ref);
+alter table contractor_mail_log enable row level security;

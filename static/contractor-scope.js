@@ -168,6 +168,7 @@
     ['invoicing', '&#128181;', 'Invoicing', function (c) { return '/contractor/' + c + '/invoicing'; }, 'invoicing'],
     ['dashboard', '&#128202;', 'Dashboard', function (c) { return '/contractor/dashboard?company=' + c; }, 'dashboard'],
     ['contacts', '&#128101;', 'Contacts', function (c) { return '/contractor/' + c + '/contacts'; }, 'contacts'],
+    ['mail', '&#128236;', 'Mail room', function (c) { return '/contractor/' + c + '/mail'; }, '__admin'],
     ['settings', '&#9881;&#65039;', 'Settings', function (c) { return '/contractor/' + c + '/settings'; }, 'company_settings'],
     ['admin', '&#128272;', 'Admin', function (c) { return '/contractor/' + c + '/admin'; }, '__admin']
   ];

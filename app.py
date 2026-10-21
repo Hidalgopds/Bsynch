@@ -6558,14 +6558,330 @@ def contractor_email_test():
     name = prof.get("display_name") or CONTRACTOR_COMPANIES[company]
     via = _ct_mail_via()
     sender = {"resend": CONTRACTOR_MAIL_ADDRESS, "smtp": CONTRACTOR_SMTP_USER}.get(via, SMTP_EMAIL)
-    ok, e = _ct_send_email([to], [], "BSynch test email",
+    ok, e = _ct_mail(company, "test", [to], [], "BSynch test email",
                            f"<p>Email from BSynch is working.</p><p>Sent from <b>{_html_escape(sender)}</b> to <b>{_html_escape(to)}</b>. "
-                           "Invoices and reminders will be delivered the same way.</p>", from_name=name)
+                           "Invoices and reminders will be delivered the same way.</p>", from_name=name, sent_by=me["name"])
     return jsonify({"ok": ok, "error": e, "to": to, "from": sender, "via": via})
 
 
-def _ct_send_email_async(to, cc, subject, html_body, reply_to=None):
-    _threading.Thread(target=_ct_send_email, args=(to, cc, subject, html_body, reply_to), daemon=True).start()
+def _ct_bg(fn, *args, **kwargs):
+    """Run fn in the background, for the same tenant (subdomain) as the current request."""
+    try:
+        base = request.host_url
+    except RuntimeError:
+        base = None
+
+    def run():
+        try:
+            if base:
+                with app.test_request_context("/", base_url=base):
+                    fn(*args, **kwargs)
+            else:
+                fn(*args, **kwargs)
+        except Exception as e:
+            logger.error("[Contractor bg] %s: %s", getattr(fn, "__name__", fn), e)
+    _threading.Thread(target=run, daemon=True).start()
+
+
+def _ct_mail(company, kind, to, cc, subject, html_body, reply_to=None, from_name=None, ref="", sent_by=""):
+    """Send and record it in the Mail room log (sent or failed, with the reason)."""
+    ok, err = _ct_send_email(to, cc, subject, html_body, reply_to=reply_to, from_name=from_name)
+    try:
+        requests.post(f"{sb_url()}/rest/v1/contractor_mail_log", headers=sb_headers(), timeout=5, json={
+            "company": company, "kind": kind[:40], "ref": str(ref or "")[:80], "to_addrs": ", ".join(to or [])[:1000],
+            "cc_addrs": ", ".join(cc or [])[:1000], "subject": subject[:300], "status": "sent" if ok else "failed",
+            "error": (err or "")[:500], "via": _ct_mail_via(), "sent_by": str(sent_by or "")[:80]})
+    except Exception as e:
+        logger.warning("[Mail log] %s", e)
+    return ok, err
+
+
+def _ct_send_email_async(to, cc, subject, html_body, reply_to=None, company=None, kind="notice"):
+    _ct_bg(_ct_mail, company, kind, to, cc, subject, html_body, reply_to)
+
+
+# ── Mail room: alerts each company turns on or off, and who gets them ──
+CONTRACTOR_ALERTS = {
+    "wo_created": {"label": "A User created a work order", "icon": "🆕", "to": ["managers"],
+                   "help": "When someone with the User role creates a work order."},
+    "job_finished": {"label": "Job finished, ready to invoice", "icon": "✅", "to": ["company"],
+                     "help": "Once per job, when it reaches 100% or is marked finished."},
+    "tomorrow_jobs": {"label": "Tomorrow's jobs", "icon": "📅", "to": ["assigned"], "hour": 17,
+                      "help": "Every afternoon: each worker gets their jobs for tomorrow with address, time and materials."},
+    "invoice_overdue": {"label": "Unpaid invoices after X days", "icon": "🔴", "to": ["company"],
+                        "help": "Every morning, the list of sent invoices still unpaid after the days you set."},
+    "invoice_paid": {"label": "Invoice marked paid", "icon": "💵", "to": ["company"],
+                     "help": "When a Manager marks an invoice (or a check with several) as paid."},
+    "expense_over": {"label": "Expense over $X", "icon": "🧾", "to": ["managers"], "amount": 500,
+                     "help": "When someone adds a ticket for that amount or more."},
+    "pending_approval": {"label": "Someone is waiting for approval", "icon": "⏳", "to": ["managers"],
+                         "help": "A new sign-up from your invite link. Manager sign-ups always go to the platform administrator too."},
+}
+CONTRACTOR_ALERT_TARGETS = {"company": "Company emails", "managers": "Managers", "assigned": "The assigned person"}
+
+
+def _ct_alert_settings(company):
+    saved = _ct_config(f"contractor_alerts_{company}", {}) or {}
+    prof = _ct_profile(company)
+    out = {}
+    for key, d in CONTRACTOR_ALERTS.items():
+        sv = saved.get(key) or {}
+        cfg = {"on": bool(sv.get("on", True)),
+               "to": [t for t in sv.get("to", d["to"]) if t in CONTRACTOR_ALERT_TARGETS],
+               "emails": [e for e in (sv.get("emails") or []) if _EMAIL_RE.fullmatch(str(e))][:10]}
+        if "hour" in d:
+            cfg["hour"] = int(sv.get("hour", d["hour"]))
+        if "amount" in d:
+            cfg["amount"] = float(sv.get("amount", d["amount"]))
+        if key == "invoice_overdue":
+            cfg["days"] = int(prof.get("reminder_days") or 15)
+        out[key] = cfg
+    return out
+
+
+def _ct_people_emails(company, names=None, managers=False):
+    """Emails of people in a company: the named ones, or its Managers."""
+    if managers:
+        names = [n for n, rl in _ct_company_roles(company).items() if rl == "admin"]
+    names = [n for n in (names or []) if n]
+    if not names:
+        return []
+    q = ",".join('"' + n.replace('"', '') + '"' for n in names)
+    r = requests.get(f"{sb_url()}/rest/v1/app_users?name=in.({requests.utils.quote(q)})&approved=eq.true&select=name,email",
+                     headers=sb_headers(), timeout=6)
+    return [u["email"].strip().lower() for u in (r.json() if r.ok else []) if _EMAIL_RE.fullmatch(str(u.get("email") or "").strip())]
+
+
+def _ct_alert_recipients(company, cfg, assigned=None):
+    out = []
+    if "company" in cfg["to"]:
+        out += [e.lower() for e in (_ct_profile(company).get("emails") or [])]
+    if "managers" in cfg["to"]:
+        out += _ct_people_emails(company, managers=True)
+    if "assigned" in cfg["to"] and assigned:
+        out += _ct_people_emails(company, names=assigned if isinstance(assigned, list) else [assigned])
+    out += [e.lower() for e in cfg.get("emails") or []]
+    return list(dict.fromkeys(out))
+
+
+def _ct_alert_html(company, title, rows, link=None, link_text="Open in BSynch", intro=""):
+    prof = _ct_profile(company)
+    navy = prof.get("brand_primary") if _HEX_COLOR.fullmatch(str(prof.get("brand_primary") or "")) else "#0d1b36"
+    trs = "".join(f"<tr><td style='padding:6px 10px 6px 0;color:#6b7280;white-space:nowrap;vertical-align:top'>{_html_escape(k)}</td>"
+                  f"<td style='padding:6px 0;vertical-align:top'>{v}</td></tr>" for k, v in rows)
+    btn = (f"<div style='margin:20px 0 6px'><a href='{link}' style='background:{navy};color:#fff;text-decoration:none;padding:10px 18px;"
+           f"border-radius:6px;font-weight:bold;display:inline-block'>{_html_escape(link_text)}</a></div>") if link else ""
+    return (f"<div style='font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;color:#111827'>"
+            f"<div style='background:{navy};color:#fff;padding:14px 18px;border-radius:8px 8px 0 0;font-size:16px;font-weight:bold'>"
+            f"{_html_escape(prof.get('display_name') or CONTRACTOR_COMPANIES.get(company, ''))}</div>"
+            f"<div style='border:1px solid #e5e7eb;border-top:none;padding:18px;border-radius:0 0 8px 8px;font-size:14px;line-height:1.5'>"
+            f"<h2 style='font-size:17px;margin:0 0 10px'>{_html_escape(title)}</h2>{intro}"
+            f"<table style='border-collapse:collapse;font-size:14px'>{trs}</table>{btn}"
+            f"<p style='font-size:11px;color:#9ca3af;margin-top:18px'>Change these alerts in BSynch &rarr; Mail room.</p></div></div>")
+
+
+def _ct_alert_sent_before(company, key, ref):
+    r = requests.get(f"{sb_url()}/rest/v1/contractor_mail_log?company=eq.{company}&kind=eq.alert:{key}"
+                     f"&ref=eq.{requests.utils.quote(str(ref))}&status=eq.sent&select=id&limit=1", headers=sb_headers(), timeout=5)
+    return bool(r.ok and r.json())
+
+
+def _ct_alert(company, key, subject, html_body, assigned=None, ref="", once=False, extra_to=None, background=True):
+    """Send one alert if the company has it on. once=True sends it a single time per ref."""
+    if company not in CONTRACTOR_COMPANIES:
+        return False
+    cfg = _ct_alert_settings(company).get(key) or {}
+    if not cfg.get("on"):
+        return False
+    to = list(dict.fromkeys(_ct_alert_recipients(company, cfg, assigned) + [e.lower() for e in (extra_to or [])]))
+    if not to:
+        return False
+    if once and ref and _ct_alert_sent_before(company, key, ref):
+        return False
+    name = (_ct_profile(company).get("display_name") or CONTRACTOR_COMPANIES[company]) + " alerts"
+    if background:
+        _ct_bg(_ct_mail, company, f"alert:{key}", to, [], subject, html_body, None, name, ref)
+    else:
+        _ct_mail(company, f"alert:{key}", to, [], subject, html_body, None, name, ref)
+    return True
+
+
+@app.route("/contractor/<company>/mail")
+def contractor_mailroom_page(company):
+    return _ct_page(company, "contractor-mailroom.html")
+
+
+@app.route("/api/contractor/<company>/mailroom", methods=["GET"])
+def contractor_mailroom(company):
+    me = _contractor_caller()
+    if company not in CONTRACTOR_COMPANIES or not _ct_can_admin(me, company):
+        return jsonify({"ok": False, "error": "Only Managers can open the Mail room"}), 403
+    q = f"{sb_url()}/rest/v1/contractor_mail_log?company=eq.{company}&order=created_at.desc&limit=300" \
+        f"&select=id,kind,ref,to_addrs,cc_addrs,subject,status,error,via,sent_by,created_at"
+    r = requests.get(q, headers=sb_headers(), timeout=8)
+    via = _ct_mail_via()
+    return jsonify({"ok": True, "alerts": _ct_alert_settings(company),
+                    "catalog": {k: {x: d[x] for x in ("label", "icon", "help")} for k, d in CONTRACTOR_ALERTS.items()},
+                    "targets": CONTRACTOR_ALERT_TARGETS, "log": r.json() if r.ok else [],
+                    "sender": {"resend": CONTRACTOR_MAIL_ADDRESS, "smtp": CONTRACTOR_SMTP_USER}.get(via, SMTP_EMAIL), "via": via,
+                    "company_emails": _ct_profile(company).get("emails") or [],
+                    "managers": _ct_people_emails(company, managers=True)})
+
+
+@app.route("/api/contractor/<company>/mailroom/alerts", methods=["POST"])
+def contractor_mailroom_save(company):
+    me = _contractor_caller()
+    if company not in CONTRACTOR_COMPANIES or not _ct_can_admin(me, company):
+        return jsonify({"ok": False, "error": "Only Managers can change alerts"}), 403
+    data = request.get_json() or {}
+    key = data.get("key")
+    if key not in CONTRACTOR_ALERTS:
+        return jsonify({"ok": False, "error": "Unknown alert"}), 400
+    saved = _ct_config(f"contractor_alerts_{company}", {}) or {}
+    cur = dict(saved.get(key) or {})
+    if "on" in data:
+        cur["on"] = bool(data["on"])
+    if "to" in data:
+        cur["to"] = [t for t in (data.get("to") or []) if t in CONTRACTOR_ALERT_TARGETS]
+    if "emails" in data:
+        emails = [str(e).strip().lower() for e in (data.get("emails") or []) if str(e).strip()]
+        bad = [e for e in emails if not _EMAIL_RE.fullmatch(e)]
+        if bad:
+            return jsonify({"ok": False, "error": f"Check this email: {bad[0]}"}), 400
+        cur["emails"] = list(dict.fromkeys(emails))[:10]
+    if "hour" in data and "hour" in CONTRACTOR_ALERTS[key]:
+        try:
+            cur["hour"] = max(12, min(21, int(data["hour"])))
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "Pick an hour"}), 400
+    if "amount" in data and "amount" in CONTRACTOR_ALERTS[key]:
+        try:
+            cur["amount"] = max(0.0, min(1_000_000.0, float(data["amount"])))
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "Enter an amount"}), 400
+    if key == "invoice_overdue" and "days" in data:
+        try:
+            days = max(1, min(365, int(data["days"])))
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "Enter the number of days"}), 400
+        prof = dict(_ct_config(f"contractor_company_{company}", {}) or {})
+        prof["reminder_days"] = days
+        _ct_set_config(f"contractor_company_{company}", prof)
+    saved[key] = cur
+    ok, e = _ct_set_config(f"contractor_alerts_{company}", saved)
+    return jsonify({"ok": ok, "error": e, "alert": _ct_alert_settings(company)[key]})
+
+
+@app.route("/api/contractor/<company>/mailroom/sample", methods=["POST"])
+def contractor_mailroom_sample(company):
+    """Send an example of one alert to the Manager asking, so they see what it looks like."""
+    me = _contractor_caller()
+    if company not in CONTRACTOR_COMPANIES or not _ct_can_admin(me, company):
+        return jsonify({"ok": False, "error": "Only Managers can send samples"}), 403
+    key = (request.get_json() or {}).get("key")
+    if key not in CONTRACTOR_ALERTS:
+        return jsonify({"ok": False, "error": "Unknown alert"}), 400
+    to = _ct_people_emails(company, names=[me["name"]]) or (_ct_profile(company).get("emails") or [])[:1]
+    if not to:
+        return jsonify({"ok": False, "error": "Your account has no email. Add one, or a company email in Settings."}), 400
+    d = CONTRACTOR_ALERTS[key]
+    html = _ct_alert_html(company, f"{d['label']} (sample)", [("What it is", _html_escape(d["help"])),
+                          ("Who gets it", ", ".join(CONTRACTOR_ALERT_TARGETS[t] for t in _ct_alert_settings(company)[key]["to"]) or "Only the extra emails")],
+                          f"{request.host_url}contractor/{company}/mail", "Open the Mail room")
+    ok, e = _ct_mail(company, f"sample:{key}", to, [], f"[Sample] {d['label']}", html,
+                     from_name=(_ct_profile(company).get("display_name") or CONTRACTOR_COMPANIES[company]) + " alerts", sent_by=me["name"])
+    return jsonify({"ok": ok, "error": e, "to": to[0]})
+
+
+def _ct_check_job_finished(job_id):
+    """Alert once when a job becomes finished and still has no invoice."""
+    try:
+        r = requests.get(f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?id=eq.{requests.utils.quote(str(job_id))}"
+                         f"&select=id,company,job_number,title,client_name,location,residence,apt,zone,zipcode,service_price,"
+                         f"invoice_id,status,progress_pct,assigned_to,created_by&limit=1", headers=sb_headers(), timeout=5)
+        job = r.json()[0] if r.ok and r.json() else None
+        if not job or job.get("invoice_id") or not _ct_job_is_done(job) or not job.get("company"):
+            return
+        co = job["company"]
+        price = _ct_money(job.get("service_price"))
+        rows = [("Work order", f"{_html_escape(job.get('job_number') or '')} {_html_escape(job.get('title'))}"),
+                ("Client", _html_escape(job.get("client_name") or "—")), ("Address", _html_escape(_ct_full_address(job) or "—")),
+                ("Done by", _html_escape(job.get("assigned_to") or job.get("created_by") or "—")),
+                ("Price", f"${price:,.2f}" if price > 0 else "<b>Not set yet</b> — add it in Invoicing")]
+        try:
+            base = request.host_url
+        except RuntimeError:
+            base = ""
+        _ct_alert(co, "job_finished", f"Ready to invoice: {job.get('title')}",
+                  _ct_alert_html(co, "A job is finished and ready to invoice", rows, f"{base}contractor/{co}/invoicing", "Open Invoicing"),
+                  ref=job["id"], once=True)
+    except Exception as e:
+        logger.warning("[Alert job_finished] %s", e)
+
+
+def _ct_tomorrow_jobs(company, day):
+    """Each worker's jobs for `day` (and a full list for the other recipients)."""
+    cfg = _ct_alert_settings(company)["tomorrow_jobs"]
+    if not cfg["on"]:
+        return 0
+    r = requests.get(f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?company=eq.{company}&scheduled_date=lte.{day}"
+                     f"&or=(scheduled_end.gte.{day},and(scheduled_end.is.null,scheduled_date.eq.{day}))"
+                     f"&status=not.in.(cancelled,completed)&select=id,job_number,title,client_name,location,residence,apt,zone,zipcode,"
+                     f"time_slot,scheduled_time,est_hours,assigned_to,created_by,description&order=time_slot.desc&limit=500",
+                     headers=sb_headers(), timeout=10)
+    jobs = r.json() if r.ok else []
+    if not jobs:
+        return 0
+    mats = {}
+    mr = requests.get(f"{sb_url()}/rest/v1/{JOB_MATERIALS_TABLE}?job_id=in.({','.join(j['id'] for j in jobs)})&select=job_id,material_name,qty,unit",
+                      headers=sb_headers(), timeout=8)
+    for m in (mr.json() if mr.ok else []):
+        mats.setdefault(m["job_id"], []).append(m)
+    slot = {"morning": "🌅 Morning", "afternoon": "🌇 Afternoon"}
+    import datetime as dt
+    nice = dt.date.fromisoformat(day).strftime("%A %b %d")
+
+    def block(j):
+        when = " · ".join(x for x in (slot.get(j.get("time_slot"), ""), j.get("scheduled_time") or "",
+                                       f"⏱ {float(j['est_hours']):g}h" if float(j.get("est_hours") or 0) else "") if x)
+        addr = _ct_full_address(j)
+        maps = f"https://maps.google.com/?q={requests.utils.quote(addr)}" if addr else ""
+        mm = "".join(f"<li>{_html_escape(m.get('qty'))} {_html_escape(m.get('unit') if m.get('unit') != 'each' else '')} {_html_escape(m.get('material_name'))}</li>"
+                     for m in mats.get(j["id"], []))
+        return (f"<div style='border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;margin:10px 0'>"
+                f"<b>{_html_escape(j.get('title'))}</b> <span style='color:#6b7280'>{_html_escape(j.get('job_number') or '')}</span><br>"
+                f"{_html_escape(when)}{'<br>' if when else ''}"
+                f"{'📍 <a href=' + chr(39) + maps + chr(39) + '>' + _html_escape(addr) + '</a><br>' if addr else ''}"
+                f"{'👤 ' + _html_escape(j.get('client_name')) + '<br>' if j.get('client_name') else ''}"
+                f"{'<ul style=' + chr(39) + 'margin:6px 0 0 18px;padding:0' + chr(39) + '>' + mm + '</ul>' if mm else ''}</div>")
+    base = ""
+    try:
+        base = request.host_url
+    except RuntimeError:
+        pass
+    sent = 0
+    if "assigned" in cfg["to"]:
+        by_person = {}
+        for j in jobs:
+            who = j.get("assigned_to") or j.get("created_by")
+            if who:
+                by_person.setdefault(who, []).append(j)
+        for who, lst in by_person.items():
+            to = _ct_people_emails(company, names=[who])
+            if to:
+                html = _ct_alert_html(company, f"Your jobs for {nice}", [], f"{base}contractor/{company}/calendar", "Open the calendar",
+                                      intro=f"<p>Hi {_html_escape(who)}, you have {len(lst)} job{'s' if len(lst) != 1 else ''}:</p>" + "".join(block(j) for j in lst))
+                _ct_mail(company, "alert:tomorrow_jobs", to, [], f"Your jobs for {nice} ({len(lst)})", html,
+                         from_name=(_ct_profile(company).get("display_name") or CONTRACTOR_COMPANIES[company]) + " alerts", ref=f"{day}:{who}")
+                sent += 1
+    others = _ct_alert_recipients(company, {**cfg, "to": [t for t in cfg["to"] if t != "assigned"]})
+    if others:
+        html = _ct_alert_html(company, f"All jobs for {nice}", [], f"{base}contractor/{company}/calendar", "Open the calendar",
+                              intro="".join(f"<p style='margin:12px 0 0'><b>{_html_escape(j.get('assigned_to') or 'Not assigned')}</b></p>" + block(j) for j in jobs))
+        _ct_mail(company, "alert:tomorrow_jobs", others, [], f"Jobs for {nice} ({len(jobs)})", html,
+                 from_name=(_ct_profile(company).get("display_name") or CONTRACTOR_COMPANIES[company]) + " alerts", ref=day)
+        sent += 1
+    return sent
 
 
 def _ct_company_roles(company):
@@ -6939,7 +7255,8 @@ def contractor_admin_pending(company):
     )
     email = pending[name].get("email")
     if ok and r.ok and email:
-        _ct_send_email_async([email], [], f"Your {CONTRACTOR_COMPANIES[company]} account is approved",
+        _ct_send_email_async([email], [], f"Your {CONTRACTOR_COMPANIES[company]} account is approved", company=company, kind="account",
+                             html_body=
                              f"<p>Hi {_html_escape(name)},</p><p>Your account for <b>{CONTRACTOR_COMPANIES[company]}</b> "
                              f"was approved as <b>{CONTRACTOR_ROLE_LABELS[role]}</b>. You can log in now:</p>"
                              f"<p><a href=\"{request.host_url}login\">{request.host_url}login</a></p>")
@@ -7413,22 +7730,17 @@ def contractor_join(company, token):
 
     co_name = CONTRACTOR_COMPANIES[company]
     approver = "the platform administrator" if role == "admin" else f"a {co_name} Manager"
-    if role == "admin":
-        notify = [ADMIN_EMAIL, DEFAULT_COMPANY_ADMIN_USER]
-    else:
-        mgr_names = [n for n, rl in roles.items() if rl == "admin" and n != name]
-        notify = []
-        if mgr_names:
-            q = ",".join('"' + n.replace('"', '') + '"' for n in mgr_names)
-            mr = requests.get(f"{sb_url()}/rest/v1/app_users?name=in.({requests.utils.quote(q)})&approved=eq.true&select=email",
-                              headers=sb_headers(), timeout=5)
-            notify = [u["email"] for u in (mr.json() if mr.ok else []) if u.get("email")]
-        notify = notify or [ADMIN_EMAIL]
     link = f"{request.host_url}contractor/{company}/admin"
-    _ct_send_email_async(sorted(set(notify)), [], f"{co_name}: {name} is waiting for approval ({CONTRACTOR_ROLE_LABELS[role]})",
-                         f"<p><b>{_html_escape(name)}</b> ({_html_escape(email)}) signed up for <b>{co_name}</b> "
-                         f"as <b>{CONTRACTOR_ROLE_LABELS[role]}</b>.</p><p>Review it in Admin Settings: "
-                         f"<a href=\"{link}\">{link}</a></p>")
+    subject = f"{co_name}: {name} is waiting for approval ({CONTRACTOR_ROLE_LABELS[role]})"
+    html = _ct_alert_html(company, "Someone is waiting for approval",
+                          [("Name", _html_escape(name)), ("Email", _html_escape(email)), ("Role asked", CONTRACTOR_ROLE_LABELS[role])],
+                          link, "Review in Admin Settings")
+    # Manager sign-ups can only be approved by the platform administrator, so they always hear about it
+    platform = [ADMIN_EMAIL, DEFAULT_COMPANY_ADMIN_USER] if role == "admin" else []
+    sent = _ct_alert(company, "pending_approval", subject, html, ref=name, extra_to=platform)
+    if not sent and (role == "admin" or not _ct_people_emails(company, managers=True)):
+        # the alert is off or nobody would get it: the platform administrator still has to know
+        _ct_send_email_async(platform or [ADMIN_EMAIL], [], subject, html, company=company, kind="alert:pending_approval")
     return jsonify({"ok": True, "pending": True, "name": name, "approver": approver,
                     "role_label": CONTRACTOR_ROLE_LABELS[role]})
 
@@ -7802,7 +8114,16 @@ def contractor_add_expense(company):
                       headers={**sb_headers(), "Prefer": "return=representation"}, timeout=10)
     if not (r.ok and r.json()):
         return jsonify({"ok": False, "error": "Could not save the expense"}), 500
-    return jsonify({"ok": True, "expense": _ct_expense_out(r.json()[0])})
+    ex = r.json()[0]
+    limit = _ct_alert_settings(company)["expense_over"].get("amount", 500)
+    if _ct_money(ex.get("amount")) >= limit > 0:
+        rows = [("Store", _html_escape(ex.get("vendor") or "—")), ("Amount", f"<b>${_ct_money(ex.get('amount')):,.2f}</b>"),
+                ("Category", _html_escape(ex.get("category") or "")), ("Date", _html_escape(ex.get("expense_date") or "")),
+                ("Added by", _html_escape(ex.get("added_by") or me["name"])), ("For", _html_escape(ex.get("description") or "—"))]
+        _ct_alert(company, "expense_over", f"Expense of ${_ct_money(ex.get('amount')):,.2f} at {ex.get('vendor') or 'a store'}",
+                  _ct_alert_html(company, f"An expense over ${limit:,.0f} was added", rows,
+                                 f"{request.host_url}contractor/{company}/expenses", "Open Expenses"), ref=ex.get("id"))
+    return jsonify({"ok": True, "expense": _ct_expense_out(ex)})
 
 
 def _ct_own_expense(company, eid):
@@ -7935,6 +8256,8 @@ def contractor_finish_job(job_id):
                "updated_at": dt.datetime.utcnow().isoformat() + "Z"}
     r = requests.patch(f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?id=eq.{job_id}", json=payload,
                        headers=sb_headers(), timeout=5)
+    if r.ok and done:
+        _ct_check_job_finished(job_id)
     return jsonify({"ok": r.ok, **{k: payload[k] for k in ("status", "progress_pct")}})
 
 
@@ -8482,9 +8805,10 @@ def contractor_invoice_send(invoice_id):
     link = f"{request.host_url}i/{token}"
     co = inv.get("company_snapshot") or {}
     message = str(data.get("message") or "").strip()[:2000] or "Please find your invoice below."
-    ok, e = _ct_send_email(to, cc, f"Invoice {inv['invoice_number']} from {co.get('display_name') or ''}".strip(),
+    ok, e = _ct_mail(inv["company"], "invoice", to, cc, f"Invoice {inv['invoice_number']} from {co.get('display_name') or ''}".strip(),
                            _ct_invoice_email_html(inv, message, link), reply_to=(co.get("emails") or [None])[0],
-                           from_name=co.get("display_name") or CONTRACTOR_COMPANIES.get(inv["company"]))
+                           from_name=co.get("display_name") or CONTRACTOR_COMPANIES.get(inv["company"]),
+                           ref=inv["id"], sent_by=me["name"])
     if not ok:
         return jsonify({"ok": False, "error": e, "link": link}), 502
     now = dt.datetime.utcnow().isoformat() + "Z"
@@ -8549,6 +8873,22 @@ def _ct_status_update(inv, me, status, paid_at=None, payment_ref=None, note=""):
     return upd
 
 
+def _ct_alert_paid(company, invs, me):
+    """One alert for the invoices just marked paid (one check can pay several)."""
+    if not invs:
+        return
+    total = sum(_ct_money(i.get("total")) for i in invs)
+    refs = sorted({i.get("payment_ref") for i in invs if i.get("payment_ref")})
+    rows = [("Invoices", "<br>".join(f"{_html_escape(i.get('invoice_number'))} · {_html_escape(i.get('bill_to'))} · ${_ct_money(i.get('total')):,.2f}" for i in invs)),
+            ("Total", f"<b>${total:,.2f}</b>"), ("Check / payment", _html_escape(", ".join(refs) or "—")),
+            ("Paid on", _html_escape(invs[0].get("paid_at") or "")), ("Marked by", _html_escape(me["name"]))]
+    subject = (f"Paid: invoice {invs[0].get('invoice_number')} (${total:,.2f})" if len(invs) == 1
+               else f"Paid: {len(invs)} invoices (${total:,.2f})")
+    _ct_alert(company, "invoice_paid", subject,
+              _ct_alert_html(company, "Payment received", rows, f"{request.host_url}contractor/{company}/invoicing?tab=invoices&status=paid", "Open Invoicing"),
+              ref=",".join(i["id"] for i in invs)[:80])
+
+
 def _ct_valid_date(v):
     return v if re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(v or "")) else None
 
@@ -8565,12 +8905,15 @@ def contractor_invoice_status(invoice_id):
     if data.get("paid_at") and not _ct_valid_date(data.get("paid_at")):
         return jsonify({"ok": False, "error": "Invalid paid date"}), 400
     ref = str(data["payment_ref"]).strip()[:80] if "payment_ref" in data else None
+    was = inv.get("status")
     upd = _ct_status_update(inv, me, status, _ct_valid_date(data.get("paid_at")), ref, str(data.get("note") or ""))
     r = requests.patch(f"{sb_url()}/rest/v1/contractor_invoices?id=eq.{inv['id']}", json=upd,
                        headers={**sb_headers(), "Prefer": "return=representation"}, timeout=8)
     if not (r.ok and r.json()):
         return jsonify({"ok": False, "error": "Could not save"}), 500
     row = r.json()[0]
+    if status == "paid" and was != "paid":
+        _ct_alert_paid(inv["company"], [row], me)
     return jsonify({"ok": True, "invoice": {k: row.get(k) for k in _CT_INV_LIST_FIELDS.split(",")}})
 
 
@@ -8589,12 +8932,16 @@ def contractor_invoices_bulk_pay(company):
     ref = str(data.get("payment_ref") or "").strip()[:80]
     r = requests.get(f"{sb_url()}/rest/v1/contractor_invoices?company=eq.{company}&id=in.({','.join(ids)})&select=*",
                      headers=sb_headers(), timeout=8)
-    done = 0
+    done, newly = 0, []
     for inv in (r.json() if r.ok else []):
+        was = inv.get("status")
         upd = _ct_status_update(inv, me, "paid", _ct_valid_date(data.get("paid_at")), ref, "Marked paid together")
         if requests.patch(f"{sb_url()}/rest/v1/contractor_invoices?id=eq.{inv['id']}", json=upd,
                           headers=sb_headers(), timeout=8).ok:
             done += 1
+            if was != "paid":
+                newly.append({**inv, **upd})
+    _ct_alert_paid(company, newly, me)
     return jsonify({"ok": True, "updated": done})
 
 
@@ -8642,10 +8989,11 @@ def contractor_invoice_remind(invoice_id):
     cc = [e.strip() for e in (inv.get("sent_cc") or "").split(",") if e.strip()]
     co = inv.get("company_snapshot") or {}
     days = _ct_days_since(inv["sent_at"])
-    ok, e = _ct_send_email(to, cc, f"Reminder: invoice {inv['invoice_number']} from {co.get('display_name') or ''}".strip(),
+    ok, e = _ct_mail(inv["company"], "reminder", to, cc, f"Reminder: invoice {inv['invoice_number']} from {co.get('display_name') or ''}".strip(),
                            _ct_reminder_email_html(inv, f"{request.host_url}i/{inv['public_token']}", days),
                            reply_to=(co.get("emails") or [None])[0],
-                           from_name=co.get("display_name") or CONTRACTOR_COMPANIES.get(inv["company"]))
+                           from_name=co.get("display_name") or CONTRACTOR_COMPANIES.get(inv["company"]),
+                           ref=inv["id"], sent_by=me["name"])
     if not ok:
         return jsonify({"ok": False, "error": e}), 502
     now = dt.datetime.utcnow().isoformat() + "Z"
@@ -8741,6 +9089,7 @@ def contractor_invoices_import(company):
     r = requests.get(f"{sb_url()}/rest/v1/contractor_invoices?company=eq.{company}&select=*&limit=5000",
                      headers=sb_headers(), timeout=10)
     updated = unchanged = 0
+    newly = []
     for inv in (r.json() if r.ok else []):
         if inv.get("invoice_number") not in wanted:
             continue
@@ -8750,19 +9099,24 @@ def contractor_invoices_import(company):
         if same:
             unchanged += 1
             continue
+        was = inv.get("status")
         upd = _ct_status_update(inv, me, st, paid, ref, "Updated from Excel")
         if requests.patch(f"{sb_url()}/rest/v1/contractor_invoices?id=eq.{inv['id']}", json=upd,
                           headers=sb_headers(), timeout=8).ok:
             updated += 1
+            if st == "paid" and was != "paid":
+                newly.append({**inv, **upd})
+    _ct_alert_paid(company, newly, me)
     return jsonify({"ok": True, "updated": updated, "unchanged": unchanged})
 
 
 def _ct_overdue_digest(company):
     """Once a day: email the company the sent invoices that are still unpaid after the reminder days."""
     prof = _ct_profile(company)
+    cfg = _ct_alert_settings(company)["invoice_overdue"]
     days = int(prof.get("reminder_days") or 15)
-    to = prof.get("emails") or []
-    if not to or days <= 0:
+    to = _ct_alert_recipients(company, cfg)
+    if not cfg["on"] or not to or days <= 0:
         return
     r = requests.get(f"{sb_url()}/rest/v1/contractor_invoices?company=eq.{company}&status=in.(sent,in_process)"
                      f"&sent_at=not.is.null&select=invoice_number,bill_to,job_site,total,sent_at,sent_to,status,last_reminder_at&limit=1000",
@@ -8786,8 +9140,9 @@ def _ct_overdue_digest(company):
     {rows}
   </table>
 </div>"""
-    _ct_send_email(to, [], f"{prof.get('display_name') or CONTRACTOR_COMPANIES[company]}: {len(late)} unpaid invoice{'s' if len(late) != 1 else ''}", html,
-                   from_name="BSynch reminders")
+    _ct_mail(company, "alert:invoice_overdue", to, [],
+             f"{prof.get('display_name') or CONTRACTOR_COMPANIES[company]}: {len(late)} unpaid invoice{'s' if len(late) != 1 else ''}", html,
+             from_name=(prof.get("display_name") or CONTRACTOR_COMPANIES[company]) + " alerts", ref=_ct_today_local())
 
 
 _ct_digest_day = {}
@@ -8803,25 +9158,56 @@ def _ct_today_local():
         return dt.date.today().isoformat()
 
 
-def _ct_maybe_daily_digest(today):
-    """Hosts like Render sleep, so instead of a timer the first contractor request of the day sends
-    the digest. The app_config row keeps it to one email per company per day across restarts."""
+def _ct_claim_daily(company, task, day):
+    """True the first time a daily task runs for a company on a given day (kept in app_config)."""
+    key = f"contractor_daily_{company}"
+    state = _ct_config(key, {}) or {}
+    if state.get(task) == day:
+        return False
+    state[task] = day
+    _ct_set_config(key, state)
+    return True
+
+
+def _ct_daily_tasks():
+    """Morning: unpaid-invoice alert. Afternoon (the hour each company picked): tomorrow's jobs."""
+    import datetime as dt
     if not _ct_digest_lock.acquire(blocking=False):
         return
     try:
+        try:
+            import pytz
+            now = dt.datetime.now(pytz.timezone("America/Chicago"))
+        except Exception:
+            now = dt.datetime.now()
+        today = now.date().isoformat()
         for co in CONTRACTOR_COMPANIES:
-            if _ct_digest_day.get(co) == today:
-                continue
-            _ct_digest_day[co] = today
-            if (_ct_config(f"contractor_digest_{co}", {}) or {}).get("day") == today:
-                continue
-            _ct_set_config(f"contractor_digest_{co}", {"day": today})
             try:
-                _ct_overdue_digest(co)
+                if now.hour >= 8 and _ct_claim_daily(co, "overdue", today):
+                    _ct_overdue_digest(co)
+                hour = _ct_alert_settings(co)["tomorrow_jobs"].get("hour", 17)
+                if now.hour >= hour and _ct_claim_daily(co, "tomorrow", today):
+                    _ct_tomorrow_jobs(co, (now.date() + dt.timedelta(days=1)).isoformat())
             except Exception as e:
-                logger.error("[Contractor digest] %s: %s", co, e)
+                logger.error("[Contractor daily] %s: %s", co, e)
+        _ct_digest_day["checked"] = _ptime.time()
     finally:
         _ct_digest_lock.release()
+
+
+def _ct_scheduler_loop():
+    # The app runs on an always-on instance, so a quiet loop checks every 10 minutes
+    while True:
+        _ptime.sleep(600)
+        try:
+            with app.test_request_context("/"):
+                _ct_daily_tasks()
+        except Exception as e:
+            logger.error("[Contractor scheduler] %s", e)
+
+
+if os.environ.get("CT_SCHEDULER", "1") == "1":
+    _threading.Thread(target=_ct_scheduler_loop, daemon=True, name="ct-scheduler").start()
 
 
 # Older ERP screens (PIN sign-in, no session) still call these; they check the person themselves
@@ -8854,11 +9240,12 @@ def _ct_cache_after_write(resp):
 
 @app.before_request
 def _ct_digest_hook():
+    # Also checked on activity, in case the instance was restarted or asleep
     if not request.path.startswith("/api/contractor/"):
         return
-    today = _ct_today_local()
-    if any(_ct_digest_day.get(co) != today for co in CONTRACTOR_COMPANIES):
-        _threading.Thread(target=_ct_maybe_daily_digest, args=(today,), daemon=True).start()
+    if _ptime.time() - _ct_digest_day.get("checked", 0) > 600:
+        _ct_digest_day["checked"] = _ptime.time()
+        _ct_bg(_ct_daily_tasks)
 
 
 # ── Contractor: contacts (potential clients, clients, crew) ─────────
@@ -9163,6 +9550,17 @@ def create_contractor_job():
         requests.post(f"{sb_url()}/rest/v1/job_visits", json=visit, headers=sb_headers(), timeout=5)
         if job.get("company"):
             _ct_remember_client(job["company"], _remember[0], _remember[1], payload["created_by"])
+            if _ct_is_member_only(_contractor_caller()):
+                co = job["company"]
+                rows = [("Work order", f"{_html_escape(job.get('job_number') or '')} {_html_escape(job.get('title'))}"),
+                        ("Created by", _html_escape(payload["created_by"])), ("Client", _html_escape(job.get("client_name") or "—")),
+                        ("Address", _html_escape(_ct_full_address(job) or "—")),
+                        ("Day", _html_escape(job.get("scheduled_date") or "Not scheduled")),
+                        ("What to do", _html_escape((job.get("description") or "")[:400]).replace("\n", "<br>") or "—")]
+                _ct_alert(co, "wo_created", f"New work order from {payload['created_by']}: {job.get('title')}",
+                          _ct_alert_html(co, "A User created a work order", rows,
+                                         f"{request.host_url}contractor/projects?company={co}&job={job['id']}", "Open the work order"),
+                          ref=job["id"])
         return jsonify({"ok": True, "job": job})
     return jsonify({"ok": False, "error": r.text}), 400
 
@@ -9223,6 +9621,8 @@ def update_contractor_job(job_id):
     if r.ok and r.json() and ("client_name" in payload or "client_email" in payload) and r.json()[0].get("company"):
         row = r.json()[0]
         _ct_remember_client(row["company"], row.get("client_name"), row.get("client_email"), _contractor_caller()["name"])
+    if r.ok and ("status" in payload or "progress_pct" in payload):
+        _ct_check_job_finished(job_id)
     return jsonify({"ok": r.ok})
 
 
@@ -9684,6 +10084,8 @@ def update_job_step(job_id, step_id):
     )
     if r.ok:
         new_pct = _recalc_job_progress(job_id)
+        if float(new_pct or 0) >= 100:
+            _ct_check_job_finished(job_id)
         return jsonify({"ok": True, "job_progress_pct": new_pct})
     return jsonify({"ok": False, "error": r.text}), 400
 

@@ -151,6 +151,14 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
       <div class="tile-arrow">&#8594;</div>
     </a>
 
+    <a class="tile" data-admin href="/contractor/{{ company }}/mail">
+      <div class="tile-icon icon-blue">&#128236;</div>
+      <div class="tile-name">Mail Room</div>
+      <div class="tile-desc">Which alerts the app emails and to whom, and every email it sent.</div>
+      <span class="tile-badge badge-admin">Managers</span>
+      <div class="tile-arrow">&#8594;</div>
+    </a>
+
     <a class="tile" data-admin href="/contractor/{{ company }}/admin">
       <div class="tile-icon icon-red">&#128272;</div>
       <div class="tile-name">Admin Settings</div>
@@ -181,7 +189,7 @@ fetch('/api/contractor/me').then(function(r){ return r.json(); }).then(function(
   document.querySelectorAll('[data-perm]').forEach(function(t){
     if(!perms[t.getAttribute('data-perm')] || t.hasAttribute('data-hidden')) t.style.display = 'none';
   });
-  if(!acc.is_admin) document.querySelector('[data-admin]').style.display = 'none';
+  if(!acc.is_admin) document.querySelectorAll('[data-admin]').forEach(function(t){ t.style.display = 'none'; });
   if(!me.is_super) document.querySelector('.btn-back').setAttribute('href', '/home');
   document.getElementById('hubContent').style.visibility = '';
 }).catch(function(){ location.replace('/contractor-hub'); });

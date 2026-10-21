@@ -116,7 +116,8 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
         <div class="add-email"><input id="emailInput" type="email" placeholder="name@company.com" maxlength="160"><button type="button" class="btn-sm" id="emailAdd">Add</button></div>
         <span class="hint">The first one is printed on invoices. Add as many as you need.</span>
       </div>
-      <div class="field"><label for="notify_email">Send project and work-order alerts to</label><input id="notify_email" type="email" maxlength="160"></div>
+      <input id="notify_email" type="hidden">
+      <p class="hint" style="margin:4px 0 10px;">&#128276; Alerts (new work orders, finished jobs, tomorrow's jobs, payments...) and who gets them are set in the <a href="/contractor/{{ company }}/mail" style="color:#0f766e;font-weight:600;">Mail room</a>.</p>
       <div class="mail-test"><select id="mailTestTo" aria-label="Send the test to"></select><button type="button" class="btn-sm" id="mailTest">&#9993;&#65039; Send a test email</button></div>
       <span class="hint" id="mailTestMsg" style="display:block;margin-top:6px;"></span>
     </div>
