@@ -6551,7 +6551,9 @@ def contractor_email_test():
     prof = _ct_profile(company)
     allowed = [e.lower() for e in (prof.get("emails") or [])] + [str(prof.get("notify_email") or "").lower()]
     to = str((request.get_json() or {}).get("to") or "").strip().lower()
-    if to not in allowed or not to:  # only to the company's own addresses
+    if to and to not in allowed:  # only to the company's own, saved addresses
+        return jsonify({"ok": False, "error": f"{to} is not saved yet. Tap Save settings first, then send the test."}), 400
+    if not to:
         to = (prof.get("emails") or [ADMIN_EMAIL])[0]
     name = prof.get("display_name") or CONTRACTOR_COMPANIES[company]
     via = _ct_mail_via()
