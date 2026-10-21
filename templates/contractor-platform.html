@@ -26,6 +26,11 @@ h1{font-size:22px;margin-bottom:4px;}
 .co h3 a{margin-left:auto;font-size:12px;color:#0f766e;font-weight:700;text-decoration:none;}
 .co .nums{display:flex;gap:14px;margin-top:8px;font-size:13px;color:#475569;}
 .co .nums b{display:block;font-size:20px;color:#0f172a;}
+.mgrs{margin-top:10px;font-size:13px;color:#475569;line-height:1.8;}
+.mg-lbl{font-weight:700;}
+.mg{display:inline-block;background:#e0e7ff;color:#3730a3;border-radius:20px;padding:1px 9px;font-size:12px;font-weight:700;margin-right:4px;}
+.add-mgr{margin-top:8px;width:100%;}
+.pa{display:flex;align-items:center;gap:5px;font-size:11px;color:#64748b;margin-top:5px;cursor:pointer;}
 .lock{background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;border-radius:12px;padding:10px 14px;font-size:13px;margin-bottom:16px;line-height:1.5;}
 .tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
 .tools input{flex:1;min-width:200px;padding:9px 12px;border:1px solid #cbd5e1;border-radius:9px;font-size:14px;background:#fff;color:#0f172a;}
@@ -70,7 +75,7 @@ footer{text-align:center;padding:16px;font-size:12px;color:#94a3b8;}
 
 <script>
 var COS = {{ companies|tojson }}, ROLES = {{ roles|tojson }};
-var users = [], filter = 'all';
+var users = [], filter = 'all', I_AM_OWNER = false;
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 var FILTERS = [['all', 'Everyone']].concat(Object.keys(COS).map(function(k){ return [k, COS[k]]; })).concat([['none', 'No company'], ['waiting', 'Waiting / suspended']]);
 function inFilter(u, f){
@@ -84,7 +89,13 @@ function render(){
     var m = users.filter(function(u){ return u.company === k && u.approved; });
     var mg = m.filter(function(u){ return u.company_role === 'admin'; }).length;
     var w = users.filter(function(u){ return u.company === k && !u.approved; }).length;
-    return '<div class="co"><h3>' + esc(COS[k]) + '<a href="/contractor/' + k + '/admin">Admin settings &#8594;</a></h3><div class="nums"><span><b>' + m.length + '</b>members</span><span><b>' + mg + '</b>managers</span><span><b>' + w + '</b>waiting</span></div></div>';
+    var mgrs = m.filter(function(u){ return u.company_role === 'admin'; });
+    var cands = users.filter(function(u){ return !u.owner && !(u.company === k && u.company_role === 'admin'); });
+    return '<div class="co"><h3>' + esc(COS[k]) + '<a href="/contractor/' + k + '/admin">Admin settings &#8594;</a></h3><div class="nums"><span><b>' + m.length + '</b>members</span><span><b>' + mg + '</b>managers</span><span><b>' + w + '</b>waiting</span></div>' +
+      '<div class="mgrs"><span class="mg-lbl">Managers:</span> ' + (mgrs.length ? mgrs.map(function(u){ return '<span class="mg">' + esc(u.name) + '</span>'; }).join(' ') : '<i>none yet</i>') + '</div>' +
+      '<select class="add-mgr" data-co="' + k + '" aria-label="Add a Manager to ' + esc(COS[k]) + '"><option value="">+ Add a Manager&hellip;</option>' + cands.map(function(u){
+        return '<option value="' + esc(u.name) + '">' + esc(u.name) + (u.company && u.company !== k ? ' (now in ' + esc(COS[u.company]) + ')' : u.company === k ? ' (' + esc(ROLES[u.company_role] || 'User') + ' here)' : '') + '</option>';
+      }).join('') + '</select></div>';
   }).join('');
   document.getElementById('chips').innerHTML = FILTERS.map(function(f){
     return '<button class="chip' + (f[0] === filter ? ' on' : '') + '" data-f="' + f[0] + '">' + esc(f[1]) + '<small>' + users.filter(function(u){ return inFilter(u, f[0]); }).length + '</small></button>';
@@ -96,8 +107,10 @@ function render(){
     var co = '<select class="s-co" data-n="' + esc(u.name) + '"' + dis + '><option value="">— No company —</option>' + Object.keys(COS).map(function(k){ return '<option value="' + k + '"' + (u.company === k ? ' selected' : '') + '>' + esc(COS[k]) + '</option>'; }).join('') + '</select>' +
       (u.other_company ? '<small>ERP: ' + esc(u.other_company) + '</small>' : '');
     var role = !u.company ? '<span style="color:#94a3b8;">&mdash;</span>' : '<select class="s-role" data-n="' + esc(u.name) + '"' + (u.owner ? ' disabled' : '') + '>' + Object.keys(ROLES).map(function(k){ return '<option value="' + k + '"' + (u.company_role === k ? ' selected' : '') + '>' + esc(ROLES[k]) + '</option>'; }).join('') + '</select>';
-    var status = u.owner ? '<span class="badge b-owner">Owner · all companies</span>' : u.platform_admin && !u.company ? '<span class="badge b-owner">Platform admin</span>' :
-      u.approved ? '<span class="badge b-active">Active</span>' : '<span class="badge b-wait">' + (u.company ? 'Waiting for approval' : 'Suspended') + '</span>';
+    var status = u.owner ? '<span class="badge b-owner">Owner · all companies</span>' :
+      !u.approved ? '<span class="badge b-wait">' + (u.company ? 'Waiting for approval' : 'Suspended') + '</span>' :
+      u.platform_admin && !u.company ? '<span class="badge b-owner">Platform admin</span>' : '<span class="badge b-active">Active</span>';
+    if(I_AM_OWNER && !u.owner) status += '<label class="pa"><input type="checkbox" class="s-pa" data-n="' + esc(u.name) + '"' + (u.platform_admin ? ' checked' : '') + '> sees all companies</label>';
     var act = u.owner || u.name === CT.user ? '' : u.approved ? '<button class="act warn" data-act="suspend" data-n="' + esc(u.name) + '">Suspend</button>' : '<button class="act ok" data-act="approve" data-n="' + esc(u.name) + '">' + (u.company ? 'Approve' : 'Re-activate') + '</button>';
     return '<tr><td><b>' + esc(u.name) + '</b><small>' + esc(u.email || u.username || '') + '</small></td><td>' + co + '</td><td>' + role + '</td><td>' + status + '</td><td>' + act + ' <span class="saved" data-saved="' + esc(u.name) + '"></span></td></tr>';
   }).join('') : '<tr><td colspan="5" class="empty">Nobody here.</td></tr>';
@@ -118,7 +131,17 @@ document.getElementById('rows').addEventListener('change', function(e){
       to ? (u.company && u.company !== to ? 'Move ' + n + ' from ' + COS[u.company] + ' to ' + COS[to] + '? They will stop seeing ' + COS[u.company] + '.' : null)
          : 'Remove ' + n + ' from ' + COS[u.company] + '? They will not see any company.');
   }
+  if(t.classList.contains('s-pa')){
+    save(n, {platform_admin: t.checked}, t.checked ? 'Let ' + n + ' see every company? They will be taken out of their company.' : 'Stop ' + n + ' from seeing every company?');
+    return;
+  }
   if(t.classList.contains('s-role')) save(n, {company_role: t.value}, t.value === 'admin' ? 'Make ' + n + ' a Manager of ' + COS[u.company] + '?' : null);
+});
+document.getElementById('cos').addEventListener('change', function(e){
+  var t = e.target; if(!t.classList.contains('add-mgr') || !t.value) return;
+  var n = t.value, k = t.dataset.co, u = users.find(function(x){ return x.name === n; });
+  save(n, {company: k, company_role: 'admin', approved: true},
+    'Make ' + n + ' a Manager of ' + COS[k] + '?' + (u.company && u.company !== k ? ' They will leave ' + COS[u.company] + '.' : ''));
 });
 document.getElementById('rows').addEventListener('click', function(e){
   var b = e.target.closest('[data-act]'); if(!b) return;
@@ -130,7 +153,7 @@ document.getElementById('q').oninput = render;
 function load(after){
   fetch('/api/contractor/platform/users').then(function(r){ return r.json(); }).then(function(d){
     if(!d.ok){ location.replace('/contractor-hub'); return; }
-    users = d.users; render(); document.getElementById('content').style.visibility = '';
+    users = d.users; I_AM_OWNER = !!d.i_am_owner; render(); document.getElementById('content').style.visibility = '';
     if(after) after();
   }).catch(function(){ location.replace('/contractor-hub'); });
 }

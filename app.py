@@ -6401,12 +6401,19 @@ def _ct_hours(v):
         return None
     return round(h * 4) / 4
 CONTRACTOR_ROLES = ["member", "lead", "admin"]
-CONTRACTOR_FEATURES = ["projects", "dashboard", "workorders", "invoicing", "contacts", "company_settings"]
+# Same order and names as the hub icons at the top of every page
+CONTRACTOR_FEATURES = ["workorders", "calendar", "expenses", "invoicing", "dashboard", "contacts", "mailroom", "company_settings"]
+CONTRACTOR_FEATURE_LABELS = {"workorders": "📋 Work orders", "calendar": "📅 Calendar", "expenses": "🧾 Expenses",
+                             "invoicing": "💵 Invoicing", "dashboard": "📊 Dashboard", "contacts": "👥 Contacts",
+                             "mailroom": "📬 Mail room", "company_settings": "⚙️ Settings"}
 CONTRACTOR_ROLE_LABELS = {"member": "User", "lead": "Leader", "admin": "Manager"}
 # Users (member) only create and follow their own work orders; Leaders get what the Manager allows.
-CONTRACTOR_MEMBER_PERMS = {"projects": False, "dashboard": False, "workorders": True, "invoicing": False, "contacts": False, "company_settings": False}
+# Users: their own work orders, calendar and expenses only
+CONTRACTOR_MEMBER_PERMS = {"workorders": True, "calendar": True, "expenses": True, "invoicing": False, "dashboard": False,
+                           "contacts": False, "mailroom": False, "company_settings": False}
 CONTRACTOR_DEFAULT_PERMS = {
-    "lead": {"projects": True, "dashboard": True, "workorders": True, "invoicing": True, "contacts": True, "company_settings": False},
+    "lead": {"workorders": True, "calendar": True, "expenses": True, "invoicing": True, "dashboard": True, "contacts": True,
+             "mailroom": False, "company_settings": False},
 }
 _ALL_PERMS = {f: True for f in CONTRACTOR_FEATURES}
 
@@ -6714,8 +6721,8 @@ def contractor_mailroom_page(company):
 @app.route("/api/contractor/<company>/mailroom", methods=["GET"])
 def contractor_mailroom(company):
     me = _contractor_caller()
-    if company not in CONTRACTOR_COMPANIES or not _ct_can_admin(me, company):
-        return jsonify({"ok": False, "error": "Only Managers can open the Mail room"}), 403
+    if company not in CONTRACTOR_COMPANIES or not _ct_can_open(me, company, "mailroom"):
+        return jsonify({"ok": False, "error": "You don't have access to the Mail room"}), 403
     q = f"{sb_url()}/rest/v1/contractor_mail_log?company=eq.{company}&order=created_at.desc&limit=300" \
         f"&select=id,kind,ref,to_addrs,cc_addrs,subject,status,error,via,sent_by,created_at"
     r = requests.get(q, headers=sb_headers(), timeout=8)
@@ -6731,8 +6738,8 @@ def contractor_mailroom(company):
 @app.route("/api/contractor/<company>/mailroom/alerts", methods=["POST"])
 def contractor_mailroom_save(company):
     me = _contractor_caller()
-    if company not in CONTRACTOR_COMPANIES or not _ct_can_admin(me, company):
-        return jsonify({"ok": False, "error": "Only Managers can change alerts"}), 403
+    if company not in CONTRACTOR_COMPANIES or not _ct_can_open(me, company, "mailroom"):
+        return jsonify({"ok": False, "error": "You don't have access to the Mail room"}), 403
     data = request.get_json() or {}
     key = data.get("key")
     if key not in CONTRACTOR_ALERTS:
@@ -6776,8 +6783,8 @@ def contractor_mailroom_save(company):
 def contractor_mailroom_sample(company):
     """Send an example of one alert to the Manager asking, so they see what it looks like."""
     me = _contractor_caller()
-    if company not in CONTRACTOR_COMPANIES or not _ct_can_admin(me, company):
-        return jsonify({"ok": False, "error": "Only Managers can send samples"}), 403
+    if company not in CONTRACTOR_COMPANIES or not _ct_can_open(me, company, "mailroom"):
+        return jsonify({"ok": False, "error": "You don't have access to the Mail room"}), 403
     key = (request.get_json() or {}).get("key")
     if key not in CONTRACTOR_ALERTS:
         return jsonify({"ok": False, "error": "Unknown alert"}), 400
@@ -6937,7 +6944,7 @@ def _contractor_caller_uncached():
         elif company in CONTRACTOR_COMPANIES:
             me["company"] = company
             me["company_role"] = _ct_company_roles(company).get(name, "member")
-        elif (rows[0].get("role") or "").lower() in ("admin", "boss"):
+        elif name in _ct_platform_admins():
             me["is_super"] = True
         return me
     co = _get_client_co()
@@ -6964,6 +6971,12 @@ def _ct_perms(company):
     perms = {role: {**CONTRACTOR_DEFAULT_PERMS[role], **(saved.get(role) or {})} for role in CONTRACTOR_DEFAULT_PERMS}
     perms["member"] = dict(CONTRACTOR_MEMBER_PERMS)
     return perms
+
+
+def _ct_can_open(me, company, feature):
+    """Managers open everything in their company; Users and Leaders what the table allows."""
+    return _ct_can_view(me, company) and (_ct_can_admin(me, company) or
+                                          bool(_ct_perms(company).get(me["company_role"] or "member", {}).get(feature)))
 
 
 def _ct_is_member_only(me):
@@ -7001,7 +7014,7 @@ def contractor_company_settings(company):
 @app.route("/contractor/<company>/admin")
 def contractor_admin_settings(company):
     return _ct_page(company, "contractor-admin-settings.html",
-                    roles=CONTRACTOR_ROLES, features=CONTRACTOR_FEATURES)
+                    roles=CONTRACTOR_ROLES, features=CONTRACTOR_FEATURES, feature_labels=CONTRACTOR_FEATURE_LABELS)
 
 
 @app.route("/api/contractor/me", methods=["GET"])
@@ -7140,6 +7153,12 @@ def contractor_admin_update_user(company):
 
 
 # ── Platform admin: every account, every company (only the platform administrator) ──
+def _ct_platform_admins():
+    """Names allowed to see every contractor company besides the owner account. Being an admin
+    in the ERP (another customer's company) no longer gives that."""
+    return set(_ct_config("contractor_platform_admins", []) or [])
+
+
 def _ct_is_owner_account(u):
     owner = DEFAULT_COMPANY_ADMIN_USER.lower()
     return bool(owner) and owner in ((u.get("username") or "").lower(), (u.get("email") or "").lower())
@@ -7160,6 +7179,7 @@ def contractor_platform_users():
     r = requests.get(f"{sb_url()}/rest/v1/app_users?select=name,username,email,role,approved,contractor_company,created_at"
                      f"&order=name.asc&limit=2000", headers=sb_headers(), timeout=10)
     roles = {co: _ct_company_roles(co) for co in CONTRACTOR_COMPANIES}
+    admins = _ct_platform_admins()
     users = []
     for u in (r.json() if r.ok else []):
         co = u.get("contractor_company") if u.get("contractor_company") in CONTRACTOR_COMPANIES else None
@@ -7167,9 +7187,10 @@ def contractor_platform_users():
                       "approved": bool(u.get("approved")), "company": co,
                       "other_company": u.get("contractor_company") if u.get("contractor_company") and not co else None,
                       "company_role": roles[co].get(u.get("name"), "member") if co else None,
-                      "platform_admin": _ct_is_owner_account(u) or (not co and (u.get("role") or "").lower() in ("admin", "boss")),
+                      "platform_admin": _ct_is_owner_account(u) or (not co and u.get("name") in admins),
                       "owner": _ct_is_owner_account(u), "created_at": u.get("created_at")})
-    return jsonify({"ok": True, "users": users, "companies": CONTRACTOR_COMPANIES})
+    return jsonify({"ok": True, "users": users, "companies": CONTRACTOR_COMPANIES,
+                    "i_am_owner": _ct_is_owner_account(_auth_user_row(me["name"], "username,email") or {})})
 
 
 @app.route("/api/contractor/platform/users", methods=["PATCH"])
@@ -7189,6 +7210,16 @@ def contractor_platform_update_user():
         return jsonify({"ok": False, "error": "The platform owner account always keeps access to every company"}), 400
     if name == me["name"] and data.get("approved") is False:
         return jsonify({"ok": False, "error": "You can't suspend your own account"}), 400
+    if "platform_admin" in data:
+        if not _ct_is_owner_account(_auth_user_row(me["name"], "username,email") or {}):
+            return jsonify({"ok": False, "error": "Only the owner account can name platform administrators"}), 403
+        admins = _ct_platform_admins()
+        if data["platform_admin"]:
+            admins.add(name)
+            data["company"] = None  # a platform administrator is not inside one company
+        else:
+            admins.discard(name)
+        _ct_set_config("contractor_platform_admins", sorted(admins))
     upd = {}
     old_co = user.get("contractor_company") if user.get("contractor_company") in CONTRACTOR_COMPANIES else None
     new_co = old_co
@@ -8035,7 +8066,7 @@ def contractor_delete_receipt(job_id, rid):
 def _ct_expense_access(company):
     """(me, sees_all) for the expenses of a company, or (me, None) when not allowed."""
     me = _contractor_caller()
-    if company not in CONTRACTOR_COMPANIES or not _ct_can_view(me, company):
+    if company not in CONTRACTOR_COMPANIES or not _ct_can_open(me, company, "expenses"):
         return me, None
     return me, not _ct_is_member_only(me)
 
@@ -8267,7 +8298,7 @@ def _ct_member_filter(name):
 
 
 def _ct_can_schedule(me, company):
-    return _ct_can_view(me, company) and not _ct_is_member_only(me)
+    return _ct_can_open(me, company, "calendar") and not _ct_is_member_only(me)
 
 
 def _ct_company_people(company):
@@ -8286,7 +8317,7 @@ def contractor_calendar(company):
     """Jobs scheduled in a month. Users only see jobs they created or were assigned."""
     import calendar as _cal, datetime as dt
     me = _contractor_caller()
-    if company not in CONTRACTOR_COMPANIES or not _ct_can_view(me, company):
+    if company not in CONTRACTOR_COMPANIES or not _ct_can_open(me, company, "calendar"):
         return jsonify({"ok": False, "error": "not your company"}), 403
     month = request.args.get("month") or dt.date.today().strftime("%Y-%m")
     if not re.fullmatch(r"\d{4}-\d{2}", month):

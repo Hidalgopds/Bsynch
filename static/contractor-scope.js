@@ -163,12 +163,12 @@
   var HUBS = [
     ['home', '&#127968;', 'Home', function (c) { return '/contractor/' + c; }, null],
     ['workorders', '&#128203;', 'Work orders', function (c) { return '/contractor/workorders?company=' + c; }, 'workorders'],
-    ['calendar', '&#128197;', 'Calendar', function (c) { return '/contractor/' + c + '/calendar'; }, null],
-    ['expenses', '&#129534;', 'Expenses', function (c) { return '/contractor/' + c + '/expenses'; }, null],
+    ['calendar', '&#128197;', 'Calendar', function (c) { return '/contractor/' + c + '/calendar'; }, 'calendar'],
+    ['expenses', '&#129534;', 'Expenses', function (c) { return '/contractor/' + c + '/expenses'; }, 'expenses'],
     ['invoicing', '&#128181;', 'Invoicing', function (c) { return '/contractor/' + c + '/invoicing'; }, 'invoicing'],
     ['dashboard', '&#128202;', 'Dashboard', function (c) { return '/contractor/dashboard?company=' + c; }, 'dashboard'],
     ['contacts', '&#128101;', 'Contacts', function (c) { return '/contractor/' + c + '/contacts'; }, 'contacts'],
-    ['mail', '&#128236;', 'Mail room', function (c) { return '/contractor/' + c + '/mail'; }, '__admin'],
+    ['mail', '&#128236;', 'Mail room', function (c) { return '/contractor/' + c + '/mail'; }, 'mailroom'],
     ['settings', '&#9881;&#65039;', 'Settings', function (c) { return '/contractor/' + c + '/settings'; }, 'company_settings'],
     ['admin', '&#128272;', 'Admin', function (c) { return '/contractor/' + c + '/admin'; }, '__admin']
   ];
