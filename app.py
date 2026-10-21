@@ -131,10 +131,17 @@ def require_admin_secret():
         abort(403)
 
 def _verify_caller_is_admin(name):
-    """Check that name is an approved admin or boss in app_users.
-    Used to authenticate frontend-initiated admin actions where the
-    caller sends their logged-in name in the request body.
+    """Check that the caller is an approved admin or boss in app_users. The person signed in
+    with a password (session cookie) is the caller; the name the page sends is only used
+    while ERP_AUTH_MODE is "report", for screens opened before sessions existed.
     """
+    signed = _session_user()
+    if signed:
+        name = signed
+    elif ERP_AUTH_MODE == "enforce" and not CT_TRUST_HEADER:
+        return False
+    elif name:
+        _erp_report(request.path)
     if not name:
         return False
     r = requests.get(
@@ -1746,6 +1753,10 @@ def platform_settings_page():
 # ── BSynch Platform: Company Management API ───────────────────────────
 @app.route("/api/platform/companies", methods=["GET"])
 def get_companies():
+    if not _session_user():
+        return jsonify({"ok": False, "error": "login_required"}), 401
+    if not _is_platform_operator():  # holds every client's database keys
+        return jsonify({"error": "Platform administrator only."}), 403
     r = requests.get(
         f"{SUPABASE_URL}/rest/v1/bsynch_companies?order=created_at.asc",
         headers=sb_headers()
@@ -1757,6 +1768,10 @@ DEFAULT_COMPANY_ADMIN_PASSWORD = os.environ.get("DEFAULT_COMPANY_ADMIN_PASSWORD"
 
 @app.route("/api/platform/companies", methods=["POST"])
 def create_company():
+    if not _session_user():
+        return jsonify({"ok": False, "error": "login_required"}), 401
+    if not _is_platform_operator():  # holds every client's database keys
+        return jsonify({"error": "Platform administrator only."}), 403
     data = request.get_json() or {}
     # Simple platform-admin gate (caller must be in app_users with role admin)
     caller = data.get("caller_name", "")
@@ -1784,6 +1799,10 @@ def create_company():
 
 @app.route("/api/platform/companies/<company_id>", methods=["PATCH"])
 def update_company(company_id):
+    if not _session_user():
+        return jsonify({"ok": False, "error": "login_required"}), 401
+    if not _is_platform_operator():  # holds every client's database keys
+        return jsonify({"error": "Platform administrator only."}), 403
     data = request.get_json() or {}
     payload = {k: v for k, v in data.items() if k not in ("caller_name",)}
     r = requests.patch(
@@ -1795,6 +1814,10 @@ def update_company(company_id):
 
 @app.route("/api/platform/companies/<company_id>", methods=["DELETE"])
 def delete_company(company_id):
+    if not _session_user():
+        return jsonify({"ok": False, "error": "login_required"}), 401
+    if not _is_platform_operator():  # holds every client's database keys
+        return jsonify({"error": "Platform administrator only."}), 403
     data = request.get_json(silent=True) or {}
     r = requests.delete(
         f"{SUPABASE_URL}/rest/v1/bsynch_companies?id=eq.{company_id}",
@@ -1887,19 +1910,98 @@ def _pw_fingerprint(pw_hash):
     return _hashlib.sha256((pw_hash or "").encode()).hexdigest()[:16]
 
 
-def _start_session(u):
+def _start_session(u, auth="password"):
+    """auth is "password" (full sign-in) or "pin" (crew PIN pad: ERP screens only)."""
     session.clear()
     session.permanent = True
     session["uid"] = u["name"]
-    session["fp"] = _pw_fingerprint(u.get("password"))
+    session["auth"] = auth
+    session["fp"] = _pw_fingerprint(u.get("password")) if auth == "password" else _pw_fingerprint("pin:" + str(u.get("pin") or ""))
     session["iat"] = int(_ptime.time())
 
 
 def _session_user():
-    """Name of the signed-in user (cookie), or ''."""
+    """Name of the user signed in with a password (cookie), or ''. PIN sessions don't count here:
+    the contractor module and admin actions need a real sign-in."""
     if CT_TRUST_HEADER:
         return (request.headers.get("X-User-Name") or request.args.get("caller") or "").strip()
+    if session.get("auth", "password") != "password":
+        return ""
     return (session.get("uid") or "").strip()
+
+
+# ── ERP: every screen and API answers only a signed-in session ──────
+# ERP_AUTH_MODE=report lets old screens keep working and records each unsigned call in
+# auth_report, so nothing on a job site breaks; ERP_AUTH_MODE=enforce blocks them.
+ERP_AUTH_MODE = os.environ.get("ERP_AUTH_MODE", "report")
+_erp_seen = {}
+_erp_sess_cache = {}
+# Open without a session: sign-in itself, public links, and the job-site kiosks (QR check-in, tablet)
+_ERP_OPEN_EXACT = {"/api/login", "/api/login/2fa", "/api/logout", "/api/register", "/api/self-register",
+                   "/api/check-username", "/api/forgot-password", "/api/reset-password", "/api/session-version",
+                   "/api/company-login", "/api/company-info", "/api/company-change-password",
+                   "/api/users/has-pin", "/api/users/verify-pin", "/api/users/set-pin",
+                   "/api/checkin", "/api/checkin/by-name", "/api/checkin/by-pin", "/api/worker/location",
+                   "/api/auto-checkout", "/api/auth/whoami", "/api/auth/session"}
+_ERP_OPEN_PREFIX = ("/api/contractor/", "/api/public/", "/api/join/", "/api/homelab", "/api/hermaniland", "/api/auth/2fa")
+# Data pages outside /api that need a session too
+_ERP_PROTECTED_PAGES = {"/export.csv", "/submit", "/submit-batch"}
+
+
+def _erp_session_user():
+    """Name from a password or PIN session, checked against the account (cached a few seconds)."""
+    if CT_TRUST_HEADER:
+        return (request.headers.get("X-User-Name") or request.args.get("caller") or "").strip()
+    name = (session.get("uid") or "").strip()
+    if not name:
+        return ""
+    key = (sb_url(), name, session.get("fp"), session.get("auth"))
+    hit = _erp_sess_cache.get(key)
+    if hit and _ptime.time() - hit[0] < _CT_CACHE_TTL:
+        return hit[1]
+    u = _auth_user_row(name, "name,password,pin,approved")
+    ok = bool(u) and u.get("approved") is not False and (
+        _pw_fingerprint(u.get("password")) == session.get("fp") if session.get("auth", "password") == "password"
+        else _pw_fingerprint("pin:" + str(u.get("pin") or "")) == session.get("fp"))
+    if _CT_CACHE_TTL > 0:
+        _erp_sess_cache[key] = (_ptime.time(), name if ok else "")
+    return name if ok else ""
+
+
+def _erp_report(path):
+    """Remember (once per day per path and page) an ERP call made without a session."""
+    import datetime as dt
+    page = (request.referrer or "").split("?")[0].replace(request.host_url, "/")[:200]
+    k = (dt.date.today().isoformat(), path, request.method, page)
+    if k in _erp_seen:
+        return
+    _erp_seen[k] = 1
+    body = request.get_json(silent=True) if request.is_json else None
+    hint = str((body or {}).get("caller_name") or (body or {}).get("name") or request.args.get("name") or "")[:80]
+    logger.warning("[ERP auth] no session: %s %s from %s", request.method, path, page)
+    try:
+        requests.post(f"{sb_url()}/rest/v1/auth_report", timeout=4,
+                      headers={**sb_headers(), "Prefer": "resolution=ignore-duplicates,return=minimal"},
+                      json={"day": k[0], "path": path[:200], "method": request.method, "page": page, "name_hint": hint})
+    except Exception:
+        pass
+
+
+def _is_platform_operator():
+    """The owner account or a platform administrator, signed in with a password."""
+    name = _session_user()
+    if not name:
+        return False
+    u = _auth_user_row(name, "name,username,email,approved") or {}
+    return u.get("approved") is not False and (_ct_is_owner_account(u) or name in _ct_platform_admins())
+
+
+@app.route("/api/auth/session", methods=["GET"])
+def api_auth_session():
+    """Who is signed in on this device (password or PIN), for the ERP screens."""
+    name = _erp_session_user()
+    return jsonify({"ok": bool(name), "name": name, "auth": session.get("auth", "password") if name else None,
+                    "mode": ERP_AUTH_MODE})
 
 
 def _totp_code(secret_b32, t=None, step=30, digits=6):
@@ -4834,9 +4936,16 @@ def set_pin():
     if taken:
         return jsonify({"error": "PIN already taken — choose another"}), 409
     url = f"{sb_url()}/rest/v1/app_users"
-    existing = requests.get(f"{url}?name=eq.{requests.utils.quote(name)}&select=role&limit=1", headers=sb_headers())
+    existing = requests.get(f"{url}?name=eq.{requests.utils.quote(name)}&select=role,pin,password&limit=1", headers=sb_headers())
     existing_rows = existing.json() if existing.ok else []
     if existing_rows:
+        # Only a first PIN can be set from the PIN pad. Changing a PIN, or giving one to an account
+        # that signs in with a password, needs that person (or an admin) signed in.
+        row = existing_rows[0]
+        me_name = _session_user()
+        allowed = (not row.get("pin") and not row.get("password")) or me_name == name or _verify_caller_is_admin(me_name)
+        if not allowed:
+            return jsonify({"error": "This account already has a PIN or a password. Ask an admin to reset it."}), 403
         r = requests.patch(
             f"{url}?name=eq.{requests.utils.quote(name)}",
             headers={**sb_headers(), "Prefer": "return=representation"},
@@ -4849,14 +4958,38 @@ def set_pin():
             json={"name": name, "pin": pin, "role": "lead"}
         )
     if r.ok:
+        _pin_session(name, data)
         return jsonify({"ok": True})
     return jsonify({"error": r.text}), 400
+
+
+_pin_fails = {}
+
+
+def _pin_locked(name):
+    """Five wrong PINs for a person lock their PIN for 15 minutes (a 4-digit PIN is easy to guess)."""
+    t = [x for x in _pin_fails.get(name, []) if _ptime.time() - x < 900]
+    _pin_fails[name] = t
+    return len(t) >= 5
+
+
+def _pin_session(name, data):
+    """A correct PIN signs the person in on this device for the ERP screens, unless someone else
+    is signed in with a password and this PIN only confirms an action (e.g. an editor's approval)."""
+    current = (session.get("uid") or "").strip()
+    if not current or current == name or data.get("login") or session.get("auth") == "pin":
+        u = _auth_user_row(name, "name,pin,approved") or {}
+        if u and u.get("approved") is not False:
+            _start_session(u, auth="pin")
+
 
 @app.route("/api/users/verify-pin", methods=["POST"])
 def verify_pin():
     data = request.json or {}
     name = data.get("name", "")
     pin = str(data.get("pin", ""))
+    if _pin_locked(name):
+        return jsonify({"ok": False, "error": "Too many wrong PINs. Try again in 15 minutes."}), 429
     url = f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}&select=pin,role"
     r = requests.get(url, headers=sb_headers())
     rows = r.json() if r.ok else []
@@ -4864,8 +4997,11 @@ def verify_pin():
         return jsonify({"ok": False, "error": "User not found"}), 404
     stored = rows[0].get("pin")
     role = rows[0].get("role", "lead")
-    if stored and str(stored) == str(pin):
+    if stored and _hmac.compare_digest(str(stored), str(pin)):
+        _pin_fails.pop(name, None)
+        _pin_session(name, data)
         return jsonify({"ok": True, "role": role})
+    _pin_fails.setdefault(name, []).append(_ptime.time())
     return jsonify({"ok": False, "error": "Incorrect PIN"})
 
 
@@ -9267,6 +9403,22 @@ def _ct_cache_after_write(resp):
                                     or request.path.startswith(("/api/contractor/join", "/api/contractor/platform", "/api/register", "/api/users"))):
         _ct_cache_clear()
     return resp
+
+
+@app.before_request
+def _erp_auth_guard():
+    """ERP screens and APIs need a session (password or crew PIN); see ERP_AUTH_MODE."""
+    p = request.path
+    if p in _ERP_OPEN_EXACT or p.startswith(_ERP_OPEN_PREFIX) or not (p.startswith("/api/") or p in _ERP_PROTECTED_PAGES):
+        return None
+    if request.method == "POST" and re.fullmatch(r"/api/checkin/[0-9a-fA-F-]{1,40}/checkout", p):
+        return None  # check-out from the QR check-in page on site
+    if _erp_session_user():
+        return None
+    if ERP_AUTH_MODE == "enforce":
+        return jsonify({"ok": False, "error": "login_required"}), 401
+    _erp_report(p)
+    return None
 
 
 @app.before_request

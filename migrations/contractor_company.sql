@@ -288,3 +288,16 @@ create table if not exists contractor_mail_log (
 create index if not exists contractor_mail_log_company_idx on contractor_mail_log(company, created_at desc);
 create index if not exists contractor_mail_log_ref_idx on contractor_mail_log(company, kind, ref);
 alter table contractor_mail_log enable row level security;
+
+-- ERP sign-in report: calls made without a session while ERP_AUTH_MODE=report
+create table if not exists auth_report (
+  id uuid primary key default gen_random_uuid(),
+  day date not null default current_date,
+  path text not null,
+  method text not null default 'GET',
+  page text default '',
+  name_hint text default '',
+  created_at timestamptz default now(),
+  unique (day, path, method, page)
+);
+alter table auth_report enable row level security;

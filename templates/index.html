@@ -431,6 +431,7 @@ button.fill-all-btn{height:28px !important;font-size:11px !important;padding:3px
 
   <script src="/static/theme.js"></script>
   <link rel="stylesheet" href="/static/themes.css">
+<script src="/static/erp-session.js"></script>
 </head>
 <body>
 <div style="display:flex;align-items:center;padding:8px 16px;background:#060c18;border-bottom:1px solid #1a2535;"><a href="/" style="color:#94a3b8;text-decoration:none;font-size:13px;">← Home</a><div id="headerUser" style="display:flex;align-items:center;gap:8px;margin-left:auto;"></div></div>
@@ -1275,7 +1276,7 @@ function agProc(){
   if(_agNew&&!_agFirst){_agFirst=_agBuf;_agBuf='';document.getElementById('agPinSub').textContent='Confirm your PIN';agDots();return;}
   if(_agNew&&_agFirst){
     if(_agBuf!==_agFirst){document.getElementById('agErr').textContent='PINs do not match.';_agBuf='';_agFirst='';agDots();return;}
-    fetch('/api/users/set-pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:_agUser,pin:_agBuf})})
+    fetch('/api/users/set-pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:_agUser,pin:_agBuf,login:true})})
       .then(function(r){return r.json();})
       .then(function(d){
         if(d.ok){
@@ -1288,7 +1289,7 @@ function agProc(){
       }).catch(function(){document.getElementById('agErr').textContent='Network error.';});
     return;
   }
-  fetch('/api/users/verify-pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:_agUser,pin:_agBuf})})
+  fetch('/api/users/verify-pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:_agUser,pin:_agBuf,login:true})})
     .then(function(r){return r.json();})
     .then(function(d){
       if(d.ok){

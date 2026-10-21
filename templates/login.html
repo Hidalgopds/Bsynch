@@ -379,8 +379,10 @@ document.addEventListener('keydown', function(e) {
   else if (active === 'screen-register') showConsent();
 });
 
-// Already signed in (valid session cookie) → skip to where they were going
-fetch('/api/auth/whoami').then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
+// Signed out (the name was cleared) → end the session on the server too.
+// Still signed in (valid session cookie) → skip to where they were going.
+if (!localStorage.getItem('bsynchAuth')) fetch('/api/logout', {method:'POST'}).catch(function(){});
+else fetch('/api/auth/whoami').then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
   if (!d || !d.ok) return;
   localStorage.setItem('bsynchAuth', d.name);
   var nx = new URLSearchParams(location.search).get('next') || '';
