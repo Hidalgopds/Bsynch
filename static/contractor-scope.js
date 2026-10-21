@@ -214,8 +214,13 @@
     var key = 'ctMe_' + user, cached = ss(key);
     if (cached) { try { renderHubNav(JSON.parse(cached)); } catch (e) {} }
     window.fetch('/api/contractor/me').then(function (r) { return r.json(); }).then(function (me) {
-      ss(key, JSON.stringify(me));
-      if (!cached) renderHubNav(me);
+      var fresh = JSON.stringify(me);
+      ss(key, fresh);
+      if (cached === fresh) return;
+      // Access changed (other company, new role): rebuild the bar, and leave a company no longer allowed
+      var old = document.querySelector('.ct-hubs'); if (old) old.remove();
+      if (company && me.access && !me.access[company] && location.pathname !== '/contractor/account') { location.replace('/contractor-hub'); return; }
+      renderHubNav(me);
     }).catch(function () {});
   }
 
