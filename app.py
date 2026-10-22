@@ -7096,12 +7096,50 @@ def _contractor_caller_uncached():
     return me
 
 
+# ── Company privacy: platform admins don't see a company's data ─────
+# They manage accounts and companies, but work orders, invoices, expenses, contacts...
+# open only while that company's Manager has given support access (24 or 72 hours).
+# Every time they use it is written to contractor_support_log for the Manager to see.
+CONTRACTOR_SUPPORT_HOURS = (24, 72)
+_ct_support_seen = {}
+
+
+def _ct_support(company):
+    return _ct_config(f"contractor_support_{company}", {}) or {}
+
+
+def _ct_support_open(company):
+    import datetime as dt
+    until = str(_ct_support(company).get("until") or "")
+    return bool(until) and until > dt.datetime.utcnow().isoformat()
+
+
+def _ct_support_used(me, company):
+    """Platform admin inside a company's data: write it down (once every 10 minutes per person)."""
+    key = (sb_url(), me["name"], company)
+    if _ptime.time() - _ct_support_seen.get(key, 0) < 600:
+        return
+    _ct_support_seen[key] = _ptime.time()
+    try:
+        requests.post(f"{sb_url()}/rest/v1/contractor_support_log", headers=sb_headers(), timeout=5, json={
+            "company": company, "user_name": me["name"][:80], "path": request.path[:200], "method": request.method})
+    except Exception as e:
+        logger.warning("[Support] log: %s", e)
+
+
+def _ct_support_access(me, company):
+    if not me["is_super"] or company not in CONTRACTOR_COMPANIES or not _ct_support_open(company):
+        return False
+    _ct_support_used(me, company)
+    return True
+
+
 def _ct_can_view(me, company):
-    return me["is_super"] or me["company"] == company
+    return me["company"] == company or _ct_support_access(me, company)
 
 
 def _ct_can_admin(me, company):
-    return me["is_super"] or (me["company"] == company and me["company_role"] == "admin")
+    return (me["company"] == company and me["company_role"] == "admin") or _ct_support_access(me, company)
 
 
 def _ct_perms(company):
@@ -7123,13 +7161,13 @@ def _ct_is_member_only(me):
 
 
 def _contractor_scope():
-    """Company slug the current request is limited to. Super admins get the
-    company they asked for (None = everything); everyone else is pinned to their
-    own company, or '__none__' when they have not been assigned one yet."""
+    """Company slug the current request is limited to. Platform admins get the
+    company they asked for only while it gives them support access; everyone else
+    is pinned to their own company, or '__none__' when they have not been assigned one yet."""
     me = _contractor_caller()
     wanted = (request.headers.get("X-Contractor-Company") or request.args.get("company") or "").lower()
     if me["is_super"]:
-        return wanted if wanted in CONTRACTOR_COMPANIES else None
+        return wanted if _ct_can_view(me, wanted) else "__none__"
     return me["company"] or "__none__"
 
 
@@ -7158,14 +7196,63 @@ def contractor_admin_settings(company):
 @app.route("/api/contractor/me", methods=["GET"])
 def contractor_me():
     me = _contractor_caller()
-    visible = list(CONTRACTOR_COMPANIES) if me["is_super"] else ([me["company"]] if me["company"] else [])
+    if me["is_super"]:
+        visible = [co for co in CONTRACTOR_COMPANIES if _ct_support_open(co)]
+    else:
+        visible = [me["company"]] if me["company"] else []
     access = {}
     for co in visible:
-        admin = _ct_can_admin(me, co)
+        admin = True if me["is_super"] else _ct_can_admin(me, co)  # not counted as using support access
         perms = _ALL_PERMS if admin else _ct_perms(co).get(me["company_role"] or "member", {})
         access[co] = {"name": CONTRACTOR_COMPANIES[co], "is_admin": admin, "permissions": perms}
     role_label = "Platform admin" if me["is_super"] else CONTRACTOR_ROLE_LABELS.get(me["company_role"] or "member", "User")
-    return jsonify({**me, "access": access, "role_label": role_label, "member_only": _ct_is_member_only(me)})
+    private = {co: CONTRACTOR_COMPANIES[co] for co in CONTRACTOR_COMPANIES if me["is_super"] and co not in access}
+    support = {co: _ct_support(co).get("until") for co in access if me["is_super"]}
+    return jsonify({**me, "access": access, "role_label": role_label, "member_only": _ct_is_member_only(me),
+                    "private": private, "support_until": support})
+
+
+def _ct_is_own_manager(me, company):
+    """A Manager of this company (support access doesn't count)."""
+    return me["company"] == company and me["company_role"] == "admin"
+
+
+@app.route("/api/contractor/<company>/support", methods=["GET", "POST"])
+def contractor_support(company):
+    """The company's Manager gives (or removes) platform-admin access to its data, and sees who used it."""
+    import datetime as dt
+    me = _contractor_caller()
+    if company not in CONTRACTOR_COMPANIES or not _ct_is_own_manager(me, company):
+        return jsonify({"ok": False, "error": "Only this company's Manager can do this"}), 403
+    if request.method == "POST":
+        data = request.get_json() or {}
+        try:
+            hours = int(data.get("hours") or 0)
+        except (TypeError, ValueError):
+            hours = -1
+        if hours and hours not in CONTRACTOR_SUPPORT_HOURS:
+            return jsonify({"ok": False, "error": "Choose 24 or 72 hours"}), 400
+        now = dt.datetime.utcnow()
+        state = {"until": (now + dt.timedelta(hours=hours)).isoformat() + "Z" if hours else None,
+                 "by": me["name"][:80], "at": now.isoformat() + "Z", "hours": hours}
+        ok, e = _ct_set_config(f"contractor_support_{company}", state)
+        if not ok:
+            return jsonify({"ok": False, "error": e or "Could not save"}), 500
+        if hours:
+            owner = DEFAULT_COMPANY_ADMIN_USER.lower()
+            to = list(dict.fromkeys(_ct_people_emails(company, names=_ct_platform_admins()) +
+                                    ([owner] if _EMAIL_RE.fullmatch(owner) else [])))
+            if to:
+                rows = [("Company", _html_escape(CONTRACTOR_COMPANIES[company])), ("Given by", _html_escape(me["name"])),
+                        ("Open for", f"{hours} hours"), ("Until (UTC)", _html_escape(state["until"][:16].replace("T", " ")))]
+                _ct_bg(_ct_mail, company, "support", to, [], f"{CONTRACTOR_COMPANIES[company]} gave you support access for {hours} hours",
+                       _ct_alert_html(company, "Support access granted", rows, f"{request.host_url}contractor/{company}", "Open the company"),
+                       None, "BSynch", company)
+    sup = _ct_support(company)
+    r = requests.get(f"{sb_url()}/rest/v1/contractor_support_log?company=eq.{company}&select=user_name,path,method,created_at"
+                     f"&order=created_at.desc&limit=50", headers=sb_headers(), timeout=8)
+    return jsonify({"ok": True, "until": sup.get("until"), "by": sup.get("by"), "at": sup.get("at"),
+                    "open": _ct_support_open(company), "hours": list(CONTRACTOR_SUPPORT_HOURS), "log": r.json() if r.ok else []})
 
 
 def _ct_admin_guard(company):
@@ -7510,7 +7597,7 @@ def contractor_company_profile(company):
         return jsonify({"ok": False, "error": "not your company"}), 403
     if request.method == "GET":
         out = {"ok": True, "profile": _ct_profile(company), "can_edit": bool(_ct_can_edit_settings(me, company)),
-               "can_security": _ct_can_admin(me, company)}
+               "can_security": _ct_can_admin(me, company), "can_support": _ct_is_own_manager(me, company)}
         if out["can_security"]:
             ur = requests.get(f"{sb_url()}/rest/v1/app_users?approved=eq.true&contractor_company=eq.{company}&select=name,totp_enabled&limit=1000",
                               headers=sb_headers(), timeout=8)
@@ -8065,10 +8152,9 @@ def _ct_job_allowed(job_id):
     job = r.json()[0] if r.ok and r.json() else None
     if not job:
         return None
-    scope = _contractor_scope()
-    if scope == "__none__" or (scope and job.get("company") != scope):
-        return None
     me = _contractor_caller()
+    if not _ct_can_view(me, job.get("company")):
+        return None
     if _ct_is_member_only(me) and me["name"] not in (job.get("created_by"), job.get("assigned_to")):
         return None
     return job
@@ -8102,6 +8188,28 @@ def _ct_manager_only_edit(job):
                                     headers=sb_headers(), timeout=5)
             return bool(existing.ok and existing.json())
     return False
+
+
+_CT_PROJ_PATH = re.compile(r"^/api/contractor/projects/([0-9a-zA-Z-]{1,40})(?:/|$)")
+
+
+@app.before_request
+def _ct_guard_project_routes():
+    """/api/contractor/projects/<id>: only for that project's company (writes: not plain Users)."""
+    m = _CT_PROJ_PATH.match(request.path)
+    if not m:
+        return None
+    r = requests.get(f"{sb_url()}/rest/v1/{CONTRACTOR_PROJECTS_TABLE}?id=eq.{requests.utils.quote(m.group(1))}&select=company&limit=1",
+                     headers=sb_headers(), timeout=5)
+    proj = r.json()[0] if r.ok and r.json() else None
+    me = _contractor_caller()
+    co = (proj or {}).get("company")
+    allowed = proj is not None and (_ct_can_view(me, co) if co else me["is_super"])
+    if not allowed:
+        return jsonify({"ok": False, "error": "project not found"}), 404
+    if request.method != "GET" and _ct_is_member_only(me):
+        return jsonify({"ok": False, "error": "Users can't change projects"}), 403
+    return None
 
 
 @app.before_request

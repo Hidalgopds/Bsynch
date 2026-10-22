@@ -210,6 +210,16 @@
     }).join('');
     var header = document.querySelector('header');
     if (header) header.insertAdjacentElement('afterend', nav);
+    var until = me.is_super && (me.support_until || {})[company];
+    var oldSup = document.querySelector('.ct-sup'); if (oldSup) oldSup.remove();
+    if (until) {
+      // A platform admin inside a company's data: say so, and that the Manager sees it
+      var sup = document.createElement('div');
+      sup.className = 'ct-sup';
+      sup.style.cssText = 'background:#fef3c7;color:#78350f;border-bottom:1px solid #fcd34d;padding:7px 14px;font:600 12.5px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;text-align:center;';
+      sup.textContent = '\uD83D\uDEE1\uFE0F Support access from ' + acc.name + ' until ' + new Date(until).toLocaleString() + '. The Manager sees each time you use it.';
+      nav.insertAdjacentElement('afterend', sup);
+    }
     var on = nav.querySelector('.on');
     if (on && on.scrollIntoView) on.scrollIntoView({block: 'nearest', inline: 'center'});
   }

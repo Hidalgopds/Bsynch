@@ -99,7 +99,7 @@ var API = '/api/contractor/' + COMPANY + '/mailroom';
 var D = null, kindFilter = 'all';
 var ORDER = ['wo_created', 'job_finished', 'tomorrow_jobs', 'invoice_overdue', 'invoice_paid', 'expense_over', 'pending_approval'];
 var KINDS = [['all', 'All'], ['failed', 'Failed'], ['estimate', 'Estimates'], ['invoice', 'Invoices'], ['reminder', 'Reminders'], ['alert', 'Alerts'], ['test', 'Tests']];
-var KIND_LABEL = {estimate: 'Estimate', invoice: 'Invoice', reminder: 'Reminder', test: 'Test', account: 'Account', notice: 'Notice'};
+var KIND_LABEL = {support: 'Support access', estimate: 'Estimate', invoice: 'Invoice', reminder: 'Reminder', test: 'Test', account: 'Account', notice: 'Notice'};
 
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 function hourLabel(h){ return (h % 12 || 12) + ':00 ' + (h < 12 ? 'AM' : 'PM'); }

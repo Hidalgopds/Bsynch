@@ -158,6 +158,17 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
       <label class="sec-tgl"><input type="checkbox" id="req2fa"><span><b>Require two-step verification for everyone in this company</b><br><span class="hint">When they sign in, they also type a code from Google Authenticator, Microsoft Authenticator or Authy. Anyone without it is asked to turn it on at their next sign-in.</span></span></label>
       <div class="hint" id="secStats" style="margin-top:8px;"></div>
       <span class="hint" id="secMsg" style="display:block;margin-top:6px;"></span>
+      <div id="supBox" style="display:none;border-top:1px solid #e2e8f0;margin-top:14px;padding-top:12px;">
+        <b>&#128737;&#65039; Support access</b>
+        <p class="hint" style="margin:4px 0 8px;">BSynch platform administrators can't see your work orders, invoices, expenses or contacts. If you need help, give them access for a while; it closes by itself and every time they use it shows up here.</p>
+        <div id="supState" style="font-size:13px;margin-bottom:8px;"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button type="button" class="btn-sm" data-sup="24">Give access for 24 hours</button>
+          <button type="button" class="btn-sm" data-sup="72">72 hours</button>
+          <button type="button" class="btn-sm" data-sup="0" id="supOff" style="background:#fff;color:#b91c1c;border:1px solid #fca5a5;">Remove access now</button>
+        </div>
+        <div id="supLog" class="hint" style="margin-top:10px;"></div>
+      </div>
     </div>
 
     <div class="card">
@@ -332,6 +343,26 @@ document.getElementById('tplFile').onchange = function(){
   this.value = '';
 };
 
+function renderSupport(d){
+  var st = document.getElementById('supState');
+  if(d.open) st.innerHTML = '&#128275; <b>Open</b> until ' + esc(new Date(d.until).toLocaleString()) + ' (given by ' + esc(d.by || '') + ').';
+  else st.innerHTML = '&#128274; <b>Closed.</b> Platform administrators can\'t see your company\'s data.';
+  document.getElementById('supOff').style.display = d.open ? '' : 'none';
+  var log = d.log || [];
+  document.getElementById('supLog').innerHTML = log.length ? '<b>Last time they used it:</b><br>' + log.slice(0, 10).map(function(l){
+    return esc(new Date(l.created_at).toLocaleString()) + ' &middot; ' + esc(l.user_name) + ' &middot; ' + esc(l.path.replace('/api/contractor/', '').replace(/\/[0-9a-f-]{36}/g, '/…'));
+  }).join('<br>') : 'Nobody has used support access.';
+}
+function loadSupport(){ fetch(API + '/support').then(function(r){ return r.json(); }).then(function(d){ if(d.ok) renderSupport(d); }); }
+document.getElementById('supBox').addEventListener('click', function(e){
+  var b = e.target.closest('[data-sup]'); if(!b) return;
+  var h = +b.dataset.sup;
+  if(h && !confirm('Let BSynch platform administrators see this company\'s data for ' + h + ' hours?')) return;
+  b.disabled = true;
+  fetch(API + '/support', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({hours: h})})
+    .then(function(r){ return r.json(); }).then(function(d){ b.disabled = false; if(d.ok) renderSupport(d); else alert(d.error || 'Could not save'); });
+});
+
 if(CT.user) document.getElementById('hdrUser').textContent = 'Hi, ' + CT.user;
 fetch(API + '/profile').then(function(r){ return r.json(); }).then(function(d){
   if(!d.ok){ location.replace('/contractor-hub'); return; }
@@ -348,6 +379,7 @@ fetch(API + '/profile').then(function(r){ return r.json(); }).then(function(d){
     var t = d.two_factor || {total: 0, on: 0, missing: []};
     document.getElementById('secStats').textContent = t.on + ' of ' + t.total + ' people have it on' + (t.missing.length ? '. Still off: ' + t.missing.join(', ') + '.' : '.');
   }
+  if(d.can_support){ document.getElementById('secCard').style.display = ''; document.getElementById('supBox').style.display = ''; loadSupport(); }
   if(!canEdit){
     ['saveBtn','emailAdd','logoRemove','fileUploadBtn'].forEach(function(id){ document.getElementById(id).style.display = 'none'; });
     document.querySelector('.add-email').style.display = 'none';

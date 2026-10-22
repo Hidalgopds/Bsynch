@@ -344,3 +344,15 @@ create index if not exists contractor_estimates_company_idx on contractor_estima
 create unique index if not exists contractor_estimates_number_idx on contractor_estimates(company, estimate_number);
 create unique index if not exists contractor_estimates_token_idx on contractor_estimates(public_token) where public_token is not null;
 alter table contractor_estimates enable row level security;
+
+-- Support access: each time a platform admin opens a company's data while its Manager allows it
+create table if not exists contractor_support_log (
+  id uuid primary key default gen_random_uuid(),
+  company text not null,
+  user_name text not null default '',
+  path text default '',
+  method text default 'GET',
+  created_at timestamptz default now()
+);
+create index if not exists contractor_support_log_company_idx on contractor_support_log(company, created_at desc);
+alter table contractor_support_log enable row level security;
