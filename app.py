@@ -6538,17 +6538,17 @@ def _ct_hours(v):
     return round(h * 4) / 4
 CONTRACTOR_ROLES = ["member", "lead", "admin"]
 # Same order and names as the hub icons at the top of every page
-CONTRACTOR_FEATURES = ["workorders", "calendar", "expenses", "invoicing", "dashboard", "contacts", "mailroom", "company_settings"]
+CONTRACTOR_FEATURES = ["workorders", "calendar", "expenses", "estimates", "invoicing", "dashboard", "contacts", "mailroom", "company_settings"]
 CONTRACTOR_FEATURE_LABELS = {"workorders": "📋 Work orders", "calendar": "📅 Calendar", "expenses": "🧾 Expenses",
-                             "invoicing": "💵 Invoicing", "dashboard": "📊 Dashboard", "contacts": "👥 Contacts",
+                             "estimates": "📝 Estimates", "invoicing": "💵 Invoicing", "dashboard": "📊 Dashboard", "contacts": "👥 Contacts",
                              "mailroom": "📬 Mail room", "company_settings": "⚙️ Settings"}
 CONTRACTOR_ROLE_LABELS = {"member": "User", "lead": "Leader", "admin": "Manager"}
 # Users (member) only create and follow their own work orders; Leaders get what the Manager allows.
 # Users: their own work orders, calendar and expenses only
-CONTRACTOR_MEMBER_PERMS = {"workorders": True, "calendar": True, "expenses": True, "invoicing": False, "dashboard": False,
+CONTRACTOR_MEMBER_PERMS = {"workorders": True, "calendar": True, "expenses": True, "estimates": False, "invoicing": False, "dashboard": False,
                            "contacts": False, "mailroom": False, "company_settings": False}
 CONTRACTOR_DEFAULT_PERMS = {
-    "lead": {"workorders": True, "calendar": True, "expenses": True, "invoicing": True, "dashboard": True, "contacts": True,
+    "lead": {"workorders": True, "calendar": True, "expenses": True, "estimates": True, "invoicing": True, "dashboard": True, "contacts": True,
              "mailroom": False, "company_settings": False},
 }
 _ALL_PERMS = {f: True for f in CONTRACTOR_FEATURES}
@@ -6751,6 +6751,8 @@ CONTRACTOR_ALERTS = {
                      "help": "Once per job, when it reaches 100% or is marked finished."},
     "tomorrow_jobs": {"label": "Tomorrow's jobs", "icon": "📅", "to": ["assigned"], "hour": 17,
                       "help": "Every afternoon: each worker gets their jobs for tomorrow with address, time and materials."},
+    "estimate_answered": {"label": "Client accepted or declined an estimate", "icon": "📝", "to": ["managers"],
+                          "help": "When the client answers an estimate from the link you sent."},
     "invoice_overdue": {"label": "Unpaid invoices after X days", "icon": "🔴", "to": ["company"],
                         "help": "Every morning, the list of sent invoices still unpaid after the days you set."},
     "invoice_paid": {"label": "Invoice marked paid", "icon": "💵", "to": ["company"],
@@ -7477,7 +7479,7 @@ def contractor_unassigned_projects(company):
 CONTRACTOR_PROFILE_TEXT = {
     "display_name": 120, "subtitle": 120, "tagline": 120, "contact_name": 120, "phone": 40,
     "address": 300, "notify_email": 160, "invoice_prefix": 20, "payment_terms": 60,
-    "payment_note": 400, "footer_note": 200,
+    "payment_note": 400, "footer_note": 200, "estimate_prefix": 20, "estimate_terms": 1500,
 }
 _HEX_COLOR = re.compile(r"#[0-9a-fA-F]{6}")
 _CT_INV_NUM = re.compile(r"([A-Za-z0-9 _./#-]{0,20}?)(\d{1,12})")
@@ -7489,7 +7491,8 @@ def _ct_profile(company):
          "invoice_next": 1000, "payment_terms": "Due on receipt", "footer_note": "Thank you for your business!",
          "brand_primary": "#0d1b36", "brand_accent": "#e8a317", "emails": [],
          "hours_morning": 4, "hours_afternoon": 4,
-         "invoice_pad": 6, "invoice_end": None, "reminder_days": 15}
+         "invoice_pad": 6, "invoice_end": None, "reminder_days": 15,
+         "estimate_prefix": "EST-", "estimate_valid_days": 30, "estimate_terms": ""}
     p.update(_ct_config(f"contractor_company_{company}", {}) or {})
     if not p.get("emails") and p.get("email"):
         p["emails"] = [p["email"]]
@@ -7542,6 +7545,11 @@ def contractor_company_profile(company):
             out["reminder_days"] = max(0, min(365, int(data.get("reminder_days") or 0)))
         except (TypeError, ValueError):
             return jsonify({"ok": False, "error": "Reminder days must be a number"}), 400
+    if "estimate_valid_days" in data:
+        try:
+            out["estimate_valid_days"] = max(1, min(365, int(data.get("estimate_valid_days") or 30)))
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "Estimate valid days must be a number"}), 400
     if "invoice_start" in data:
         m = _CT_INV_NUM.fullmatch(str(data.get("invoice_start") or "").strip())
         if not m:
@@ -8849,6 +8857,14 @@ def contractor_create_invoice(company):
 
     items = [{"description": (job.get("invoice_description") or job.get("description") or job.get("title") or "").strip(),
               "qty": 1, "amount": price, "total": price}]
+    er = requests.get(f"{sb_url()}/rest/v1/contractor_estimates?job_id=eq.{job_id}&company=eq.{company}&select=items,total&limit=1",
+                      headers=sb_headers(), timeout=5)
+    est = er.json()[0] if er.ok and er.json() else None
+    est_text = "\n".join(i.get("description") or "" for i in (est or {}).get("items") or [] if i.get("description"))
+    # Same price and description as the accepted estimate: bill its lines one by one
+    if est and est.get("items") and abs(_ct_money(est.get("total")) - price) < 0.005 \
+            and (job.get("invoice_description") or "").strip() == est_text.strip():
+        items = [{k: i.get(k) for k in ("description", "qty", "amount", "total")} for i in est["items"]]
     if data.get("include_costs"):
         c = _ct_job_costs([job_id]).get(job_id, {"materials": [], "receipts": []})
         for m in c["materials"]:
@@ -9431,6 +9447,423 @@ def _ct_digest_hook():
         _ct_bg(_ct_daily_tasks)
 
 
+# ── Contractor: estimates (quotes) ──────────────────────────────────
+# draft → sent (the client gets a link) → accepted / declined → converted (it became a work order)
+CONTRACTOR_ESTIMATE_STATUSES = {"draft": "Draft", "sent": "Sent", "accepted": "Accepted", "declined": "Declined",
+                                "converted": "Work order"}
+_CT_EST_TEXT = {"title": 160, "client_name": 160, "client_email": 160, "location": 200, "bill_address": 300,
+                "notes": 3000, **CONTRACTOR_ADDRESS_PARTS}
+_CT_EST_LIST_FIELDS = ("id,estimate_number,title,client_name,client_email,location,residence,apt,total,status,estimate_date,"
+                       "valid_until,sent_at,sent_to,viewed_at,accepted_at,accepted_name,declined_at,decline_reason,job_id,"
+                       "status_history,created_by,created_at")
+
+
+def _ct_est_guard(company):
+    me = _contractor_caller()
+    if company not in CONTRACTOR_COMPANIES or not _ct_can_open(me, company, "estimates"):
+        return me, (jsonify({"ok": False, "error": "no estimates permission"}), 403)
+    return me, None
+
+
+def _ct_est_for(est_id):
+    """(estimate, me, error) for someone allowed to work on the company's estimates."""
+    r = requests.get(f"{sb_url()}/rest/v1/contractor_estimates?id=eq.{requests.utils.quote(str(est_id))}&select=*&limit=1",
+                     headers=sb_headers(), timeout=8)
+    est = r.json()[0] if r.ok and r.json() else None
+    if not est:
+        return None, None, (jsonify({"ok": False, "error": "Estimate not found"}), 404)
+    me, err = _ct_est_guard(est["company"])
+    return (None, me, err) if err else (est, me, None)
+
+
+def _ct_est_payload(data):
+    """Fields an estimate can be saved with; (payload, error)."""
+    payload = {k: str(data.get(k) or "").strip()[:n] for k, n in _CT_EST_TEXT.items() if k in data}
+    if payload.get("client_email") and not _EMAIL_RE.fullmatch(payload["client_email"]):
+        return None, "Enter a valid client email"
+    if "client_email" in payload:
+        payload["client_email"] = payload["client_email"].lower()
+    if "items" in data:
+        items = []
+        for it in (data.get("items") or [])[:60]:
+            if not isinstance(it, dict):
+                continue
+            desc = str(it.get("description") or "").strip()[:1000]
+            q, a = _ct_money(it.get("qty") if it.get("qty") not in (None, "") else 1), _ct_money(it.get("amount"))
+            if not desc and not a:
+                continue
+            if q <= 0 or a < 0 or q * a > 10_000_000:
+                return None, "Each line needs a quantity above 0 and a price of 0 or more"
+            items.append({"description": desc, "qty": q, "amount": a, "total": round(q * a, 2)})
+        payload["items"] = items
+        payload["subtotal"] = payload["total"] = round(sum(i["total"] for i in items), 2)
+    if "valid_until" in data:
+        payload["valid_until"] = _ct_valid_date(data.get("valid_until"))
+    return payload, None
+
+
+def _ct_est_history(est, me_name, status, note=""):
+    import datetime as dt
+    entry = {"status": status, "at": dt.datetime.utcnow().isoformat() + "Z", "by": str(me_name or "")[:80]}
+    if note:
+        entry["note"] = str(note)[:300]
+    return (est.get("status_history") or []) + [entry]
+
+
+def _ct_est_patch(est_id, upd):
+    import datetime as dt
+    upd = {**upd, "updated_at": dt.datetime.utcnow().isoformat() + "Z"}
+    r = requests.patch(f"{sb_url()}/rest/v1/contractor_estimates?id=eq.{est_id}", json=upd,
+                       headers={**sb_headers(), "Prefer": "return=representation"}, timeout=8)
+    return r.json()[0] if r.ok and r.json() else None
+
+
+@app.route("/contractor/<company>/estimates")
+def contractor_estimates_page(company):
+    return _ct_page(company, "contractor-estimates.html")
+
+
+@app.route("/contractor/estimate/<est_id>")
+def contractor_estimate_page(est_id):
+    return render_template("contractor-estimate.html", estimate_id=est_id, public_token="")
+
+
+@app.route("/e/<token>")
+def contractor_public_estimate_page(token):
+    return render_template("contractor-estimate.html", estimate_id="", public_token=token)
+
+
+@app.route("/api/contractor/<company>/estimates", methods=["GET"])
+def contractor_estimates_list(company):
+    me, err = _ct_est_guard(company)
+    if err:
+        return err
+    r = requests.get(f"{sb_url()}/rest/v1/contractor_estimates?company=eq.{company}"
+                     f"&select={_CT_EST_LIST_FIELDS}&order=created_at.desc&limit=1000", headers=sb_headers(), timeout=8)
+    prof = _ct_profile(company)
+    return jsonify({"ok": True, "estimates": r.json() if r.ok else [], "statuses": CONTRACTOR_ESTIMATE_STATUSES,
+                    "can_delete": _ct_can_admin(me, company), "valid_days": int(prof.get("estimate_valid_days") or 30),
+                    "default_notes": prof.get("estimate_terms") or ""})
+
+
+def _ct_est_insert(company, me, payload):
+    """Save a new draft with the next estimate number of the company."""
+    import datetime as dt
+    prof = _ct_profile(company)
+    prefix = re.sub(r"[^A-Za-z0-9 _./#-]", "", str(prof.get("estimate_prefix") or "EST-"))[:20]
+    payload.setdefault("valid_until", (dt.date.today() + dt.timedelta(days=int(prof.get("estimate_valid_days") or 30))).isoformat())
+    payload.setdefault("notes", prof.get("estimate_terms") or "")
+    snapshot = {k: prof.get(k) for k in ("display_name", "subtitle", "tagline", "phone", "address", "emails", "logo",
+                                          "footer_note", "brand_primary", "brand_accent")}
+    for _ in range(3):  # two people saving at once take the same number; the unique index sends one back here
+        last = requests.get(f"{sb_url()}/rest/v1/contractor_estimates?company=eq.{company}&select=seq&order=seq.desc.nullslast&limit=1",
+                            headers=sb_headers(), timeout=5)
+        rows = last.json() if last.ok else []
+        seq = max(1001, int((rows[0].get("seq") or 0) if rows else 0) + 1)
+        row = {**payload, "company": company, "seq": seq, "estimate_number": f"{prefix}{seq}", "status": "draft",
+               "estimate_date": dt.date.today().isoformat(), "company_snapshot": snapshot, "created_by": me["name"][:80],
+               "status_history": [{"status": "draft", "at": dt.datetime.utcnow().isoformat() + "Z", "by": me["name"][:80]}]}
+        r = requests.post(f"{sb_url()}/rest/v1/contractor_estimates", json=row,
+                          headers={**sb_headers(), "Prefer": "return=representation"}, timeout=8)
+        if r.ok and r.json():
+            est = r.json()[0]
+            _ct_remember_client(company, est.get("client_name"), est.get("client_email"), me["name"], source="estimate", kind="potential")
+            return jsonify({"ok": True, "estimate": {"id": est["id"], "estimate_number": est["estimate_number"]}})
+        if r.status_code != 409:
+            break
+    return jsonify({"ok": False, "error": "Could not save the estimate. Try again."}), 500
+
+
+@app.route("/api/contractor/<company>/estimates", methods=["POST"])
+def contractor_estimates_create(company):
+    me, err = _ct_est_guard(company)
+    if err:
+        return err
+    data = request.get_json() or {}
+    payload, e = _ct_est_payload(data)
+    if e:
+        return jsonify({"ok": False, "error": e}), 400
+    if not payload.get("title"):
+        return jsonify({"ok": False, "error": "Give the estimate a title"}), 400
+    return _ct_est_insert(company, me, payload)
+
+
+@app.route("/api/contractor/estimates/<est_id>", methods=["GET"])
+def contractor_estimate_get(est_id):
+    est, me, err = _ct_est_for(est_id)
+    if err:
+        return err
+    est.pop("public_token", None)
+    est["can_delete"] = _ct_can_admin(me, est["company"])
+    est["can_convert"] = _ct_can_open(me, est["company"], "workorders")
+    return jsonify({"ok": True, "estimate": est, "statuses": CONTRACTOR_ESTIMATE_STATUSES,
+                    "people": _ct_company_people(est["company"])})
+
+
+@app.route("/api/contractor/estimates/<est_id>", methods=["PATCH"])
+def contractor_estimate_update(est_id):
+    est, me, err = _ct_est_for(est_id)
+    if err:
+        return err
+    if est["status"] in ("accepted", "converted"):
+        return jsonify({"ok": False, "error": "The client already accepted this estimate, so it can't be changed. Duplicate it to make a new one."}), 409
+    payload, e = _ct_est_payload(request.get_json() or {})
+    if e:
+        return jsonify({"ok": False, "error": e}), 400
+    if "title" in payload and not payload["title"]:
+        return jsonify({"ok": False, "error": "Give the estimate a title"}), 400
+    if not payload:
+        return jsonify({"ok": False, "error": "nothing to update"}), 400
+    if est["status"] == "sent":
+        payload["status_history"] = _ct_est_history(est, me["name"], "sent", "Edited after it was sent; the link shows the new version")
+    row = _ct_est_patch(est["id"], payload)
+    return jsonify({"ok": bool(row), "estimate": row})
+
+
+@app.route("/api/contractor/estimates/<est_id>", methods=["DELETE"])
+def contractor_estimate_delete(est_id):
+    est, me, err = _ct_est_for(est_id)
+    if err:
+        return err
+    if not _ct_can_admin(me, est["company"]):
+        return jsonify({"ok": False, "error": "Only a Manager can delete an estimate"}), 403
+    if est.get("job_id"):
+        return jsonify({"ok": False, "error": "This estimate is already a work order"}), 409
+    r = requests.delete(f"{sb_url()}/rest/v1/contractor_estimates?id=eq.{est['id']}", headers=sb_headers(), timeout=8)
+    return jsonify({"ok": r.ok})
+
+
+@app.route("/api/contractor/estimates/<est_id>/duplicate", methods=["POST"])
+def contractor_estimate_duplicate(est_id):
+    est, me, err = _ct_est_for(est_id)
+    if err:
+        return err
+    data = {k: est.get(k) for k in (*_CT_EST_TEXT, "items")}
+    data["title"] = (est.get("title") or "")[:150] + " (copy)"
+    payload, e = _ct_est_payload(data)
+    if e:
+        return jsonify({"ok": False, "error": e}), 400
+    return _ct_est_insert(est["company"], me, payload)
+
+
+def _ct_est_email_html(est, message, link):
+    co = est.get("company_snapshot") or {}
+    navy = co.get("brand_primary") if _HEX_COLOR.fullmatch(str(co.get("brand_primary") or "")) else "#0d1b36"
+    gold = co.get("brand_accent") if _HEX_COLOR.fullmatch(str(co.get("brand_accent") or "")) else "#e8a317"
+    money = lambda v: f"${_ct_money(v):,.2f}"
+    rows = "".join(
+        f"<tr><td style='padding:8px;border-bottom:1px solid #e5e7eb;white-space:pre-line'>{_html_escape(i.get('description'))}</td>"
+        f"<td style='padding:8px;border-bottom:1px solid #e5e7eb;text-align:center'>{_html_escape(i.get('qty'))}</td>"
+        f"<td style='padding:8px;border-bottom:1px solid #e5e7eb;text-align:right'>{money(i.get('total'))}</td></tr>"
+        for i in (est.get("items") or []))
+    msg = _html_escape(message).replace("\n", "<br>")
+    valid = f"<br><b>Valid until:</b> {_html_escape(est.get('valid_until'))}" if est.get("valid_until") else ""
+    return f"""<div style="font-family:Arial,Helvetica,sans-serif;max-width:620px;margin:0 auto;color:#111827">
+  <div style="background:{navy};color:#fff;padding:18px 22px;border-radius:8px 8px 0 0">
+    <div style="font-size:20px;font-weight:bold">{_html_escape(co.get('display_name'))}</div>
+    <div style="color:{gold};font-size:13px;margin-top:4px">Estimate {_html_escape(est.get('estimate_number'))} · {_html_escape(est.get('title'))}</div>
+  </div>
+  <div style="border:1px solid #e5e7eb;border-top:none;padding:22px;border-radius:0 0 8px 8px">
+    <p style="font-size:14px;line-height:1.6">{msg}</p>
+    <p style="font-size:13px"><b>For:</b> {_html_escape(est.get('client_name'))}<br><b>Job site:</b> {_html_escape(_ct_full_address(est) or '—')}{valid}</p>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <tr style="background:{navy};color:#fff"><th style="padding:8px;text-align:left">Description</th><th style="padding:8px">Qty</th><th style="padding:8px;text-align:right">Total</th></tr>
+      {rows}
+    </table>
+    <div style="text-align:right;margin-top:14px;font-size:18px"><b>Estimate total: <span style="color:{navy}">{money(est.get('total'))}</span></b></div>
+    <div style="text-align:center;margin:26px 0 8px">
+      <a href="{link}" style="background:{navy};color:#fff;text-decoration:none;padding:12px 22px;border-radius:6px;font-weight:bold;display:inline-block">Review and accept the estimate</a>
+    </div>
+    <p style="font-size:12px;color:#6b7280;text-align:center">You can accept or decline it from that page. Questions? Just reply to this email.</p>
+  </div>
+</div>"""
+
+
+@app.route("/api/contractor/estimates/<est_id>/send", methods=["POST"])
+def contractor_estimate_send(est_id):
+    import secrets, datetime as dt
+    est, me, err = _ct_est_for(est_id)
+    if err:
+        return err
+    if est["status"] == "converted":
+        return jsonify({"ok": False, "error": "This estimate is already a work order"}), 409
+    if not est.get("items"):
+        return jsonify({"ok": False, "error": "Add at least one line before sending"}), 409
+    data = request.get_json() or {}
+    to = [e.strip().lower() for e in (data.get("to") or []) if _EMAIL_RE.fullmatch(str(e).strip())][:5]
+    cc = [e.strip().lower() for e in (data.get("cc") or []) if _EMAIL_RE.fullmatch(str(e).strip())][:10]
+    if not to:
+        return jsonify({"ok": False, "error": "Enter the client's email"}), 400
+    token = est.get("public_token") or secrets.token_urlsafe(24)
+    link = f"{request.host_url}e/{token}"
+    co = est.get("company_snapshot") or {}
+    message = str(data.get("message") or "").strip()[:2000] or "Here is the estimate we talked about."
+    ok, e = _ct_mail(est["company"], "estimate", to, cc, f"Estimate {est['estimate_number']} from {co.get('display_name') or ''}".strip(),
+                     _ct_est_email_html(est, message, link), reply_to=(co.get("emails") or [None])[0],
+                     from_name=co.get("display_name") or CONTRACTOR_COMPANIES.get(est["company"]), ref=est["id"], sent_by=me["name"])
+    upd = {"public_token": token}
+    if ok:
+        upd.update(sent_at=dt.datetime.utcnow().isoformat() + "Z", sent_to=", ".join(to), sent_cc=", ".join(cc),
+                   status_history=_ct_est_history(est, me["name"], "sent", "Sent to " + ", ".join(to)))
+        if est["status"] in ("draft", "declined"):
+            upd.update(status="sent", declined_at=None)
+    _ct_est_patch(est["id"], upd)
+    if not ok:
+        return jsonify({"ok": False, "error": e, "link": link}), 502
+    _ct_remember_client(est["company"], est.get("client_name"), to[0], me["name"], source="estimate", kind="potential")
+    return jsonify({"ok": True, "sent_at": upd["sent_at"], "link": link})
+
+
+@app.route("/api/contractor/estimates/<est_id>/status", methods=["POST"])
+def contractor_estimate_status(est_id):
+    """The client answered by phone or in person: record it by hand."""
+    import datetime as dt
+    est, me, err = _ct_est_for(est_id)
+    if err:
+        return err
+    data = request.get_json() or {}
+    status, note = data.get("status"), str(data.get("note") or "").strip()[:300]
+    if status not in ("accepted", "declined", "sent", "draft"):
+        return jsonify({"ok": False, "error": "Unknown status"}), 400
+    if est["status"] == "converted":
+        return jsonify({"ok": False, "error": "This estimate is already a work order"}), 409
+    now = dt.datetime.utcnow().isoformat() + "Z"
+    upd = {"status": status, "status_history": _ct_est_history(est, me["name"], status, note or "Changed by hand")}
+    if status == "accepted":
+        upd.update(accepted_at=now, accepted_name=note or f"Recorded by {me['name']}", declined_at=None)
+    elif status == "declined":
+        upd.update(declined_at=now, decline_reason=note, accepted_at=None, accepted_name=None)
+    else:
+        upd.update(accepted_at=None, accepted_name=None, declined_at=None)
+    row = _ct_est_patch(est["id"], upd)
+    return jsonify({"ok": bool(row), "estimate": row})
+
+
+@app.route("/api/contractor/estimates/<est_id>/convert", methods=["POST"])
+def contractor_estimate_convert(est_id):
+    """An accepted estimate becomes a work order with the same client, address, scope and price."""
+    est, me, err = _ct_est_for(est_id)
+    if err:
+        return err
+    co = est["company"]
+    if est.get("job_id") or est["status"] == "converted":
+        return jsonify({"ok": False, "error": "This estimate is already a work order", "job_id": est.get("job_id")}), 409
+    if est["status"] != "accepted":
+        return jsonify({"ok": False, "error": "Mark the estimate accepted first"}), 409
+    if not _ct_can_open(me, co, "workorders"):
+        return jsonify({"ok": False, "error": "You can't create work orders"}), 403
+    data = request.get_json() or {}
+    start = _ct_valid_date(data.get("start_date"))
+    lines = [i.get("description") or "" for i in (est.get("items") or []) if i.get("description")]
+    scope = "\n".join(f"• {l}" for l in lines)
+    job = {
+        "job_number": _next_job_number(), "title": est.get("title") or est["estimate_number"],
+        "description": (scope + ("\n\n" + est["notes"] if est.get("notes") else ""))[:4000],
+        "client_name": est.get("client_name") or "", "client_email": est.get("client_email") or "",
+        "location": est.get("location") or "", **{k: est.get(k) or "" for k in CONTRACTOR_ADDRESS_PARTS},
+        "bill_address": est.get("bill_address") or "", "status": "open", "priority": "normal", "crew": [],
+        "start_date": start, "due_date": start, "notes": f"From estimate {est['estimate_number']}",
+        "created_by": me["name"][:80], "company": co, "tracking": "percent",
+        "time_slot": data.get("time_slot") if data.get("time_slot") in CONTRACTOR_TIME_SLOTS else "",
+        "est_hours": _ct_hours(data.get("est_hours")) or 0,
+        "service_price": _ct_money(est.get("total")) or None,
+        "invoice_description": "\n".join(f"{l}" for l in lines)[:2000],
+    }
+    if start:
+        job["scheduled_date"] = start
+    if data.get("assigned_to"):
+        if data["assigned_to"] not in _ct_company_people(co):
+            return jsonify({"ok": False, "error": "That person is not in this company"}), 400
+        job["assigned_to"] = str(data["assigned_to"])[:80]
+    r = requests.post(f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}", json=job,
+                      headers={**sb_headers(), "Prefer": "return=representation"}, timeout=8)
+    if not (r.ok and r.json()):
+        return jsonify({"ok": False, "error": "Could not create the work order. Try again."}), 500
+    row = r.json()[0]
+    requests.post(f"{sb_url()}/rest/v1/job_visits", headers=sb_headers(), timeout=5, json={
+        "job_id": row["id"], "description": f"Work order created from estimate {est['estimate_number']} (accepted).",
+        "created_by": me["name"][:80], "visit_date": start or date.today().isoformat()})
+    _ct_est_patch(est["id"], {"status": "converted", "job_id": row["id"],
+                              "status_history": _ct_est_history(est, me["name"], "converted", f"Work order {row.get('job_number')}")})
+    _ct_remember_client(co, est.get("client_name"), est.get("client_email"), me["name"], source="estimate")
+    return jsonify({"ok": True, "job": {"id": row["id"], "job_number": row.get("job_number")}})
+
+
+_CT_EST_PUBLIC_FIELDS = ("id,company,estimate_number,title,client_name,location,residence,apt,zone,zipcode,bill_address,items,"
+                         "subtotal,total,notes,estimate_date,valid_until,status,accepted_at,accepted_name,declined_at,"
+                         "viewed_at,status_history,company_snapshot")
+
+
+def _ct_est_by_token(token):
+    if not re.fullmatch(r"[A-Za-z0-9_-]{20,64}", token or ""):
+        return None
+    r = requests.get(f"{sb_url()}/rest/v1/contractor_estimates?public_token=eq.{token}&select={_CT_EST_PUBLIC_FIELDS}&limit=1",
+                     headers=sb_headers(), timeout=8)
+    return r.json()[0] if r.ok and r.json() else None
+
+
+def _ct_est_public_view(est):
+    out = {k: est.get(k) for k in _CT_EST_PUBLIC_FIELDS.split(",") if k not in ("id", "company", "status_history", "viewed_at")}
+    out["expired"] = bool(est.get("valid_until") and est["valid_until"] < date.today().isoformat()
+                          and est["status"] in ("sent", "draft"))
+    if out["status"] == "converted":
+        out["status"] = "accepted"
+    return out
+
+
+@app.route("/api/public/estimate/<token>")
+def contractor_public_estimate(token):
+    import datetime as dt
+    est = _ct_est_by_token(token)
+    if not est:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    if not est.get("viewed_at"):
+        _ct_est_patch(est["id"], {"viewed_at": dt.datetime.utcnow().isoformat() + "Z",
+                                  "status_history": _ct_est_history(est, "Client", "viewed", "Opened the link")})
+    return jsonify({"ok": True, "estimate": _ct_est_public_view(est)})
+
+
+@app.route("/api/public/estimate/<token>/answer", methods=["POST"])
+def contractor_public_estimate_answer(token):
+    import datetime as dt
+    est = _ct_est_by_token(token)
+    if not est:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    data = request.get_json() or {}
+    answer = data.get("answer")
+    if answer not in ("accept", "decline"):
+        return jsonify({"ok": False, "error": "Choose accept or decline"}), 400
+    if est["status"] != "sent":
+        return jsonify({"ok": False, "error": "This estimate was already answered." if est["status"] in ("accepted", "declined", "converted")
+                        else "This estimate is not open for answers."}), 409
+    if _ct_est_public_view(est)["expired"]:
+        return jsonify({"ok": False, "error": "This estimate expired. Ask for an updated one."}), 409
+    now = dt.datetime.utcnow().isoformat() + "Z"
+    co = est["company"]
+    if answer == "accept":
+        name = str(data.get("name") or "").strip()[:120]
+        if len(name) < 2:
+            return jsonify({"ok": False, "error": "Type your full name to accept"}), 400
+        upd = {"status": "accepted", "accepted_at": now, "accepted_name": name,
+               "status_history": _ct_est_history(est, name, "accepted", "Accepted online")}
+        title, sub = "Estimate accepted", f"Accepted: estimate {est['estimate_number']} (${_ct_money(est.get('total')):,.2f})"
+    else:
+        reason = str(data.get("reason") or "").strip()[:500]
+        upd = {"status": "declined", "declined_at": now, "decline_reason": reason,
+               "status_history": _ct_est_history(est, est.get("client_name") or "Client", "declined", reason or "Declined online")}
+        title, sub = "Estimate declined", f"Declined: estimate {est['estimate_number']}"
+    row = _ct_est_patch(est["id"], upd)
+    if not row:
+        return jsonify({"ok": False, "error": "Could not save your answer. Try again."}), 500
+    rows = [("Estimate", f"{_html_escape(est['estimate_number'])} · {_html_escape(est.get('title'))}"),
+            ("Client", _html_escape(est.get("client_name") or "—")), ("Total", f"<b>${_ct_money(est.get('total')):,.2f}</b>"),
+            ("Answer", _html_escape(f"Accepted by {upd['accepted_name']}" if answer == "accept" else (upd["decline_reason"] or "Declined, no reason given")))]
+    _ct_alert(co, "estimate_answered", sub,
+              _ct_alert_html(co, title, rows, f"{request.host_url}contractor/estimate/{est['id']}",
+                             "Open the estimate" if answer == "decline" else "Turn it into a work order"), ref=est["id"])
+    return jsonify({"ok": True, "estimate": _ct_est_public_view({**est, **row})})
+
+
 # ── Contractor: contacts (potential clients, clients, crew) ─────────
 CONTRACTOR_CONTACT_KINDS = {"potential": "Potential client", "client": "Client", "worker": "Worker / crew", "other": "Other"}
 CONTRACTOR_CONTACT_CHANNELS = ["", "whatsapp", "call", "text", "email"]
@@ -9481,8 +9914,9 @@ def _ct_contacts_all(company):
     return r.json() if r.ok else []
 
 
-def _ct_remember_client(company, name, email, by, source="work order"):
-    """Every client is a contact: match by email, then by name or company; add what is new."""
+def _ct_remember_client(company, name, email, by, source="work order", kind="client"):
+    """Every client is a contact: match by email, then by name or company; add what is new.
+    kind="potential" (an estimate) adds a potential client and never demotes a client."""
     name = str(name or "").strip()[:120]
     email = str(email or "").strip().lower()
     if not _EMAIL_RE.fullmatch(email):
@@ -9499,13 +9933,13 @@ def _ct_remember_client(company, name, email, by, source="work order"):
             emails = [e.lower() for e in (match.get("emails") or [])]
             if email and email not in emails and len(emails) < 5:
                 upd["emails"] = emails + [email]
-            if match.get("kind") == "potential":
+            if match.get("kind") == "potential" and kind == "client":
                 upd["kind"] = "client"
             if upd:
                 requests.patch(f"{sb_url()}/rest/v1/contractor_contacts?id=eq.{match['id']}", json=upd, headers=sb_headers(), timeout=5)
             return
         requests.post(f"{sb_url()}/rest/v1/contractor_contacts", headers=sb_headers(), timeout=5,
-                      json={"company": company, "kind": "client", "name": name, "org": "", "emails": [email] if email else [],
+                      json={"company": company, "kind": kind, "name": name, "org": "", "emails": [email] if email else [],
                             "phones": [], "source": source, "created_by": str(by or "")[:80]})
     except Exception as e:
         logger.warning("[Contacts] remember client: %s", e)

@@ -140,7 +140,9 @@
       '.ct-nav button{width:32px;height:32px;border-radius:8px;border:1px solid rgba(148,163,184,.35);background:transparent;color:inherit;font-size:16px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}' +
       '.ct-nav button:hover{border-color:#1e9484;color:#1e9484}' +
       '.ct-acct{width:32px;height:32px;border-radius:50%;border:1px solid rgba(148,163,184,.35);display:flex;align-items:center;justify-content:center;text-decoration:none;color:inherit;font-size:15px;flex-shrink:0}' +
-      '.ct-acct:hover{border-color:#1e9484}';
+      '.ct-acct:hover{border-color:#1e9484}' +
+      // Phones: the title shrinks instead of pushing the page sideways; Home in the hub bar replaces the company button
+      '@media(max-width:520px){header .hdr-title{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}header .hdr-right .btn-back{display:none}}';
     document.head.appendChild(style);
     var nav = document.createElement('div');
     nav.className = 'ct-nav';
@@ -165,6 +167,7 @@
     ['workorders', '&#128203;', 'Work orders', function (c) { return '/contractor/workorders?company=' + c; }, 'workorders'],
     ['calendar', '&#128197;', 'Calendar', function (c) { return '/contractor/' + c + '/calendar'; }, 'calendar'],
     ['expenses', '&#129534;', 'Expenses', function (c) { return '/contractor/' + c + '/expenses'; }, 'expenses'],
+    ['estimates', '&#128221;', 'Estimates', function (c) { return '/contractor/' + c + '/estimates'; }, 'estimates'],
     ['invoicing', '&#128181;', 'Invoicing', function (c) { return '/contractor/' + c + '/invoicing'; }, 'invoicing'],
     ['dashboard', '&#128202;', 'Dashboard', function (c) { return '/contractor/dashboard?company=' + c; }, 'dashboard'],
     ['contacts', '&#128101;', 'Contacts', function (c) { return '/contractor/' + c + '/contacts'; }, 'contacts'],
@@ -176,6 +179,7 @@
     var p = location.pathname;
     if (/^\/contractor\/(workorders|projects)$/.test(p) || /^\/contractor\/invoice\//.test(p)) return /invoice\//.test(p) ? 'invoicing' : 'workorders';
     if (p === '/contractor/dashboard') return 'dashboard';
+    if (/^\/contractor\/estimate\//.test(p)) return 'estimates';
     var m = p.match(/^\/contractor\/(?:hicons|bsynch)(?:\/(\w+))?$/);
     return m ? (m[1] || 'home') : '';
   }

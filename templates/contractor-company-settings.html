@@ -123,6 +123,15 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
     </div>
 
     <div class="card">
+      <h2>Estimates</h2>
+      <div class="row">
+        <div class="field"><label for="estimate_prefix">Estimate number starts with</label><input id="estimate_prefix" maxlength="20" placeholder="EST-"><span class="hint">Numbers follow from 1001, e.g. EST-1001.</span></div>
+        <div class="field"><label for="estimate_valid_days">Estimates are valid for (days)</label><input id="estimate_valid_days" type="number" min="1" max="365" step="1" placeholder="30"></div>
+      </div>
+      <div class="field"><label for="estimate_terms">Default notes and terms</label><textarea id="estimate_terms" maxlength="1500" placeholder="e.g. 50% deposit to schedule, balance on completion. Price includes materials and labor."></textarea><span class="hint">Every new estimate starts with this text; you can change it on each one.</span></div>
+    </div>
+
+    <div class="card">
       <h2>Invoices</h2>
       <div class="row">
         <div class="field"><label for="invoice_start">Next invoice number</label><input id="invoice_start" maxlength="32" placeholder="H001001 or SSDE-983478"></div>
@@ -178,7 +187,7 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
 
 <script>
 var COMPANY = {{ company|tojson }};
-var TEXT = ['display_name','subtitle','tagline','contact_name','phone','address','notify_email','invoice_start','invoice_end','reminder_days','payment_terms','payment_note','footer_note','brand_primary','brand_accent','hours_morning','hours_afternoon'];
+var TEXT = ['display_name','subtitle','tagline','contact_name','phone','address','notify_email','invoice_start','invoice_end','reminder_days','payment_terms','payment_note','footer_note','brand_primary','brand_accent','hours_morning','hours_afternoon','estimate_prefix','estimate_valid_days','estimate_terms'];
 var API = '/api/contractor/' + COMPANY;
 var emails = [], logo = '', canEdit = false;
 

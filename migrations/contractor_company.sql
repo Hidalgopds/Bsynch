@@ -301,3 +301,46 @@ create table if not exists auth_report (
   unique (day, path, method, page)
 );
 alter table auth_report enable row level security;
+
+-- Estimates (quotes): the client accepts from a link, then it becomes a work order
+create table if not exists contractor_estimates (
+  id uuid primary key default gen_random_uuid(),
+  company text not null,
+  seq integer,
+  estimate_number text not null,
+  title text not null default '',
+  client_name text default '',
+  client_email text default '',
+  location text default '',
+  residence text default '',
+  apt text default '',
+  zone text default '',
+  zipcode text default '',
+  bill_address text default '',
+  items jsonb default '[]'::jsonb,
+  subtotal numeric default 0,
+  total numeric default 0,
+  notes text default '',
+  estimate_date date default current_date,
+  valid_until date,
+  status text not null default 'draft',
+  public_token text,
+  sent_at timestamptz,
+  sent_to text,
+  sent_cc text,
+  viewed_at timestamptz,
+  accepted_at timestamptz,
+  accepted_name text,
+  declined_at timestamptz,
+  decline_reason text default '',
+  job_id uuid,
+  company_snapshot jsonb default '{}'::jsonb,
+  status_history jsonb default '[]'::jsonb,
+  created_by text default '',
+  created_at timestamptz default now(),
+  updated_at timestamptz
+);
+create index if not exists contractor_estimates_company_idx on contractor_estimates(company, created_at desc);
+create unique index if not exists contractor_estimates_number_idx on contractor_estimates(company, estimate_number);
+create unique index if not exists contractor_estimates_token_idx on contractor_estimates(public_token) where public_token is not null;
+alter table contractor_estimates enable row level security;

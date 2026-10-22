@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ company_name }} Estimates – BSynch</title>
+<script src="/static/contractor-scope.js"></script>
+<script src="/static/theme.js"></script>
+<script>document.documentElement.setAttribute('data-theme','light');</script>
+<link rel="stylesheet" href="/static/themes.css">
+<link rel="stylesheet" href="/static/contractor-light.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f4f8;color:#0f172a;min-height:100vh;display:flex;flex-direction:column;}
+header{padding:14px 20px;display:flex;align-items:center;gap:12px;background:#19354d;color:#e2e8f0;}
+.logo-badge{width:36px;height:36px;background:linear-gradient(135deg,#1e9484,#4f8ef7);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;flex-shrink:0;}
+.hdr-title{font-size:17px;font-weight:700;}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.btn-back{padding:6px 14px;border:1px solid rgba(255,255,255,.3);border-radius:7px;color:#e2e8f0;font-size:12px;text-decoration:none;}
+.content{flex:1;padding:22px 16px 60px;max-width:1100px;width:100%;margin:0 auto;}
+.head-row{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
+.head-row div{flex:1;min-width:220px;}
+h1{font-size:22px;margin-bottom:4px;}
+.sub{font-size:14px;color:#64748b;line-height:1.5;}
+.btn{padding:10px 16px;border-radius:10px;border:none;background:#1e9484;color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;}
+.btn:disabled{opacity:.55;cursor:default;}
+.btn.alt{background:#fff;color:#0f766e;border:1px solid #8fcfc2;}
+.btn.sm{padding:6px 10px;font-size:12px;border-radius:8px;}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+@media(max-width:760px){.kpis{grid-template-columns:1fr 1fr;}}
+.kpi{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:12px 14px;cursor:pointer;}
+.kpi span{display:block;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.4px;font-weight:700;}
+.kpi b{font-size:20px;display:block;margin-top:2px;}
+.kpi small{font-size:12px;color:#64748b;}
+.kpi.blue b{color:#1d4ed8;}.kpi.green b{color:#15803d;}.kpi.teal b{color:#0f766e;}
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
+.chip{padding:5px 12px;border-radius:20px;border:1px solid #cbd5e1;background:#fff;color:#475569;font-size:12px;font-weight:600;cursor:pointer;}
+.chip.on{background:#1e9484;border-color:#1e9484;color:#fff;}
+.tools input{flex:1;min-width:200px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:9px;font-size:13px;font-family:inherit;}
+.list{background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{text-align:left;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:10px;border-bottom:1px solid #e2e8f0;white-space:nowrap;}
+td{padding:10px;border-bottom:1px solid #f1f5f9;vertical-align:top;}
+tr.row{cursor:pointer;}
+tr.row:hover td{background:#f8fafc;}
+td.r,th.r{text-align:right;}
+.num{font-weight:800;color:#1d4ed8;white-space:nowrap;}
+.cell-sub{display:block;font-size:11px;color:#64748b;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.st{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:12px;white-space:nowrap;}
+.st i{width:10px;height:10px;border-radius:50%;background:var(--c);box-shadow:0 0 0 3px var(--h);}
+.seen{font-size:11px;color:#64748b;display:block;margin-top:3px;}
+.late{color:#b91c1c;font-weight:700;}
+.empty{text-align:center;padding:40px 16px;color:#64748b;font-size:14px;}
+/* Editor */
+.ct-modal{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:flex-start;justify-content:center;padding:24px 12px;z-index:50;overflow-y:auto;}
+.ct-modal.open{display:flex;}
+.ed{background:#fff;border-radius:16px;padding:20px;width:100%;max-width:820px;color:#0f172a;}
+.ed h3{font-size:18px;margin-bottom:12px;}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.grid4{display:grid;grid-template-columns:2fr 1fr 1.4fr 1fr;gap:10px;margin-top:10px;}
+@media(max-width:640px){.grid{grid-template-columns:1fr;}.grid4{grid-template-columns:1fr 1fr;}}
+.field label{display:block;font-size:11px;color:#64748b;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px;font-weight:700;}
+.field input,.field textarea,.field select{width:100%;border:1px solid #cbd5e1;border-radius:9px;padding:9px 11px;font-size:14px;font-family:inherit;background:#fff;color:#0f172a;}
+.field textarea{resize:vertical;min-height:60px;}
+.more{background:none;border:none;color:#0f766e;font-size:12px;font-weight:700;cursor:pointer;margin-top:8px;padding:0;font-family:inherit;}
+.lines{margin-top:16px;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;}
+.lines-head,.line{display:grid;grid-template-columns:1fr 70px 110px 100px 34px;gap:8px;align-items:start;padding:8px 10px;}
+.lines-head{background:#f8fafc;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.4px;font-weight:700;}
+.line{border-top:1px solid #f1f5f9;}
+.line textarea,.line input{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:7px 9px;font-size:13px;font-family:inherit;}
+.line textarea{min-height:38px;resize:vertical;}
+.line .tot{font-weight:700;text-align:right;padding-top:8px;font-size:13px;}
+.line .x{border:none;background:none;color:#94a3b8;font-size:18px;cursor:pointer;padding-top:4px;}
+.line .x:hover{color:#b91c1c;}
+@media(max-width:640px){.lines-head{display:none;}.line{grid-template-columns:1fr 1fr 1fr 30px;}.line textarea{grid-column:1 / -1;}.line .tot{text-align:left;}}
+.lines-foot{display:flex;align-items:center;gap:10px;padding:10px;border-top:1px solid #e2e8f0;background:#f8fafc;}
+.lines-foot b{margin-left:auto;font-size:18px;}
+.ed-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap;}
+.msg{font-size:13px;color:#b91c1c;margin-top:8px;min-height:16px;text-align:right;}
+footer{text-align:center;padding:16px;font-size:12px;color:#94a3b8;}
+</style>
+</head>
+<body data-ct-hub>
+<header>
+  <div class="logo-badge">B</div>
+  <span class="hdr-title">{{ company_name }} · Estimates</span>
+  <div class="hdr-right"><a href="/contractor/{{ company }}" class="btn-back">&#8592; {{ company_name }}</a></div>
+</header>
+
+<div class="content" id="content" style="visibility:hidden;">
+  <div class="head-row">
+    <div>
+      <h1>&#128221; Estimates</h1>
+      <p class="sub">Price a job before you do it. Send the client a link to accept it, then turn it into a work order in one click.</p>
+    </div>
+    <button class="btn" id="newBtn" type="button">+ New estimate</button>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+  <div class="tools">
+    <div id="chips" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+    <input id="q" type="search" placeholder="Search number, title, client, address">
+  </div>
+  <div class="list" id="list"><div class="empty">Loading&hellip;</div></div>
+</div>
+
+<div class="ct-modal" id="edModal" role="dialog" aria-modal="true" aria-labelledby="edTitle">
+  <div class="ed">
+    <h3 id="edTitle">New estimate</h3>
+    <div class="field"><label for="fTitle">Title</label><input id="fTitle" maxlength="160" placeholder="e.g. Bathroom remodel – master bath"></div>
+    <div class="grid" style="margin-top:10px;">
+      <div class="field"><label for="fClient">Client</label><input id="fClient" maxlength="160" list="clientList" autocomplete="off" placeholder="Name or company"><datalist id="clientList"></datalist></div>
+      <div class="field"><label for="fEmail">Client email</label><input id="fEmail" type="email" maxlength="160" placeholder="client@email.com"></div>
+    </div>
+    <div class="field" style="margin-top:10px;"><label for="fLoc">Address</label><input id="fLoc" maxlength="200" placeholder="Street and number"></div>
+    <button class="more" id="moreBtn" type="button">+ Residence, apt, area, zip and billing address</button>
+    <div id="moreBox" style="display:none;">
+      <div class="grid4">
+        <div class="field"><label for="fRes">Residence</label><input id="fRes" maxlength="120"></div>
+        <div class="field"><label for="fApt">Apt / Unit</label><input id="fApt" maxlength="30"></div>
+        <div class="field"><label for="fZone">Area / Zone</label><input id="fZone" maxlength="80"></div>
+        <div class="field"><label for="fZip">Zip code</label><input id="fZip" maxlength="12"></div>
+      </div>
+      <div class="field" style="margin-top:10px;"><label for="fBill">Billing address (if different)</label><textarea id="fBill" rows="2" maxlength="300"></textarea></div>
+    </div>
+
+    <div class="lines">
+      <div class="lines-head"><span>Description</span><span>Qty</span><span>Price ($)</span><span style="text-align:right">Total</span><span></span></div>
+      <div id="lineBox"></div>
+      <div class="lines-foot"><button class="btn alt sm" id="addLine" type="button">+ Add line</button><b id="edTotal">$0.00</b></div>
+    </div>
+
+    <div class="grid" style="margin-top:12px;">
+      <div class="field"><label for="fValid">Valid until</label><input id="fValid" type="date"></div>
+      <div></div>
+    </div>
+    <div class="field" style="margin-top:10px;"><label for="fNotes">Notes and terms (the client sees them)</label><textarea id="fNotes" rows="3" maxlength="3000" placeholder="e.g. 50% deposit to schedule, balance on completion. Price includes materials."></textarea></div>
+    <div class="ed-actions"><button class="btn alt" id="edCancel" type="button">Cancel</button><button class="btn" id="edSave" type="button">Save</button></div>
+    <div class="msg" id="edMsg"></div>
+  </div>
+</div>
+
+<footer>BSynch &middot; Contractor Module</footer>
+
+<script>
+var COMPANY = {{ company|tojson }};
+var API = '/api/contractor/' + COMPANY;
+var ests = [], filter = 'all', validDays = 30, defaultNotes = '', editId = null, clients = [];
+var ST = {draft:['Draft','#94a3b8','#f1f5f9'], sent:['Sent','#2563eb','#dbeafe'], accepted:['Accepted','#16a34a','#dcfce7'],
+          declined:['Declined','#dc2626','#fee2e2'], converted:['Work order','#0f766e','#ccfbf1']};
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function money(n){ return '$' + (parseFloat(n) || 0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function fmtD(v){ if(!v) return ''; var p = String(v).slice(0, 10).split('-'); return (+p[1]) + '/' + (+p[2]) + '/' + p[0].slice(2); }
+function today(){ var d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); }
+function expired(e){ return e.status === 'sent' && e.valid_until && e.valid_until < today(); }
+function stHtml(st){ var s = ST[st] || ST.draft; return '<span class="st" style="--c:' + s[1] + ';--h:' + s[2] + '"><i></i>' + s[0] + '</span>'; }
+function sum(l){ return l.reduce(function(a, e){ return a + (parseFloat(e.total) || 0); }, 0); }
+
+function renderKpis(){
+  var open = ests.filter(function(e){ return e.status === 'sent'; }), acc = ests.filter(function(e){ return e.status === 'accepted'; });
+  var won = ests.filter(function(e){ return e.status === 'accepted' || e.status === 'converted'; }), lost = ests.filter(function(e){ return e.status === 'declined'; });
+  var rate = won.length + lost.length ? Math.round(won.length * 100 / (won.length + lost.length)) + '%' : '—';
+  var drafts = ests.filter(function(e){ return e.status === 'draft'; });
+  document.getElementById('kpis').innerHTML =
+    '<div class="kpi blue" data-s="sent"><span>Waiting for the client</span><b>' + money(sum(open)) + '</b><small>' + open.length + ' sent</small></div>' +
+    '<div class="kpi green" data-s="accepted"><span>Accepted, to schedule</span><b>' + money(sum(acc)) + '</b><small>' + acc.length + ' to turn into work orders</small></div>' +
+    '<div class="kpi teal" data-s="won"><span>Win rate</span><b>' + rate + '</b><small>' + won.length + ' won · ' + lost.length + ' lost · ' + money(sum(won)) + '</small></div>' +
+    '<div class="kpi" data-s="draft"><span>Drafts</span><b>' + drafts.length + '</b><small>' + money(sum(drafts)) + ' not sent yet</small></div>';
+}
+var FILTERS = [['all', 'All'], ['draft', 'Draft'], ['sent', 'Sent'], ['accepted', 'Accepted'], ['declined', 'Declined'], ['converted', 'Work order']];
+function matches(e){
+  var q = document.getElementById('q').value.trim().toLowerCase();
+  if(filter === 'won' && e.status !== 'accepted' && e.status !== 'converted') return false;
+  if(ST[filter] && e.status !== filter) return false;
+  if(q && [e.estimate_number, e.title, e.client_name, e.client_email, e.location, e.residence].join(' ').toLowerCase().indexOf(q) < 0) return false;
+  return true;
+}
+function render(){
+  renderKpis();
+  document.getElementById('chips').innerHTML = FILTERS.map(function(f){ return '<button class="chip' + (f[0] === filter ? ' on' : '') + '" data-s="' + f[0] + '">' + f[1] + '</button>'; }).join('');
+  var box = document.getElementById('list'), list = ests.filter(matches);
+  if(!ests.length){ box.innerHTML = '<div class="empty">No estimates yet. Press <b>+ New estimate</b> to price your first job.</div>'; return; }
+  if(!list.length){ box.innerHTML = '<div class="empty">No estimates match.</div>'; return; }
+  box.innerHTML = '<table><thead><tr><th>Estimate</th><th>Job / client</th><th class="r">Total</th><th>Status</th><th>Valid until</th></tr></thead><tbody>' +
+    list.map(function(e){
+      var note = e.status === 'sent' ? (e.viewed_at ? '&#128065; Viewed ' + fmtD(e.viewed_at) : 'Not opened yet')
+        : e.status === 'accepted' ? 'by ' + esc(e.accepted_name || '') + ' · ' + fmtD(e.accepted_at)
+        : e.status === 'declined' ? esc(e.decline_reason || 'No reason given') : e.status === 'converted' ? 'Work order created' : '';
+      return '<tr class="row" data-id="' + esc(e.id) + '"><td><span class="num">' + esc(e.estimate_number) + '</span><span class="cell-sub">' + fmtD(e.estimate_date) + '</span></td>' +
+        '<td><b>' + esc(e.title) + '</b><span class="cell-sub">' + esc([e.client_name, [e.residence, e.location, e.apt ? 'Apt ' + e.apt : ''].filter(Boolean).join(' ')].filter(Boolean).join(' · ')) + '</span></td>' +
+        '<td class="r"><b>' + money(e.total) + '</b></td>' +
+        '<td>' + stHtml(e.status) + (note ? '<span class="seen">' + note + '</span>' : '') + '</td>' +
+        '<td>' + (e.valid_until ? '<span class="' + (expired(e) ? 'late' : '') + '">' + fmtD(e.valid_until) + (expired(e) ? ' · expired' : '') + '</span>' : '') + '</td></tr>';
+    }).join('') + '</tbody></table>';
+}
+document.getElementById('chips').onclick = function(e){ var c = e.target.closest('[data-s]'); if(c){ filter = c.dataset.s; render(); } };
+document.getElementById('kpis').onclick = function(e){ var k = e.target.closest('.kpi'); if(k){ filter = k.dataset.s; render(); } };
+document.getElementById('q').oninput = render;
+document.getElementById('list').onclick = function(e){ var r = e.target.closest('tr.row'); if(r) location.href = '/contractor/estimate/' + r.dataset.id; };
+
+/* Editor */
+function lineHtml(l){
+  l = l || {qty: 1};
+  return '<div class="line"><textarea class="l-desc" maxlength="1000" placeholder="What is included">' + esc(l.description || '') + '</textarea>' +
+    '<input class="l-qty" type="number" min="0" step="0.25" inputmode="decimal" value="' + esc(l.qty != null ? l.qty : 1) + '" aria-label="Quantity">' +
+    '<input class="l-amt" type="number" min="0" step="0.01" inputmode="decimal" value="' + esc(l.amount != null && l.amount !== '' ? l.amount : '') + '" placeholder="0.00" aria-label="Price">' +
+    '<span class="tot">$0.00</span><button class="x" type="button" title="Remove line" aria-label="Remove line">&times;</button></div>';
+}
+function readLines(){
+  return Array.prototype.map.call(document.querySelectorAll('#lineBox .line'), function(row){
+    return {description: row.querySelector('.l-desc').value.trim(), qty: row.querySelector('.l-qty').value, amount: row.querySelector('.l-amt').value};
+  }).filter(function(l){ return l.description || parseFloat(l.amount); });
+}
+function recalc(){
+  var t = 0;
+  document.querySelectorAll('#lineBox .line').forEach(function(row){
+    var v = (parseFloat(row.querySelector('.l-qty').value) || 0) * (parseFloat(row.querySelector('.l-amt').value) || 0);
+    t += v; row.querySelector('.tot').textContent = money(v);
+  });
+  document.getElementById('edTotal').textContent = 'Total ' + money(t);
+}
+document.getElementById('lineBox').addEventListener('input', recalc);
+document.getElementById('lineBox').addEventListener('click', function(e){
+  if(!e.target.classList.contains('x')) return;
+  e.target.closest('.line').remove();
+  if(!document.querySelector('#lineBox .line')) document.getElementById('lineBox').insertAdjacentHTML('beforeend', lineHtml());
+  recalc();
+});
+document.getElementById('addLine').onclick = function(){
+  document.getElementById('lineBox').insertAdjacentHTML('beforeend', lineHtml());
+  var all = document.querySelectorAll('#lineBox .l-desc'); all[all.length - 1].focus(); recalc();
+};
+document.getElementById('moreBtn').onclick = function(){ var b = document.getElementById('moreBox'); b.style.display = b.style.display === 'none' ? '' : 'none'; };
+var F = {title:'fTitle', client_name:'fClient', client_email:'fEmail', location:'fLoc', residence:'fRes', apt:'fApt', zone:'fZone', zipcode:'fZip', bill_address:'fBill', valid_until:'fValid', notes:'fNotes'};
+function openEditor(e){
+  editId = e && e.id || null;
+  document.getElementById('edTitle').textContent = editId ? 'Edit ' + e.estimate_number : 'New estimate';
+  var d = new Date(); d.setDate(d.getDate() + validDays);
+  var vals = e || {valid_until: new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10), notes: defaultNotes};
+  Object.keys(F).forEach(function(k){ document.getElementById(F[k]).value = vals[k] || ''; });
+  document.getElementById('moreBox').style.display = (vals.residence || vals.apt || vals.zone || vals.zipcode || vals.bill_address) ? '' : 'none';
+  document.getElementById('lineBox').innerHTML = ((e && e.items && e.items.length) ? e.items : [null]).map(lineHtml).join('');
+  document.getElementById('edMsg').textContent = '';
+  recalc();
+  document.getElementById('edModal').classList.add('open');
+  document.getElementById('fTitle').focus();
+}
+function closeEditor(){ document.getElementById('edModal').classList.remove('open'); if(new URLSearchParams(location.search).get('edit')) history.replaceState(null, '', location.pathname); }
+document.getElementById('newBtn').onclick = function(){ openEditor(null); };
+document.getElementById('edCancel').onclick = closeEditor;
+document.getElementById('fClient').addEventListener('change', function(){
+  var c = clients.find(function(x){ return x.name.toLowerCase() === this.value.trim().toLowerCase(); }, this);
+  if(c && c.email && !document.getElementById('fEmail').value) document.getElementById('fEmail').value = c.email;
+});
+document.getElementById('edSave').onclick = function(){
+  var b = this, msg = document.getElementById('edMsg'), body = {};
+  Object.keys(F).forEach(function(k){ body[k] = document.getElementById(F[k]).value.trim(); });
+  body.items = readLines();
+  if(!body.title){ msg.textContent = 'Give the estimate a title.'; return; }
+  if(!body.items.length){ msg.textContent = 'Add at least one line with what is included and its price.'; return; }
+  b.disabled = true; msg.textContent = '';
+  fetch(editId ? '/api/contractor/estimates/' + editId : API + '/estimates', {method: editId ? 'PATCH' : 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)})
+    .then(function(r){ return r.json(); }).then(function(res){
+      b.disabled = false;
+      if(!res.ok){ msg.textContent = res.error || 'Could not save'; return; }
+      location.href = '/contractor/estimate/' + (editId || res.estimate.id);
+    }).catch(function(){ b.disabled = false; msg.textContent = 'Connection error.'; });
+};
+
+function load(){
+  fetch(API + '/estimates').then(function(r){ return r.json(); }).then(function(d){
+    if(!d.ok){ location.replace('/contractor/' + COMPANY); return; }
+    ests = d.estimates; validDays = d.valid_days || 30; defaultNotes = d.default_notes || '';
+    document.getElementById('content').style.visibility = '';
+    render();
+    var edit = new URLSearchParams(location.search).get('edit');
+    if(edit) fetch('/api/contractor/estimates/' + encodeURIComponent(edit)).then(function(r){ return r.json(); }).then(function(x){ if(x.ok) openEditor(x.estimate); });
+    else if(new URLSearchParams(location.search).get('new')) openEditor(null);
+  }).catch(function(){ location.replace('/contractor/' + COMPANY); });
+}
+fetch(API + '/clients').then(function(r){ return r.json(); }).then(function(d){
+  clients = (d && d.clients) || [];
+  document.getElementById('clientList').innerHTML = clients.map(function(c){ return '<option value="' + esc(c.name) + '">' + esc(c.org || c.email || '') + '</option>'; }).join('');
+}).catch(function(){});
+load();
+</script>
+</body>
+</html>
