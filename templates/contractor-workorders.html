@@ -226,6 +226,7 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
   <button class="filter-chip" data-status="on_hold">On Hold</button>
   <button class="filter-chip" data-status="completed">Completed</button>
   <button class="filter-chip" data-status="cancelled">Cancelled</button>
+  <button class="filter-chip mine-chip" type="button" id="mineChip" aria-pressed="false">&#128100; Only mine</button>
 </div>
 
 <div class="wo-list" id="woList"><div class="spinner">Loading...</div></div>
@@ -338,9 +339,16 @@ Promise.all([
   populateProjectSelect();
 }).catch(function(){renderList([]);});
 
-document.querySelectorAll('.filter-chip').forEach(function(chip){
+// "Only mine": the ones I created or that are assigned to me (everyone sees every work order)
+var onlyMine = false;
+document.getElementById('mineChip').addEventListener('click', function(){
+  onlyMine = !onlyMine;
+  this.classList.toggle('active', onlyMine); this.setAttribute('aria-pressed', onlyMine ? 'true' : 'false');
+  renderList(allJobs);
+});
+document.querySelectorAll('.filter-chip:not(.mine-chip)').forEach(function(chip){
   chip.addEventListener('click', function(){
-    document.querySelectorAll('.filter-chip').forEach(function(c){c.classList.remove('active');});
+    document.querySelectorAll('.filter-chip:not(.mine-chip)').forEach(function(c){c.classList.remove('active');});
     chip.classList.add('active');
     currentFilter = chip.dataset.status;
     renderList(allJobs);
@@ -356,7 +364,8 @@ function woMatches(j, q){
 }
 function renderList(jobs){
   var q = (document.getElementById('woSearch').value || '').trim().toLowerCase();
-  var filtered = (currentFilter ? jobs.filter(function(j){return j.status===currentFilter;}) : jobs).filter(function(j){ return woMatches(j, q); });
+  var filtered = (currentFilter ? jobs.filter(function(j){return j.status===currentFilter;}) : jobs).filter(function(j){ return woMatches(j, q); })
+    .filter(function(j){ return !onlyMine || (CT.user && (j.created_by === CT.user || j.assigned_to === CT.user)); });
   var el = document.getElementById('woList');
   if(!filtered.length && q){
     el.innerHTML='<div class="empty-state"><div class="icon">&#128269;</div><p>No work order matches <strong>'+esc(q)+'</strong>.</p></div>';

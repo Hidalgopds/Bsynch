@@ -8155,9 +8155,7 @@ def _ct_job_allowed(job_id):
     me = _contractor_caller()
     if not _ct_can_view(me, job.get("company")):
         return None
-    if _ct_is_member_only(me) and me["name"] not in (job.get("created_by"), job.get("assigned_to")):
-        return None
-    return job
+    return job  # everyone in the company sees and works every work order; edits stay with Managers
 
 
 _CT_JOB_PATH = re.compile(r"^/api/contractor/jobs/([0-9a-fA-F-]{36})(?:/|$)")
@@ -8544,11 +8542,6 @@ def contractor_finish_job(job_id):
     return jsonify({"ok": r.ok, **{k: payload[k] for k in ("status", "progress_pct")}})
 
 
-def _ct_member_filter(name):
-    q = requests.utils.quote('"' + name.replace('"', '') + '"')
-    return f"&or=(created_by.eq.{q},assigned_to.eq.{q})"
-
-
 def _ct_can_schedule(me, company):
     return _ct_can_open(me, company, "calendar") and not _ct_is_member_only(me)
 
@@ -8580,18 +8573,9 @@ def contractor_calendar(company):
     first, last = f"{month}-01", f"{month}-{_cal.monthrange(y, m)[1]:02d}"
     fields = ("id,job_number,title,description,notes,client_name,location,status,progress_pct,tracking,time_slot,est_hours,"
               "assigned_to,created_by,scheduled_date,scheduled_end,scheduled_time,invoice_id")
-    member = _ct_is_member_only(me)
-    mf = _ct_member_filter(me["name"]) if member else ""
     url = (f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?company=eq.{company}&select={fields}"
            f"&scheduled_date=lte.{last}&or=(scheduled_end.gte.{first},and(scheduled_end.is.null,scheduled_date.gte.{first}))"
            f"&order=scheduled_date.asc,scheduled_time.asc&limit=1000")
-    if member:
-        # PostgREST takes only one or=; combine with an and=() wrapper
-        q = requests.utils.quote('"' + me["name"].replace('"', '') + '"')
-        url = (f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?company=eq.{company}&select={fields}"
-               f"&scheduled_date=lte.{last}"
-               f"&and=(or(scheduled_end.gte.{first},and(scheduled_end.is.null,scheduled_date.gte.{first})),or(created_by.eq.{q},assigned_to.eq.{q}))"
-               f"&order=scheduled_date.asc,scheduled_time.asc&limit=1000")
     r = requests.get(url, headers=sb_headers(), timeout=10)
     jobs = r.json() if r.ok else []
     if jobs:
@@ -10197,9 +10181,6 @@ def get_contractor_jobs():
     )
     if scope:
         url += f"&company=eq.{scope}"
-    me = _contractor_caller()
-    if _ct_is_member_only(me):
-        url += _ct_member_filter(me["name"])
     if status_filter:
         url += f"&status=eq.{status_filter}"
     r = requests.get(url, headers=sb_headers(), timeout=8)

@@ -545,7 +545,7 @@ function loadAll(){
       projs=Array.isArray(projs)?projs:[];jobs=Array.isArray(jobs)?jobs:[];
       var loose=jobs.filter(j=>!j.project_id);
       allProjects=projs;
-      if(loose.length) allProjects=[{id:NO_PROJECT,name:window._memberOnly?'My work orders':'Work orders (no project)',jobs:loose,virtual:true}].concat(projs);
+      if(loose.length) allProjects=[{id:NO_PROJECT,name:window._memberOnly?'Work orders':'Work orders (no project)',jobs:loose,virtual:true}].concat(projs);
       var full={};jobs.forEach(j=>{full[j.id]=j;});
       allJobs=allProjects.reduce((acc,p)=>acc.concat(p.jobs||[]),[]).map(j=>full[j.id]?Object.assign({},j,full[j.id]):j);
       updateKPIs(); renderProjects();
