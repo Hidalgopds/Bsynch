@@ -226,6 +226,7 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
   <button class="filter-chip" data-status="on_hold">On Hold</button>
   <button class="filter-chip" data-status="completed">Completed</button>
   <button class="filter-chip" data-status="cancelled">Cancelled</button>
+  <button class="filter-chip" data-status="__waiting">&#9208;&#65039; Waiting to return</button>
   <button class="filter-chip mine-chip" type="button" id="mineChip" aria-pressed="false">&#128100; Only mine</button>
 </div>
 
@@ -364,7 +365,7 @@ function woMatches(j, q){
 }
 function renderList(jobs){
   var q = (document.getElementById('woSearch').value || '').trim().toLowerCase();
-  var filtered = (currentFilter ? jobs.filter(function(j){return j.status===currentFilter;}) : jobs).filter(function(j){ return woMatches(j, q); })
+  var filtered = (currentFilter ? jobs.filter(function(j){return currentFilter==='__waiting' ? (j.needs_return && j.status!=='completed') : j.status===currentFilter;}) : jobs).filter(function(j){ return woMatches(j, q); })
     .filter(function(j){ return !onlyMine || (CT.user && (j.created_by === CT.user || j.assigned_to === CT.user)); });
   var el = document.getElementById('woList');
   if(!filtered.length && q){
@@ -384,6 +385,7 @@ function renderList(jobs){
       '<div class="wo-number">'+esc(j.job_number)+'</div>'+
       '<div class="wo-title">'+esc(j.title)+'</div>'+
       (j.client_name?'<div class="wo-client">'+esc(j.client_name)+(j.location?' &middot; '+esc(j.location):'')+'</div>':'')+
+      (j.needs_return&&j.status!=='completed'?'<div class="wo-client" style="color:#b45309;font-weight:600;">&#9208;&#65039; Waiting to return'+(j.return_reason?': '+esc(j.return_reason):'')+'</div>':'')+
       '</div></div>'+
       '<div class="wo-progress-row">'+
         '<span class="wo-pct">'+pct+'%</span>'+

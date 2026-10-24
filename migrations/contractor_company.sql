@@ -356,3 +356,8 @@ create table if not exists contractor_support_log (
 );
 create index if not exists contractor_support_log_company_idx on contractor_support_log(company, created_at desc);
 alter table contractor_support_log enable row level security;
+
+-- Needs another visit: worked but not finished; waits without a day until someone schedules the return
+alter table contractor_jobs add column if not exists needs_return boolean default false;
+alter table contractor_jobs add column if not exists return_reason text default '';
+alter table contractor_jobs add column if not exists return_requested_at timestamptz;

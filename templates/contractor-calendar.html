@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{ company_name }} Calendar – BSynch</title>
 <script src="/static/contractor-scope.js"></script>
+<script src="/static/ct-return.js"></script>
 <script src="/static/theme.js"></script>
 <script>document.documentElement.setAttribute('data-theme','light');</script>
 <link rel="stylesheet" href="/static/themes.css">
@@ -36,6 +37,13 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;background:#19
 .num{font-size:12px;font-weight:700;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
 .ev{font-size:11px;line-height:1.25;padding:2px 5px;border-radius:5px;background:var(--bg);color:var(--fg);border-left:3px solid var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .more{font-size:10px;color:#64748b;padding-left:4px;}
+.ev.done{background:#f8fafc;color:#94a3b8;border-left-color:#cbd5e1;}
+.worked{margin-top:12px;border-top:1px dashed #e2e8f0;padding-top:10px;font-size:13px;color:#475569;}
+.worked b{display:block;font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;}
+.worked a{color:#0f766e;font-weight:600;text-decoration:none;}
+.ret-note{margin-top:6px;font-size:12.5px;background:#fff7ed;color:#9a3412;border-radius:8px;padding:6px 9px;}
+.wait-days{font-size:11.5px;font-weight:700;color:#b45309;}
+.wait-days.long{color:#b91c1c;}
 @media(max-width:600px){.day{min-height:58px;}.ev{font-size:0;padding:0;height:6px;border-left:none;background:var(--fg);}.more{display:none;}}
 .side{display:flex;flex-direction:column;gap:12px;}
 .card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px;}
@@ -114,6 +122,10 @@ footer{text-align:center;padding:16px;font-size:12px;color:#94a3b8;}
       <div id="capList"></div>
       <div class="cap-note" id="capNote"></div>
     </div>
+    <div class="card" id="waitCard" style="display:none;">
+      <h3>&#9208;&#65039; Waiting to return</h3>
+      <div id="waitList"></div>
+    </div>
     <div class="card" id="unschedCard" style="display:none;">
       <h3>Not scheduled yet</h3>
       <div id="unsched"></div>
@@ -127,7 +139,7 @@ footer{text-align:center;padding:16px;font-size:12px;color:#94a3b8;}
 var COMPANY = {{ company|tojson }};
 var API = '/api/contractor/' + COMPANY + '/calendar';
 var cur = new Date(); cur.setDate(1);
-var data = {jobs: [], unscheduled: [], people: [], can_schedule: false};
+var data = {jobs: [], unscheduled: [], waiting: [], worked: [], people: [], can_schedule: false};
 var selDay = null;
 var SLOT = {morning:['\ud83c\udf05','Morning'], afternoon:['\ud83c\udf07','Afternoon']};
 var COLORS = {open:['#dbeafe','#1d4ed8'], in_progress:['#fef3c7','#b45309'], completed:['#dcfce7','#15803d'], on_hold:['#f1f5f9','#64748b'], cancelled:['#f1f5f9','#64748b']};
@@ -140,6 +152,21 @@ function colorOf(j){ var done = j.status === 'completed' || parseFloat(j.progres
 function statusLabel(j){ return (parseFloat(j.progress_pct || 0) >= 100 || j.status === 'completed') ? 'Finished' : ({open:'Open', in_progress:'In progress', on_hold:'On hold', cancelled:'Cancelled'}[j.status] || 'Open'); }
 function jobsOn(day){
   return data.jobs.filter(function(j){ var s = j.scheduled_date, e = j.scheduled_end || j.scheduled_date; return s && s <= day && day <= e; });
+}
+// Visits already logged that day (history), for jobs that are not on the calendar that day
+function workedOn(day, all){
+  var on = {}; if(!all) jobsOn(day).forEach(function(j){ on[j.id] = 1; });
+  var seen = {};
+  return (data.worked || []).filter(function(v){ if(v.visit_date !== day || on[v.job_id] || seen[v.job_id + v.created_by]) return false; seen[v.job_id + v.created_by] = 1; return true; });
+}
+function retJob(id){ return data.jobs.concat(data.waiting || []).find(function(j){ return j.id === id; }); }
+function needsAnother(id){
+  var j = retJob(id); if(!j || !window.CTReturn) return;
+  CTReturn.open(j, {people: data.people, reasons: data.return_reasons}, function(saved){
+    selDay = saved.scheduled_date || selDay;
+    if(saved.scheduled_date && saved.scheduled_date.slice(0, 7) !== monthKey()){ cur = new Date(saved.scheduled_date + 'T12:00:00'); cur.setDate(1); }
+    load();
+  });
 }
 function capOf(){ var c = data.capacity || {}; return {m: parseFloat(c.morning == null ? 4 : c.morning) || 0, a: parseFloat(c.afternoon == null ? 4 : c.afternoon) || 0}; }
 function fh(h){ h = Math.round((h || 0) * 100) / 100; return h + 'h'; }
@@ -180,12 +207,13 @@ function renderGrid(){
   for(var i = 0; i < 42; i++){
     var d = new Date(start); d.setDate(start.getDate() + i);
     if(i >= 35 && d.getMonth() !== cur.getMonth()) break;
-    var key = iso(d), list = jobsOn(key), ld = loadOn(key), booked = 0, over = false;
+    var key = iso(d), list = jobsOn(key), done = workedOn(key), ld = loadOn(key), booked = 0, over = false;
     Object.keys(ld).forEach(function(k){ booked += ld[k].total; if(k && ld[k].over > 0) over = true; });
     html += '<div class="day' + (d.getMonth() !== cur.getMonth() ? ' out' : '') + (key === todayIso ? ' today' : '') + (key === selDay ? ' sel' : '') + '" data-day="' + key + '">' +
       '<div class="day-top"><span class="num">' + d.getDate() + '</span>' + (booked ? '<span class="load' + (over ? ' over' : '') + '" title="' + fh(booked) + ' booked">' + (booked >= 10 ? Math.round(booked) + 'h' : fh(booked)) + '</span>' : '') + '</div>' +
       list.slice(0, 3).map(function(j){ var c = colorOf(j); return '<div class="ev" style="--bg:' + c[0] + ';--fg:' + c[1] + '" title="' + esc(j.title) + '">' + (SLOT[j.time_slot] ? SLOT[j.time_slot][0] + ' ' : '') + (j.scheduled_time ? esc(j.scheduled_time) + ' ' : '') + esc(j.title) + '</div>'; }).join('') +
-      (list.length > 3 ? '<div class="more">+' + (list.length - 3) + ' more</div>' : '') +
+      done.slice(0, Math.max(0, 3 - list.length)).map(function(v){ return '<div class="ev done" title="Worked: ' + esc(v.title) + '">&#10003; ' + esc(v.title) + '</div>'; }).join('') +
+      (list.length + done.length > 3 ? '<div class="more">+' + (list.length + done.length - 3) + ' more</div>' : '') +
       '</div>';
   }
   g.innerHTML = html;
@@ -206,11 +234,17 @@ function renderDay(){
       (j.description ? '<div class="desc">' + esc(j.description) + '</div>' : '') +
       (j.notes ? '<div class="desc"><b>Notes:</b> ' + esc(j.notes) + '</div>' : '') +
       (mats ? '<div class="mats"><b>Materials:</b>' + mats + '</div>' : '') +
+      (j.return_reason && j.status !== 'completed' ? '<div class="ret-note">&#8617;&#65039; Return visit: ' + esc(j.return_reason) + '</div>' : '') +
       '<div class="job-actions"><a class="btn" href="' + jobUrl(j.id) + '">Open job</a>' +
-        (data.can_schedule ? '<button class="btn alt" data-edit="' + esc(j.id) + '">Change date / person</button>' : '') + '</div>' +
+        (data.can_schedule ? '<button class="btn alt" data-edit="' + esc(j.id) + '">Change date / person</button>' : '') +
+        (j.status !== 'completed' && j.status !== 'cancelled' && parseFloat(j.progress_pct || 0) < 100 ? '<button class="btn alt" data-again="' + esc(j.id) + '">&#9208;&#65039; Needs another visit</button>' : '') + '</div>' +
       (data.can_schedule ? schedForm(j) : '') +
     '</div>';
   }).join('') : '<div class="empty">No jobs this day.</div>';
+  var wk = workedOn(selDay, true);
+  if(wk.length) box.innerHTML += '<div class="worked"><b>&#10003; Worked this day</b>' + wk.map(function(v){
+    return '<div><a href="' + jobUrl(v.job_id) + '">' + esc(v.title) + '</a>' + (parseFloat(v.hours) ? ' · ' + fh(parseFloat(v.hours)) : '') + (v.created_by ? ' · ' + esc(v.created_by) : '') + '</div>';
+  }).join('') + '</div>';
   renderCapacity();
   if(data.can_schedule){
     acts.style.display = '';
@@ -272,7 +306,22 @@ function schedForm(j){
     '<div class="job-actions"><button class="btn s-save">Save</button><button class="btn alt s-clear">Remove from calendar</button></div><div class="msg"></div></div>';
 }
 
+function daysSince(ts){ return ts ? Math.max(0, Math.floor((Date.now() - new Date(ts).getTime()) / 864e5)) : 0; }
+function renderWaiting(){
+  var card = document.getElementById('waitCard'), list = data.waiting || [];
+  card.style.display = list.length ? '' : 'none';
+  document.getElementById('waitList').innerHTML = list.map(function(j){
+    var d = daysSince(j.return_requested_at);
+    return '<div class="job" style="--fg:#f59e0b"><div class="job-top"><b>' + esc(j.title) + '</b><span class="wait-days' + (d >= 7 ? ' long' : '') + '">' + (d ? d + ' day' + (d > 1 ? 's' : '') + ' waiting' : 'Since today') + '</span></div>' +
+      '<div class="ret-note">&#9208;&#65039; ' + esc(j.return_reason || 'Needs another visit') + '</div>' +
+      '<div class="meta" style="margin-top:6px;">' + [esc(j.client_name || ''), esc(j.location || ''), j.assigned_to ? '&#128119; ' + esc(j.assigned_to) : ''].filter(Boolean).join(' · ') + '</div>' +
+      '<div class="job-actions"><a class="btn alt" href="' + jobUrl(j.id) + '">Open job</a>' +
+        (data.can_schedule ? '<button class="btn" data-plan="' + esc(j.id) + '">Schedule' + (selDay ? ' on ' + selDay : '') + '</button>' : '') + '</div>' +
+      (data.can_schedule ? schedForm(j) : '') + '</div>';
+  }).join('');
+}
 function renderUnscheduled(){
+  renderWaiting();
   var card = document.getElementById('unschedCard');
   card.style.display = '';
   var list = data.unscheduled || [];
@@ -309,6 +358,7 @@ function save(box, clear){
 document.addEventListener('click', function(e){
   var t = e.target, day = t.closest('.day');
   if(day){ selDay = day.dataset.day; renderGrid(); renderDay(); renderUnscheduled(); if(window.innerWidth < 900) document.getElementById('dayTitle').scrollIntoView({behavior:'smooth'}); return; }
+  if(t.dataset.again){ needsAnother(t.dataset.again); return; }
   if(t.dataset.edit){ var eb = document.getElementById('sb-' + t.dataset.edit); eb.classList.toggle('open'); freeHint(eb); return; }
   if(t.dataset.plan){ var b = t.closest('.job').querySelector('.sched-box'); b.classList.toggle('open'); if(selDay) b.querySelector('.s-date').value = selDay; freeHint(b); return; }
   if(t.classList.contains('s-save')) save(t.closest('.sched-box'), false);

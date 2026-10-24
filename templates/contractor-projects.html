@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Projects – Contractor</title>
 <script src="/static/contractor-scope.js"></script>
+<script src="/static/ct-return.js"></script>
 <script src="/static/theme.js"></script>
 <script>document.documentElement.setAttribute('data-theme','light');</script>
 <link rel="stylesheet" href="/static/themes.css">
@@ -125,6 +126,9 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
 .jp-finish{display:flex;align-items:center;gap:6px;}
 .btn-finish-sm{padding:7px 14px;border-radius:9px;border:1px solid #9bd3b4;background:#e6f4ec;color:#1d6b46;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;}
 .btn-finish-sm:hover{background:#d4ecdf;}
+.btn-again-sm{padding:7px 12px;border-radius:9px;border:1px solid #fcd34d;background:#fffbeb;color:#92400e;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;margin-left:6px;}
+.btn-again-sm:hover{background:#fef3c7;}
+.ret-banner{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:9px 12px;font-size:13px;margin-bottom:12px;line-height:1.45;}
 .finished-tag{padding:6px 12px;border-radius:9px;background:#e6f4ec;color:#1d6b46;font-size:13px;font-weight:700;white-space:nowrap;}
 .reopen-link{background:none;border:none;color:#64748b;font-size:12px;text-decoration:underline;cursor:pointer;}
 .jp-pct-big{font-size:20px;font-weight:800;color:#1e9484;}
@@ -278,6 +282,14 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
 .pt-other{background:#1e2533;color:#64748b;}
 .photo-caption-txt{font-size:12px;color:#64748b;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .photo-del{background:none;border:none;color:#475569;font-size:14px;cursor:pointer;padding:2px;}
+.photo-note{padding:0 10px 9px;font-size:12.5px;color:#334155;line-height:1.45;white-space:pre-line;word-break:break-word;}
+.photo-note-btn{background:none;border:none;color:#0f766e;font-size:12px;font-weight:600;cursor:pointer;padding:0;font-family:inherit;}
+.photo-note textarea{width:100%;min-height:60px;border:1px solid #cbd5e1;border-radius:8px;padding:7px 9px;font-size:13px;font-family:inherit;resize:vertical;}
+.photo-note .pn-row{display:flex;gap:6px;justify-content:flex-end;margin-top:6px;}
+.photo-note .pn-row button{padding:5px 12px;border-radius:7px;border:1px solid #8fcfc2;background:#fff;color:#0f766e;font-size:12px;font-weight:700;cursor:pointer;}
+.photo-note .pn-row button.pn-save{background:#1e9484;border-color:#1e9484;color:#fff;}
+.lightbox-note{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);max-width:min(90vw,640px);background:rgba(15,23,42,.8);color:#fff;padding:8px 14px;border-radius:10px;font-size:14px;line-height:1.4;white-space:pre-line;text-align:center;}
+.lightbox-note:empty{display:none;}
 .photo-del:hover{color:#ef4444;}
 /* Lightbox */
 .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:300;display:none;align-items:center;justify-content:center;}
@@ -408,6 +420,7 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
 <div class="lightbox" id="lightbox">
   <button class="lightbox-close" onclick="closeLightbox()">&#x2715;</button>
   <img id="lightboxImg" src="">
+  <div class="lightbox-note" id="lightboxNote"></div>
 </div>
 
 <!-- Create Project modal -->
@@ -682,7 +695,23 @@ function renderFinish(){
   var j=openJobData||{}, done=j.status==='completed'||parseFloat(j.progress_pct||0)>=100, box=document.getElementById('jpFinish');
   if(j.invoice_id) box.innerHTML='<span class="finished-tag">&#10003; Finished &middot; invoiced</span>';
   else if(done) box.innerHTML='<span class="finished-tag">&#10003; Finished</span><button class="reopen-link" onclick="finishJob(false)">Reopen</button>';
-  else box.innerHTML='<button class="btn-finish-sm" onclick="finishJob(true)">&#10003; Mark job finished</button>';
+  else box.innerHTML='<button class="btn-finish-sm" onclick="finishJob(true)">&#10003; Mark job finished</button>'
+    +'<button class="btn-again-sm" onclick="needsAnotherVisit()" title="Worked but not finished">&#9208;&#65039; Needs another visit</button>';
+}
+// Worked but not finished: pick the next day, or leave it waiting to return
+function needsAnotherVisit(){
+  if(!openJobData||!window.CTReturn)return;
+  CTReturn.open(openJobData,{},function(saved){
+    Object.assign(openJobData,saved);
+    var idx=allJobs.findIndex(j=>j.id===openJobId);if(idx>=0)Object.assign(allJobs[idx],saved);
+    renderFinish();if(openJobTab==='info')renderInfoTab(openJobData);
+    flash(saved.scheduled_date?'Next visit on '+fmtDate(saved.scheduled_date):'Waiting to return');
+  });
+}
+function returnBanner(j){
+  if(j.status==='completed'||!j.return_reason)return '';
+  if(j.needs_return)return '<div class="ret-banner">&#9208;&#65039; <b>Waiting to return</b>'+(j.return_requested_at?' since '+fmtDate(String(j.return_requested_at).slice(0,10)):'')+': '+esc(j.return_reason)+'<br><span style="font-size:12px;">It is out of the calendar until someone gives it a day.</span></div>';
+  return '<div class="ret-banner">&#8617;&#65039; <b>Return visit</b>'+(j.scheduled_date?' on '+fmtDate(j.scheduled_date):'')+': '+esc(j.return_reason)+'</div>';
 }
 function closeJobPanel(){
   if(window.CT&&CT.company){location.href='/contractor/workorders?company='+encodeURIComponent(CT.company);return;}
@@ -793,7 +822,7 @@ function renderInfoTab(j){
   var schedRow='<div class="field-row"><div class="field-label">Calendar</div><div class="field-value">&#128197; '+esc(sched)+(j.assigned_to?' &middot; &#128119; '+esc(j.assigned_to):'')
     +' &nbsp;<a href="/contractor/'+encodeURIComponent(CT.company||'')+'/calendar" style="color:#0f766e;font-weight:600;">Open calendar</a></div></div>';
   var mgr=true, canDel=!!window._isManager;  // everyone edits the work order; only Managers delete it
-  var html=schedRow+'<div class="field-row"><div class="field-label">Status</div>'
+  var html=returnBanner(j)+schedRow+'<div class="field-row"><div class="field-label">Status</div>'
     +(mgr?'<select class="status-select" onchange="updateStatus(this.value)">'
       +['open','in_progress','on_hold','completed','cancelled'].map(s=>'<option value="'+s+'"'+(j.status===s?' selected':'')+'>'+statusLabel(s)+'</option>').join('')
       +'</select>':'<div class="field-value"><span class="s-chip s-'+esc(j.status||'open')+'">'+statusLabel(j.status||'open')+'</span></div>')
@@ -883,14 +912,34 @@ function renderPhotos(photos){
   var html='<div class="add-mat-form">'
     +'<div class="mat-grid" style="grid-template-columns:1fr 1fr;margin-top:0;">'
     +'<label class="mat-lbl">Type<select class="form-input" id="photoTypeSelect"><option value="progress">Progress</option><option value="before">Before</option><option value="after">After</option><option value="other">Other</option></select></label>'
-    +'<label class="mat-lbl">Caption (optional)<input class="form-input" id="photoCaptionInput" placeholder="e.g. Kitchen wall"></label></div>'
+    +'<label class="mat-lbl">Note (optional)<input class="form-input" id="photoCaptionInput" maxlength="500" placeholder="e.g. Crack in the kitchen wall"></label></div>'
     +'<div class="cam-row">'
     +'<label class="cam-btn">&#128247; Take photo<input type="file" accept="image/*" capture="environment" hidden onchange="uploadPhotoFiles(this)"></label>'
     +'<label class="cam-btn alt">&#128444;&#65039; Choose from gallery<input type="file" accept="image/*" multiple hidden onchange="uploadPhotoFiles(this)"></label>'
     +'</div><div class="rc-msg" id="photoMsg"></div></div>';
-  if(photos.length) html+='<div class="photo-grid">'+photos.map(p=>{var tc={'before':'pt-before','progress':'pt-progress','after':'pt-after','other':'pt-other'}[p.photo_type]||'pt-other';return '<div class="photo-card"><img class="photo-thumb" src="/api/contractor/jobs/'+openJobId+'/photos/'+p.id+'/img" onclick="openLightboxId(\''+p.id+'\')" loading="lazy" onerror="this.parentElement.style.display=\'none\'"><div class="photo-foot"><span class="photo-type-lbl '+tc+'">'+ucfirst(p.photo_type||'other')+'</span><span class="photo-caption-txt">'+esc(p.caption||'')+'</span><button class="photo-del" onclick="deletePhoto(\''+p.id+'\')">&#215;</button></div></div>';}).join('')+'</div>';
+  jobPhotos=photos;
+  if(photos.length) html+='<div class="photo-grid">'+photos.map(p=>{var tc={'before':'pt-before','progress':'pt-progress','after':'pt-after','other':'pt-other'}[p.photo_type]||'pt-other';return '<div class="photo-card" id="pc-'+p.id+'"><img class="photo-thumb" src="/api/contractor/jobs/'+openJobId+'/photos/'+p.id+'/img" onclick="openLightboxId(\''+p.id+'\')" loading="lazy" onerror="this.parentElement.style.display=\'none\'"><div class="photo-foot"><span class="photo-type-lbl '+tc+'">'+ucfirst(p.photo_type||'other')+'</span><span class="photo-caption-txt">'+esc(p.uploaded_by||'')+'</span><button class="photo-del" onclick="deletePhoto(\''+p.id+'\')" title="Remove photo">&#215;</button></div>'+photoNoteHtml(p)+'</div>';}).join('')+'</div>';
   else html+='<div style="text-align:center;padding:24px;color:#64748b;font-size:13px;">No photos yet.</div>';
   document.getElementById('jpBody').innerHTML=html;
+}
+var jobPhotos=[];
+// Anyone working the job can add or change the note on a photo
+function photoNoteHtml(p){
+  return '<div class="photo-note" id="pn-'+p.id+'">'+(p.caption?esc(p.caption)+'<br>':'')
+    +'<button type="button" class="photo-note-btn" onclick="editPhotoNote(\''+p.id+'\')">'+(p.caption?'&#9998; Edit note':'&#128221; Add note')+'</button></div>';
+}
+function editPhotoNote(id){
+  var p=jobPhotos.find(x=>x.id===id),box=document.getElementById('pn-'+id);if(!p||!box)return;
+  box.innerHTML='<textarea maxlength="500" placeholder="What does this photo show?">'+esc(p.caption||'')+'</textarea>'
+    +'<div class="pn-row"><button type="button" onclick="cancelPhotoNote(\''+id+'\')">Cancel</button><button type="button" class="pn-save" onclick="savePhotoNote(\''+id+'\')">Save</button></div>';
+  box.querySelector('textarea').focus();
+}
+function cancelPhotoNote(id){var p=jobPhotos.find(x=>x.id===id),box=document.getElementById('pn-'+id);if(p&&box)box.outerHTML=photoNoteHtml(p);}
+function savePhotoNote(id){
+  var p=jobPhotos.find(x=>x.id===id),box=document.getElementById('pn-'+id);if(!p||!box)return;
+  var txt=box.querySelector('textarea').value.trim(),btn=box.querySelector('.pn-save');btn.disabled=true;
+  fetch('/api/contractor/jobs/'+openJobId+'/photos/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({caption:txt})})
+    .then(r=>r.json()).then(res=>{if(!res.ok){btn.disabled=false;alert(res.error||'Could not save the note');return;}p.caption=res.photo.caption;box.outerHTML=photoNoteHtml(p);});
 }
 function uploadPhotoFiles(input){
   var files=Array.from(input.files||[]).slice(0,10);input.value='';if(!files.length)return;
@@ -900,8 +949,8 @@ function uploadPhotoFiles(input){
     .then(()=>loadPhotos()).catch(()=>{msg.style.color='#dc2626';msg.textContent='Could not upload. Try again.';});
 }
 function deletePhoto(id){if(!confirm('Remove photo?'))return;fetch('/api/contractor/jobs/'+openJobId+'/photos/'+id,{method:'DELETE'}).then(()=>loadPhotos());}
-function openLightboxId(id){fetch('/api/contractor/jobs/'+openJobId+'/photos/'+id).then(r=>r.json()).then(d=>{document.getElementById('lightboxImg').src=d.photo_data||'';document.getElementById('lightbox').classList.add('open');});}
-function closeLightbox(){document.getElementById('lightbox').classList.remove('open');document.getElementById('lightboxImg').src='';}
+function openLightboxId(id){fetch('/api/contractor/jobs/'+openJobId+'/photos/'+id).then(r=>r.json()).then(d=>{document.getElementById('lightboxImg').src=d.photo_data||'';document.getElementById('lightboxNote').textContent=d.caption||'';document.getElementById('lightbox').classList.add('open');});}
+function closeLightbox(){document.getElementById('lightbox').classList.remove('open');document.getElementById('lightboxImg').src='';document.getElementById('lightboxNote').textContent='';}
 
 // ── Create Project ──
 function openCreateProject(){document.getElementById('projModal').classList.add('open');}

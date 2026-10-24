@@ -8520,11 +8520,56 @@ def contractor_finish_job(job_id):
     payload = {"status": "completed" if done else "in_progress", "progress_pct": 100 if done else 0,
                "completed_date": dt.date.today().isoformat() if done else None,
                "updated_at": dt.datetime.utcnow().isoformat() + "Z"}
+    if done:
+        payload["needs_return"] = False
     r = requests.patch(f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?id=eq.{job_id}", json=payload,
                        headers=sb_headers(), timeout=5)
     if r.ok and done:
         _ct_check_job_finished(job_id)
     return jsonify({"ok": r.ok, **{k: payload[k] for k in ("status", "progress_pct")}})
+
+
+CONTRACTOR_RETURN_REASONS = ["Waiting for materials", "Client wasn't there", "Next phase", "Weather", "Needs more time"]
+
+
+@app.route("/api/contractor/jobs/<job_id>/return", methods=["POST"])
+def contractor_job_return(job_id):
+    """Worked but not finished: it goes to the day of the next visit, or to 'Waiting to return' until it has one."""
+    import datetime as dt
+    job = _ct_job_allowed(job_id)
+    if not job:
+        return jsonify({"ok": False, "error": "job not found"}), 404
+    if job.get("invoice_id") or job.get("status") in ("completed", "cancelled"):
+        return jsonify({"ok": False, "error": "This job is closed. Reopen it first."}), 409
+    data = request.get_json() or {}
+    reason = str(data.get("reason") or "").strip()[:300]
+    if len(reason) < 2:
+        return jsonify({"ok": False, "error": "Say what is still pending"}), 400
+    day = str(data.get("date") or "").strip()
+    if day and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", day):
+        return jsonify({"ok": False, "error": "Invalid date"}), 400
+    if data.get("time_slot") not in CONTRACTOR_TIME_SLOTS + ["", None]:
+        return jsonify({"ok": False, "error": "time_slot must be morning or afternoon"}), 400
+    who = str(data.get("assigned_to") or "").strip()
+    if who and who not in _ct_company_people(job.get("company")):
+        return jsonify({"ok": False, "error": "That person is not in this company"}), 400
+    now = dt.datetime.utcnow().isoformat() + "Z"
+    upd = {"return_reason": reason, "return_requested_at": now, "updated_at": now, "scheduled_end": None, "scheduled_time": ""}
+    if day:
+        upd.update(scheduled_date=day, start_date=day, needs_return=False, status="in_progress")
+    else:
+        upd.update(scheduled_date=None, needs_return=True, status="on_hold")
+    if "time_slot" in data:
+        upd["time_slot"] = data.get("time_slot") or ""
+    if who:
+        upd["assigned_to"] = who
+    r = requests.patch(f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?id=eq.{job['id']}", json=upd,
+                       headers={**sb_headers(), "Prefer": "return=representation"}, timeout=8)
+    if not (r.ok and r.json()):
+        return jsonify({"ok": False, "error": "Could not save. Try again."}), 500
+    row = r.json()[0]
+    return jsonify({"ok": True, "job": {k: row.get(k) for k in ("id", "status", "needs_return", "return_reason", "return_requested_at",
+                                                              "scheduled_date", "time_slot", "assigned_to", "start_date")}})
 
 
 def _ct_can_schedule(me, company):
@@ -8557,7 +8602,7 @@ def contractor_calendar(company):
         return jsonify({"ok": False, "error": "bad month"}), 400
     first, last = f"{month}-01", f"{month}-{_cal.monthrange(y, m)[1]:02d}"
     fields = ("id,job_number,title,description,notes,client_name,location,status,progress_pct,tracking,time_slot,est_hours,"
-              "assigned_to,created_by,scheduled_date,scheduled_end,scheduled_time,invoice_id")
+              "assigned_to,created_by,scheduled_date,scheduled_end,scheduled_time,invoice_id,job_number,return_reason")
     url = (f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?company=eq.{company}&select={fields}"
            f"&scheduled_date=lte.{last}&or=(scheduled_end.gte.{first},and(scheduled_end.is.null,scheduled_date.gte.{first}))"
            f"&order=scheduled_date.asc,scheduled_time.asc&limit=1000")
@@ -8576,10 +8621,26 @@ def contractor_calendar(company):
            "capacity": {"morning": prof.get("hours_morning", 4), "afternoon": prof.get("hours_afternoon", 4)}}
     # Who has what, and what is still without a date: everyone sees it, only schedulers change it
     ur = requests.get(f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?company=eq.{company}&scheduled_date=is.null"
-                      f"&status=not.in.(completed,cancelled)&select=id,job_number,title,client_name,location,time_slot,est_hours,assigned_to&order=created_at.desc&limit=200",
+                      f"&status=not.in.(completed,cancelled)&select=id,job_number,title,client_name,location,time_slot,est_hours,assigned_to,"
+                      f"needs_return,return_reason,return_requested_at&order=created_at.desc&limit=200",
                       headers=sb_headers(), timeout=8)
-    out["unscheduled"] = ur.json() if ur.ok else []
+    nodate = ur.json() if ur.ok else []
+    out["waiting"] = sorted([j for j in nodate if j.get("needs_return")], key=lambda j: j.get("return_requested_at") or "")
+    out["unscheduled"] = [j for j in nodate if not j.get("needs_return")]
     out["people"] = _ct_company_people(company)
+    out["return_reasons"] = CONTRACTOR_RETURN_REASONS
+    # Days someone already worked on a job (its visits), shown in grey as history
+    ar = requests.get(f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?company=eq.{company}&select=id,title,job_number&limit=5000",
+                      headers=sb_headers(), timeout=8)
+    titles = {j["id"]: j for j in (ar.json() if ar.ok else [])}
+    ids, worked = list(titles), []
+    for i in range(0, len(ids), 150):
+        vr = requests.get(f"{sb_url()}/rest/v1/job_visits?job_id=in.({','.join(ids[i:i + 150])})&visit_date=gte.{first}&visit_date=lte.{last}"
+                          f"&select=job_id,visit_date,hours,created_by&order=visit_date.asc", headers=sb_headers(), timeout=8)
+        for v in (vr.json() if vr.ok else []):
+            t = titles.get(v["job_id"]) or {}
+            worked.append({**v, "title": t.get("title") or "", "job_number": t.get("job_number") or ""})
+    out["worked"] = worked
     return jsonify(out)
 
 
@@ -8618,6 +8679,11 @@ def contractor_schedule_job(company):
         payload["assigned_to"] = who or None
     if not payload:
         return jsonify({"ok": False, "error": "nothing to update"}), 400
+    if payload.get("scheduled_date"):
+        # A job waiting to return gets its day: it leaves the waiting box and is back in progress
+        requests.patch(f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?id=eq.{requests.utils.quote(job_id)}&company=eq.{company}"
+                       f"&needs_return=is.true&status=eq.on_hold", json={"status": "in_progress"}, headers=sb_headers(), timeout=5)
+        payload["needs_return"] = False
     r = requests.patch(
         f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?id=eq.{requests.utils.quote(job_id)}&company=eq.{company}",
         json=payload, headers={**sb_headers(), "Prefer": "return=representation"}, timeout=8
@@ -10302,6 +10368,7 @@ def update_contractor_job(job_id):
         if old and start and (not old.get("scheduled_date") or old.get("scheduled_date") == old.get("start_date")):
             payload["scheduled_date"] = start
             payload["scheduled_end"] = due if due and due > start else None
+            payload["needs_return"] = False
     payload["updated_at"] = __import__("datetime").datetime.utcnow().isoformat() + "Z"
     r = requests.patch(
         f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?id=eq.{job_id}",
@@ -10418,9 +10485,9 @@ def add_job_photo(job_id):
     payload = {
         "job_id":      job_id,
         "photo_data":  photo_data,
-        "caption":     data.get("caption", ""),
+        "caption":     str(data.get("caption") or "").strip()[:500],
         "photo_type":  data.get("photo_type", "progress"),
-        "uploaded_by": data.get("uploaded_by", ""),
+        "uploaded_by": _contractor_caller()["name"] or str(data.get("uploaded_by") or "")[:80],
     }
     r = requests.post(
         f"{sb_url()}/rest/v1/{JOB_PHOTOS_TABLE}",
@@ -10430,12 +10497,23 @@ def add_job_photo(job_id):
     )
     if r.ok and r.json():
         row = r.json()[0]
-        return jsonify({"ok": True, "photo": {
-            "id": row["id"], "caption": row["caption"],
-            "photo_type": row["photo_type"], "uploaded_by": row["uploaded_by"],
-            "created_at": row["created_at"]
-        }})
+        return jsonify({"ok": True, "photo": {k: row.get(k) for k in ("id", "caption", "photo_type", "uploaded_by", "created_at")}})
     return jsonify({"ok": False, "error": r.text}), 400
+
+
+@app.route("/api/contractor/jobs/<job_id>/photos/<photo_id>", methods=["PATCH"])
+def update_job_photo(job_id, photo_id):
+    """The note on a photo (anyone in the company, like the rest of the work order)."""
+    data = request.get_json() or {}
+    payload = {"caption": str(data.get("caption") or "").strip()[:500]}
+    if data.get("photo_type") in ("before", "progress", "after", "other"):
+        payload["photo_type"] = data["photo_type"]
+    r = requests.patch(f"{sb_url()}/rest/v1/{JOB_PHOTOS_TABLE}?id=eq.{requests.utils.quote(photo_id)}&job_id=eq.{job_id}",
+                       json=payload, headers={**sb_headers(), "Prefer": "return=representation"}, timeout=5)
+    if not (r.ok and r.json()):
+        return jsonify({"ok": False, "error": "Photo not found"}), 404
+    row = r.json()[0]
+    return jsonify({"ok": True, "photo": {k: row.get(k) for k in ("id", "caption", "photo_type", "uploaded_by", "created_at")}})
 
 
 @app.route("/api/contractor/jobs/<job_id>/photos/<photo_id>", methods=["DELETE"])
