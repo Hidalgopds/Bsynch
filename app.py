@@ -8559,7 +8559,7 @@ def contractor_calendar_page(company):
 
 @app.route("/api/contractor/<company>/calendar", methods=["GET"])
 def contractor_calendar(company):
-    """Jobs scheduled in a month. Users only see jobs they created or were assigned."""
+    """Jobs scheduled in a month, plus the ones still without a date. Everyone in the company sees all of them."""
     import calendar as _cal, datetime as dt
     me = _contractor_caller()
     if company not in CONTRACTOR_COMPANIES or not _ct_can_open(me, company, "calendar"):
@@ -8589,12 +8589,12 @@ def contractor_calendar(company):
     prof = _ct_profile(company)
     out = {"ok": True, "month": month, "jobs": jobs, "can_schedule": _ct_can_schedule(me, company),
            "capacity": {"morning": prof.get("hours_morning", 4), "afternoon": prof.get("hours_afternoon", 4)}}
-    if out["can_schedule"]:
-        ur = requests.get(f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?company=eq.{company}&scheduled_date=is.null"
-                          f"&status=not.in.(completed,cancelled)&select=id,job_number,title,client_name,location,time_slot,est_hours,assigned_to&order=created_at.desc&limit=200",
-                          headers=sb_headers(), timeout=8)
-        out["unscheduled"] = ur.json() if ur.ok else []
-        out["people"] = _ct_company_people(company)
+    # Who has what, and what is still without a date: everyone sees it, only schedulers change it
+    ur = requests.get(f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?company=eq.{company}&scheduled_date=is.null"
+                      f"&status=not.in.(completed,cancelled)&select=id,job_number,title,client_name,location,time_slot,est_hours,assigned_to&order=created_at.desc&limit=200",
+                      headers=sb_headers(), timeout=8)
+    out["unscheduled"] = ur.json() if ur.ok else []
+    out["people"] = _ct_company_people(company)
     return jsonify(out)
 
 

@@ -226,8 +226,8 @@ function renderCapacity(){
   var card = document.getElementById('capCard');
   if(!selDay){ card.style.display = 'none'; return; }
   var ld = loadOn(selDay), cap = capOf();
-  var names = data.can_schedule ? (data.people || []).slice() : [CT.user];
-  Object.keys(ld).forEach(function(k){ if(k && names.indexOf(k) < 0 && (data.can_schedule || k === CT.user)) names.push(k); });
+  var names = (data.people || []).slice();
+  Object.keys(ld).forEach(function(k){ if(k && names.indexOf(k) < 0) names.push(k); });
   names.sort(function(x, y){ return ((ld[y] || {}).n || 0) - ((ld[x] || {}).n || 0) || x.localeCompare(y); });
   var html = names.map(function(n){
     var p = ld[n] || emptyLoad();
@@ -237,7 +237,7 @@ function renderCapacity(){
       '<div class="cap-bars">' + capBar('\ud83c\udf05', p.mUsed, cap.m) + capBar('\ud83c\udf07', p.aUsed, cap.a) + '</div></div>';
   }).join('');
   var un = ld[''];
-  if(un && data.can_schedule) html += '<div class="cap-row"><div class="cap-head"><b><i>Not assigned</i></b><span class="cap-free full">' + fh(un.total) + ' to assign</span></div></div>';
+  if(un) html += '<div class="cap-row"><div class="cap-head"><b><i>Not assigned</i></b><span class="cap-free full">' + fh(un.total) + ' to assign</span></div></div>';
   card.style.display = '';
   document.getElementById('capList').innerHTML = html || '<div class="empty">Nobody in this company yet.</div>';
   var noHours = jobsOn(selDay).filter(function(j){ return !(parseFloat(j.est_hours) > 0) && j.status !== 'cancelled'; }).length;
@@ -274,14 +274,14 @@ function schedForm(j){
 
 function renderUnscheduled(){
   var card = document.getElementById('unschedCard');
-  if(!data.can_schedule){ card.style.display = 'none'; return; }
   card.style.display = '';
   var list = data.unscheduled || [];
   document.getElementById('unsched').innerHTML = list.length ? list.map(function(j){
     return '<div class="job" style="--fg:#94a3b8"><div class="job-top"><b>' + esc(j.title) + '</b></div>' +
       '<div class="meta">' + [j.client_name, j.location].filter(Boolean).map(esc).concat(parseFloat(j.est_hours) ? ['&#9201; ' + fh(parseFloat(j.est_hours))] : []).join(' · ') + '</div>' +
-      '<div class="job-actions"><button class="btn" data-plan="' + esc(j.id) + '">Schedule' + (selDay ? ' on ' + selDay : '') + '</button></div>' +
-      schedForm(j) + '</div>';
+      '<div class="job-actions"><a class="btn alt" href="' + jobUrl(j.id) + '">Open job</a>' +
+        (data.can_schedule ? '<button class="btn" data-plan="' + esc(j.id) + '">Schedule' + (selDay ? ' on ' + selDay : '') + '</button>' : '') + '</div>' +
+      (data.can_schedule ? schedForm(j) : '') + '</div>';
   }).join('') : '<div class="empty">Every open job has a date. &#10003;</div>';
 }
 
