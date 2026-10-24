@@ -8165,27 +8165,12 @@ _CT_STEPS_PATH = re.compile(r"^/api/contractor/jobs/[0-9a-fA-F-]{36}/steps(/[^/]
 
 
 def _ct_manager_only_edit(job):
-    """True when this request changes the work order itself, which only a Manager may do.
-    Workers still add visits, photos, receipts and materials, move step progress,
-    and mark the job finished."""
+    """True when this request deletes the work order or its steps, which only a Manager may do.
+    Everyone in the company edits work orders (notes, dates, steps...) and reschedules them."""
     path, method = request.path, request.method
-    base = f"/api/contractor/jobs/{job['id']}"
-    if path == base and method in ("PATCH", "DELETE"):
-        return True
-    if _CT_STEPS_PATH.match(path):
-        if method == "DELETE":
-            return True
-        if method == "PATCH":
-            body = request.get_json(silent=True) or {}
-            return any(k in body for k in ("step_name", "order_num", "notes"))
-        if method == "POST":
-            me = _contractor_caller()
-            if job.get("created_by") != me["name"]:
-                return True
-            existing = requests.get(f"{sb_url()}/rest/v1/{JOB_STEPS_TABLE}?job_id=eq.{job['id']}&select=id&limit=1",
-                                    headers=sb_headers(), timeout=5)
-            return bool(existing.ok and existing.json())
-    return False
+    if method != "DELETE":
+        return False
+    return path == f"/api/contractor/jobs/{job['id']}" or bool(_CT_STEPS_PATH.match(path))
 
 
 _CT_PROJ_PATH = re.compile(r"^/api/contractor/projects/([0-9a-zA-Z-]{1,40})(?:/|$)")
@@ -8543,7 +8528,7 @@ def contractor_finish_job(job_id):
 
 
 def _ct_can_schedule(me, company):
-    return _ct_can_open(me, company, "calendar") and not _ct_is_member_only(me)
+    return _ct_can_open(me, company, "calendar")  # everyone who sees the calendar can reschedule
 
 
 def _ct_company_people(company):
@@ -8602,7 +8587,7 @@ def contractor_calendar(company):
 def contractor_schedule_job(company):
     me = _contractor_caller()
     if company not in CONTRACTOR_COMPANIES or not _ct_can_schedule(me, company):
-        return jsonify({"ok": False, "error": "Only Managers and Leaders can schedule"}), 403
+        return jsonify({"ok": False, "error": "You can't open this company's calendar"}), 403
     data = request.get_json() or {}
     job_id = str(data.get("job_id") or "")
     payload = {}
@@ -10222,7 +10207,7 @@ def create_contractor_job():
         due = str(payload.get("due_date") or "")
         if re.fullmatch(r"\d{4}-\d{2}-\d{2}", due) and due > sd:
             payload["scheduled_end"] = due
-    if data.get("assigned_to") and not _ct_is_member_only(_contractor_caller()):
+    if data.get("assigned_to"):
         payload["assigned_to"] = str(data["assigned_to"])[:80]
     _remember = (payload.get("client_name"), payload.get("client_email"))
     scope = _contractor_scope()

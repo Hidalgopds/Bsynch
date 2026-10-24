@@ -729,7 +729,7 @@ function finishJob(done){
     });
 }
 function renderSteps(steps){
-  var mgr=!!window._isManager;
+  var mgr=true, canDel=!!window._isManager;  // everyone edits steps; only Managers delete them
   if(jobTracking()==='simple'){document.getElementById('jpBody').innerHTML='<div class="track-toggle">This job is tracked by its description.'+(mgr?' <button class="tt-btn" onclick="setTracking(\'percent\')">Use steps</button>':'')+'</div>';return;}
   var canAdd=mgr&&steps.length<10, mode=jobTracking();
   var html=mgr?('<div class="track-toggle">Track by '
@@ -749,7 +749,7 @@ function renderSteps(steps){
       html+='<div class="step-item" id="step-'+s.id+'">'
         +'<div class="step-top"><div class="step-order">'+(s.order_num+1)+'</div>'
         +(mgr?'<input class="step-name-input" value="'+esc(s.step_name)+'" onblur="saveStepName(\''+s.id+'\',this.value)">'
-          +'<button class="step-del" onclick="deleteStep(\''+s.id+'\')">&#215;</button>':'<span class="step-name-ro">'+esc(s.step_name)+'</span>')+'</div>';
+          +(canDel?'<button class="step-del" onclick="deleteStep(\''+s.id+'\')">&#215;</button>':''):'<span class="step-name-ro">'+esc(s.step_name)+'</span>')+'</div>';
       if(mode==='check'){
         html+='<label class="step-check"><input type="checkbox"'+(p>=100?' checked':'')+' onchange="saveStepPct(\''+s.id+'\',this.checked?100:0)"><span>'+(p>=100?'Done':'Not done')+'</span></label>';
       } else {
@@ -791,8 +791,8 @@ function addNewStep(){
 function renderInfoTab(j){
   var sched=(j.scheduled_date?(j.scheduled_date+(j.scheduled_end&&j.scheduled_end!==j.scheduled_date?' → '+j.scheduled_end:'')+(j.scheduled_time?' · '+j.scheduled_time:'')):'Not scheduled')+(j.time_slot?' · '+SLOT_LABEL[j.time_slot]:'')+(parseFloat(j.est_hours)?' · \u23f1 '+fmtHours(j.est_hours):'');
   var schedRow='<div class="field-row"><div class="field-label">Calendar</div><div class="field-value">&#128197; '+esc(sched)+(j.assigned_to?' &middot; &#128119; '+esc(j.assigned_to):'')
-    +(window._memberOnly?'':' &nbsp;<a href="/contractor/'+encodeURIComponent(CT.company||'')+'/calendar" style="color:#0f766e;font-weight:600;">Open calendar</a>')+'</div></div>';
-  var mgr=!!window._isManager;
+    +' &nbsp;<a href="/contractor/'+encodeURIComponent(CT.company||'')+'/calendar" style="color:#0f766e;font-weight:600;">Open calendar</a></div></div>';
+  var mgr=true, canDel=!!window._isManager;  // everyone edits the work order; only Managers delete it
   var html=schedRow+'<div class="field-row"><div class="field-label">Status</div>'
     +(mgr?'<select class="status-select" onchange="updateStatus(this.value)">'
       +['open','in_progress','on_hold','completed','cancelled'].map(s=>'<option value="'+s+'"'+(j.status===s?' selected':'')+'>'+statusLabel(s)+'</option>').join('')
@@ -829,7 +829,7 @@ function renderInfoTab(j){
       +'<label class="mat-lbl">Notes<textarea class="editable-input" id="editNotes" rows="3">'+esc(j.notes||'')+'</textarea></label>'
       +'<div class="btn-row">'
       +'<button class="btn-save" onclick="saveEdits()">Save changes</button>'
-      +'<button class="delete-btn" onclick="confirmDeleteJob()">Delete work order</button>'
+      +(canDel?'<button class="delete-btn" onclick="confirmDeleteJob()">Delete work order</button>':'')
       +'</div></div>';
   }
   document.getElementById('jpBody').innerHTML=html;
