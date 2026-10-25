@@ -109,7 +109,7 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
     </div>
     <div class="card">
       <h2>Members</h2>
-      <p class="hint"><b>User</b>: only creates and follows their own work orders. <b>Leader</b>: gets what you allow in Roles &amp; Permissions. <b>Manager</b>: everything, including this page (only the platform administrator can make someone a Manager). Changes save immediately.</p>
+      <p class="hint"><b>User</b>: only creates and follows their own work orders. <b>Leader</b>: gets what you allow in Roles &amp; Permissions. <b>Manager</b>: everything, including this page, and can name other Managers (only the platform administrator can demote or remove a Manager). Changes save immediately.</p>
       <input type="search" id="userSearch" placeholder="Search by name or email">
       <div class="table-wrap">
         <table>
@@ -178,8 +178,7 @@ document.querySelectorAll('.tab').forEach(function(t){
 
 var members = [];
 function roleOptions(sel){
-  return ROLES.filter(function(r){ return IS_SUPER || r !== 'admin' || sel === 'admin'; })
-    .map(function(r){ return '<option value="'+r+'"'+(sel===r?' selected':'')+'>'+ROLE_LABEL[r]+'</option>'; }).join('');
+  return ROLES.map(function(r){ return '<option value="'+r+'"'+(sel===r?' selected':'')+'>'+ROLE_LABEL[r]+'</option>'; }).join('');
 }
 function ago(iso){
   var m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
@@ -208,7 +207,7 @@ function renderPending(list){
   if(!list.length){ card.style.display = 'none'; return; }
   card.style.display = '';
   document.getElementById('pendingRows').innerHTML = list.map(function(p){
-    var mgr = p.requested_role === 'admin', canDecide = IS_SUPER || !mgr;
+    var canDecide = true;  // Managers approve every sign-up, Manager requests included
     return '<tr data-name="'+esc(p.name)+'"><td><strong>'+esc(p.name)+'</strong><br><span class="muted">'+esc(p.email||'')+(p.phone?' · '+esc(p.phone):'')+'</span></td>'+
       '<td>'+ROLE_LABEL[p.requested_role]+'</td>'+
       '<td>'+(canDecide ? '<select class="pend-role">'+roleOptions(p.requested_role)+'</select>' : '<span class="muted">Platform admin approves</span>')+'</td>'+
@@ -245,6 +244,8 @@ function loadUsers(){
 document.getElementById('userRows').addEventListener('change', function(e){
   var sel = e.target; if(sel.tagName !== 'SELECT') return;
   var tr = sel.closest('tr'), name = tr.getAttribute('data-name');
+  var before = (members.find(function(u){ return u.name === name; }) || {}).company_role;
+  if(sel.value === 'admin' && !confirm('Make ' + name + ' a Manager? Managers see and change everything in the company, invoices included, and can name other Managers. Only the platform administrator can undo it.')){ sel.value = before; return; }
   sel.disabled = true;
   send('PATCH', API + '/users', {name: name, company_role: sel.value}).then(function(res){
     sel.disabled = false;

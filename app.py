@@ -7358,7 +7358,8 @@ def contractor_admin_update_user(company):
         return jsonify({"ok": False, "error": "You can't change your own access"}), 400
     roles = _ct_company_roles(company)
     if roles.get(name) == "admin" and not me["is_super"]:
-        return jsonify({"ok": False, "error": "Only the platform administrator can change a Manager"}), 403
+        # Managers name other Managers, but demoting or removing one stays with the platform administrator
+        return jsonify({"ok": False, "error": "Only the platform administrator can change or remove a Manager"}), 403
     if data.get("remove"):
         roles.pop(name, None)
         ok, e = _ct_set_config(f"contractor_roles_{company}", roles)
@@ -7370,8 +7371,6 @@ def contractor_admin_update_user(company):
     role = data.get("company_role")
     if role not in CONTRACTOR_ROLES:
         return jsonify({"ok": False, "error": "unknown role"}), 400
-    if role == "admin" and not me["is_super"]:
-        return jsonify({"ok": False, "error": "Only the platform administrator can make someone a Manager"}), 403
     roles[name] = role
     ok, e = _ct_set_config(f"contractor_roles_{company}", roles)
     return jsonify({"ok": ok, "error": e})
@@ -7489,8 +7488,6 @@ def contractor_admin_pending(company):
         return jsonify({"ok": False, "error": "No pending sign-up with that name"}), 404
     roles = _ct_company_roles(company)
     if data.get("action") == "reject":
-        if pending[name]["requested_role"] == "admin" and not me["is_super"]:
-            return jsonify({"ok": False, "error": "Only the platform administrator can review Manager requests"}), 403
         roles.pop(name, None)
         _ct_set_config(f"contractor_roles_{company}", roles)
         r = requests.delete(
@@ -7501,8 +7498,6 @@ def contractor_admin_pending(company):
     role = data.get("role") or pending[name]["requested_role"]
     if role not in CONTRACTOR_ROLES:
         return jsonify({"ok": False, "error": "unknown role"}), 400
-    if (role == "admin" or pending[name]["requested_role"] == "admin") and not me["is_super"]:
-        return jsonify({"ok": False, "error": "Only the platform administrator can approve a Manager"}), 403
     roles[name] = role
     ok, e = _ct_set_config(f"contractor_roles_{company}", roles)
     r = requests.patch(
@@ -7991,7 +7986,7 @@ def contractor_join(company, token):
     _ct_set_config(f"contractor_roles_{company}", roles)
 
     co_name = CONTRACTOR_COMPANIES[company]
-    approver = "the platform administrator" if role == "admin" else f"a {co_name} Manager"
+    approver = f"a {co_name} Manager"  # Managers approve every sign-up, Manager requests included
     link = f"{request.host_url}contractor/{company}/admin"
     subject = f"{co_name}: {name} is waiting for approval ({CONTRACTOR_ROLE_LABELS[role]})"
     html = _ct_alert_html(company, "Someone is waiting for approval",
