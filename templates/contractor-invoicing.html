@@ -105,6 +105,8 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
 tr.hist-row td{background:#f8fafc;font-size:12px;color:#475569;}
 .hist-btn{border:none;background:none;color:#64748b;cursor:pointer;font-size:13px;}
 .hist li{margin-left:16px;line-height:1.6;}
+.edit-inv{display:inline-block;padding:3px 8px;border-radius:7px;border:1px solid #cbd5e1;background:#fff;color:#334155;font-size:13px;text-decoration:none;}
+.edit-inv:hover{border-color:#1e9484;color:#0f766e;}
 .remind{padding:4px 9px;border-radius:7px;border:1px solid #f59e0b;background:#fff;color:#b45309;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;}
 .ct-modal{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:50;}
 .ct-modal.open{display:flex;}
@@ -357,7 +359,7 @@ function histHtml(i){
   var h = (i.status_history || []).slice().reverse();
   if(!h.length) return '<div>No changes recorded yet.</div>';
   return '<ul class="hist">' + h.map(function(e){
-    var what = e.status === 'reminder' ? '&#128276; Reminder' : (ST[e.status] ? ST[e.status][0] : esc(e.status));
+    var what = e.status === 'reminder' ? '&#128276; Reminder' : e.status === 'edited' ? '&#9998; Edited' : (ST[e.status] ? ST[e.status][0] : esc(e.status));
     return '<li><b>' + what + '</b> &middot; ' + esc(new Date(e.at).toLocaleString()) + ' &middot; ' + esc(e.by || '') +
       (e.paid_at ? ' &middot; paid ' + fmtD(e.paid_at) : '') + (e.ref ? ' &middot; ' + esc(e.ref) : '') + (e.note ? ' &middot; <i>' + esc(e.note) + '</i>' : '') + '</li>';
   }).join('') + '</ul>';
@@ -385,7 +387,7 @@ function renderInvoices(){
         '<td>' + (i.sent_at ? fmtD(i.sent_at) + '<span class="cell-sub" title="' + esc([i.sent_to, i.sent_cc].filter(Boolean).join(', ')) + '">' + esc(i.sent_to || '') + '</span>' : '<span class="cell-sub">Not sent</span>') + '</td>' +
         '<td class="r">' + (d !== null ? '<span class="days' + (overdue(i) ? ' late' : '') + '">' + d + '</span>' : paidDays !== null ? '<span class="cell-sub">in ' + paidDays + 'd</span>' : '') + '</td>' +
         '<td>' + (st === 'paid' ? fmtD(i.paid_at) + '<span class="cell-sub">' + esc(i.payment_ref || '') + '</span>' : '') + '</td>' +
-        '<td style="white-space:nowrap;">' + (i.sent_at && st !== 'paid' ? '<button class="remind" data-id="' + esc(i.id) + '" title="' + (i.reminder_count ? i.reminder_count + ' sent, last ' + fmtD(i.last_reminder_at) : 'Email the client a reminder') + '">&#128276; Remind' + (i.reminder_count ? ' (' + i.reminder_count + ')' : '') + '</button>' : '') +
+        '<td style="white-space:nowrap;">' + (st !== 'paid' ? '<a class="edit-inv" href="/contractor/invoice/' + esc(i.id) + '?edit=1" title="Edit this invoice" aria-label="Edit ' + esc(i.invoice_number) + '">&#9998;</a> ' : '') + (i.sent_at && st !== 'paid' ? '<button class="remind" data-id="' + esc(i.id) + '" title="' + (i.reminder_count ? i.reminder_count + ' sent, last ' + fmtD(i.last_reminder_at) : 'Email the client a reminder') + '">&#128276; Remind' + (i.reminder_count ? ' (' + i.reminder_count + ')' : '') + '</button>' : '') +
           ' <button class="hist-btn" data-id="' + esc(i.id) + '" title="History">&#128340;</button></td></tr>' +
         (histOpen[i.id] ? '<tr class="hist-row"><td colspan="' + (isManager ? 9 : 8) + '">' + histHtml(i) + '</td></tr>' : '');
     }).join('') + '</tbody><tfoot><tr><td colspan="' + (isManager ? 3 : 2) + '"><b>' + list.length + ' invoice' + (list.length === 1 ? '' : 's') + '</b></td><td class="r"><b>' + money(total) + '</b></td><td colspan="5"></td></tr></tfoot></table></div>';

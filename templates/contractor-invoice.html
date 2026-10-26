@@ -28,6 +28,23 @@ body{font-family:Arial,Helvetica,sans-serif;background:#e5e7eb;color:#111827;}
 .m-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;}
 .m-actions button{padding:9px 16px;border-radius:8px;border:none;font-weight:700;cursor:pointer;}
 .m-msg{font-size:13px;margin-top:10px;min-height:16px;}
+.overlay.edit{align-items:flex-start;overflow-y:auto;padding:24px 12px;}
+.modal.wide{max-width:780px;}
+.e-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px;}
+@media(max-width:640px){.e-grid{grid-template-columns:1fr;}}
+.e-lines{margin-top:14px;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;}
+.e-head,.e-line{display:grid;grid-template-columns:1fr 70px 110px 96px 30px;gap:8px;align-items:start;padding:8px 10px;}
+.e-head{background:#f9fafb;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;font-weight:700;}
+.e-line{border-top:1px solid #f3f4f6;}
+.modal .e-line textarea,.modal .e-line input{margin:0;padding:7px 9px;font-size:13px;}
+.e-line textarea{min-height:38px;resize:vertical;}
+.e-tot{font-weight:700;text-align:right;padding-top:8px;font-size:13px;}
+.e-x{border:none;background:none;color:#9ca3af;font-size:18px;cursor:pointer;padding-top:4px;}
+.e-x:hover{color:#b91c1c;}
+@media(max-width:640px){.e-head{display:none;}.e-line{grid-template-columns:1fr 1fr 1fr 26px;}.e-line textarea{grid-column:1 / -1;}.e-tot{text-align:left;}}
+.e-foot{display:flex;align-items:center;gap:10px;padding:10px;border-top:1px solid #e5e7eb;background:#f9fafb;}
+.e-foot b{margin-left:auto;font-size:17px;color:#0d1b36;}
+.e-add{padding:6px 12px;border-radius:8px;border:1px solid #8fcfc2;background:#fff;color:#0f766e;font-weight:700;font-size:12px;cursor:pointer;}
 .sheet{position:relative;width:8.5in;min-height:11in;margin:24px auto;background:#fff;padding:.55in .6in .5in;box-shadow:0 4px 24px rgba(0,0,0,.12);overflow:hidden;display:flex;flex-direction:column;}
 @media(max-width:860px){.sheet{width:100%;min-height:0;margin:0;padding:24px 18px;}}
 @media(max-width:640px){
@@ -91,7 +108,7 @@ tbody td.desc{white-space:pre-line;}
 <div class="toolbar">
   {% if not public_token %}<button class="b-sec" onclick="history.back()">&#8592; Back</button>{% endif %}
   <button class="b-print" onclick="window.print()">&#128424; Print / Save PDF</button>
-  {% if not public_token %}<button class="b-send" id="sendBtn" style="display:none;">&#9993; Send</button>{% endif %}
+  {% if not public_token %}<button class="b-sec" id="editBtn" style="display:none;">&#9998; Edit</button><button class="b-send" id="sendBtn" style="display:none;">&#9993; Send</button>{% endif %}
 </div>
 <div class="sent-note" id="sentNote" style="display:none;"></div>
 {% if not public_token %}
@@ -104,6 +121,27 @@ tbody td.desc{white-space:pre-line;}
     <p class="note">The client gets a summary and a link to view and download the invoice. Replies go to your company email.</p>
     <div class="m-actions"><button class="b-sec" id="sCancel">Cancel</button><button class="b-print" id="sGo">Send</button></div>
     <div class="m-msg" id="sOut"></div>
+  </div>
+</div>
+<div class="overlay edit" id="editModal">
+  <div class="modal wide">
+    <h3>&#9998; Edit invoice <span id="eNum"></span></h3>
+    <div class="e-grid">
+      <div><label for="eBill">Bill to</label><input id="eBill" maxlength="160"></div>
+      <div><label for="eCust">Customer ID</label><input id="eCust" maxlength="60"></div>
+      <div><label for="eSite">Job site</label><input id="eSite" maxlength="300"></div>
+      <div><label for="eTerms">Payment terms</label><input id="eTerms" maxlength="60" placeholder="Due on receipt"></div>
+      <div><label for="eDate">Invoice date</label><input id="eDate" type="date"></div>
+      <div><label for="eAddr">Billing address</label><textarea id="eAddr" rows="2" maxlength="300"></textarea></div>
+    </div>
+    <div class="e-lines">
+      <div class="e-head"><span>Description</span><span>Qty</span><span>Price ($)</span><span style="text-align:right">Total</span><span></span></div>
+      <div id="eLines"></div>
+      <div class="e-foot"><button class="e-add" id="eAdd" type="button">+ Add line</button><b id="eTotal">$0.00</b></div>
+    </div>
+    <p class="note" id="eSentNote" style="display:none;">This invoice was already sent. The client's link will show the new version; send it again if you want them to get an email.</p>
+    <div class="m-actions"><button class="b-sec" id="eCancel" type="button">Cancel</button><button class="b-print" id="eSave" type="button">Save changes</button></div>
+    <div class="m-msg" id="eOut" style="color:#b91c1c;"></div>
   </div>
 </div>
 {% endif %}
@@ -120,10 +158,10 @@ function fmtDate(d){ if(!d) return ''; var p = d.split('-'); return p.length ===
 
 var PUBLIC_TOKEN = {{ (public_token or '')|tojson }};
 var INVOICE_URL = PUBLIC_TOKEN ? '/api/public/invoice/' + encodeURIComponent(PUBLIC_TOKEN) : '/api/contractor/invoices/' + encodeURIComponent({{ invoice_id|tojson }});
-fetch(INVOICE_URL).then(function(r){ return r.json(); }).then(function(d){
+var inv = null;
+function renderInvoice(){
   var sheet = document.getElementById('sheet');
-  if(!d.ok){ sheet.innerHTML = '<div class="msg">' + (d.error === 'not found' ? 'Invoice not found.' : 'You do not have access to this invoice.') + '</div>'; return; }
-  var inv = d.invoice, co = inv.company_snapshot || {}, logo = safeImg(co.logo);
+  var co = inv.company_snapshot || {}, logo = safeImg(co.logo);
   document.documentElement.style.setProperty('--navy', safeColor(co.brand_primary, '#0d1b36'));
   document.documentElement.style.setProperty('--gold', safeColor(co.brand_accent, '#e8a317'));
   var emails = co.emails || [], email = emails[0] || '';
@@ -158,7 +196,14 @@ fetch(INVOICE_URL).then(function(r){ return r.json(); }).then(function(d){
     (co.footer_note ? '<div class="thanks">' + esc(co.footer_note) + '</div><div class="rule"></div>' : '') +
     '<div class="foot">' + footer + '</div>';
   document.title = 'Invoice ' + inv.invoice_number + ' – ' + (inv.job_site || inv.bill_to || '');
+}
+fetch(INVOICE_URL).then(function(r){ return r.json(); }).then(function(d){
+  var sheet = document.getElementById('sheet');
+  if(!d.ok){ sheet.innerHTML = '<div class="msg">' + (d.error === 'not found' ? 'Invoice not found.' : 'You do not have access to this invoice.') + '</div>'; return; }
+  inv = d.invoice; renderInvoice();
   if(PUBLIC_TOKEN) return;
+  var co = inv.company_snapshot || {}, emails = co.emails || [];
+  setupEdit();
   if(inv.sent_at) showSent(inv.sent_to, inv.sent_at);
   var btn = document.getElementById('sendBtn'); btn.style.display = '';
   btn.onclick = function(){
@@ -189,6 +234,71 @@ fetch(INVOICE_URL).then(function(r){ return r.json(); }).then(function(d){
       }).catch(function(){ go.disabled = false; go.textContent = 'Send'; out.style.color = '#b91c1c'; out.textContent = 'Connection error.'; });
   };
 });
+
+// ── Edit before sending (or fix it later, until it is paid) ──
+function eLineHtml(l){
+  l = l || {qty: 1};
+  return '<div class="e-line"><textarea class="l-desc" maxlength="1000" placeholder="Description">' + esc(l.description || '') + '</textarea>' +
+    '<input class="l-qty" type="number" min="0" step="0.25" inputmode="decimal" value="' + esc(l.qty != null ? l.qty : 1) + '" aria-label="Quantity">' +
+    '<input class="l-amt" type="number" min="0" step="0.01" inputmode="decimal" value="' + esc(l.amount != null ? l.amount : '') + '" placeholder="0.00" aria-label="Price">' +
+    '<span class="e-tot">$0.00</span><button class="e-x" type="button" title="Remove line" aria-label="Remove line">&times;</button></div>';
+}
+function eRecalc(){
+  var t = 0;
+  document.querySelectorAll('#eLines .e-line').forEach(function(row){
+    var v = (parseFloat(row.querySelector('.l-qty').value) || 0) * (parseFloat(row.querySelector('.l-amt').value) || 0);
+    t += v; row.querySelector('.e-tot').textContent = money(v);
+  });
+  document.getElementById('eTotal').textContent = 'Total ' + money(t);
+}
+function openEdit(){
+  document.getElementById('eNum').textContent = inv.invoice_number;
+  [['eBill','bill_to'],['eCust','customer_id'],['eSite','job_site'],['eTerms','payment_terms'],['eDate','invoice_date'],['eAddr','bill_address']].forEach(function(p){ document.getElementById(p[0]).value = inv[p[1]] || ''; });
+  document.getElementById('eLines').innerHTML = ((inv.items || []).length ? inv.items : [null]).map(eLineHtml).join('');
+  document.getElementById('eSentNote').style.display = inv.sent_at ? '' : 'none';
+  document.getElementById('eOut').textContent = '';
+  eRecalc();
+  document.getElementById('editModal').classList.add('open');
+}
+function setupEdit(){
+  var b = document.getElementById('editBtn');
+  if(inv.status === 'paid'){ b.style.display = 'none'; return; }
+  b.style.display = ''; b.onclick = openEdit;
+  if(new URLSearchParams(location.search).get('edit') && !window._editOpened){ window._editOpened = true; openEdit(); }
+}
+if(!PUBLIC_TOKEN){
+  document.getElementById('eLines').addEventListener('input', eRecalc);
+  document.getElementById('eLines').addEventListener('click', function(e){
+    if(!e.target.classList.contains('e-x')) return;
+    e.target.closest('.e-line').remove();
+    if(!document.querySelector('#eLines .e-line')) document.getElementById('eLines').insertAdjacentHTML('beforeend', eLineHtml());
+    eRecalc();
+  });
+  document.getElementById('eAdd').onclick = function(){
+    document.getElementById('eLines').insertAdjacentHTML('beforeend', eLineHtml());
+    var all = document.querySelectorAll('#eLines .l-desc'); all[all.length - 1].focus(); eRecalc();
+  };
+  document.getElementById('eCancel').onclick = function(){ document.getElementById('editModal').classList.remove('open'); };
+  document.getElementById('eSave').onclick = function(){
+    var btn = this, out = document.getElementById('eOut');
+    var items = Array.prototype.map.call(document.querySelectorAll('#eLines .e-line'), function(row){
+      return {description: row.querySelector('.l-desc').value.trim(), qty: row.querySelector('.l-qty').value, amount: row.querySelector('.l-amt').value};
+    }).filter(function(l){ return l.description || parseFloat(l.amount); });
+    if(!document.getElementById('eBill').value.trim()){ out.textContent = 'Who is the invoice for?'; return; }
+    if(!items.length){ out.textContent = 'The invoice needs at least one line.'; return; }
+    btn.disabled = true; btn.textContent = 'Saving...';
+    fetch('/api/contractor/invoices/' + encodeURIComponent(inv.id), {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+      bill_to: document.getElementById('eBill').value, customer_id: document.getElementById('eCust').value, job_site: document.getElementById('eSite').value,
+      payment_terms: document.getElementById('eTerms').value, invoice_date: document.getElementById('eDate').value, bill_address: document.getElementById('eAddr').value, items: items})})
+      .then(function(r){ return r.json(); }).then(function(res){
+        btn.disabled = false; btn.textContent = 'Save changes';
+        if(!res.ok){ out.textContent = res.error || 'Could not save'; return; }
+        inv = Object.assign(inv, res.invoice); renderInvoice();
+        document.getElementById('editModal').classList.remove('open');
+        if(new URLSearchParams(location.search).get('edit')) history.replaceState(null, '', location.pathname);
+      }).catch(function(){ btn.disabled = false; btn.textContent = 'Save changes'; out.textContent = 'Connection error.'; });
+  };
+}
 </script>
 </body>
 </html>

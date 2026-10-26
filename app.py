@@ -8212,6 +8212,22 @@ def _ct_money(v):
         return 0.0
 
 
+def _ct_clean_items(raw):
+    """Invoice/estimate lines from a form: (items, error). Empty lines are dropped."""
+    items = []
+    for it in (raw or [])[:60]:
+        if not isinstance(it, dict):
+            continue
+        desc = str(it.get("description") or "").strip()[:1000]
+        q, a = _ct_money(it.get("qty") if it.get("qty") not in (None, "") else 1), _ct_money(it.get("amount"))
+        if not desc and not a:
+            continue
+        if q <= 0 or a < 0 or q * a > 10_000_000:
+            return None, "Each line needs a quantity above 0 and a price of 0 or more"
+        items.append({"description": desc, "qty": q, "amount": a, "total": round(q * a, 2)})
+    return items, None
+
+
 CONTRACTOR_EXPENSE_CATEGORIES = ["materials", "paint", "tools", "fuel", "repairs", "equipment_rental", "meals", "supplies", "other"]
 _EXPENSE_PHOTO = re.compile(r"data:image/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+")
 
@@ -9067,6 +9083,57 @@ def contractor_invoice_get(invoice_id):
     return jsonify({"ok": True, "invoice": inv})
 
 
+_CT_INV_EDIT_TEXT = {"bill_to": 160, "bill_address": 300, "job_site": 300, "customer_id": 60, "payment_terms": 60}
+
+
+@app.route("/api/contractor/invoices/<invoice_id>", methods=["PATCH"])
+def contractor_invoice_update(invoice_id):
+    """Fix an invoice before it is paid: who it is for, dates, terms and every line."""
+    import datetime as dt
+    r = requests.get(f"{sb_url()}/rest/v1/contractor_invoices?id=eq.{requests.utils.quote(invoice_id)}&select=*&limit=1",
+                     headers=sb_headers(), timeout=8)
+    inv = r.json()[0] if r.ok and r.json() else None
+    if not inv:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    me, err = _ct_invoice_guard(inv["company"])
+    if err:
+        return err
+    if inv.get("status") == "paid":
+        return jsonify({"ok": False, "error": "This invoice is paid. Change its status first to edit it."}), 409
+    data = request.get_json() or {}
+    upd = {k: str(data.get(k) or "").strip()[:n] for k, n in _CT_INV_EDIT_TEXT.items() if k in data}
+    if "bill_to" in upd and not upd["bill_to"]:
+        return jsonify({"ok": False, "error": "Who is the invoice for?"}), 400
+    if "invoice_date" in data:
+        d = _ct_valid_date(data.get("invoice_date"))
+        if not d:
+            return jsonify({"ok": False, "error": "Invalid date"}), 400
+        upd["invoice_date"] = d
+    if "items" in data:
+        items, e = _ct_clean_items(data.get("items"))
+        if e:
+            return jsonify({"ok": False, "error": e}), 400
+        if not items:
+            return jsonify({"ok": False, "error": "The invoice needs at least one line"}), 400
+        upd["items"] = items
+        upd["subtotal"] = upd["total"] = round(sum(i["total"] for i in items), 2)
+    if not upd:
+        return jsonify({"ok": False, "error": "nothing to update"}), 400
+    note = "Edited" + (f" (total ${_ct_money(inv.get('total')):,.2f} → ${upd['total']:,.2f})"
+                       if "total" in upd and abs(upd["total"] - _ct_money(inv.get("total"))) >= 0.005 else "")
+    if inv.get("sent_at"):
+        note += "; the client's link shows the new version"
+    upd["status_history"] = (inv.get("status_history") or []) + [
+        {"status": "edited", "at": dt.datetime.utcnow().isoformat() + "Z", "by": me["name"][:80], "note": note}]
+    w = requests.patch(f"{sb_url()}/rest/v1/contractor_invoices?id=eq.{inv['id']}", json=upd,
+                       headers={**sb_headers(), "Prefer": "return=representation"}, timeout=8)
+    if not (w.ok and w.json()):
+        return jsonify({"ok": False, "error": "Could not save the invoice. Try again."}), 500
+    row = w.json()[0]
+    row.pop("public_token", None)
+    return jsonify({"ok": True, "invoice": row})
+
+
 def _ct_invoice_email_html(inv, message, link):
     co = inv.get("company_snapshot") or {}
     navy = co.get("brand_primary") if _HEX_COLOR.fullmatch(str(co.get("brand_primary") or "")) else "#0d1b36"
@@ -9622,17 +9689,9 @@ def _ct_est_payload(data):
     if "client_email" in payload:
         payload["client_email"] = payload["client_email"].lower()
     if "items" in data:
-        items = []
-        for it in (data.get("items") or [])[:60]:
-            if not isinstance(it, dict):
-                continue
-            desc = str(it.get("description") or "").strip()[:1000]
-            q, a = _ct_money(it.get("qty") if it.get("qty") not in (None, "") else 1), _ct_money(it.get("amount"))
-            if not desc and not a:
-                continue
-            if q <= 0 or a < 0 or q * a > 10_000_000:
-                return None, "Each line needs a quantity above 0 and a price of 0 or more"
-            items.append({"description": desc, "qty": q, "amount": a, "total": round(q * a, 2)})
+        items, e = _ct_clean_items(data.get("items"))
+        if e:
+            return None, e
         payload["items"] = items
         payload["subtotal"] = payload["total"] = round(sum(i["total"] for i in items), 2)
     if "valid_until" in data:
