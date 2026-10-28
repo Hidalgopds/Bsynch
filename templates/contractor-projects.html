@@ -834,6 +834,7 @@ function renderInfoTab(j){
   if(dates.length) html+='<div class="field-row"><div class="field-label">Dates</div><div class="field-value">'+dates.join(' &middot; ')+'</div></div>';
   if(j.notes) html+='<div class="field-row"><div class="field-label">Notes</div><div class="field-value">'+esc(j.notes).replace(/\n/g,'<br>')+'</div></div>';
   if(j.client_email) html+='<div class="field-row"><div class="field-label">Client email</div><div class="field-value">'+esc(j.client_email)+'</div></div>';
+  if(j.created_by) html+='<div class="field-row"><div class="field-label">Created by</div><div class="field-value">&#9997;&#65039; '+esc(j.created_by)+(j.created_at?' &middot; '+fmtDate(String(j.created_at).slice(0,10)):'')+'</div></div>';
   if(!mgr){
     html+='<div class="locked-note">&#128274; Only a Manager can edit this work order. You can still add visits, photos, receipts and materials, and mark it finished.</div>';
   } else {

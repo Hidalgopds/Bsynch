@@ -360,7 +360,7 @@ document.getElementById('woSearch').addEventListener('input', function(){ render
 // ── Render list ──
 function woMatches(j, q){
   if(!q) return true;
-  var hay = [j.job_number, j.title, j.client_name, j.client_email, j.description, j.notes, j.location, j.residence, j.apt, j.zone, j.zipcode, j.assigned_to].join(' ').toLowerCase();
+  var hay = [j.job_number, j.title, j.client_name, j.client_email, j.description, j.notes, j.location, j.residence, j.apt, j.zone, j.zipcode, j.assigned_to, j.created_by].join(' ').toLowerCase();
   return q.split(/\s+/).every(function(w){ return hay.indexOf(w) >= 0; });
 }
 function renderList(jobs){
@@ -398,6 +398,7 @@ function renderList(jobs){
         (j.scheduled_date?'<span class="wo-due">&#128197; '+fmtDate(j.scheduled_date)+'</span>':'')+
         (j.due_date?'<span class="wo-due">Due '+fmtDate(j.due_date)+'</span>':'')+
         (proj?'<span class="wo-proj">&#128196; '+esc(proj.name)+'</span>':'')+
+        (j.created_by?'<span class="wo-due" title="Created by">&#9997;&#65039; '+esc(j.created_by)+'</span>':'')+
       '</div></div>';
   }).join('');
 }
