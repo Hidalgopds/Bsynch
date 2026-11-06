@@ -105,6 +105,24 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
 tr.hist-row td{background:#f8fafc;font-size:12px;color:#475569;}
 .hist-btn{border:none;background:none;color:#64748b;cursor:pointer;font-size:13px;}
 .hist li{margin-left:16px;line-height:1.6;}
+.cmts{margin-bottom:12px;border:1px solid #e2e8f0;border-radius:12px;background:#fbfdff;}
+.cmts-head{display:flex;align-items:center;gap:8px;padding:9px 12px;font-size:13px;font-weight:700;color:#0f172a;border-bottom:1px solid #eef2f7;}
+.cmts-head small{font-weight:500;color:#64748b;}
+.cmt{padding:9px 12px;border-bottom:1px solid #f1f5f9;font-size:13px;}
+.cmt:last-child{border-bottom:none;}
+.cmt-meta{display:flex;align-items:center;gap:6px;font-size:11.5px;color:#64748b;margin-bottom:3px;flex-wrap:wrap;}
+.cmt-meta b{color:#334155;}
+.cmt-text{white-space:pre-line;color:#1e293b;line-height:1.45;word-break:break-word;}
+.cmt-act{margin-left:auto;display:flex;gap:4px;}
+.cmt-act button{border:1px solid #e2e8f0;background:#fff;border-radius:7px;padding:2px 7px;font-size:12px;cursor:pointer;color:#475569;}
+.cmt-act button:hover{border-color:#1e9484;color:#0f766e;}
+.cmt-act button.del:hover{border-color:#fca5a5;color:#b91c1c;}
+.cmt textarea{width:100%;min-height:60px;border:1px solid #cbd5e1;border-radius:8px;padding:7px 9px;font-size:13px;font-family:inherit;resize:vertical;margin-top:4px;}
+.cmt .cmt-row{display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap;}
+.cmt .cmt-row input{width:90px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;}
+.cmt .cmt-row button{padding:5px 12px;border-radius:7px;border:1px solid #8fcfc2;background:#fff;color:#0f766e;font-size:12px;font-weight:700;cursor:pointer;}
+.cmt .cmt-row button.save{background:#1e9484;border-color:#1e9484;color:#fff;}
+.cmt-empty{padding:10px 12px;font-size:12.5px;color:#94a3b8;}
 .edit-inv{display:inline-block;padding:3px 8px;border-radius:7px;border:1px solid #cbd5e1;background:#fff;color:#334155;font-size:13px;text-decoration:none;}
 .edit-inv:hover{border-color:#1e9484;color:#0f766e;}
 .remind{padding:4px 9px;border-radius:7px;border:1px solid #f59e0b;background:#fff;color:#b45309;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;}
@@ -217,7 +235,7 @@ function renderJobs(){
         '<div class="cost"><span>Materials used</span><b>' + money(j.materials_total) + '</b></div>' +
         '<div class="cost"><span>Purchases (receipts)</span><b>' + money(j.receipts_total) + '</b></div>' +
         '<div class="cost"><span>Job cost</span><b>' + money((j.materials_total || 0) + (j.receipts_total || 0)) + '</b></div>' +
-      '</div>' +
+      '</div>' + commentsHtml(j) +
       '<div class="grid">' +
         '<div class="field"><label>Bill to</label><input data-k="client_name" value="' + esc(j.client_name || '') + '" maxlength="160"' + dis + '></div>' +
         '<div class="field"><label>Customer ID</label><input data-k="customer_id" value="' + esc(j.customer_id || '') + '" maxlength="60"' + dis + '></div>' +
@@ -245,6 +263,71 @@ function renderJobs(){
   }).join('');
 }
 var openCards = {};
+// Everything the crew wrote on the job: visits and photo notes. Managers (and whoever wrote one) can fix or delete them.
+function canFix(author){ return isManager || (author && author === (window.CT && CT.user)); }
+function commentsHtml(j){
+  var vs = j.visits || [], ns = j.photo_notes || [], n = vs.length + ns.length;
+  var html = '<div class="cmts"><div class="cmts-head">&#128172; Worker comments <small>' + n + '</small>' +
+    (j.created_by ? '<small style="margin-left:auto;">&#9997;&#65039; Created by ' + esc(j.created_by) + '</small>' : '') + '</div>';
+  if(j.notes) html += '<div class="cmt"><div class="cmt-meta"><b>&#128221; Work order notes</b></div><div class="cmt-text">' + esc(j.notes) + '</div></div>';
+  if(j.return_reason && j.needs_return) html += '<div class="cmt"><div class="cmt-meta"><b>&#9208;&#65039; Waiting to return</b></div><div class="cmt-text">' + esc(j.return_reason) + '</div></div>';
+  vs.forEach(function(v){
+    html += '<div class="cmt" data-vid="' + esc(v.id) + '"><div class="cmt-meta"><b>&#128197; ' + esc(fmtD(v.date)) + '</b>' + (v.created_by ? ' &middot; ' + esc(v.created_by) : '') + (parseFloat(v.hours) ? ' &middot; ' + esc(v.hours) + ' h' : '') +
+      (canFix(v.created_by) ? '<span class="cmt-act"><button type="button" class="v-edit" title="Edit">&#9998;</button><button type="button" class="del v-del" title="Delete">&#128465;</button></span>' : '') +
+      '</div><div class="cmt-text">' + esc(v.description) + '</div></div>';
+  });
+  ns.forEach(function(p){
+    html += '<div class="cmt" data-pid="' + esc(p.id) + '"><div class="cmt-meta"><b>&#128247; Photo note</b>' + (p.uploaded_by ? ' &middot; ' + esc(p.uploaded_by) : '') + (p.created_at ? ' &middot; ' + esc(fmtD(p.created_at)) : '') +
+      (canFix(p.uploaded_by) ? '<span class="cmt-act"><button type="button" class="p-edit" title="Edit">&#9998;</button><button type="button" class="del p-del" title="Delete the note (the photo stays)">&#128465;</button></span>' : '') +
+      '</div><div class="cmt-text">' + esc(p.caption) + '</div></div>';
+  });
+  if(!n && !j.notes) html += '<div class="cmt-empty">No comments from the crew yet.</div>';
+  return html + '</div>';
+}
+function refreshCard(j){
+  var card = document.querySelector('.job[data-id="' + j.id + '"]'); if(!card) return;
+  var box = card.querySelector('.cmts'); if(box) box.outerHTML = commentsHtml(j);
+  var fb = card.querySelector('.fill-visits');
+  if(fb) fb.textContent = 'Fill from ' + j.visits.length + ' visit' + (j.visits.length === 1 ? '' : 's');
+}
+document.getElementById('jobList').addEventListener('click', function(e){
+  var b = e.target.closest('button'); if(!b || !b.closest('.cmts')) return;
+  var card = b.closest('.job'), j = jobById(card.dataset.id), row = b.closest('.cmt');
+  var vid = row && row.dataset.vid, pid = row && row.dataset.pid;
+  var v = vid && (j.visits || []).find(function(x){ return x.id === vid; }), p = pid && (j.photo_notes || []).find(function(x){ return x.id === pid; });
+  if(b.classList.contains('v-edit') || b.classList.contains('p-edit')){
+    row.querySelector('.cmt-text').outerHTML = '<textarea maxlength="2000">' + esc(v ? v.description : p.caption) + '</textarea>' +
+      '<div class="cmt-row">' + (v ? '<label style="font-size:12px;color:#64748b;">Hours <input type="number" class="c-hours" min="0" max="24" step="0.25" value="' + esc(v.hours == null ? '' : v.hours) + '"></label>' : '') +
+      '<span style="flex:1"></span><button type="button" class="c-cancel">Cancel</button><button type="button" class="save c-save">Save</button></div>';
+    row.querySelector('.cmt-act').style.display = 'none'; row.querySelector('textarea').focus(); return;
+  }
+  if(b.classList.contains('c-cancel')){ refreshCard(j); return; }
+  if(b.classList.contains('c-save')){
+    var txt = row.querySelector('textarea').value.trim(); b.disabled = true;
+    var req = v ? fetch('/api/contractor/jobs/' + j.id + '/visits/' + v.id, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({description: txt, hours: row.querySelector('.c-hours').value})})
+                : fetch('/api/contractor/jobs/' + j.id + '/photos/' + p.id, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({caption: txt})});
+    req.then(function(r){ return r.json(); }).then(function(res){
+      b.disabled = false;
+      if(!res.ok){ alert(res.error || 'Could not save'); return; }
+      if(v){ v.description = res.visit.description; v.hours = res.visit.hours; }
+      else if(res.photo.caption){ p.caption = res.photo.caption; }
+      else { j.photo_notes = j.photo_notes.filter(function(x){ return x.id !== p.id; }); }
+      refreshCard(j);
+    });
+    return;
+  }
+  if(b.classList.contains('v-del') || b.classList.contains('p-del')){
+    if(!confirm(v ? 'Delete this visit comment from ' + (v.created_by || 'the crew') + '? This cannot be undone.' : 'Delete this photo note? The photo stays.')) return;
+    b.disabled = true;
+    var del = v ? fetch('/api/contractor/jobs/' + j.id + '/visits/' + v.id, {method:'DELETE'})
+                : fetch('/api/contractor/jobs/' + j.id + '/photos/' + p.id, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({caption: ''})});
+    del.then(function(r){ return r.json(); }).then(function(res){
+      if(!res.ok){ b.disabled = false; alert(res.error || 'Could not delete'); return; }
+      if(v) j.visits = j.visits.filter(function(x){ return x.id !== v.id; }); else j.photo_notes = j.photo_notes.filter(function(x){ return x.id !== p.id; });
+      refreshCard(j);
+    });
+  }
+});
 function summaryHtml(j, chip){
   var price = j.invoice ? money(j.invoice.total) : (parseFloat(j.service_price) > 0 ? money(j.service_price) : '&mdash;');
   var sub = [j.client_name, [j.residence, j.location, j.apt ? 'Apt ' + j.apt : ''].filter(Boolean).join(' ')].filter(Boolean).map(esc).join(' &middot; ');
@@ -494,6 +577,7 @@ function loadJobs(){
 fetch('/api/contractor/me').then(function(r){ return r.json(); }).then(function(me){
   var acc = (me.access || {})[COMPANY] || {};
   isManager = !!(me.is_super || acc.is_admin);
+  if(jobs.length) renderJobs();  // the comment buttons depend on the role
   document.querySelectorAll('.mgr-only').forEach(function(el){ if(!isManager) el.style.display = 'none'; });
 });
 fetch(API + '/profile').then(function(r){ return r.json(); }).then(function(d){ if(d.ok && d.profile && d.profile.reminder_days !== undefined) reminderDays = parseInt(d.profile.reminder_days, 10) || 15; }).catch(function(){});

@@ -8509,11 +8509,57 @@ def contractor_add_visit(job_id):
     return jsonify({"ok": True, "visit": r.json()[0]})
 
 
+def _ct_visit_for_change(job_id, vid):
+    """(visit, error) for editing or deleting a visit comment: the company's Managers, or whoever wrote it."""
+    job = _ct_job_allowed(job_id)
+    if not job:
+        return None, (jsonify({"ok": False, "error": "job not found"}), 404)
+    r = requests.get(f"{sb_url()}/rest/v1/job_visits?id=eq.{requests.utils.quote(vid)}&job_id=eq.{job_id}&select=*&limit=1",
+                     headers=sb_headers(), timeout=5)
+    visit = r.json()[0] if r.ok and r.json() else None
+    if not visit:
+        return None, (jsonify({"ok": False, "error": "Visit not found"}), 404)
+    me = _contractor_caller()
+    if not (_ct_can_admin(me, job.get("company")) or (me["name"] and visit.get("created_by") == me["name"])):
+        return None, (jsonify({"ok": False, "error": "Only a Manager or whoever wrote it can change this comment"}), 403)
+    return visit, None
+
+
+@app.route("/api/contractor/jobs/<job_id>/visits/<vid>", methods=["PATCH"])
+def contractor_update_visit(job_id, vid):
+    visit, err = _ct_visit_for_change(job_id, vid)
+    if err:
+        return err
+    data = request.get_json() or {}
+    upd = {}
+    if "description" in data:
+        desc = str(data.get("description") or "").strip()
+        if len(desc) < 3:
+            return jsonify({"ok": False, "error": "Write what was done (or delete the visit)"}), 400
+        upd["description"] = desc[:2000]
+    if "hours" in data:
+        h = data.get("hours")
+        upd["hours"] = None if h in (None, "") else max(0.0, min(24.0, _ct_money(h)))
+    if "visit_date" in data:
+        d = _ct_valid_date(data.get("visit_date"))
+        if not d:
+            return jsonify({"ok": False, "error": "Invalid date"}), 400
+        upd["visit_date"] = d
+    if not upd:
+        return jsonify({"ok": False, "error": "nothing to update"}), 400
+    r = requests.patch(f"{sb_url()}/rest/v1/job_visits?id=eq.{visit['id']}", json=upd,
+                       headers={**sb_headers(), "Prefer": "return=representation"}, timeout=5)
+    if not (r.ok and r.json()):
+        return jsonify({"ok": False, "error": "Could not save"}), 500
+    return jsonify({"ok": True, "visit": r.json()[0]})
+
+
 @app.route("/api/contractor/jobs/<job_id>/visits/<vid>", methods=["DELETE"])
 def contractor_delete_visit(job_id, vid):
-    if not _ct_job_allowed(job_id):
-        return jsonify({"ok": False}), 404
-    r = requests.delete(f"{sb_url()}/rest/v1/job_visits?id=eq.{requests.utils.quote(vid)}&job_id=eq.{job_id}",
+    visit, err = _ct_visit_for_change(job_id, vid)
+    if err:
+        return err
+    r = requests.delete(f"{sb_url()}/rest/v1/job_visits?id=eq.{visit['id']}&job_id=eq.{job_id}",
                         headers=sb_headers(), timeout=5)
     return jsonify({"ok": r.ok})
 
@@ -8904,7 +8950,7 @@ def contractor_invoicing_jobs(company):
         f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?company=eq.{company}"
         f"&select=id,job_number,title,description,client_name,location,status,progress_pct,completed_date,"
         f"customer_id,invoice_description,service_price,invoice_id,project_id,created_at,client_email,tracking,bill_address,"
-        f"residence,apt,zone,zipcode"
+        f"residence,apt,zone,zipcode,notes,created_by,return_reason,needs_return"
         f"&order=created_at.desc&limit=500",
         headers=sb_headers(), timeout=10
     )
@@ -8916,15 +8962,23 @@ def contractor_invoicing_jobs(company):
         ir = requests.get(f"{sb_url()}/rest/v1/contractor_invoices?id=in.({','.join(inv_ids)})&select=id,invoice_number,total",
                           headers=sb_headers(), timeout=8)
         numbers = {i["id"]: i for i in (ir.json() if ir.ok else [])}
-    visits = {}
+    visits, notes = {}, {}
     if jobs:
-        vr = requests.get(f"{sb_url()}/rest/v1/job_visits?job_id=in.({','.join(j['id'] for j in jobs)})"
-                          f"&select=job_id,visit_date,description&order=visit_date.asc,created_at.asc",
+        ids = ",".join(j["id"] for j in jobs)
+        vr = requests.get(f"{sb_url()}/rest/v1/job_visits?job_id=in.({ids})"
+                          f"&select=id,job_id,visit_date,description,hours,created_by&order=visit_date.asc,created_at.asc",
                           headers=sb_headers(), timeout=8)
         for v in (vr.json() if vr.ok else []):
-            visits.setdefault(v["job_id"], []).append({"date": v.get("visit_date"), "description": v.get("description")})
+            visits.setdefault(v["job_id"], []).append({"id": v["id"], "date": v.get("visit_date"), "description": v.get("description"),
+                                                      "hours": v.get("hours"), "created_by": v.get("created_by") or ""})
+        pr = requests.get(f"{sb_url()}/rest/v1/{JOB_PHOTOS_TABLE}?job_id=in.({ids})&caption=neq.&select=id,job_id,caption,uploaded_by,photo_type,created_at"
+                          f"&order=created_at.asc", headers=sb_headers(), timeout=8)
+        for ph in (pr.json() if pr.ok else []):
+            if (ph.get("caption") or "").strip():
+                notes.setdefault(ph["job_id"], []).append({k: ph.get(k) for k in ("id", "caption", "uploaded_by", "photo_type", "created_at")})
     for j in jobs:
         j["visits"] = visits.get(j["id"], [])
+        j["photo_notes"] = notes.get(j["id"], [])
         c = costs.get(j["id"], {"materials": [], "receipts": []})
         j["materials_total"] = round(sum(_ct_money(m.get("qty")) * _ct_money(m.get("unit_cost")) for m in c["materials"]), 2)
         j["receipts_total"] = round(sum(_ct_money(x.get("amount")) for x in c["receipts"]), 2)

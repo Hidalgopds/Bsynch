@@ -157,11 +157,14 @@ function renderVisits(list) {
   if (!list.length) html += '<div style="text-align:center;padding:20px;color:#64748b;font-size:13px;">No visits yet.</div>';
   list.slice().reverse().forEach(function (v, i) {
     var n = list.length - i;
-    html += '<div class="visit"><div class="visit-top"><b>Visit ' + n + '</b><span>' + esc(v.visit_date || '') + (v.hours ? ' &middot; ' + esc(v.hours) + ' h' : '') + (v.created_by ? ' &middot; ' + esc(v.created_by) : '') + '</span>'
-      + '<button class="step-del" onclick="deleteVisit(\'' + v.id + '\')" title="Delete">&#215;</button></div>'
+    // Managers fix or delete any visit; everyone else only the ones they wrote
+    var mine = window._isManager || (v.created_by && window.CT && v.created_by === CT.user);
+    html += '<div class="visit" id="visit-' + v.id + '"><div class="visit-top"><b>Visit ' + n + '</b><span>' + esc(v.visit_date || '') + (v.hours ? ' &middot; ' + esc(v.hours) + ' h' : '') + (v.created_by ? ' &middot; ' + esc(v.created_by) : '') + '</span>'
+      + (mine ? '<button class="step-del" onclick="editVisit(\'' + v.id + '\')" title="Edit">&#9998;</button><button class="step-del" onclick="deleteVisit(\'' + v.id + '\')" title="Delete">&#215;</button>' : '') + '</div>'
       + '<div class="visit-desc">' + esc(v.description) + '</div></div>';
   });
   document.getElementById('jpBody').innerHTML = html;
+  window._visits = list;
   document.getElementById('vSave').onclick = function () {
     var btn = this, desc = document.getElementById('vDesc').value.trim(), m = document.getElementById('vMsg');
     if (desc.length < 3) { m.style.color = '#f87171'; m.textContent = 'Write what was done.'; return; }
@@ -179,7 +182,27 @@ function renderVisits(list) {
   };
 }
 
+function editVisit(id) {
+  var v = (window._visits || []).find(function (x) { return x.id === id; }), box = document.getElementById('visit-' + id);
+  if (!v || !box) return;
+  box.querySelector('.visit-desc').outerHTML = '<textarea class="form-input" rows="3" maxlength="2000" style="margin-top:6px;">' + esc(v.description) + '</textarea>'
+    + '<div class="rc-row" style="margin-top:6px;"><input class="form-input" type="number" min="0" max="24" step="0.25" placeholder="Hours" value="' + esc(v.hours == null ? '' : v.hours) + '">'
+    + '<button class="btn-save" type="button">Save</button></div><div class="rc-msg"></div>';
+  var ta = box.querySelector('textarea'); ta.focus();
+  box.querySelector('.btn-save').onclick = function () {
+    var btn = this, m = box.querySelector('.rc-msg'); btn.disabled = true;
+    fetch('/api/contractor/jobs/' + openJobId + '/visits/' + id, {method: 'PATCH', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({description: ta.value.trim(), hours: box.querySelector('input').value})})
+      .then(function (r) { return r.json(); }).then(function (d) {
+        btn.disabled = false;
+        if (!d.ok) { m.style.color = '#f87171'; m.textContent = d.error || 'Could not save.'; return; }
+        loadVisits();
+      });
+  };
+}
+
 function deleteVisit(id) {
   if (!confirm('Delete this visit?')) return;
-  fetch('/api/contractor/jobs/' + openJobId + '/visits/' + id, {method: 'DELETE'}).then(function () { loadVisits(); });
+  fetch('/api/contractor/jobs/' + openJobId + '/visits/' + id, {method: 'DELETE'}).then(function (r) { return r.json(); })
+    .then(function (d) { if (!d.ok) alert(d.error || 'Could not delete'); loadVisits(); });
 }
