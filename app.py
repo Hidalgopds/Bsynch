@@ -7181,6 +7181,9 @@ def _ct_page(company, template, **ctx):
 
 @app.route("/contractor/<company>")
 def contractor_company_page(company):
+    # Opening the installed app lands on Work orders (phones that installed it before still start here)
+    if request.args.get("source") == "pwa" and company in CONTRACTOR_COMPANIES:
+        return redirect(f"/contractor/workorders?company={company}")
     return _ct_page(company, "contractor-company.html")
 
 @app.route("/contractor/<company>/settings")
@@ -8009,10 +8012,8 @@ def contractor_account_page():
 
 @app.route("/contractor/dictate")
 def contractor_dictate_shortcut():
-    """Voice/home-screen shortcut: lands on a new work order with the microphone ready."""
-    if not _client_can_access_module("contractor"):
-        return redirect("/home")
-    return render_template("contractor-dictate-go.html")
+    """Old dictation shortcut (dictation was removed): phones that still have it land on the app."""
+    return redirect("/contractor-hub?source=pwa")
 
 
 @app.route("/contractor/manifest.webmanifest")
@@ -8020,10 +8021,6 @@ def contractor_manifest():
     return jsonify({
         "id": "/contractor-hub", "name": "BSynch Contractor", "short_name": "BSynch",
         "start_url": "/contractor-hub?source=pwa", "scope": "/", "display": "standalone",
-        "shortcuts": [
-            {"name": "Dictate work order", "short_name": "Dictate", "description": "Open a new work order and start dictating",
-             "url": "/contractor/dictate", "icons": [{"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png"}]},
-        ],
         "background_color": "#0f1117", "theme_color": "#1e9484",
         "icons": [
             {"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
@@ -8123,12 +8120,8 @@ def contractor_company_manifest(company):
     primary = prof.get("brand_primary") if _HEX_COLOR.fullmatch(str(prof.get("brand_primary") or "")) else "#0d1b36"
     return jsonify({
         "id": f"/contractor/{company}", "name": name, "short_name": short,
-        "start_url": f"/contractor/{company}?source=pwa", "scope": "/", "display": "standalone",
+        "start_url": f"/contractor/workorders?company={company}&source=pwa", "scope": "/", "display": "standalone",
         "background_color": "#ffffff", "theme_color": primary,
-        "shortcuts": [
-            {"name": "Dictate work order", "short_name": "Dictate", "description": "Open a new work order and start dictating",
-             "url": "/contractor/dictate", "icons": [{"src": icon(192), "sizes": "192x192", "type": "image/png"}]},
-        ],
         "icons": [
             {"src": icon(192), "sizes": "192x192", "type": "image/png", "purpose": "any"},
             {"src": icon(512), "sizes": "512x512", "type": "image/png", "purpose": "any"},
@@ -8768,92 +8761,6 @@ _RECEIPT_SCHEMA = {
 
 
 CONTRACTOR_UNITS = ["pieces", "ft", "sq ft", "yd", "gal", "qt", "lb", "box", "bag", "roll", "sheet", "tube", "set"]
-_WO_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "title": {"type": "string", "description": "Short job title, max 8 words"},
-        "description": {"type": "string", "description": "What needs to be done, clear and complete"},
-        "client_name": {"type": "string", "description": "Client or company to bill, empty if not said"},
-        "location": {"type": "string", "description": "Job site address, empty if not said"},
-        "client_email": {"type": "string", "description": "Client email if spoken, else empty"},
-        "priority": {"type": "string", "enum": ["low", "normal", "high", "urgent"]},
-        "mode": {"type": "string", "enum": ["simple", "steps"], "description": "steps only if the person listed separate stages"},
-        "steps": {"type": "array", "items": {"type": "string"}, "description": "Step names when mode is steps, else empty"},
-        "materials": {"type": "array", "items": {
-            "type": "object",
-            "properties": {"name": {"type": "string"}, "qty": {"type": "number"},
-                           "unit": {"type": "string", "enum": CONTRACTOR_UNITS}},
-            "required": ["name", "qty", "unit"], "additionalProperties": False}},
-        "date": {"type": "string", "description": "Day the job should be done as YYYY-MM-DD, empty if not said"},
-        "time_slot": {"type": "string", "enum": ["", "morning", "afternoon"], "description": "morning or afternoon if said, else empty"},
-        "est_hours": {"type": "number", "description": "How many hours the job takes if said (e.g. 'half a day' = 4), else 0"},
-    },
-    "required": ["title", "description", "client_name", "location", "client_email", "priority", "mode", "steps", "materials", "date", "time_slot", "est_hours"],
-    "additionalProperties": False,
-}
-
-
-@app.route("/api/contractor/wo-from-text", methods=["POST"])
-def contractor_wo_from_text():
-    """Turn a dictated description into work-order fields for the user to review."""
-    import json as _json
-    if not _ANTHROPIC_CLIENT:
-        return jsonify({"ok": False, "error": "AI is not configured (ANTHROPIC_API_KEY)"}), 503
-    if _contractor_scope() == "__none__":
-        return jsonify({"ok": False, "error": "not allowed"}), 403
-    text = " ".join(str((request.get_json() or {}).get("text") or "").split())
-    if len(text) < 5:
-        return jsonify({"ok": False, "error": "Say a little more about the job"}), 400
-    if len(text) > 4000:
-        return jsonify({"ok": False, "error": "That dictation is too long. Keep it under a few minutes."}), 400
-    today = date.today()
-    try:
-        response = _ANTHROPIC_CLIENT.beta.messages.create(
-            model=CONTRACTOR_RECEIPT_MODEL,
-            max_tokens=4000,
-            betas=["server-side-fallback-2026-07-01"],
-            fallbacks="default",
-            output_config={"effort": "low", "format": {"type": "json_schema", "schema": _WO_SCHEMA}},
-            system=("You turn a construction or repair worker's dictated note into a work order. "
-                    f"Today is {today.strftime('%A')} {today.isoformat()}; resolve words like 'tomorrow' or 'Friday' to a date. "
-                    "Write the title and description in the same language the person spoke, fixing obvious speech-to-text mistakes. "
-                    "Only fill a field when the note says it; leave it empty otherwise. Do not invent clients, addresses or emails."),
-            messages=[{"role": "user", "content": f"<dictation>{text}</dictation>"}],
-        )
-    except Exception as e:
-        logger.warning("[wo-from-text] %s", e)
-        return jsonify({"ok": False, "error": "Could not process the dictation"}), 502
-    if response.stop_reason == "refusal":
-        return jsonify({"ok": False, "error": "The AI could not process this note. Type it instead."}), 422
-    raw = next((b.text for b in response.content if b.type == "text"), "")
-    try:
-        d = _json.loads(raw)
-    except ValueError:
-        return jsonify({"ok": False, "error": "Could not process the dictation"}), 502
-    email = str(d.get("client_email") or "").strip()
-    mats = []
-    for m in (d.get("materials") or [])[:20]:
-        name = str(m.get("name") or "").strip()[:120]
-        if name:
-            mats.append({"name": name, "qty": max(0.0, min(100000.0, _ct_money(m.get("qty")) or 1)),
-                         "unit": m.get("unit") if m.get("unit") in CONTRACTOR_UNITS else "pieces"})
-    return jsonify({
-        "ok": True,
-        "title": str(d.get("title") or "").strip()[:120],
-        "description": str(d.get("description") or "").strip()[:2000],
-        "client_name": str(d.get("client_name") or "").strip()[:160],
-        "location": str(d.get("location") or "").strip()[:200],
-        "client_email": email if re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email) else "",
-        "priority": d.get("priority") if d.get("priority") in ("low", "normal", "high", "urgent") else "normal",
-        "mode": "steps" if d.get("mode") == "steps" and d.get("steps") else "simple",
-        "steps": [str(x).strip()[:80] for x in (d.get("steps") or []) if str(x).strip()][:10],
-        "materials": mats,
-        "date": d["date"] if re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(d.get("date") or "")) else "",
-        "time_slot": d.get("time_slot") if d.get("time_slot") in CONTRACTOR_TIME_SLOTS else "",
-        "est_hours": _ct_hours(d.get("est_hours")) or 0,
-    })
-
-
 @app.route("/api/contractor/receipt-read", methods=["POST"])
 def contractor_receipt_read():
     """Read a store ticket photo with Claude and return its fields so nobody has to type them."""
