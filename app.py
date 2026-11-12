@@ -7183,7 +7183,7 @@ def _ct_page(company, template, **ctx):
 def contractor_company_page(company):
     # Opening the installed app lands on Work orders (phones that installed it before still start here)
     if request.args.get("source") == "pwa" and company in CONTRACTOR_COMPANIES:
-        return redirect(f"/contractor/workorders?company={company}")
+        return redirect(f"/contractor/projects?company={company}")
     return _ct_page(company, "contractor-company.html")
 
 @app.route("/contractor/<company>/settings")
@@ -8120,7 +8120,7 @@ def contractor_company_manifest(company):
     primary = prof.get("brand_primary") if _HEX_COLOR.fullmatch(str(prof.get("brand_primary") or "")) else "#0d1b36"
     return jsonify({
         "id": f"/contractor/{company}", "name": name, "short_name": short,
-        "start_url": f"/contractor/workorders?company={company}&source=pwa", "scope": "/", "display": "standalone",
+        "start_url": f"/contractor/projects?company={company}&source=pwa", "scope": "/", "display": "standalone",
         "background_color": "#ffffff", "theme_color": primary,
         "icons": [
             {"src": icon(192), "sizes": "192x192", "type": "image/png", "purpose": "any"},
@@ -10096,11 +10096,128 @@ def _ct_remember_client(company, name, email, by, source="work order", kind="cli
             if upd:
                 requests.patch(f"{sb_url()}/rest/v1/contractor_contacts?id=eq.{match['id']}", json=upd, headers=sb_headers(), timeout=5)
             return
-        requests.post(f"{sb_url()}/rest/v1/contractor_contacts", headers=sb_headers(), timeout=5,
-                      json={"company": company, "kind": kind, "name": name, "org": "", "emails": [email] if email else [],
-                            "phones": [], "source": source, "created_by": str(by or "")[:80]})
+        row = {"company": company, "kind": kind, "name": name, "org": "", "emails": [email] if email else [],
+               "phones": [], "source": source, "created_by": str(by or "")[:80]}
+        folder = _ct_folder_for_email(existing, email)
+        if folder:
+            row["folder_id"] = folder
+        requests.post(f"{sb_url()}/rest/v1/contractor_contacts", headers=sb_headers(), timeout=5, json=row)
     except Exception as e:
         logger.warning("[Contacts] remember client: %s", e)
+
+
+# Email domains shared by unrelated people: never used to guess a client's folder
+_CT_PUBLIC_DOMAINS = {"gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "live.com", "icloud.com", "aol.com",
+                      "msn.com", "me.com", "comcast.net", "att.net", "sbcglobal.net", "protonmail.com", "proton.me"}
+
+
+def _ct_folder_for_email(contacts, email):
+    """A new client whose email shares a company domain with someone already filed goes in that folder."""
+    domain = email.split("@")[-1] if email else ""
+    if not domain or domain in _CT_PUBLIC_DOMAINS:
+        return None
+    for c in contacts:
+        if c.get("folder_id") and any(str(e).lower().endswith("@" + domain) for e in (c.get("emails") or [])):
+            return c["folder_id"]
+    return None
+
+
+def _ct_folders_all(company):
+    r = requests.get(f"{sb_url()}/rest/v1/contractor_client_folders?company=eq.{company}&select=*&order=sort.asc,name.asc&limit=500",
+                     headers=sb_headers(), timeout=8)
+    return r.json() if r.ok else []
+
+
+def _ct_folder_payload(data):
+    out = {}
+    if "name" in data:
+        name = re.sub(r"\s+", " ", str(data.get("name") or "")).strip()[:60]
+        if not name:
+            return None, "Give the folder a name"
+        out["name"] = name
+    if "color" in data:
+        color = str(data.get("color") or "")
+        if not _HEX_COLOR.fullmatch(color):
+            return None, "Pick a colour"
+        out["color"] = color.lower()
+    return out, None
+
+
+@app.route("/api/contractor/<company>/client-folders", methods=["GET"])
+def contractor_client_folders(company):
+    """Client folders (name + colour) and which client is in each. Everyone sees them; Managers edit."""
+    me = _contractor_caller()
+    if company not in CONTRACTOR_COMPANIES or not _ct_can_view(me, company):
+        return jsonify({"ok": False, "error": "not your company"}), 403
+    clients = [{"id": c["id"], "name": (c.get("name") or c.get("org") or "").strip(), "org": c.get("org") or "",
+                "emails": [str(e).lower() for e in (c.get("emails") or [])], "folder_id": c.get("folder_id")}
+               for c in _ct_contacts_all(company) if c.get("kind") in ("client", "potential")]
+    folders = [{"id": f["id"], "name": f.get("name") or "", "color": f.get("color") or "#1e9484"} for f in _ct_folders_all(company)]
+    return jsonify({"ok": True, "folders": folders, "clients": [c for c in clients if c["name"] or c["emails"]],
+                    "can_edit": _ct_can_admin(me, company)})
+
+
+@app.route("/api/contractor/<company>/client-folders", methods=["POST"])
+def contractor_client_folder_create(company):
+    me = _contractor_caller()
+    if company not in CONTRACTOR_COMPANIES or not _ct_can_admin(me, company):
+        return jsonify({"ok": False, "error": "Only a Manager can create client folders"}), 403
+    data = request.get_json() or {}
+    payload, e = _ct_folder_payload({"name": data.get("name"), "color": data.get("color") or "#1e9484"})
+    if e:
+        return jsonify({"ok": False, "error": e}), 400
+    existing = _ct_folders_all(company)
+    if any((f.get("name") or "").lower() == payload["name"].lower() for f in existing):
+        return jsonify({"ok": False, "error": "There is already a folder with that name"}), 409
+    if len(existing) >= 200:
+        return jsonify({"ok": False, "error": "Too many folders"}), 400
+    payload.update(company=company, created_by=me["name"][:80], sort=len(existing))
+    r = requests.post(f"{sb_url()}/rest/v1/contractor_client_folders", json=payload,
+                      headers={**sb_headers(), "Prefer": "return=representation"}, timeout=8)
+    if not (r.ok and r.json()):
+        return jsonify({"ok": False, "error": "Could not create the folder"}), 500
+    f = r.json()[0]
+    return jsonify({"ok": True, "folder": {"id": f["id"], "name": f["name"], "color": f["color"]}})
+
+
+@app.route("/api/contractor/<company>/client-folders/<folder_id>", methods=["PATCH", "DELETE"])
+def contractor_client_folder_edit(company, folder_id):
+    me = _contractor_caller()
+    if company not in CONTRACTOR_COMPANIES or not _ct_can_admin(me, company):
+        return jsonify({"ok": False, "error": "Only a Manager can change client folders"}), 403
+    folder = next((f for f in _ct_folders_all(company) if f["id"] == folder_id), None)
+    if not folder:
+        return jsonify({"ok": False, "error": "Folder not found"}), 404
+    url = f"{sb_url()}/rest/v1/contractor_client_folders?id=eq.{requests.utils.quote(folder_id)}&company=eq.{company}"
+    if request.method == "DELETE":
+        # Its clients and their work orders stay; they just leave the folder
+        requests.patch(f"{sb_url()}/rest/v1/contractor_contacts?company=eq.{company}&folder_id=eq.{requests.utils.quote(folder_id)}",
+                       json={"folder_id": None}, headers=sb_headers(), timeout=8)
+        r = requests.delete(url, headers=sb_headers(), timeout=8)
+        return jsonify({"ok": r.ok})
+    data = request.get_json() or {}
+    payload, e = _ct_folder_payload({k: data[k] for k in ("name", "color") if k in data})
+    if e:
+        return jsonify({"ok": False, "error": e}), 400
+    if payload.get("name") and any((f.get("name") or "").lower() == payload["name"].lower() and f["id"] != folder_id
+                                   for f in _ct_folders_all(company)):
+        return jsonify({"ok": False, "error": "There is already a folder with that name"}), 409
+    if payload:
+        r = requests.patch(url, json=payload, headers={**sb_headers(), "Prefer": "return=representation"}, timeout=8)
+        if not (r.ok and r.json()):
+            return jsonify({"ok": False, "error": "Could not save the folder"}), 500
+        folder = r.json()[0]
+    if isinstance(data.get("client_ids"), list):
+        # The folder's clients are exactly these
+        ids = [str(i) for i in data["client_ids"]][:500]
+        mine = {c["id"] for c in _ct_contacts_all(company)}
+        ids = [i for i in ids if i in mine]
+        requests.patch(f"{sb_url()}/rest/v1/contractor_contacts?company=eq.{company}&folder_id=eq.{requests.utils.quote(folder_id)}",
+                       json={"folder_id": None}, headers=sb_headers(), timeout=8)
+        if ids:
+            requests.patch(f"{sb_url()}/rest/v1/contractor_contacts?company=eq.{company}&id=in.({','.join(ids)})",
+                           json={"folder_id": folder_id}, headers=sb_headers(), timeout=8)
+    return jsonify({"ok": True, "folder": {"id": folder["id"], "name": folder.get("name"), "color": folder.get("color")}})
 
 
 def _ct_remember_contacts(company, emails, org, by):

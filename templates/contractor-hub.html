@@ -72,14 +72,14 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
 
   <div class="tile-grid">
 
-    <a class="tile" href="/contractor/workorders?company=hicons" id="tile-hicons" style="display:none;">
+    <a class="tile" href="/contractor/projects?company=hicons" id="tile-hicons" style="display:none;">
       <div class="tile-icon icon-teal">&#127959;&#65039;</div>
       <div class="tile-name">Hicons</div>
       <div class="tile-desc">Projects, work orders, dashboard, invoicing and settings for Hicons.</div>
       <div class="tile-arrow">&#8594;</div>
     </a>
 
-    <a class="tile" href="/contractor/workorders?company=bsynch" id="tile-bsynch" style="display:none;">
+    <a class="tile" href="/contractor/projects?company=bsynch" id="tile-bsynch" style="display:none;">
       <div class="tile-icon icon-blue">&#127970;</div>
       <div class="tile-name">Bsynch</div>
       <div class="tile-desc">Projects, work orders, dashboard, invoicing and settings for Bsynch.</div>
@@ -118,7 +118,7 @@ try { localStorage.removeItem('ctOpenDictate'); } catch(e) {}
 fetch('/api/contractor/me').then(function(r){ return r.json(); }).then(function(me){
   document.getElementById('hubLoading').style.display = 'none';
   var slugs = Object.keys(me.access || {});
-  if(slugs.length === 1 && !me.is_super){ location.replace('/contractor/workorders?company=' + slugs[0]); return; }
+  if(slugs.length === 1 && !me.is_super){ location.replace('/contractor/projects?company=' + slugs[0]); return; }
   slugs.forEach(function(slug){
     var t = document.getElementById('tile-' + slug);
     if(t) t.style.display = '';

@@ -6,6 +6,7 @@
 <title>Projects – Contractor</title>
 <script src="/static/contractor-scope.js"></script>
 <script src="/static/ct-return.js"></script>
+<script src="/static/ct-folders.js"></script>
 <script src="/static/theme.js"></script>
 <script>document.documentElement.setAttribute('data-theme','light');</script>
 <link rel="stylesheet" href="/static/themes.css">
@@ -44,6 +45,12 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
 .proj-card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;cursor:pointer;transition:border-color .15s,box-shadow .15s;box-shadow:0 1px 4px rgba(0,0,0,.06);}
 .proj-card:hover,.proj-card.active{border-color:#1e9484;box-shadow:0 2px 8px rgba(30,148,132,.15);}
 .proj-card-body{padding:20px 22px;}
+.proj-card.cf-card{border-left:7px solid #1e9484;}
+.cf-ico{display:inline-block;width:26px;height:20px;border-radius:3px 3px 5px 5px;position:relative;margin-right:10px;vertical-align:-1px;}
+.cf-ico:before{content:"";position:absolute;left:0;top:-4px;width:11px;height:6px;border-radius:3px 3px 0 0;background:inherit;}
+.cf-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px;color:#64748b;}
+.cf-btn{padding:8px 14px;border-radius:9px;border:1px solid #8fcfc2;background:#fff;color:#0f766e!important;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;}
+.cf-btn:hover{background:#f0faf7;}
 .proj-top{display:flex;align-items:flex-start;gap:14px;}
 .proj-ring{position:relative;width:56px;height:56px;flex-shrink:0;}
 .proj-ring svg{width:56px;height:56px;transform:rotate(-90deg);}
@@ -520,6 +527,11 @@ var woStepCount=0;
 var woForProjectId=null; // captured when modal opens
 var userName=(window.CT&&CT.user)||localStorage.getItem('mbrName')||localStorage.getItem('companyUser')||'User';
 var NO_PROJECT='__none__';
+// Client folders (the client master): loose work orders are grouped by their client's folder
+var cfData={folders:[],clients:[],can_edit:false}, cfOf=function(){return null;};
+function jobGroup(j){if(j.project_id)return j.project_id;var f=cfOf(j);return f?'__f_'+f.id:NO_PROJECT;}
+function isVirtualGroup(id){return !id||String(id).indexOf('__')===0;}
+function openClientFolders(){CTFolders.open(CT.company,loadAll);}
 
 // ── Boot ──
 fetch('/api/contractor/me').then(r=>r.json()).then(me=>{
@@ -532,19 +544,24 @@ fetch('/api/contractor/me').then(r=>r.json()).then(me=>{
   }
 }).catch(()=>{}).finally(loadAll);
 function loadAll(){
-  Promise.all([fetch('/api/contractor/projects').then(r=>r.json()),fetch('/api/contractor/jobs').then(r=>r.json())])
-    .then(([projs,jobs])=>{
+  Promise.all([fetch('/api/contractor/projects').then(r=>r.json()),fetch('/api/contractor/jobs').then(r=>r.json()),
+    CT.company?fetch('/api/contractor/'+encodeURIComponent(CT.company)+'/client-folders').then(r=>r.json()).catch(()=>({})):Promise.resolve({})])
+    .then(([projs,jobs,cf])=>{
       projs=Array.isArray(projs)?projs:[];jobs=Array.isArray(jobs)?jobs:[];
+      cfData=(cf&&cf.ok)?cf:{folders:[],clients:[],can_edit:false};cfOf=CTFolders.indexer(cfData);
       var loose=jobs.filter(j=>!j.project_id);
-      allProjects=projs;
-      if(loose.length) allProjects=[{id:NO_PROJECT,name:window._memberOnly?'Work orders':'Work orders (no project)',jobs:loose,virtual:true}].concat(projs);
+      var groups=cfData.folders.map(f=>({id:'__f_'+f.id,name:f.name,color:f.color,folder:true,virtual:true,jobs:loose.filter(j=>{var x=cfOf(j);return x&&x.id===f.id;})}))
+        .filter(g=>g.jobs.length||cfData.can_edit);
+      var unfiled=loose.filter(j=>!cfOf(j));
+      if(unfiled.length) groups.push({id:NO_PROJECT,name:cfData.folders.length?'Other work orders':(window._memberOnly?'Work orders':'Work orders (no project)'),jobs:unfiled,virtual:true});
+      allProjects=groups.concat(projs);
       var full={};jobs.forEach(j=>{full[j.id]=j;});
       allJobs=allProjects.reduce((acc,p)=>acc.concat(p.jobs||[]),[]).map(j=>full[j.id]?Object.assign({},j,full[j.id]):j);
       updateKPIs(); renderProjects();
       if(!window._woAutoOpened&&new URLSearchParams(location.search).get('new')==='1'){window._woAutoOpened=true;openWoModal(null);}
-      var qJob=new URLSearchParams(location.search).get('job');if(qJob&&!window._jobAutoOpened){window._jobAutoOpened=true;var qj=allJobs.find(j=>j.id===qJob);if(qj){selectProject(qj.project_id||NO_PROJECT);openJobDetail(qJob);}}
+      var qJob=new URLSearchParams(location.search).get('job');if(qJob&&!window._jobAutoOpened){window._jobAutoOpened=true;var qj=allJobs.find(j=>j.id===qJob);if(qj){selectProject(jobGroup(qj));openJobDetail(qJob);}}
       if(openProjId) renderPanel(openProjId);
-      if(window._openAfterLoad){var nid=window._openAfterLoad;window._openAfterLoad=null;var nj=allJobs.find(j=>j.id===nid);if(nj){selectProject(nj.project_id||NO_PROJECT);openJobDetail(nid);}}
+      if(window._openAfterLoad){var nid=window._openAfterLoad;window._openAfterLoad=null;var nj=allJobs.find(j=>j.id===nid);if(nj){selectProject(jobGroup(nj));openJobDetail(nid);}}
     }).catch(()=>document.getElementById('projList').innerHTML='<div class="spinner">Error loading data.</div>');
 }
 
@@ -560,12 +577,13 @@ function updateKPIs(){
 // ── Project list ──
 function renderProjects(){
   var el=document.getElementById('projList');
+  var cfBar=cfData.can_edit?'<div class="cf-bar"><button type="button" class="cf-btn" onclick="openClientFolders()">&#128193; Client folders</button><span>'+(cfData.folders.length?'Name, colour and clients of each folder':'Group work orders by client')+'</span></div>':'';
   if(!allProjects.length){
-    el.innerHTML='<div class="empty-state"><div class="icon">&#128196;</div><p>No projects yet.<br>Create your first project.</p></div>';
+    el.innerHTML=cfBar+'<div class="empty-state"><div class="icon">&#128196;</div><p>No projects yet.<br>Create your first project.</p></div>';
     return;
   }
-  el.innerHTML=allProjects.map(p=>{
-    var pjobs=allJobs.filter(j=>(j.project_id||NO_PROJECT)===p.id);
+  el.innerHTML=cfBar+allProjects.map(p=>{
+    var pjobs=allJobs.filter(j=>jobGroup(j)===p.id);
     var pct=pjobs.length?Math.round(pjobs.reduce((s,j)=>s+parseFloat(j.progress_pct||0),0)/pjobs.length):0;
     var open=pjobs.filter(j=>j.status==='open').length;
     var inp=pjobs.filter(j=>j.status==='in_progress').length;
@@ -574,7 +592,7 @@ function renderProjects(){
     // Ring SVG (r=22, circ=138.2)
     var circ=138.2, dash=circ*pct/100;
     var clr=pct>=100?'#22c55e':pct>=60?'#1e9484':pct>=30?'#4f8ef7':'#f59e0b';
-    return '<div class="proj-card'+active+'" onclick="selectProject(\''+p.id+'\')">'+
+    return '<div class="proj-card'+active+(p.folder?' cf-card':'')+'"'+(p.folder?' style="border-left-color:'+esc(p.color)+'"':'')+' onclick="selectProject(\''+p.id+'\')">'+
       '<div class="proj-card-body">'+
       '<div class="proj-top">'+
       '<div class="proj-ring">'+
@@ -582,7 +600,7 @@ function renderProjects(){
         '<div class="proj-ring-pct">'+pct+'%</div>'+
       '</div>'+
       '<div class="proj-meta">'+
-        '<div class="proj-name">'+esc(p.name)+'</div>'+
+        '<div class="proj-name">'+(p.folder?'<span class="cf-ico" style="background:'+esc(p.color)+'"></span>':'')+esc(p.name)+'</div>'+
         '<div class="proj-chips">'+
           (inp?'<span class="chip chip-active">'+inp+' active</span>':'')+
           (open?'<span class="chip chip-count">'+open+' open</span>':'')+
@@ -615,7 +633,7 @@ function closePanel(){
 function renderPanel(projId){
   var proj=allProjects.find(p=>p.id===projId);
   if(!proj) return;
-  var pjobs=allJobs.filter(j=>(j.project_id||NO_PROJECT)===projId);
+  var pjobs=allJobs.filter(j=>jobGroup(j)===projId);
   var pct=pjobs.length?Math.round(pjobs.reduce((s,j)=>s+parseFloat(j.progress_pct||0),0)/pjobs.length):0;
   document.getElementById('rpName').value=proj.name;
   document.getElementById('rpName').readOnly=!!proj.virtual;
@@ -949,7 +967,7 @@ function deleteProject(id){
 // ── Create Work Order (inside project) ──
 function openWoModal(projectId){
   if(projectId===undefined) projectId=openProjId;
-  if(projectId===NO_PROJECT) projectId=null;
+  if(isVirtualGroup(projectId)) projectId=null;
   woForProjectId=projectId||null;
   woBefore=[];renderWoBefore();setWoMode('simple');setWoSlot('');setWoHours(0);
   var qd=new URLSearchParams(location.search).get('date');window._woSchedDate=/^\d{4}-\d{2}-\d{2}$/.test(qd||'')?qd:null;
@@ -1123,7 +1141,7 @@ function doSaveProjectName(){
   var newName=(input.value||'').trim();
   document.getElementById('rpSaveBtn').style.display='none';
   input.style.borderBottomColor='transparent';
-  if(!newName||!openProjId||openProjId===NO_PROJECT){
+  if(!newName||!openProjId||isVirtualGroup(openProjId)){
     var orig=(allProjects.find(function(p){return p.id===openProjId;})||{}).name||'';
     input.value=orig;
     return;

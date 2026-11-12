@@ -361,3 +361,17 @@ alter table contractor_support_log enable row level security;
 alter table contractor_jobs add column if not exists needs_return boolean default false;
 alter table contractor_jobs add column if not exists return_reason text default '';
 alter table contractor_jobs add column if not exists return_requested_at timestamptz;
+
+-- Client folders: the company's client master, a name and a colour per folder
+create table if not exists contractor_client_folders (
+  id uuid primary key default gen_random_uuid(),
+  company text not null,
+  name text not null default '',
+  color text not null default '#1e9484',
+  sort int not null default 0,
+  created_by text default '',
+  created_at timestamptz default now()
+);
+create index if not exists contractor_client_folders_company_idx on contractor_client_folders(company);
+alter table contractor_client_folders enable row level security;
+alter table contractor_contacts add column if not exists folder_id uuid references contractor_client_folders(id) on delete set null;
