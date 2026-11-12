@@ -1085,7 +1085,7 @@ function submitWo(){
       }
       var newId=res.job.id;
       var work=stepNames.length?fetch('/api/contractor/jobs/'+newId+'/steps',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({steps:stepNames})}):Promise.resolve();
-      return work.then(function(){return uploadWoBefore(newId);}).then(function(){return uploadWoMaterials(newId);})
+      return work.then(function(){return uploadWoBefore(newId);})
         .then(function(){
           window._openAfterLoad=newId;
           closeWoModal();
