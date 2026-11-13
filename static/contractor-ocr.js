@@ -104,7 +104,7 @@ function runOcr() {
 function renderOcrResults() {
   if (!ocrItems.length) {
     document.getElementById('ocrResults').innerHTML =
-      '<div style="color:#64748b;text-align:center;padding:16px;">No line items found.</div>';
+      '<div style="color:#566275;text-align:center;padding:16px;">No line items found.</div>';
     return;
   }
 
@@ -112,7 +112,7 @@ function renderOcrResults() {
   container.innerHTML = '';
 
   var hdr = document.createElement('div');
-  hdr.style.cssText = 'font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;';
+  hdr.style.cssText = 'font-size:12px;font-weight:700;color:#566275;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;';
   hdr.textContent = 'Found ' + ocrItems.length + ' item(s) — assign quantities per Work Order:';
   container.appendChild(hdr);
 
@@ -162,7 +162,7 @@ function renderOcrResults() {
     foot.appendChild(spacer);
 
     var stockLbl = document.createElement('label');
-    stockLbl.style.cssText = 'font-size:11px;color:#94a3b8;font-weight:700;';
+    stockLbl.style.cssText = 'font-size:11px;color:#566275;font-weight:700;';
     stockLbl.textContent = '📦 Stock:';
     foot.appendChild(stockLbl);
 
@@ -177,7 +177,7 @@ function renderOcrResults() {
     foot.appendChild(stockInput);
 
     var unitSpan = document.createElement('span');
-    unitSpan.style.cssText = 'font-size:11px;color:#64748b;';
+    unitSpan.style.cssText = 'font-size:11px;color:#566275;';
     unitSpan.textContent = unit;
     foot.appendChild(unitSpan);
     itemDiv.appendChild(foot);
@@ -229,7 +229,7 @@ function buildWoRow(itemIdx, rowIdx, selectedJobId, qty, unit) {
 
   // Unit label
   var unitSpan = document.createElement('span');
-  unitSpan.style.cssText = 'font-size:11px;color:#64748b;white-space:nowrap;';
+  unitSpan.style.cssText = 'font-size:11px;color:#566275;white-space:nowrap;';
   unitSpan.textContent = unit;
   row.appendChild(unitSpan);
 

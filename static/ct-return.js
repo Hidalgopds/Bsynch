@@ -11,17 +11,17 @@
     st.textContent =
       '.ct-ret{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:400;font-family:"Segoe UI",system-ui,sans-serif}' +
       '.ct-ret-box{background:#fff;color:#0f172a;border-radius:16px;padding:20px;width:100%;max-width:440px;max-height:92vh;overflow:auto}' +
-      '.ct-ret-box h3{font-size:17px;margin:0 0 2px}.ct-ret-sub{font-size:13px;color:#64748b;margin-bottom:12px}' +
+      '.ct-ret-box h3{font-size:17px;margin:0 0 2px}.ct-ret-sub{font-size:13px;color:#566275;margin-bottom:12px}' +
       '.ct-ret-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}' +
       '.ct-ret-chips button{padding:6px 11px;border-radius:20px;border:1px solid #cbd5e1;background:#fff;color:#334155;font-size:12.5px;font-weight:600;cursor:pointer}' +
-      '.ct-ret-chips button.on{background:#e3f3ef;border-color:#1e9484;color:#0f766e}' +
-      '.ct-ret label{display:block;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.4px;font-weight:700;margin:10px 0 4px}' +
+      '.ct-ret-chips button.on{background:#e3f3ef;border-color:#0f766e;color:#0f766e}' +
+      '.ct-ret label{display:block;font-size:11px;color:#566275;text-transform:uppercase;letter-spacing:.4px;font-weight:700;margin:10px 0 4px}' +
       '.ct-ret textarea,.ct-ret input,.ct-ret select{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:9px;padding:9px 11px;font-size:14px;font-family:inherit;background:#fff;color:#0f172a}' +
       '.ct-ret-two{display:grid;grid-template-columns:1fr 1fr;gap:10px}' +
-      '.ct-ret-hint{font-size:12px;color:#64748b;margin-top:4px}' +
+      '.ct-ret-hint{font-size:12px;color:#566275;margin-top:4px}' +
       '.ct-ret-act{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}' +
       '.ct-ret-act button{padding:9px 16px;border-radius:9px;font-weight:700;font-size:14px;cursor:pointer;border:1px solid #8fcfc2;background:#fff;color:#0f766e}' +
-      '.ct-ret-act button.go{background:#1e9484;border-color:#1e9484;color:#fff}.ct-ret-act button:disabled{opacity:.6}' +
+      '.ct-ret-act button.go{background:#0f766e;border-color:#0f766e;color:#fff}.ct-ret-act button:disabled{opacity:.6}' +
       '.ct-ret-msg{color:#b91c1c;font-size:13px;margin-top:8px;min-height:16px;text-align:right}';
     document.head.appendChild(st);
   }

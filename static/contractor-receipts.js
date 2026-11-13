@@ -60,7 +60,7 @@ function renderReceipts(list) {
     + '<div class="rc-msg" id="rcMsg"></div></div>';
   html += '<div class="rc-total"><span>Purchases on this job</span><b>' + rcMoney(total) + '</b></div>';
   if (!list.length) {
-    html += '<div style="text-align:center;padding:20px;color:#64748b;font-size:13px;">No receipts yet.</div>';
+    html += '<div style="text-align:center;padding:20px;color:#566275;font-size:13px;">No receipts yet.</div>';
   } else {
     list.forEach(function (r) {
       html += '<div class="rc-item" id="rc-' + r.id + '">'
@@ -154,7 +154,7 @@ function renderVisits(list) {
     + '<div class="rc-msg" id="vMsg"></div></div>';
   var hours = list.reduce(function (s, v) { return s + (parseFloat(v.hours) || 0); }, 0);
   html += '<div class="rc-total"><span>' + list.length + ' visit' + (list.length === 1 ? '' : 's') + '</span><b>' + (hours ? hours + ' h' : '') + '</b></div>';
-  if (!list.length) html += '<div style="text-align:center;padding:20px;color:#64748b;font-size:13px;">No visits yet.</div>';
+  if (!list.length) html += '<div style="text-align:center;padding:20px;color:#566275;font-size:13px;">No visits yet.</div>';
   list.slice().reverse().forEach(function (v, i) {
     var n = list.length - i;
     // Managers fix or delete any visit; everyone else only the ones they wrote

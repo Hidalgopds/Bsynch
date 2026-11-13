@@ -13,37 +13,37 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f4f8;color:#0f172a;min-height:100vh;display:flex;flex-direction:column;}
 header{padding:14px 20px;display:flex;align-items:center;gap:12px;background:#19354d;color:#e2e8f0;}
-.logo-badge{width:36px;height:36px;background:linear-gradient(135deg,#1e9484,#4f8ef7);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;flex-shrink:0;}
+.logo-badge{width:36px;height:36px;background:linear-gradient(135deg,#0f766e,#4f8ef7);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;flex-shrink:0;}
 .hdr-title{font-size:17px;font-weight:700;}
 .hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
 .btn-back{padding:6px 14px;border:1px solid rgba(255,255,255,.3);border-radius:7px;color:#e2e8f0;font-size:12px;text-decoration:none;}
 .content{flex:1;padding:22px 16px 60px;max-width:900px;width:100%;margin:0 auto;}
 h1{font-size:22px;margin-bottom:4px;}
-.sub{font-size:14px;color:#64748b;margin-bottom:14px;line-height:1.5;}
+.sub{font-size:14px;color:#566275;margin-bottom:14px;line-height:1.5;}
 .sender{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:10px 14px;font-size:13px;color:#475569;margin-bottom:14px;}
 .tabs{display:flex;gap:6px;margin-bottom:14px;}
 .tab{padding:8px 16px;border-radius:9px;border:1px solid #cbd5e1;background:#fff;color:#475569;font-size:13px;font-weight:700;cursor:pointer;}
-.tab.active{border-color:#1e9484;background:#e3f3ef;color:#0f766e;}
+.tab.active{border-color:#0f766e;background:#e3f3ef;color:#115e59;}
 .tab small{margin-left:4px;color:#b91c1c;}
 .alert{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px 16px;margin-bottom:10px;}
 .alert.off{opacity:.7;}
 .a-top{display:flex;align-items:center;gap:10px;}
 .a-icon{font-size:20px;}
 .a-title{font-weight:700;font-size:15px;flex:1;}
-.a-help{font-size:13px;color:#64748b;margin:4px 0 10px 30px;}
+.a-help{font-size:13px;color:#566275;margin:4px 0 10px 30px;}
 .a-body{margin-left:30px;display:flex;flex-direction:column;gap:8px;}
 .alert.off .a-body{display:none;}
 .switch{position:relative;width:44px;height:24px;flex-shrink:0;}
 .switch input{opacity:0;width:0;height:0;}
 .switch span{position:absolute;inset:0;background:#cbd5e1;border-radius:24px;cursor:pointer;transition:background .15s;}
 .switch span::before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .15s;}
-.switch input:checked + span{background:#1e9484;}
+.switch input:checked + span{background:#0f766e;}
 .switch input:checked + span::before{transform:translateX(20px);}
 .switch input:focus-visible + span{outline:2px solid #0f766e;outline-offset:2px;}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:13px;}
-.row .lbl{color:#64748b;font-weight:600;min-width:64px;}
+.row .lbl{color:#566275;font-weight:600;min-width:64px;}
 .chk{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid #cbd5e1;border-radius:20px;cursor:pointer;background:#fff;}
-.chk input{accent-color:#1e9484;}
+.chk input{accent-color:#0f766e;}
 .row input[type=text],.row input[type=number],.row select{padding:7px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff;color:#0f172a;font-family:inherit;}
 .row input.emails{flex:1;min-width:200px;}
 .row input[type=number]{width:96px;}
@@ -54,18 +54,18 @@ h1{font-size:22px;margin-bottom:4px;}
 .err{font-size:12px;color:#dc2626;}
 .tools{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
 .chip{padding:6px 12px;border-radius:20px;border:1px solid #cbd5e1;background:#fff;color:#475569;font-size:12px;font-weight:600;cursor:pointer;}
-.chip.on{background:#1e9484;border-color:#1e9484;color:#fff;}
+.chip.on{background:#0f766e;border-color:#0f766e;color:#fff;}
 .tools input{flex:1;min-width:180px;padding:7px 12px;border:1px solid #cbd5e1;border-radius:9px;font-size:13px;background:#fff;color:#0f172a;}
 .wrap{background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow-x:auto;}
 table{width:100%;border-collapse:collapse;font-size:13px;min-width:640px;}
-th{text-align:left;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:.4px;padding:10px;border-bottom:1px solid #e2e8f0;}
+th{text-align:left;color:#566275;font-size:11px;text-transform:uppercase;letter-spacing:.4px;padding:10px;border-bottom:1px solid #e2e8f0;}
 td{padding:9px 10px;border-bottom:1px solid #f1f5f9;vertical-align:top;}
-td small{display:block;color:#64748b;font-size:11px;}
+td small{display:block;color:#566275;font-size:11px;}
 .st-ok{color:#15803d;font-weight:700;white-space:nowrap;}
 .st-bad{color:#b91c1c;font-weight:700;white-space:nowrap;}
 .kind{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:#f1f5f9;color:#334155;white-space:nowrap;}
-.empty{text-align:center;color:#64748b;padding:30px;}
-footer{text-align:center;padding:16px;font-size:12px;color:#94a3b8;}
+.empty{text-align:center;color:#566275;padding:30px;}
+footer{text-align:center;padding:16px;font-size:12px;color:#566275;}
 </style>
 </head>
 <body data-ct-hub>
@@ -117,9 +117,9 @@ function renderAlerts(){
   document.getElementById('panel-alerts').innerHTML = ORDER.map(function(k){
     var a = D.alerts[k], c = D.catalog[k], targets = Object.keys(D.targets).filter(function(t){ return t !== 'assigned' || k === 'tomorrow_jobs'; });
     var param = '';
-    if(k === 'tomorrow_jobs') param = '<div class="row"><span class="lbl">Send at</span><select data-p="hour">' + [12,13,14,15,16,17,18,19,20,21].map(function(h){ return '<option value="' + h + '"' + (h === a.hour ? ' selected' : '') + '>' + hourLabel(h) + '</option>'; }).join('') + '</select><span class="muted" style="color:#64748b;">Houston time</span></div>';
-    if(k === 'expense_over') param = '<div class="row"><span class="lbl">From $</span><input type="number" min="0" step="50" data-p="amount" value="' + a.amount + '"></div>';
-    if(k === 'invoice_overdue') param = '<div class="row"><span class="lbl">After</span><input type="number" min="1" max="365" data-p="days" value="' + a.days + '"> days unpaid</div>';
+    if(k === 'tomorrow_jobs') param = '<div class="row"><span class="lbl">Send at</span><select data-p="hour" aria-label="Send at hour">' + [12,13,14,15,16,17,18,19,20,21].map(function(h){ return '<option value="' + h + '"' + (h === a.hour ? ' selected' : '') + '>' + hourLabel(h) + '</option>'; }).join('') + '</select><span class="muted" style="color:#566275;">Houston time</span></div>';
+    if(k === 'expense_over') param = '<div class="row"><span class="lbl">From $</span><input type="number" min="0" step="50" data-p="amount" aria-label="Amount in dollars" value="' + a.amount + '"></div>';
+    if(k === 'invoice_overdue') param = '<div class="row"><span class="lbl">After</span><input type="number" min="1" max="365" data-p="days" aria-label="Days unpaid" value="' + a.days + '"> days unpaid</div>';
     var who = recipients(k, a);
     return '<div class="alert' + (a.on ? '' : ' off') + '" data-k="' + k + '">' +
       '<div class="a-top"><span class="a-icon">' + c.icon + '</span><span class="a-title">' + esc(c.label) + '</span>' +

@@ -416,7 +416,7 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
   <div class="modal">
     <h3>✂️ Recortar foto</h3>
     <div class="crop-viewport" id="cropViewport">
-      <img id="cropImg" draggable="false">
+      <img id="cropImg" draggable="false" alt="Photo to crop">
     </div>
     <div class="field-row" style="margin-top:16px;">
       <span style="font-size:12px;color:#94a3b8;">🔍</span>
@@ -677,7 +677,7 @@ function renderChecklist(){
     var tasksHtml = b.tasks.map(function(t){
       var doneCls = t.completed ? ' done' : '';
       var badge = t.is_premium ? '<span class="task-badge">🔒 Premium</span>' : '';
-      var img = t.has_image ? '<img class="task-image" src="' + API + '/tasks/' + t.id + '/image">' : '';
+      var img = t.has_image ? '<img class="task-image" alt="" src="' + API + '/tasks/' + t.id + '/image">' : '';
       var extra = '';
       if(t.is_mental_game && t.completed && t.completed_game_id){
         var g = state.gamesCache.find(function(gg){ return gg.id === t.completed_game_id; });
@@ -1222,7 +1222,7 @@ function confirmCrop(){
 
 function renderKidPhotoPreview(){
   document.getElementById('newKidPhotoPreview').innerHTML = newKidPhotoDataUrls.map(function(url, i){
-    return '<div style="position:relative;"><img src="' + url + '" style="width:48px;height:48px;border-radius:10px;object-fit:cover;">' +
+    return '<div style="position:relative;"><img alt="" src="' + url + '" style="width:48px;height:48px;border-radius:10px;object-fit:cover;">' +
       '<button type="button" onclick="removeKidPhotoPreview(' + i + ')" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:#ef4444;color:#fff;border:none;font-size:11px;cursor:pointer;line-height:1;">✕</button></div>';
   }).join('');
 }
@@ -1334,7 +1334,7 @@ function loadBlocksSettings(){
     state.blocksCache = blocks;
     document.getElementById('blocksSettingsList').innerHTML = blocks.map(function(b){
       var tasksHtml = b.tasks.map(function(t){
-        var thumb = t.task_image ? '<img src="' + t.task_image + '" style="width:32px;height:32px;border-radius:8px;object-fit:cover;">' : '';
+        var thumb = t.task_image ? '<img alt="" src="' + t.task_image + '" style="width:32px;height:32px;border-radius:8px;object-fit:cover;">' : '';
         return '<div class="list-item">' + thumb + '<span class="li-title">' + escapeHtml(t.title) + '</span>' +
           '<div class="li-badges">' +
           (t.is_mental_game ? (t.is_premium ? '<span class="chip">⭐ Premium</span>' : '<span class="chip">🎡 Ruleta</span>') : '') +

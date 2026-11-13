@@ -502,7 +502,7 @@ function handlePhotoSelect(input) {
       var wrap = document.createElement('div');
       wrap.className = 'photo-thumb-wrap';
       var idx = pendingFiles.length - 1;
-      wrap.innerHTML = '<img class="photo-thumb" src="' + e.target.result + '">' +
+      wrap.innerHTML = '<img class="photo-thumb" alt="Issue photo" src="' + e.target.result + '">' +
         '<button class="rm" onclick="removePhoto(' + idx + ',this.parentNode)">x</button>';
       document.getElementById('photoPreviews').appendChild(wrap);
     };

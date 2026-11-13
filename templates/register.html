@@ -299,7 +299,7 @@
         var r = await fetch('/api/self-register', {
           method: 'POST',
           headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({name:name, phone:phone, trade:trade, led_by:lead})
+          body: JSON.stringify({name:name, phone:phone, trade:trade, led_by:lead, website:(document.getElementById('hp_website')||{}).value||''})
         });
         var d = await r.json();
         if(!r.ok || d.error){
@@ -327,5 +327,6 @@
       e.scrollIntoView({behavior:'smooth', block:'nearest'});
     }
   </script>
+<input id="hp_website" name="website" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
 </body>
 </html>

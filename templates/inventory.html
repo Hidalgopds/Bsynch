@@ -2339,7 +2339,7 @@ function openReceivePO(poId){
     (po.photos||[]).forEach(function(src){
       var img = document.createElement('img');
       img.src = src; img.style.cssText='width:64px;height:64px;object-fit:cover;border-radius:6px;cursor:pointer;';
-      img.onclick = function(){var w=window.open();if(w)w.document.write('<img src="'+src+'" style="max-width:100%">');};
+      img.onclick = function(){var w=window.open();if(w)w.document.write('<img alt="Document photo" src="'+src+'" style="max-width:100%">');};
       document.getElementById('rcvPhotoPreview').appendChild(img);
       _rcvPhotos.push(src);
     });
@@ -2359,7 +2359,7 @@ function handleRcvPhotos(e){
       var img = document.createElement('img');
       img.src = ev.target.result;
       img.style.cssText='width:64px;height:64px;object-fit:cover;border-radius:6px;cursor:pointer;';
-      img.onclick=function(){var w=window.open();if(w)w.document.write('<img src="'+ev.target.result+'" style="max-width:100%">');};
+      img.onclick=function(){var w=window.open();if(w)w.document.write('<img alt="Selected photo" src="'+ev.target.result+'" style="max-width:100%">');};
       preview.appendChild(img);
     };
     reader.readAsDataURL(f);
@@ -3305,7 +3305,7 @@ function openDispDetail(r){
   matsHtml+='</table>';
   var sigImg=r.signature_data
     ?'<div style="margin-top:8px;background:#fff;border:1px solid #bbf7d0;border-radius:6px;overflow:hidden;text-align:center;padding:4px;">'
-      +'<img src="'+r.signature_data+'" style="max-width:100%;max-height:90px;object-fit:contain;">'
+      +'<img alt="Signature" src="'+r.signature_data+'" style="max-width:100%;max-height:90px;object-fit:contain;">'
       +'</div>'
     :'';
   var pickupHtml=r.pickup_by
@@ -3372,7 +3372,7 @@ function printDispDetail(){
     +'<div style="margin-top:16px;padding:10px;background:#f0fdf4;border-radius:6px;">'
       +'<b>Picked Up By:<\/b> '+(r.pickup_by||'_________________________')+'<br>'
       +'<b>Date:<\/b> '+(r.delivered_at?fmtDate(r.delivered_at):'_________________________')
-      +(r.signature_data?'<div style="margin-top:8px;border-top:1px solid #bbf7d0;padding-top:8px;"><img src="'+r.signature_data+'" style="max-width:200px;max-height:70px;object-fit:contain;"><\/div>':'<div style="margin-top:20px;border-top:1px solid #86efac;font-size:11px;color:#15803d;">Signature<\/div>')
+      +(r.signature_data?'<div style="margin-top:8px;border-top:1px solid #bbf7d0;padding-top:8px;"><img alt="Signature" src="'+r.signature_data+'" style="max-width:200px;max-height:70px;object-fit:contain;"><\/div>':'<div style="margin-top:20px;border-top:1px solid #86efac;font-size:11px;color:#15803d;">Signature<\/div>')
     +'<\/div>'
     +'<div style="margin-top:12px;padding:10px;background:#f8fafc;border-radius:6px;font-size:11px;color:#64748b;">'
       +'Approved by: '+(r.approved_by||'—')+' · '+fmtDate(r.approved_at)+'<br>'
@@ -3782,7 +3782,7 @@ function renderFacts(list){
     var card=document.createElement('div');card.className='fact-card';
     if(f.foto){
       var img=document.createElement('img');img.className='fact-card__img';img.src=f.foto;
-      img.onclick=function(){var w=window.open();if(w)w.document.write('<img src="'+f.foto+'" style="max-width:100%">');};
+      img.onclick=function(){var w=window.open();if(w)w.document.write('<img alt="Invoice photo" src="'+f.foto+'" style="max-width:100%">');};
       card.appendChild(img);
     }
     var body=document.createElement('div');body.className='fact-card__body';
@@ -4191,7 +4191,7 @@ async function deleteMaterial(id){
         <input type="file" id="factFoto" accept="image/*" capture="environment" style="display:none">
         <span id="factUploadText">📷 Tap to take a photo or choose image</span>
       </label>
-      <img id="factPreview" style="display:none;width:100%;max-height:200px;object-fit:contain;border-radius:8px;border:1px solid var(--border);margin:8px 0;">
+      <img id="factPreview" alt="Invoice preview" style="display:none;width:100%;max-height:200px;object-fit:contain;border-radius:8px;border:1px solid var(--border);margin:8px 0;">
 
       <div id="factOcrBox" style="margin:8px 0;">
         <button type="button" class="fact-ocr-btn" id="factOcrBtn" disabled>👁 Read invoice text (OCR)</button>

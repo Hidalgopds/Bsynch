@@ -226,7 +226,7 @@
 [data-theme="light"] .gnav-link.gna { color: #5eead4 !important; }
 
 /* Footer */
-[data-theme="light"] footer { color: #64748b !important; border-top-color: #e2e8f0 !important; }
+[data-theme="light"] footer { color: #566275 !important; border-top-color: #e2e8f0 !important; }
 
 /* Toast */
 [data-theme="light"] #toast { background: #1e293b !important; color: #e2e8f0 !important; }

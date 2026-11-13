@@ -2565,6 +2565,63 @@ LEGAL_CONTACT = os.environ.get("LEGAL_CONTACT_EMAIL", "info@hidalgoops.com")
 LEGAL_UPDATED = "November 13, 2026"
 
 
+@app.route("/robots.txt")
+def robots_txt():
+    """BSynch is a private app: ask search engines not to crawl any of it."""
+    return Response("User-agent: *\nDisallow: /\n", mimetype="text/plain", headers={"Cache-Control": "public, max-age=86400"})
+
+
+_ERROR_TEXT = {404: ("Page not found", "The link may be old or mistyped."),
+               405: ("Not allowed", "That action isn't available here."),
+               500: ("Something went wrong", "We couldn't finish that. Try again in a moment.")}
+
+
+def _error_page(code):
+    title, msg = _ERROR_TEXT.get(code, _ERROR_TEXT[500])
+    if request.path.startswith("/api/"):
+        return jsonify({"ok": False, "error": title.lower()}), code
+    return render_template("error.html", code=code, title=title, message=msg), code
+
+
+@app.errorhandler(404)
+def _not_found(e):
+    return _error_page(404)
+
+
+@app.errorhandler(405)
+def _not_allowed(e):
+    return _error_page(405)
+
+
+@app.errorhandler(500)
+def _server_error(e):
+    return _error_page(500)
+
+
+# ── Public forms (sign-up, invites, estimate answers): a hidden trap field and per-IP limits ──
+_PUBLIC_FORMS = [(r"/api/register", "f-register", 20, 3600), (r"/api/self-register", "f-selfreg", 30, 3600),
+                 (r"/api/forgot-password", "f-forgot", 5, 900), (r"/api/reset-password", "f-reset", 10, 900),
+                 (r"/api/join/[^/]+/[^/]+", "f-join", 30, 3600), (r"/api/public/estimate/[^/]+/answer", "f-estimate", 20, 3600)]
+
+
+@app.before_request
+def _public_form_guard():
+    if request.method != "POST":
+        return None
+    for pat, bucket, limit, window in _PUBLIC_FORMS:
+        if re.fullmatch(pat, request.path):
+            body = request.get_json(silent=True) or {}
+            if isinstance(body, dict) and str(body.get("website") or "").strip():
+                # Only a bot fills the hidden field: answer as if it worked and save nothing
+                _audit("spam.blocked", request.path, actor="")
+                return jsonify({"ok": True})
+            if _ip_limited(bucket, limit, window):
+                return jsonify({"ok": False, "error": "Too many tries from this connection. Wait a while and try again."}), 429
+            _ip_fail(bucket)
+            return None
+    return None
+
+
 @app.route("/privacy")
 def privacy_page():
     return render_template("legal.html", doc="privacy", entity=LEGAL_ENTITY, contact=LEGAL_CONTACT,
@@ -9574,9 +9631,32 @@ def contractor_invoice_send(invoice_id):
     return jsonify({"ok": True, "sent_at": now, "link": link})
 
 
+def _ct_link_preview(table, token, num_field, kind, description):
+    """What a phone shows when the link is shared: company, document number and logo. No amounts or addresses."""
+    if not re.fullmatch(r"[A-Za-z0-9_-]{20,64}", token or ""):
+        return None
+    try:
+        r = requests.get(f"{sb_url()}/rest/v1/{table}?public_token=eq.{token}&select={num_field},company,company_snapshot&limit=1",
+                         headers=sb_headers(), timeout=6)
+        row = r.json()[0] if r.ok and r.json() else None
+    except Exception:
+        row = None
+    if not row:
+        return None
+    co = row.get("company") or ""
+    name = ((row.get("company_snapshot") or {}).get("display_name") or CONTRACTOR_COMPANIES.get(co) or "BSynch").strip()
+    image = None
+    if co in CONTRACTOR_COMPANIES:
+        image = f"{request.host_url}contractor/{co}/icon-512.png?v={_ct_brand_version(_ct_profile(co))}"
+    return {"title": f"{kind} {row.get(num_field) or ''} from {name}".replace("  ", " "), "description": description,
+            "site": name, "image": image}
+
+
 @app.route("/i/<token>")
 def contractor_public_invoice_page(token):
-    return render_template("contractor-invoice.html", invoice_id="", public_token=token)
+    return render_template("contractor-invoice.html", invoice_id="", public_token=token,
+                           og=_ct_link_preview("contractor_invoices", token, "invoice_number", "Invoice",
+                                               "View and download your invoice."))
 
 
 @app.route("/api/public/invoice/<token>")
@@ -10271,6 +10351,8 @@ def _security_headers(resp):
     # Camera (photos) and location (field visits) only for BSynch itself; nothing else
     h.setdefault("Permissions-Policy", "camera=(self), geolocation=(self), microphone=(), payment=(), usb=()")
     h.setdefault("Content-Security-Policy", "frame-ancestors 'self'; base-uri 'self'; object-src 'none'")
+    # A private app: search engines must never list it, above all the invoice and estimate links
+    h.setdefault("X-Robots-Tag", "noindex, nofollow")
     if request.is_secure or request.headers.get("X-Forwarded-Proto", "") == "https":
         h.setdefault("Strict-Transport-Security", "max-age=31536000")
     return resp
@@ -10400,7 +10482,9 @@ def contractor_estimate_page(est_id):
 
 @app.route("/e/<token>")
 def contractor_public_estimate_page(token):
-    return render_template("contractor-estimate.html", estimate_id="", public_token=token)
+    return render_template("contractor-estimate.html", estimate_id="", public_token=token,
+                           og=_ct_link_preview("contractor_estimates", token, "estimate_number", "Estimate",
+                                               "Review the estimate and accept it online."))
 
 
 @app.route("/api/contractor/<company>/estimates", methods=["GET"])

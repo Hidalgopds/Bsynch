@@ -138,9 +138,9 @@
     var style = document.createElement('style');
     style.textContent = '.ct-nav{display:flex;gap:4px;flex-shrink:0}' +
       '.ct-nav button{width:32px;height:32px;border-radius:8px;border:1px solid rgba(148,163,184,.35);background:transparent;color:inherit;font-size:16px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}' +
-      '.ct-nav button:hover{border-color:#1e9484;color:#1e9484}' +
+      '.ct-nav button:hover{border-color:#0f766e;color:#0f766e}' +
       '.ct-acct{width:32px;height:32px;border-radius:50%;border:1px solid rgba(148,163,184,.35);display:flex;align-items:center;justify-content:center;text-decoration:none;color:inherit;font-size:15px;flex-shrink:0}' +
-      '.ct-acct:hover{border-color:#1e9484}' +
+      '.ct-acct:hover{border-color:#0f766e}' +
       // Phones: the title shrinks instead of pushing the page sideways; Home in the hub bar replaces the company button
       '@media(max-width:520px){header .hdr-title{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}header .hdr-right .btn-back{display:none}}';
     document.head.appendChild(style);
@@ -199,7 +199,7 @@
       '.ct-hubs a{display:flex;flex-direction:column;align-items:center;gap:1px;min-width:66px;padding:5px 8px;border-radius:10px;text-decoration:none;color:#475569;font:600 11px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;white-space:nowrap;flex-shrink:0;}' +
       '.ct-hubs a span{font-size:19px;line-height:1.2;}' +
       '.ct-hubs a:hover{background:#f1f5f9;color:#0f172a;}' +
-      '.ct-hubs a.on{background:#e3f3ef;color:#0f766e;}' +
+      '.ct-hubs a.on{background:#e3f3ef;color:#115e59;}' +
       '@media(max-width:700px){.ct-hubs{justify-content:flex-start;}}' +
       '@media print{.ct-hubs{display:none !important;}}';
     document.head.appendChild(style);

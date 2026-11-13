@@ -715,7 +715,7 @@ function renderTable(data) {
     if(dpPhotos.length > 0){
       html += '<div class="dp-field" style="grid-column:1/-1"><label>Photos ('+dpPhotos.length+')</label><div class="dp-photos">';
       dpPhotos.forEach(function(url){
-        html += '<a href="'+url+'" target="_blank"><img src="'+url+'" class="dp-photo-thumb"></a>';
+        html += '<a href="'+url+'" target="_blank"><img alt="Issue photo" src="'+url+'" class="dp-photo-thumb"></a>';
       });
       html += '</div></div>';
     }
@@ -802,7 +802,7 @@ function printIssue(evt, id){
   if(photos.length > 0){
     photoHtml = '<div style="margin-top:16px"><strong>Photos:</strong><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">';
     photos.forEach(function(url){
-      photoHtml += '<img src="'+url+'" style="width:160px;height:160px;object-fit:cover;border-radius:6px;border:1px solid #ccc">';
+      photoHtml += '<img alt="Issue photo" src="'+url+'" style="width:160px;height:160px;object-fit:cover;border-radius:6px;border:1px solid #ccc">';
     });
     photoHtml += '</div></div>';
   }
@@ -1693,7 +1693,7 @@ function showQCPopup(issue){
   var photosDiv = document.getElementById('qcPopupPhotos');
   var photos = (issue.photos && Array.isArray(issue.photos)) ? issue.photos : [];
   photosDiv.innerHTML = photos.map(function(url){
-    return '<a href="'+url+'" target="_blank"><img src="'+url+'" class="qc-popup-photo"></a>';
+    return '<a href="'+url+'" target="_blank"><img alt="Quality check photo" src="'+url+'" class="qc-popup-photo"></a>';
   }).join('');
   // Actions
   var actDiv = document.getElementById('qcPopupActions');

@@ -1,0 +1,12 @@
+{# Link preview (WhatsApp, iMessage, email): only what the link itself already shows #}
+{% if og %}
+<meta name="description" content="{{ og.description }}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{ og.site }}">
+<meta property="og:title" content="{{ og.title }}">
+<meta property="og:description" content="{{ og.description }}">
+{% if og.image %}<meta property="og:image" content="{{ og.image }}">
+<meta property="og:image:width" content="512"><meta property="og:image:height" content="512">{% endif %}
+<meta name="twitter:card" content="summary">
+<meta name="robots" content="noindex, nofollow">
+{% endif %}

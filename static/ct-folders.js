@@ -2,7 +2,7 @@
    and chooses which clients go in it; work orders are then grouped by folder.
    CTFolders.open(company, done) opens the editor; done() runs after any change. */
 (function () {
-  var COLORS = ['#1e9484', '#2563eb', '#7c3aed', '#db2777', '#dc2626', '#ea580c', '#ca8a04', '#16a34a', '#0891b2', '#475569'];
+  var COLORS = ['#0f766e', '#2563eb', '#7c3aed', '#db2777', '#dc2626', '#ea580c', '#ca8a04', '#16a34a', '#0891b2', '#475569'];
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]; }); }
   function ensureStyle() {
     if (document.getElementById('ct-cf-style')) return;
@@ -11,13 +11,13 @@
       '.ct-cf{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:400;font-family:"Segoe UI",system-ui,sans-serif}' +
       '.ct-cf *{box-sizing:border-box}' +
       '.ct-cf-box{background:#fff;color:#0f172a;border-radius:16px;padding:20px;width:100%;max-width:480px;max-height:92vh;overflow:auto}' +
-      '.ct-cf-box h3{font-size:17px;margin:0 0 2px;color:#0f172a}.ct-cf-sub{font-size:13px;color:#64748b;margin-bottom:14px}' +
+      '.ct-cf-box h3{font-size:17px;margin:0 0 2px;color:#0f172a}.ct-cf-sub{font-size:13px;color:#566275;margin-bottom:14px}' +
       '.ct-cf-row{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:8px;cursor:pointer;background:#fff}' +
       '.ct-cf-row:hover{border-color:#8fcfc2}' +
       '.ct-cf-ico{width:34px;height:28px;border-radius:5px 5px 7px 7px;position:relative;flex-shrink:0}' +
       '.ct-cf-ico:before{content:"";position:absolute;left:0;top:-5px;width:15px;height:8px;border-radius:4px 4px 0 0;background:inherit}' +
-      '.ct-cf-name{flex:1;min-width:0;font-weight:700;font-size:14px;color:#0f172a}.ct-cf-n{font-size:12px;color:#64748b;font-weight:400}' +
-      '.ct-cf label{display:block;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.4px;font-weight:700;margin:12px 0 5px}' +
+      '.ct-cf-name{flex:1;min-width:0;font-weight:700;font-size:14px;color:#0f172a}.ct-cf-n{font-size:12px;color:#566275;font-weight:400}' +
+      '.ct-cf label{display:block;font-size:11px;color:#566275;text-transform:uppercase;letter-spacing:.4px;font-weight:700;margin:12px 0 5px}' +
       '.ct-cf input[type=text],.ct-cf input[type=search]{width:100%;border:1px solid #cbd5e1;border-radius:9px;padding:9px 11px;font-size:14px;font-family:inherit;background:#fff;color:#0f172a}' +
       '.ct-cf-sw{display:flex;flex-wrap:wrap;gap:8px;align-items:center}' +
       '.ct-cf-sw button{width:30px;height:30px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1px #cbd5e1;cursor:pointer;padding:0}' +
@@ -25,15 +25,15 @@
       '.ct-cf-sw input[type=color]{width:34px;height:34px;border:none;padding:0;background:none;cursor:pointer}' +
       '.ct-cf-cl{max-height:240px;overflow:auto;border:1px solid #e2e8f0;border-radius:10px;padding:4px 0}' +
       '.ct-cf-cl label{display:flex;align-items:center;gap:9px;margin:0;padding:7px 12px;text-transform:none;letter-spacing:0;font-size:14px;font-weight:600;color:#0f172a;cursor:pointer}' +
-      '.ct-cf-cl label small{display:block;font-weight:400;color:#64748b;font-size:12px}' +
-      '.ct-cf-cl input{width:18px;height:18px;flex-shrink:0;accent-color:#1e9484}' +
+      '.ct-cf-cl label small{display:block;font-weight:400;color:#566275;font-size:12px}' +
+      '.ct-cf-cl input{width:18px;height:18px;flex-shrink:0;accent-color:#0f766e}' +
       '.ct-cf-other{font-size:11px;color:#b45309;font-weight:600}' +
       '.ct-cf-act{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}' +
       '.ct-cf-act button{padding:9px 16px;border-radius:9px;font-weight:700;font-size:14px;cursor:pointer;border:1px solid #8fcfc2;background:#fff;color:#0f766e}' +
-      '.ct-cf-act button.go{background:#1e9484;border-color:#1e9484;color:#fff}.ct-cf-act button.del{border-color:#fecaca;color:#b91c1c;margin-right:auto}' +
+      '.ct-cf-act button.go{background:#0f766e;border-color:#0f766e;color:#fff}.ct-cf-act button.del{border-color:#fecaca;color:#b91c1c;margin-right:auto}' +
       '.ct-cf-act button:disabled{opacity:.6}' +
       '.ct-cf-msg{color:#b91c1c;font-size:13px;margin-top:8px;min-height:16px;text-align:right}' +
-      '.ct-cf-empty{text-align:center;color:#64748b;font-size:13px;padding:14px 0}';
+      '.ct-cf-empty{text-align:center;color:#566275;font-size:13px;padding:14px 0}';
     document.head.appendChild(st);
   }
   function api(method, url, body) {
@@ -66,7 +66,7 @@
           var n = countIn(f.id);
           return '<div class="ct-cf-row" data-id="' + esc(f.id) + '"><span class="ct-cf-ico" style="background:' + esc(f.color) + '"></span>' +
             '<span class="ct-cf-name">' + esc(f.name) + '<br><span class="ct-cf-n">' + n + (n === 1 ? ' client' : ' clients') + '</span></span>' +
-            '<span style="color:#94a3b8">&#9998;</span></div>';
+            '<span style="color:#566275">&#9998;</span></div>';
         }).join('') : '<div class="ct-cf-empty">No folders yet. Create the first one, e.g. <b>Newmark Homes</b>.</div>') +
         '<div class="ct-cf-act"><button type="button" class="no">Close</button><button type="button" class="go">+ New folder</button></div>';
       box.querySelector('.no').onclick = close;
