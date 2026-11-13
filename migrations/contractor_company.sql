@@ -394,3 +394,19 @@ alter table audit_log enable row level security;
 -- Manual check-ins by a supervisor (who entered it)
 alter table checkins add column if not exists manual_entry boolean default false;
 alter table checkins add column if not exists entered_by text;
+
+-- Monthly security report: database self-check, callable only by the server (service_role)
+create or replace function public.security_self_check()
+returns json language sql security definer set search_path = public, pg_catalog as $$
+  select json_build_object(
+    'tables_without_rls', coalesce((select json_agg(c.relname order by c.relname) from pg_class c join pg_namespace n on n.oid=c.relnamespace
+                                     where n.nspname='public' and c.relkind='r' and not c.relrowsecurity), '[]'::json),
+    'anon_policies', coalesce((select json_agg(tablename || ':' || policyname) from pg_policies
+                                where schemaname='public' and ('anon' = any(roles) or 'public' = any(roles))), '[]'::json),
+    'public_buckets', coalesce((select json_agg(name) from storage.buckets where public), '[]'::json),
+    'anon_functions', coalesce((select json_agg(p.proname) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+                                 where n.nspname='public' and p.proname <> 'security_self_check'
+                                   and has_function_privilege('anon', p.oid, 'execute')), '[]'::json));
+$$;
+revoke all on function public.security_self_check() from public, anon, authenticated;
+grant execute on function public.security_self_check() to service_role;

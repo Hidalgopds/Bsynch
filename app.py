@@ -1928,6 +1928,7 @@ def api_company_login():
     if co.get("status") != "active":
         return jsonify({"ok": False, "error": "Account inactive"}), 403
     if _ip_limited("company-login", 10, 900):
+        _audit("company_login.locked", slug, actor=username[:120])
         return jsonify({"ok": False, "error": "Too many wrong tries. Wait 15 minutes."}), 429
     if not _company_pw_ok(co, username, password):
         _ip_fail("company-login")
@@ -2129,6 +2130,14 @@ def _audit(action, target="", detail=None, actor=None):
         _audit_write(base, hdr, row)
     else:
         _threading.Thread(target=_audit_write, args=(base, hdr, row), daemon=True).start()
+    try:
+        if _sec_is_critical(row["action"], row["detail"]):
+            if app.config.get("AUDIT_SYNC"):
+                _security_alert(row)
+            else:
+                _ct_bg(_security_alert, row)
+    except Exception as e:
+        logger.warning("[security alert] %s", e)
 
 
 def _audit_write(base, hdr, row):
@@ -5774,6 +5783,7 @@ def checkin_by_pin():
         return jsonify({"ok": False, "error": "Invalid PIN"}), 400
     # A 4-digit PIN is easy to guess: 10 wrong PINs from one tablet lock it for 10 minutes
     if _ip_limited("kiosk-pin", 10, 600):
+        _audit("kiosk.locked", "", actor="kiosk")
         return jsonify({"ok": False, "error": "Too many wrong PINs. Wait 10 minutes."}), 429
 
     # Find worker with this PIN — look in app_users first, fall back to workers table
@@ -9933,9 +9943,288 @@ def _ct_daily_tasks():
                     _ct_tomorrow_jobs(co, (now.date() + dt.timedelta(days=1)).isoformat())
             except Exception as e:
                 logger.error("[Contractor daily] %s: %s", co, e)
+        # The 1st of each month from 8 AM: last month's security report (once)
+        if now.hour >= 8:
+            try:
+                _security_report_send("previous")
+            except Exception as e:
+                logger.error("[Security report] %s", e)
         _ct_digest_day["checked"] = _ptime.time()
     finally:
         _ct_digest_lock.release()
+
+
+# ── Security monitoring: a monthly report by email and instant alerts for critical events ──
+SECURITY_REPORT_TO = os.environ.get("SECURITY_REPORT_TO", "")
+GITHUB_REPO = os.environ.get("GITHUB_REPO", "Hidalgopds/Bsynch")
+_SEC_FAIL = {"login.fail": "Wrong password", "login.locked": "Account locked (too many tries)",
+             "login.2fa_fail": "Wrong 2-step code", "pin.fail": "Wrong PIN", "kiosk.pin_fail": "Wrong PIN on a tablet",
+             "kiosk.locked": "Tablet locked (too many PINs)", "company_login.fail": "Wrong client-company admin password",
+             "company_login.locked": "Client-company login locked"}
+_SEC_CHANGES = {"company.role_change": "Role changed", "company.member_add": "Person added to a company",
+                "company.member_remove": "Person removed from a company", "company.support_access": "Support access",
+                "config.set": "Setting changed", "platform.company_create": "Client company created",
+                "platform.company_edit": "Client company edited", "user.create": "User created", "user.edit": "User edited",
+                "user.delete": "User deleted", "session.force_logout_all": "Everyone signed out", "pin.reset": "PIN reset",
+                "worker.delete_inactive": "Inactive workers deleted"}
+_SEC_PROBE_HINTS = (".env", "config", "secret", ".git", "wp-", "php", "admin", "backup", "graphql", "actuator", "proc/self")
+_sec_alert_last = {}
+
+
+def _sec_report_to():
+    to = SECURITY_REPORT_TO or DEFAULT_COMPANY_ADMIN_USER
+    return [e.strip().lower() for e in re.split(r"[,;\s]+", to) if _EMAIL_RE.fullmatch(e.strip())]
+
+
+def _sec_get(path):
+    try:
+        r = requests.get(f"{sb_url()}/rest/v1/{path}", headers=sb_headers(), timeout=15)
+        return r.json() if r.ok else []
+    except Exception:
+        return []
+
+
+def _sec_count(path):
+    try:
+        r = requests.get(f"{sb_url()}/rest/v1/{path}", headers={**sb_headers(), "Prefer": "count=exact", "Range": "0-0"}, timeout=10)
+        cr = r.headers.get("Content-Range", "")
+        return int(cr.split("/")[-1]) if "/" in cr and cr.split("/")[-1].isdigit() else len(r.json() if r.ok else [])
+    except Exception:
+        return None
+
+
+def _sec_period(which="previous"):
+    """(start, end, label) of the previous calendar month, or of this month so far, in Texas time."""
+    import datetime as dt
+    try:
+        import pytz
+        now = dt.datetime.now(pytz.timezone("America/Chicago"))
+    except Exception:
+        now = dt.datetime.now()
+    first = now.date().replace(day=1)
+    if which == "current":
+        return first, now.date() + dt.timedelta(days=1), first.strftime("%B %Y") + " (so far)"
+    prev = (first - dt.timedelta(days=1)).replace(day=1)
+    return prev, first, prev.strftime("%B %Y")
+
+
+def _security_report(start, end, label):
+    """Gather what happened in [start, end) and check the platform's settings. Counts, names and IPs only."""
+    import datetime as dt
+    from collections import Counter
+    s_iso, e_iso = start.isoformat(), end.isoformat()
+    audit = _sec_get(f"audit_log?at=gte.{s_iso}&at=lt.{e_iso}&select=at,actor,action,target,ip,detail&order=at.desc&limit=20000")
+    probes = _sec_get(f"auth_report?day=gte.{s_iso}&day=lt.{e_iso}&select=path,method,page,day&limit=20000")
+    fails = [a for a in audit if a.get("action") in _SEC_FAIL]
+    by_kind = Counter(a["action"] for a in fails)
+    top_ips = Counter(a.get("ip") or "?" for a in fails).most_common(5)
+    top_accounts = Counter(a.get("target") or "?" for a in fails if a.get("action", "").startswith(("login", "company_login"))).most_common(5)
+    probe_paths = Counter(p.get("path") or "" for p in probes)
+    hunting = sum(n for path, n in probe_paths.items() if any(h in path.lower() for h in _SEC_PROBE_HINTS))
+    changes = [a for a in audit if a.get("action") in _SEC_CHANGES][:60]
+    logins_ok = sum(1 for a in audit if a.get("action") == "login.ok")
+
+    checks = []
+
+    def add(level, title, detail, action=""):
+        checks.append({"level": level, "title": title, "detail": detail, "action": action})
+
+    if ERP_AUTH_MODE == "enforce":
+        add("green", "Every ERP screen requires sign-in", "ERP_AUTH_MODE is enforce.")
+    else:
+        add("red", "ERP accepts calls without sign-in", f"ERP_AUTH_MODE is {ERP_AUTH_MODE}.", "In Render, delete ERP_AUTH_MODE (or set it to enforce).")
+    try:
+        r = requests.post(f"{sb_url()}/rest/v1/rpc/security_self_check", headers=sb_headers(), json={}, timeout=10)
+        db = r.json() if r.ok else None
+    except Exception:
+        db = None
+    if not isinstance(db, dict):
+        add("amber", "Database self-check did not run", "The security_self_check function is missing or failed.", "Run the latest migration in Supabase.")
+    else:
+        if db.get("tables_without_rls"):
+            add("red", "Tables open to the public key", ", ".join(db["tables_without_rls"][:20]), "Turn on RLS for those tables in Supabase.")
+        else:
+            add("green", "Row-level security on every table", "The public database key cannot read any table.")
+        if db.get("anon_policies"):
+            add("red", "Policies that give the public key access", ", ".join(db["anon_policies"][:20]), "Review or delete those policies.")
+        if db.get("anon_functions"):
+            add("red", "Database functions callable without sign-in", ", ".join(db["anon_functions"][:20]), "Revoke EXECUTE from anon and authenticated.")
+        pub = [b for b in (db.get("public_buckets") or []) if b != "issue-photos"]
+        if pub:
+            add("amber", "Public file folders", ", ".join(pub), "Make them private unless they only hold public files.")
+    try:
+        gh = requests.get(f"https://api.github.com/repos/{GITHUB_REPO}", timeout=8, headers={"Accept": "application/vnd.github+json"})
+        if gh.status_code == 200 and not gh.json().get("private"):
+            add("red", "The code repository is public", f"github.com/{GITHUB_REPO} can be read by anyone.", "GitHub → Settings → Change visibility → Private.")
+        elif gh.status_code == 404:
+            add("green", "The code repository is private", f"github.com/{GITHUB_REPO} is not visible to the public.")
+    except Exception:
+        pass
+    if os.environ.get("BACKUPS_CONFIRMED") == "1":
+        add("green", "Database backups confirmed", "BACKUPS_CONFIRMED=1 in Render.")
+    else:
+        add("red", "No confirmed database backups", "If the database is lost there is no copy.",
+            "Upgrade Supabase to Pro (daily backups), then set BACKUPS_CONFIRMED=1 in Render.")
+    admins = _sec_get("app_users?approved=eq.true&role=in.(admin,boss)&select=name,totp_enabled&limit=500")
+    managers = set()
+    for co in CONTRACTOR_COMPANIES:
+        managers |= {n for n, role in (_ct_company_roles(co) or {}).items() if role == "admin"}
+    managers |= set(_ct_platform_admins())
+    if managers:
+        rows = _sec_get(f"app_users?name=in.({','.join(requests.utils.quote(n) for n in sorted(managers))})&select=name,totp_enabled&limit=500")
+        admins += rows
+    no2fa = sorted({u["name"] for u in admins if not u.get("totp_enabled")})
+    if no2fa:
+        add("amber", "Admins and Managers without 2-step verification", ", ".join(no2fa[:20]),
+            "Ask them to turn it on in My account, or require it in the company's Settings → Security.")
+    else:
+        add("green", "Every admin and Manager uses 2-step verification", "")
+    not_required = [CONTRACTOR_COMPANIES[co] for co in CONTRACTOR_COMPANIES if not _ct_profile(co).get("require_2fa")]
+    if not_required:
+        add("amber", "2-step verification not required", "Companies: " + ", ".join(not_required),
+            "Settings → Security → require two-step verification.")
+    old = (dt.datetime.utcnow() - dt.timedelta(days=LOCATION_RETENTION_DAYS + 2)).strftime("%Y-%m-%dT%H:%M:%S")
+    stale = _sec_count(f"contractor_locations?recorded_at=lt.{old}&select=id")
+    if LOCATION_RETENTION_DAYS > 0 and stale:
+        add("amber", "Old location points were not deleted", f"{stale} points older than {LOCATION_RETENTION_DAYS} days.",
+            "The daily clean-up is not running; check the server logs.")
+    if not audit:
+        add("amber", "The audit log recorded nothing this month", "Sign-ins and changes should appear here.", "Check that the audit_log table exists.")
+    if KIOSK_PASS and len(KIOSK_PASS) < 10:
+        add("amber", "Short tablet unlock code", "KIOSK_ADMIN_PASS has fewer than 10 characters.", "Use a longer one in Render.")
+    if by_kind.get("login.locked") or by_kind.get("kiosk.locked") or by_kind.get("company_login.locked"):
+        n = by_kind.get("login.locked", 0) + by_kind.get("kiosk.locked", 0) + by_kind.get("company_login.locked", 0)
+        add("amber", "Sign-in lockouts", f"{n} lockout{'s' if n != 1 else ''} after too many wrong tries.",
+            "If the accounts below belong to your people, check with them; if not, someone is guessing passwords.")
+    if end.month in (1, 4, 7, 10):
+        add("amber", "Quarterly review", "Time for the every-3-months tasks.",
+            "Rotate keys (Supabase, email, AI, QuickBooks), update dependencies, review who has access and test a backup restore.")
+    order = {"red": 0, "amber": 1, "green": 2}
+    checks.sort(key=lambda c: order[c["level"]])
+    return {"label": label, "start": s_iso, "end": e_iso, "fails": dict(by_kind), "fail_total": len(fails),
+            "top_ips": top_ips, "top_accounts": top_accounts, "probes": len(probes), "probe_hunting": hunting,
+            "probe_paths": probe_paths.most_common(8), "changes": changes, "logins_ok": logins_ok, "checks": checks,
+            "to_fix": sum(1 for c in checks if c["level"] in ("red", "amber"))}
+
+
+def _security_report_html(rep, page=False):
+    e = _html_escape
+    color = {"red": "#dc2626", "amber": "#d97706", "green": "#16a34a"}
+    dot = lambda lv: f'<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{color[lv]};margin-right:8px"></span>'
+    todo = [c for c in rep["checks"] if c["level"] != "green"]
+    rows = "".join(f'<tr><td style="padding:8px 6px;border-bottom:1px solid #e2e8f0;vertical-align:top">{dot(c["level"])}<b>{e(c["title"])}</b>'
+                   f'{("<br><span style=color:#475569>" + e(c["detail"]) + "</span>") if c["detail"] else ""}'
+                   f'{("<br><span style=color:#0f766e>&#8594; " + e(c["action"]) + "</span>") if c["action"] else ""}</td></tr>'
+                   for c in rep["checks"])
+    fails = "".join(f"<li>{e(_SEC_FAIL.get(k, k))}: <b>{n}</b></li>" for k, n in sorted(rep["fails"].items(), key=lambda x: -x[1])) or "<li>None</li>"
+    ips = ", ".join(f"{e(ip)} ({n})" for ip, n in rep["top_ips"]) or "—"
+    accts = ", ".join(f"{e(a)} ({n})" for a, n in rep["top_accounts"]) or "—"
+    paths = "".join(f"<li><code>{e(p)}</code> ({n})</li>" for p, n in rep["probe_paths"]) or "<li>None</li>"
+    changes = "".join(f'<li>{e((c.get("at") or "")[:16].replace("T", " "))} · {e(_SEC_CHANGES.get(c["action"], c["action"]))}'
+                      f' · {e(c.get("target") or "")} · by {e(c.get("actor") or "?")}</li>' for c in rep["changes"]) or "<li>None</li>"
+    todo_html = "".join(f"<li>{dot(c['level'])}{e(c['action'] or c['title'])}</li>" for c in todo) or "<li>Nothing to fix. &#128077;</li>"
+    return f"""<div style="font-family:Segoe UI,Arial,sans-serif;max-width:680px;margin:0 auto;color:#0f172a;font-size:14px;line-height:1.5">
+<div style="background:#0d1b36;color:#fff;padding:18px 22px;border-radius:10px 10px 0 0">
+  <div style="font-size:12px;opacity:.8">BSynch security report</div>
+  <div style="font-size:22px;font-weight:700">{e(rep['label'])}</div>
+  <div style="font-size:13px;opacity:.9">{rep['to_fix']} thing{'s' if rep['to_fix'] != 1 else ''} to improve · {rep['fail_total']} failed sign-in attempts · {rep['probes']} bot probes</div>
+</div>
+<div style="border:1px solid #e2e8f0;border-top:none;border-radius:0 0 10px 10px;padding:18px 22px">
+  <h3 style="margin:0 0 6px">What to do this month</h3><ol style="margin:0 0 16px 18px;padding:0">{todo_html}</ol>
+  <h3 style="margin:16px 0 6px">Health check</h3><table style="width:100%;border-collapse:collapse">{rows}</table>
+  <h3 style="margin:18px 0 6px">Attempts to get in</h3><ul style="margin:0 0 6px 18px;padding:0">{fails}</ul>
+  <div><b>Most active IPs:</b> {ips}</div><div><b>Most targeted accounts:</b> {accts}</div>
+  <div style="color:#475569;font-size:13px;margin-top:4px">Successful sign-ins: {rep['logins_ok']}</div>
+  <h3 style="margin:18px 0 6px">Bots probing the site</h3>
+  <div>{rep['probes']} call{'s' if rep['probes'] != 1 else ''} without sign-in refused; {rep['probe_hunting']} looking for passwords or config files. Most tried:</div>
+  <ul style="margin:4px 0 0 18px;padding:0">{paths}</ul>
+  <h3 style="margin:18px 0 6px">Sensitive changes</h3><ul style="margin:0 0 0 18px;padding:0;font-size:13px">{changes}</ul>
+  <p style="color:#64748b;font-size:12px;margin-top:18px">Counts, account names and IPs only: no passwords, PINs or keys. Policies and the incident plan: docs/security in the code repository.</p>
+</div></div>"""
+
+
+def _security_report_send(which="previous", force=False):
+    """Email the report for a period. Without force it is sent once per month."""
+    start, end, label = _sec_period(which)
+    if not force and not _ct_claim_daily("platform", "security_report", start.strftime("%Y-%m")):
+        return False, "already sent"
+    to = _sec_report_to()
+    if not to:
+        return False, "No address: set SECURITY_REPORT_TO in Render"
+    rep = _security_report(start, end, label)
+    subj = f"BSynch security report – {label}: " + (f"{rep['to_fix']} to improve" if rep["to_fix"] else "all good")
+    return _ct_mail("platform", "security", to, [], subj, _security_report_html(rep), from_name="BSynch security")
+
+
+def _sec_is_critical(action, detail):
+    detail = detail or {}
+    if action in ("login.locked", "kiosk.locked", "company_login.locked", "platform.company_create",
+                  "platform.company_edit", "session.force_logout_all"):
+        return True
+    if action == "company.support_access":
+        return bool(detail.get("hours"))
+    if action == "company.role_change":
+        return detail.get("to") == "admin"
+    if action in ("user.create", "user.edit"):
+        return str(detail.get("role") or "").lower() in ("admin", "boss")
+    return False
+
+
+def _security_alert(row):
+    """Email right away for critical events; at most one email per kind of event per hour."""
+    k = row.get("action")
+    now = _ptime.time()
+    if now - _sec_alert_last.get(k, 0) < 3600:
+        return
+    _sec_alert_last[k] = now
+    to = _sec_report_to()
+    if not to:
+        return
+    e = _html_escape
+    label = _SEC_FAIL.get(k) or _SEC_CHANGES.get(k) or k
+    html = (f'<div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;color:#0f172a;font-size:14px">'
+            f'<div style="background:#b91c1c;color:#fff;padding:12px 16px;border-radius:8px 8px 0 0;font-weight:700">Security alert: {e(label)}</div>'
+            f'<div style="border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px;padding:14px 16px">'
+            f'<div><b>Who / what:</b> {e(row.get("target") or "—")}</div><div><b>Done by:</b> {e(row.get("actor") or "—")}</div>'
+            f'<div><b>From IP:</b> {e(row.get("ip") or "—")}</div><div><b>Where:</b> {e(row.get("path") or "—")}</div>'
+            f'<div><b>Details:</b> {e(__import__("json").dumps(row.get("detail") or {})[:300])}</div>'
+            f'<p style="color:#475569;font-size:13px">If this was you or your team, nothing to do. If not, follow docs/security/respuesta-incidentes.md. '
+            f'Similar alerts are grouped for an hour.</p></div></div>')
+    _ct_mail("platform", "security_alert", to, [], f"BSynch security alert: {label}", html, from_name="BSynch security")
+
+
+@app.route("/platform/security-report")
+def platform_security_report_page():
+    if not _session_user():
+        return redirect("/login?next=/platform/security-report")
+    if not _is_platform_operator():
+        return "Platform administrator only.", 403
+    which = "current" if request.args.get("period") == "current" else "previous"
+    rep = _security_report(*_sec_period(which))
+    other = ("previous", "Last month") if which == "current" else ("current", "This month so far")
+    bar = (f'<div style="max-width:680px;margin:16px auto;display:flex;gap:10px;flex-wrap:wrap;font-family:Segoe UI,Arial,sans-serif">'
+           f'<a href="/platform/security-report?period={other[0]}" style="padding:8px 14px;border:1px solid #8fcfc2;border-radius:8px;color:#0f766e;text-decoration:none">{other[1]}</a>'
+           f'<button id="sendNow" style="padding:8px 14px;border:none;border-radius:8px;background:#1e9484;color:#fff;font-weight:700;cursor:pointer">Email it now</button>'
+           f'<span id="msg" style="align-self:center;color:#475569;font-size:13px"></span></div>'
+           f'<script>document.getElementById("sendNow").onclick=function(){{var b=this;b.disabled=true;'
+           f'fetch("/api/platform/security-report/send",{{method:"POST",headers:{{"Content-Type":"application/json"}},body:JSON.stringify({{period:"{which}"}})}})'
+           f'.then(function(r){{return r.json()}}).then(function(d){{b.disabled=false;document.getElementById("msg").textContent=d.ok?"Sent to "+d.to:(d.error||"Could not send")}})'
+           f'.catch(function(){{b.disabled=false;document.getElementById("msg").textContent="Connection error"}})}}</script>')
+    return ('<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+            '<title>Security report – BSynch</title></head><body style="margin:0;background:#f6f8fb;padding:0 12px 40px">'
+            + bar + _security_report_html(rep, page=True) + '</body></html>')
+
+
+@app.route("/api/platform/security-report/send", methods=["POST"])
+def platform_security_report_send():
+    if not _session_user():
+        return jsonify({"ok": False, "error": "login_required"}), 401
+    if not _is_platform_operator():
+        return jsonify({"ok": False, "error": "Platform administrator only."}), 403
+    which = "current" if (request.get_json() or {}).get("period") == "current" else "previous"
+    ok, err = _security_report_send(which, force=True)
+    _audit("security.report_sent", which)
+    return jsonify({"ok": bool(ok), "to": ", ".join(_sec_report_to()), "error": None if ok else err})
 
 
 def _ct_scheduler_loop():

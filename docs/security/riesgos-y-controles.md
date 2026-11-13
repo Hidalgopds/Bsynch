@@ -20,6 +20,7 @@
 | Home Lab (datos de menores) requiere sesión | `_hl_page_guard` |
 | Copia de cada factura y estimado enviado a un buzón de archivo (opcional) | Settings → Invoices |
 | Política de privacidad y términos publicados | `/privacy`, `/terms` |
+| Reporte de seguridad mensual por correo (día 1) y alertas inmediatas de eventos críticos | `_security_report_send`, `_security_alert`, pantalla `/platform/security-report` |
 
 ## Pendientes (dueño de la plataforma)
 | # | Acción | Por qué | Prioridad |
