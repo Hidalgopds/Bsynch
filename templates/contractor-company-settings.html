@@ -141,6 +141,7 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
       <div class="field"><label for="payment_terms">Payment terms</label><input id="payment_terms" maxlength="60" placeholder="Due on receipt"></div>
       <div class="field"><label for="payment_note">Payment instructions</label><textarea id="payment_note" maxlength="400" placeholder="Make all checks payable to ..."></textarea></div>
       <div class="field"><label for="footer_note">Closing message</label><input id="footer_note" maxlength="200" placeholder="Thank you for your business!"></div>
+      <div class="field"><label for="archive_email">&#128451;&#65039; Keep a copy of every invoice and estimate sent at</label><input id="archive_email" type="email" maxlength="160" placeholder="e.g. invoices@yourcompany.com"><span class="hint">Each time one is sent, a copy arrives at this inbox (the client doesn't see it). Leave empty to turn it off.</span></div>
       <span class="hint" id="nextPreview"></span>
     </div>
 
@@ -198,7 +199,7 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
 
 <script>
 var COMPANY = {{ company|tojson }};
-var TEXT = ['display_name','subtitle','tagline','contact_name','phone','address','notify_email','invoice_start','invoice_end','reminder_days','payment_terms','payment_note','footer_note','brand_primary','brand_accent','hours_morning','hours_afternoon','estimate_prefix','estimate_valid_days','estimate_terms'];
+var TEXT = ['display_name','subtitle','tagline','contact_name','phone','address','notify_email','invoice_start','invoice_end','reminder_days','payment_terms','payment_note','footer_note','brand_primary','brand_accent','hours_morning','hours_afternoon','estimate_prefix','estimate_valid_days','estimate_terms','archive_email'];
 var API = '/api/contractor/' + COMPANY;
 var emails = [], logo = '', canEdit = false;
 

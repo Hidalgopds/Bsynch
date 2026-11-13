@@ -390,3 +390,7 @@ create table if not exists audit_log (
 create index if not exists audit_log_at_idx on audit_log(at desc);
 create index if not exists audit_log_action_idx on audit_log(action, at desc);
 alter table audit_log enable row level security;
+
+-- Manual check-ins by a supervisor (who entered it)
+alter table checkins add column if not exists manual_entry boolean default false;
+alter table checkins add column if not exists entered_by text;

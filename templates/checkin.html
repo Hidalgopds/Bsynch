@@ -235,9 +235,10 @@ async function doCheckoutOther(){
     var r=await fetch('/api/checkin/'+activeCheckin.id+'/checkout',{method:'POST'});
     var d=await r.json();
     if(d.ok){
+      var pos=activeCheckin.position;
       localStorage.removeItem('active_checkin');
       activeCheckin=null;
-      showSuccess('👋','Checked Out','You\'ve been logged out of Position '+activeCheckin.position+'.');
+      showSuccess('👋','Checked Out','You\'ve been logged out of Position '+pos+'.');
     } else { err.textContent=d.error||'Error.';err.style.display='block'; }
   }catch(e){err.textContent='Network error.';err.style.display='block';}
 }

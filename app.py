@@ -1021,11 +1021,16 @@ def _hl_find_guardian_by_pin(pin):
     the current family's scope, or None. Scoped so one family's PIN can never
     authenticate as another family's guardian."""
     pin = str(pin or "").strip()
-    if not pin:
+    if not pin or not pin.isdigit() or len(pin) != 4:
         return None
-    r = requests.get(f"{sb_url()}/rest/v1/{HL_GUARDIANS}?pin=eq.{pin}&{_hl_scope_filter()}&select=id,name,relationship",
+    # A 4-digit PIN is easy to guess: 10 wrong ones from a device lock guardian PINs there for 10 minutes
+    if _ip_limited("homelab-pin", 10, 600):
+        return None
+    r = requests.get(f"{sb_url()}/rest/v1/{HL_GUARDIANS}?pin={_pin_in(pin)}&{_hl_scope_filter()}&select=id,name,relationship",
                       headers=sb_headers(), timeout=5)
     rows = r.json() if r.ok else []
+    if not rows:
+        _ip_fail("homelab-pin")
     return rows[0] if rows else None
 
 
@@ -1444,13 +1449,17 @@ def hl_create_guardian():
         if not data.get("accept_terms"):
             return jsonify({"ok": False, "error": "Debes aceptar los Términos y el aviso de privacidad"}), 400
 
-    payload = {"name": name, "relationship": data.get("relationship", ""), "pin": pin, "company_id": _hl_scope_id()}
+    dup = requests.get(f"{sb_url()}/rest/v1/{HL_GUARDIANS}?pin={_pin_in(pin)}&{_hl_scope_filter()}&select=id&limit=1",
+                       headers=sb_headers(), timeout=5)
+    if dup.ok and dup.json():
+        return jsonify({"ok": False, "error": "Ese PIN ya lo usa otro responsable"}), 409
+    payload = {"name": name, "relationship": data.get("relationship", ""), "pin": _pin_hash(pin), "company_id": _hl_scope_id()}
     if not has_guardians:
         payload["terms_accepted_at"] = datetime.now(timezone.utc).isoformat()
     r = requests.post(f"{sb_url()}/rest/v1/{HL_GUARDIANS}", json=payload,
                        headers={**sb_headers(), "Prefer": "return=representation"}, timeout=5)
     if r.ok and r.json():
-        return jsonify({"ok": True, "guardian": r.json()[0]})
+        return jsonify({"ok": True, "guardian": {k: v for k, v in r.json()[0].items() if k != "pin"}})
     if r.status_code == 409:
         return jsonify({"ok": False, "error": "Ese PIN ya lo usa otro responsable"}), 409
     return jsonify({"ok": False, "error": r.text}), 400
@@ -1472,7 +1481,7 @@ def hl_update_guardian(guardian_id):
         new_pin = str(data["new_pin"]).strip()
         if not new_pin.isdigit() or len(new_pin) != 4:
             return jsonify({"ok": False, "error": "El PIN debe ser de 4 dígitos"}), 400
-        payload["pin"] = new_pin
+        payload["pin"] = _pin_hash(new_pin)
     if not payload:
         return jsonify({"ok": False, "error": "nothing to update"}), 400
 
@@ -2014,7 +2023,7 @@ _pin_migrated = set()
 
 def _pin_migrate(base, hdr):
     """Once per database: replace any PIN still stored as digits with its hash."""
-    for table in ("app_users", "workers"):
+    for table in ("app_users", "workers", "homelab_guardians"):
         try:
             r = requests.get(f"{base}/rest/v1/{table}?pin=not.is.null&pin=not.like.h1:*&select=id,pin&limit=2000",
                              headers=hdr, timeout=10)
@@ -3079,15 +3088,12 @@ def api_manual_checkin():
     import datetime as dt
     target_date = data.get("date") or dt.date.today().isoformat()
 
-    # Build full ISO timestamp (treat as CDT = UTC-5)
+    # The time typed is Texas time (America/Chicago, with daylight saving); store it in UTC
     try:
+        from zoneinfo import ZoneInfo
         h, m = [int(x) for x in time_str.split(":")]
-        # Store as UTC: CDT is UTC-5, so add 5 hours
-        dt_cdt = dt.datetime(
-            *[int(p) for p in target_date.split("-")], h, m, 0
-        )
-        dt_utc = dt_cdt + dt.timedelta(hours=5)
-        checked_in_iso = dt_utc.strftime("%Y-%m-%dT%H:%M:%S")
+        local = dt.datetime(*[int(p) for p in target_date.split("-")], h, m, 0, tzinfo=ZoneInfo("America/Chicago"))
+        checked_in_iso = local.astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
     except Exception as e:
         return jsonify({"error": f"Invalid time format: {e}"}), 400
 
@@ -3107,8 +3113,9 @@ def api_manual_checkin():
         "checked_in_at":  checked_in_iso,
         "position":       data.get("position", "Manual"),
         "manual_entry":   True,
-        "entered_by":     caller,
+        "entered_by":     (_session_user() or caller)[:120],
     }
+    _audit("checkin.manual", worker_name, {"date": target_date, "time": time_str})
     r = requests.post(
         f"{sb_url()}/rest/v1/{CHECKINS_TABLE}",
         json=row,
@@ -3117,7 +3124,7 @@ def api_manual_checkin():
     )
     if r.ok:
         return jsonify({"ok": True, "checkin": r.json()[0] if r.json() else {}})
-    return jsonify({"ok": False, "error": r.text}), 400
+    return jsonify({"ok": False, "error": "Could not save the check-in"}), 400
 
 @app.route("/api/active-checkins", methods=["GET"])
 def api_active_checkins():
@@ -7931,6 +7938,7 @@ CONTRACTOR_PROFILE_TEXT = {
     "display_name": 120, "subtitle": 120, "tagline": 120, "contact_name": 120, "phone": 40,
     "address": 300, "notify_email": 160, "invoice_prefix": 20, "payment_terms": 60,
     "payment_note": 400, "footer_note": 200, "estimate_prefix": 20, "estimate_terms": 1500,
+    "archive_email": 160,
 }
 _HEX_COLOR = re.compile(r"#[0-9a-fA-F]{6}")
 _CT_INV_NUM = re.compile(r"([A-Za-z0-9 _./#-]{0,20}?)(\d{1,12})")
@@ -7976,6 +7984,8 @@ def contractor_company_profile(company):
     for k, n in CONTRACTOR_PROFILE_TEXT.items():
         if k in data:
             out[k] = str(data.get(k) or "").strip()[:n]
+    if out.get("archive_email") and not _EMAIL_RE.fullmatch(out["archive_email"]):
+        return jsonify({"ok": False, "error": "The archive email is not valid"}), 400
     if "emails" in data:
         emails = data.get("emails") or []
         if isinstance(emails, str):
@@ -9496,6 +9506,22 @@ def _ct_invoice_email_html(inv, message, link):
 </div>"""
 
 
+def _ct_archive_copy(company, kind, number, to, cc, html, sent_by, ref):
+    """Settings → archive email: every invoice or estimate sent also goes there, in its own message,
+    so the company keeps a searchable copy (the client never sees this address)."""
+    archive = str(_ct_profile(company).get("archive_email") or "").strip().lower()
+    if not archive or not _EMAIL_RE.fullmatch(archive) or archive in (to or []):
+        return
+    import datetime as dt
+    head = (f'<div style="font-family:Segoe UI,Arial,sans-serif;font-size:13px;background:#f1f5f9;border:1px solid #cbd5e1;'
+            f'border-radius:8px;padding:10px 12px;margin:0 auto 12px;max-width:640px;color:#0f172a">'
+            f'<b>Archive copy</b> &middot; {_html_escape(kind.title())} {_html_escape(number)} sent to {_html_escape(", ".join(to))}'
+            f'{(" &middot; cc " + _html_escape(", ".join(cc))) if cc else ""} &middot; by {_html_escape(sent_by)} &middot; '
+            f'{dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M")} UTC</div>')
+    _ct_bg(_ct_mail, company, "archive", [archive], [], f"[Copy] {kind.title()} {number} sent to {', '.join(to)}"[:300],
+           head + html, None, "BSynch", ref, sent_by)
+
+
 @app.route("/api/contractor/invoices/<invoice_id>/send", methods=["POST"])
 def contractor_invoice_send(invoice_id):
     import secrets, datetime as dt
@@ -9520,12 +9546,14 @@ def contractor_invoice_send(invoice_id):
     link = f"{request.host_url}i/{token}"
     co = inv.get("company_snapshot") or {}
     message = str(data.get("message") or "").strip()[:2000] or "Please find your invoice below."
+    inv_html = _ct_invoice_email_html(inv, message, link)
     ok, e = _ct_mail(inv["company"], "invoice", to, cc, f"Invoice {inv['invoice_number']} from {co.get('display_name') or ''}".strip(),
-                           _ct_invoice_email_html(inv, message, link), reply_to=(co.get("emails") or [None])[0],
+                           inv_html, reply_to=(co.get("emails") or [None])[0],
                            from_name=co.get("display_name") or CONTRACTOR_COMPANIES.get(inv["company"]),
                            ref=inv["id"], sent_by=me["name"])
     if not ok:
         return jsonify({"ok": False, "error": e, "link": link}), 502
+    _ct_archive_copy(inv["company"], "invoice", inv["invoice_number"], to, cc, inv_html, me["name"], inv["id"])
     now = dt.datetime.utcnow().isoformat() + "Z"
     upd = {"sent_at": now, "sent_to": ", ".join(to), "sent_cc": ", ".join(cc),
            "status_history": (inv.get("status_history") or []) + [{"status": "sent", "at": now, "by": me["name"][:80], "note": "Sent to " + ", ".join(to)}]}
@@ -10251,9 +10279,12 @@ def contractor_estimate_send(est_id):
     link = f"{request.host_url}e/{token}"
     co = est.get("company_snapshot") or {}
     message = str(data.get("message") or "").strip()[:2000] or "Here is the estimate we talked about."
+    est_html = _ct_est_email_html(est, message, link)
     ok, e = _ct_mail(est["company"], "estimate", to, cc, f"Estimate {est['estimate_number']} from {co.get('display_name') or ''}".strip(),
-                     _ct_est_email_html(est, message, link), reply_to=(co.get("emails") or [None])[0],
+                     est_html, reply_to=(co.get("emails") or [None])[0],
                      from_name=co.get("display_name") or CONTRACTOR_COMPANIES.get(est["company"]), ref=est["id"], sent_by=me["name"])
+    if ok:
+        _ct_archive_copy(est["company"], "estimate", est["estimate_number"], to, cc, est_html, me["name"], est["id"])
     upd = {"public_token": token}
     if ok:
         upd.update(sent_at=dt.datetime.utcnow().isoformat() + "Z", sent_to=", ".join(to), sent_cc=", ".join(cc),
