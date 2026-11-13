@@ -298,6 +298,21 @@ def _hl_scope_filter(param="company_id"):
     return f"{param}=eq.{scope}" if scope else f"{param}=is.null"
 
 
+def _hl_family_session():
+    """Signed in as the client company's admin (company login) on that company's own subdomain."""
+    co = _get_client_co()
+    return bool(co and session.get("co_admin") and session.get("co_admin") == co.get("slug"))
+
+
+def _hl_page_guard():
+    """Home Lab holds children's names and photos: its screens need a sign-in."""
+    if not _client_can_access_module("homelab"):
+        return redirect("/home")
+    if _hl_family_session() or _erp_session_user():
+        return None
+    return redirect("/login?next=" + requests.utils.quote(request.path))
+
+
 HL_FREE_GAME_LIMIT = 4
 
 def _hl_account_is_premium():
@@ -401,14 +416,16 @@ def marketing_hub():
 
 @app.route("/homelab-hub")
 def homelab_hub():
-    if not _client_can_access_module("homelab"):
-        return redirect("/home")
+    g = _hl_page_guard()
+    if g:
+        return g
     return render_template("homelab-hub.html")
 
 @app.route("/homelab/kids-checklist")
 def homelab_kids_checklist_page():
-    if not _client_can_access_module("homelab"):
-        return redirect("/home")
+    g = _hl_page_guard()
+    if g:
+        return g
     return render_template("homelab-kids-checklist.html")
 
 @app.route("/homelab/legal")
@@ -417,14 +434,16 @@ def homelab_legal_page():
 
 @app.route("/homelab/games-hub")
 def homelab_games_hub():
-    if not _client_can_access_module("homelab"):
-        return redirect("/home")
+    g = _hl_page_guard()
+    if g:
+        return g
     return render_template("homelab-games-hub.html")
 
 @app.route("/homelab/games/sugar-quest")
 def homelab_sugar_quest():
-    if not _client_can_access_module("homelab"):
-        return redirect("/home")
+    g = _hl_page_guard()
+    if g:
+        return g
     return render_template("homelab-sugar-quest.html")
 
 @app.route("/homelab/games/stop")
@@ -439,8 +458,9 @@ def public_games_hub():
 
 @app.route("/homelab/tball")
 def homelab_tball():
-    if not _client_can_access_module("homelab"):
-        return redirect("/home")
+    g = _hl_page_guard()
+    if g:
+        return g
     return render_template("homelab-tball.html")
 
 # ── Stop Game Multiplayer ────────────────────────────────────────────────────
@@ -1762,10 +1782,35 @@ def get_companies():
         f"{SUPABASE_URL}/rest/v1/bsynch_companies?order=created_at.asc",
         headers=sb_headers()
     )
-    return jsonify(r.json() if r.ok else [])
+    # Database keys and admin passwords never go to the browser: only whether they are set
+    out = []
+    for row in (r.json() if r.ok else []):
+        row = dict(row)
+        key = str(row.pop("supabase_key", "") or "")
+        row.pop("admin_password", None)
+        row["supabase_key"] = ("•••• " + key[-4:]) if key else ""
+        row["has_supabase_key"] = bool(key)
+        out.append(row)
+    return jsonify(out)
 
 DEFAULT_COMPANY_ADMIN_USER = os.environ.get("DEFAULT_COMPANY_ADMIN_USER", "daniel@hidalgoops.com")
-DEFAULT_COMPANY_ADMIN_PASSWORD = os.environ.get("DEFAULT_COMPANY_ADMIN_PASSWORD", "1234")
+
+
+def _company_pw_ok(co, username, password):
+    """Client-company admin sign-in. Stored bcrypt; an old plain-text one is checked once and upgraded."""
+    stored = str(co.get("admin_password") or "")
+    if not stored or not _hmac.compare_digest(str(username), str(co.get("admin_username") or "")):
+        return False
+    if stored.startswith("$2"):
+        return verify_password(password, stored)
+    if not _hmac.compare_digest(stored, str(password)):
+        return False
+    try:
+        requests.patch(f"{_MASTER_URL}/rest/v1/bsynch_companies?id=eq.{co['id']}", json={"admin_password": hash_password(password)},
+                       headers={"apikey": _MASTER_KEY, "Authorization": f"Bearer {_MASTER_KEY}", "Content-Type": "application/json"}, timeout=5)
+    except Exception:
+        pass
+    return True
 
 @app.route("/api/platform/companies", methods=["POST"])
 def create_company():
@@ -1787,8 +1832,10 @@ def create_company():
         "logo_url":      data.get("logo_url", "") or None,
         "homelab_plan":  data.get("homelab_plan", "free"),
         "admin_username": (data.get("admin_username") or DEFAULT_COMPANY_ADMIN_USER).strip(),
-        "admin_password": (data.get("admin_password") or DEFAULT_COMPANY_ADMIN_PASSWORD).strip(),
+        "admin_password": None,
     }
+    plain_pw = (data.get("admin_password") or "").strip() or __import__("secrets").token_urlsafe(12)
+    payload["admin_password"] = hash_password(plain_pw)
     if not payload["name"] or not payload["slug"]:
         return jsonify({"ok": False, "error": "name and slug required"}), 400
     r = requests.post(
@@ -1796,7 +1843,11 @@ def create_company():
         headers={**sb_headers(), "Prefer": "return=representation"},
         json=payload
     )
-    return jsonify({"ok": r.ok, "data": r.json() if r.ok else None, "error": r.text if not r.ok else None})
+    _audit("platform.company_create", payload["slug"])
+    # The admin password is shown once (only its hash is stored); keys and hash never go back to the browser
+    data_out = [{k: v for k, v in row.items() if k not in ("supabase_key", "admin_password")} for row in (r.json() if r.ok else [])]
+    return jsonify({"ok": r.ok, "data": data_out if r.ok else None, "admin_password": plain_pw if r.ok else None,
+                    "error": "Could not create the company" if not r.ok else None})
 
 @app.route("/api/platform/companies/<company_id>", methods=["PATCH"])
 def update_company(company_id):
@@ -1805,13 +1856,31 @@ def update_company(company_id):
     if not _is_platform_operator():  # holds every client's database keys
         return jsonify({"error": "Platform administrator only."}), 403
     data = request.get_json() or {}
-    payload = {k: v for k, v in data.items() if k not in ("caller_name",)}
+    allowed = ("name", "slug", "subdomain", "modules", "supabase_url", "supabase_key", "status", "logo_url",
+               "homelab_plan", "admin_username", "admin_password")
+    payload = {k: v for k, v in data.items() if k in allowed}
+    key = str(payload.get("supabase_key") or "")
+    if not key or key.startswith("•"):
+        payload.pop("supabase_key", None)  # left as shown (masked): keep the stored key
+    new_pw = None
+    if data.get("reset_admin_password"):
+        new_pw = __import__("secrets").token_urlsafe(12)
+        payload["admin_password"] = new_pw
+    if payload.get("admin_password"):
+        if len(str(payload["admin_password"])) < 8:
+            return jsonify({"ok": False, "error": "Use at least 8 characters for the admin password"}), 400
+        payload["admin_password"] = hash_password(str(payload["admin_password"]))
+    else:
+        payload.pop("admin_password", None)
+    if not payload:
+        return jsonify({"ok": False, "error": "nothing to update"}), 400
     r = requests.patch(
         f"{SUPABASE_URL}/rest/v1/bsynch_companies?id=eq.{company_id}",
         headers={**sb_headers(), "Prefer": "return=representation"},
         json=payload
     )
-    return jsonify({"ok": r.ok, "error": r.text if not r.ok else None})
+    _audit("platform.company_edit", company_id, {"fields": sorted(payload)})
+    return jsonify({"ok": r.ok, "admin_password": new_pw if r.ok else None, "error": "Could not save" if not r.ok else None})
 
 @app.route("/api/platform/companies/<company_id>", methods=["DELETE"])
 def delete_company(company_id):
@@ -1849,8 +1918,15 @@ def api_company_login():
     co = r.json()[0]
     if co.get("status") != "active":
         return jsonify({"ok": False, "error": "Account inactive"}), 403
-    if username != co.get("admin_username") or password != co.get("admin_password"):
+    if _ip_limited("company-login", 10, 900):
+        return jsonify({"ok": False, "error": "Too many wrong tries. Wait 15 minutes."}), 429
+    if not _company_pw_ok(co, username, password):
+        _ip_fail("company-login")
+        _audit("company_login.fail", slug, actor=username[:120])
         return jsonify({"ok": False, "error": "Invalid credentials"}), 401
+    _audit("company_login.ok", slug, actor=username[:120])
+    session.permanent = True
+    session["co_admin"] = slug  # a family's Home Lab on its own subdomain
     return jsonify({"ok": True, "slug": slug})
 
 @app.route("/api/company-info")
@@ -1885,15 +1961,19 @@ def api_company_change_password():
     if not r.ok or not r.json():
         return jsonify({"ok": False, "error": "Company not found"}), 404
     co = r.json()[0]
-    if username != co.get("admin_username") or old_password != co.get("admin_password"):
+    if _ip_limited("company-login", 10, 900):
+        return jsonify({"ok": False, "error": "Too many wrong tries. Wait 15 minutes."}), 429
+    if not _company_pw_ok(co, username, old_password):
+        _ip_fail("company-login")
         return jsonify({"ok": False, "error": "Invalid credentials"}), 401
-    if len(new_password) < 4:
-        return jsonify({"ok": False, "error": "Password too short"}), 400
+    if len(new_password) < 8:
+        return jsonify({"ok": False, "error": "Use at least 8 characters"}), 400
     upd = requests.patch(
         f"{_MASTER_URL}/rest/v1/bsynch_companies?id=eq.{co['id']}",
         headers={"apikey": _MASTER_KEY, "Authorization": f"Bearer {_MASTER_KEY}", "Content-Type": "application/json"},
-        json={"admin_password": new_password}
+        json={"admin_password": hash_password(new_password)}
     )
+    _audit("company_login.password_change", slug, actor=username[:120])
     return jsonify({"ok": upd.ok})
 
 # ── End Platform API ──────────────────────────────────────────────────
@@ -1948,16 +2028,17 @@ def _pin_migrate(base, hdr):
 
 # ── Retention: location history is personal data; keep it only as long as it is useful ──
 LOCATION_RETENTION_DAYS = int(os.environ.get("LOCATION_RETENTION_DAYS", "90"))
-AUDIT_RETENTION_DAYS = int(os.environ.get("AUDIT_RETENTION_DAYS", "365"))
+# Only location points expire. Invoices, work orders, photos, receipts, contacts and the audit log are never purged.
 _retention_done = set()
 
 
 def _retention_purge(base, hdr):
     import datetime as dt
     now = dt.datetime.utcnow()
+    if LOCATION_RETENTION_DAYS <= 0:
+        return
     for table, col, days in (("contractor_locations", "recorded_at", LOCATION_RETENTION_DAYS),
-                             ("worker_location_history", "recorded_at", LOCATION_RETENTION_DAYS),
-                             ("audit_log", "at", AUDIT_RETENTION_DAYS)):
+                             ("worker_location_history", "recorded_at", LOCATION_RETENTION_DAYS)):
         cutoff = (now - dt.timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%S")
         try:
             requests.delete(f"{base}/rest/v1/{table}?{col}=lt.{cutoff}", headers=hdr, timeout=20)
@@ -1967,7 +2048,7 @@ def _retention_purge(base, hdr):
 
 @app.before_request
 def _retention_hook():
-    """Once a day per database, in the background: delete location points and audit rows past retention."""
+    """Once a day per database, in the background: delete location points older than the retention period."""
     import datetime as dt
     try:
         base = sb_url()
@@ -2090,7 +2171,7 @@ _ERP_OPEN_EXACT = {"/api/login", "/api/login/2fa", "/api/logout", "/api/register
                    "/api/users/has-pin", "/api/users/verify-pin", "/api/users/set-pin",
                    "/api/checkin", "/api/checkin/by-name", "/api/checkin/by-pin", "/api/worker/location",
                    "/api/auth/whoami", "/api/auth/session"}
-_ERP_OPEN_PREFIX = ("/api/contractor/", "/api/public/", "/api/join/", "/api/homelab", "/api/hermaniland", "/api/auth/2fa")
+_ERP_OPEN_PREFIX = ("/api/contractor/", "/api/public/", "/api/join/", "/api/hermaniland", "/api/auth/2fa", "/api/stop/")
 # Data pages outside /api that need a session too
 _ERP_PROTECTED_PAGES = {"/export.csv", "/submit", "/submit-batch"}
 # Old ERP crew routes that share the /api/contractor/ prefix with the contractor module (which checks its
@@ -2460,6 +2541,14 @@ def api_register():
 def register_page():
     """Public self-registration page for workers."""
     return render_template("register.html")
+
+@app.route("/api/public/leads", methods=["GET"])
+def api_public_leads():
+    """Names of the leads a new worker can pick on the sign-up page (no emails, phones or anything else)."""
+    r = requests.get(f"{sb_url()}/rest/v1/app_users?approved=eq.true&role=in.(lead,boss,admin)&select=name,role&order=name.asc&limit=200",
+                     headers=sb_headers(), timeout=8)
+    return jsonify([{"name": u["name"], "role": u.get("role")} for u in (r.json() if r.ok else []) if u.get("name")])
+
 
 @app.route("/api/self-register", methods=["POST"])
 def api_self_register():
@@ -9884,6 +9973,8 @@ def _erp_auth_guard():
     who = _erp_session_user()
     if who:
         return _erp_access_denied(p, who)
+    if p.startswith("/api/homelab") and _hl_family_session():
+        return None
     if ERP_AUTH_MODE == "enforce":
         return jsonify({"ok": False, "error": "login_required"}), 401
     _erp_report(p)

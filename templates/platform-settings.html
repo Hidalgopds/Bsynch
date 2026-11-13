@@ -150,7 +150,7 @@
         </div>
         <div class="mfield" style="margin-bottom:0;">
           <label>Anon Key</label>
-          <input type="text" id="coSupaKey" placeholder="eyJ...">
+          <input type="text" id="coSupaKey" placeholder="eyJ... (leave as is to keep the saved key)">
         </div>
       </div>
     </div>
@@ -258,7 +258,8 @@ async function saveCompany(){
   var method = id ? 'PATCH' : 'POST';
   var r = await fetch(url, {method:method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
   var d = await r.json();
-  if(d.ok !== false){ closeModal(); loadCompanies(); showToast(id?'Company updated':'Company created'); }
+  if(d.ok !== false){ closeModal(); loadCompanies(); showToast(id?'Company updated':'Company created');
+    if(!id && d.admin_password && !body.admin_password) prompt('Admin password for the new company (shown only now, copy it):', d.admin_password); }
   else { alert('Error: '+(d.error||'Unknown')); }
 }
 
@@ -321,14 +322,14 @@ function toggleEye(inputId, btn){
 }
 
 async function resetPassword(id, name){
-  if(!confirm('Reset password for "'+name+'" to 1234? They will need to change it on next login.')) return;
+  if(!confirm('Give "'+name+'" a new random admin password? The old one stops working.')) return;
   var r = await fetch('/api/platform/companies/'+id, {
     method:'PATCH',
     headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({admin_password:'1234'})
+    body: JSON.stringify({reset_admin_password:true})
   });
   var d = await r.json();
-  if(d.ok) alert('Password reset to 1234');
+  if(d.ok) prompt('New admin password (shown only now, copy it):', d.admin_password);
   else alert('Error: '+(d.error||'unknown'));
 }
 

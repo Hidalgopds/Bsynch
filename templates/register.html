@@ -256,7 +256,7 @@
     (async function loadLeads(){
       var sel = document.getElementById('regLead');
       try {
-        var r = await fetch('/api/users?leads_only=1');
+        var r = await fetch('/api/public/leads');
         var data = await r.json();
         // filter to leads + boss + admin
         var leads = data.filter(function(u){

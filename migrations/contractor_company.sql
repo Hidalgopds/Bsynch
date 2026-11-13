@@ -376,7 +376,7 @@ create index if not exists contractor_client_folders_company_idx on contractor_c
 alter table contractor_client_folders enable row level security;
 alter table contractor_contacts add column if not exists folder_id uuid references contractor_client_folders(id) on delete set null;
 
--- Audit log: security events and account changes (kept AUDIT_RETENTION_DAYS, default 365)
+-- Audit log: security events and account changes (never purged)
 create table if not exists audit_log (
   id bigserial primary key,
   at timestamptz not null default now(),
