@@ -51,7 +51,8 @@ def verify_password(plain, hashed):
         return False
 
 # ── Kiosk IP restriction ─────────────────────────────────────────────────────
-KIOSK_PASS = os.environ.get("KIOSK_ADMIN_PASS", "admin")
+# No default: without KIOSK_ADMIN_PASS a tablet opens only from an allowed IP (or a session already enabled)
+KIOSK_PASS = os.environ.get("KIOSK_ADMIN_PASS", "")
 # KIOSK_IPS supports exact IPs and prefix patterns (e.g. "174.202." matches
 # any IP starting with that prefix). Comma-separated. Set in Render env vars.
 # Using a prefix like "174.202." handles dynamic IPs from the same ISP.
@@ -1901,6 +1902,151 @@ def api_company_change_password():
 # HttpOnly cookie. The contractor API reads who is calling from that cookie only.
 import hmac as _hmac, hashlib as _hashlib, struct as _struct, base64 as _b64
 
+
+# ── PINs are stored as a keyed hash, never as the digits ─────────────
+def _pin_key():
+    return (os.environ.get("PIN_PEPPER") or "").encode() or _hmac.new(str(app.secret_key).encode(), b"bsynch-pin", _hashlib.sha256).digest()
+
+
+def _pin_hash(pin):
+    """Same PIN, same hash: lookups and "PIN already taken" still work."""
+    pin = str(pin or "").strip()
+    return "h1:" + _hmac.new(_pin_key(), pin.encode(), _hashlib.sha256).hexdigest()[:48] if pin else None
+
+
+def _pin_match(stored, pin):
+    stored, pin = str(stored or ""), str(pin or "").strip()
+    if not stored or not pin:
+        return False
+    if stored.startswith("h1:"):
+        return _hmac.compare_digest(stored, _pin_hash(pin))
+    return _hmac.compare_digest(stored, pin)  # not migrated yet
+
+
+def _pin_in(pin):
+    """PostgREST filter value matching a PIN stored hashed or (not migrated yet) as digits."""
+    pin = str(pin or "").strip()
+    return f'in.("{_pin_hash(pin)}","{pin}")'
+
+
+_pin_migrated = set()
+
+
+def _pin_migrate(base, hdr):
+    """Once per database: replace any PIN still stored as digits with its hash."""
+    for table in ("app_users", "workers"):
+        try:
+            r = requests.get(f"{base}/rest/v1/{table}?pin=not.is.null&pin=not.like.h1:*&select=id,pin&limit=2000",
+                             headers=hdr, timeout=10)
+            for row in (r.json() if r.ok else []):
+                requests.patch(f"{base}/rest/v1/{table}?id=eq.{row['id']}&pin=eq.{requests.utils.quote(str(row['pin']))}",
+                               json={"pin": _pin_hash(row["pin"])}, headers=hdr, timeout=5)
+        except Exception as e:
+            _pin_migrated.discard(base)
+            logger.warning("[PIN] migrate %s: %s", table, e)
+
+
+# ── Retention: location history is personal data; keep it only as long as it is useful ──
+LOCATION_RETENTION_DAYS = int(os.environ.get("LOCATION_RETENTION_DAYS", "90"))
+AUDIT_RETENTION_DAYS = int(os.environ.get("AUDIT_RETENTION_DAYS", "365"))
+_retention_done = set()
+
+
+def _retention_purge(base, hdr):
+    import datetime as dt
+    now = dt.datetime.utcnow()
+    for table, col, days in (("contractor_locations", "recorded_at", LOCATION_RETENTION_DAYS),
+                             ("worker_location_history", "recorded_at", LOCATION_RETENTION_DAYS),
+                             ("audit_log", "at", AUDIT_RETENTION_DAYS)):
+        cutoff = (now - dt.timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%S")
+        try:
+            requests.delete(f"{base}/rest/v1/{table}?{col}=lt.{cutoff}", headers=hdr, timeout=20)
+        except Exception as e:
+            logger.warning("[retention] %s: %s", table, e)
+
+
+@app.before_request
+def _retention_hook():
+    """Once a day per database, in the background: delete location points and audit rows past retention."""
+    import datetime as dt
+    try:
+        base = sb_url()
+    except Exception:
+        return None
+    k = (base, dt.date.today().isoformat())
+    if base and k not in _retention_done and not app.config.get("TESTING_NO_PIN_MIGRATE"):
+        _retention_done.add(k)
+        _threading.Thread(target=_retention_purge, args=(base, sb_headers()), daemon=True).start()
+    return None
+
+
+@app.before_request
+def _pin_migrate_hook():
+    """The first request that reaches each database hashes its old PINs, in the background."""
+    try:
+        base = sb_url()
+    except Exception:
+        return None
+    if base and base not in _pin_migrated and not app.config.get("TESTING_NO_PIN_MIGRATE"):
+        _pin_migrated.add(base)
+        _threading.Thread(target=_pin_migrate, args=(base, sb_headers()), daemon=True).start()
+    return None
+
+
+# ── Simple per-IP limiter (one gunicorn worker, so memory is shared by its threads) ──
+_ip_hits = {}
+
+
+def _ip_limited(bucket, limit, window):
+    """True when this IP already failed `limit` times in `window` seconds for `bucket`."""
+    k = (bucket, get_client_ip())
+    now = _ptime.time()
+    t = [x for x in _ip_hits.get(k, []) if now - x < window]
+    _ip_hits[k] = t
+    return len(t) >= limit
+
+
+def _ip_fail(bucket):
+    _ip_hits.setdefault((bucket, get_client_ip()), []).append(_ptime.time())
+
+
+_key_hits = {}
+
+
+def _key_limited(key, limit, window):
+    now = _ptime.time()
+    t = [x for x in _key_hits.get(key, []) if now - x < window]
+    _key_hits[key] = t
+    return len(t) >= limit
+
+
+def _key_fail(key):
+    _key_hits.setdefault(key, []).append(_ptime.time())
+
+
+# ── Audit log: who did what, when and from where (security events and account changes) ──
+def _audit(action, target="", detail=None, actor=None):
+    """Write one audit_log row in the background; never slows down or breaks the request."""
+    try:
+        if actor is None:
+            actor = (session.get("uid") or "").strip()
+        row = {"actor": str(actor or "")[:120], "action": str(action)[:60], "target": str(target or "")[:200],
+               "detail": detail or {}, "ip": get_client_ip()[:64], "path": request.path[:200]}
+        base, hdr = sb_url(), sb_headers()
+    except Exception:
+        return
+    if app.config.get("AUDIT_SYNC"):
+        _audit_write(base, hdr, row)
+    else:
+        _threading.Thread(target=_audit_write, args=(base, hdr, row), daemon=True).start()
+
+
+def _audit_write(base, hdr, row):
+    try:
+        requests.post(f"{base}/rest/v1/audit_log", json=row, headers={**hdr, "Prefer": "return=minimal"}, timeout=5)
+    except Exception as e:
+        logger.warning("[audit] %s", e)
+
 CT_TRUST_HEADER = os.environ.get("CT_TRUST_HEADER") == "1"  # test harness only
 TOTP_ISSUER = os.environ.get("TOTP_ISSUER", "BSynch")
 
@@ -1933,7 +2079,8 @@ def _session_user():
 # ── ERP: every screen and API answers only a signed-in session ──────
 # ERP_AUTH_MODE=report lets old screens keep working and records each unsigned call in
 # auth_report, so nothing on a job site breaks; ERP_AUTH_MODE=enforce blocks them.
-ERP_AUTH_MODE = os.environ.get("ERP_AUTH_MODE", "report")
+# enforce by default: nothing on the ERP answers without a session. Set ERP_AUTH_MODE=report only to debug.
+ERP_AUTH_MODE = os.environ.get("ERP_AUTH_MODE", "enforce")
 _erp_seen = {}
 _erp_sess_cache = {}
 # Open without a session: sign-in itself, public links, and the job-site kiosks (QR check-in, tablet)
@@ -1942,10 +2089,57 @@ _ERP_OPEN_EXACT = {"/api/login", "/api/login/2fa", "/api/logout", "/api/register
                    "/api/company-login", "/api/company-info", "/api/company-change-password",
                    "/api/users/has-pin", "/api/users/verify-pin", "/api/users/set-pin",
                    "/api/checkin", "/api/checkin/by-name", "/api/checkin/by-pin", "/api/worker/location",
-                   "/api/auto-checkout", "/api/auth/whoami", "/api/auth/session"}
+                   "/api/auth/whoami", "/api/auth/session"}
 _ERP_OPEN_PREFIX = ("/api/contractor/", "/api/public/", "/api/join/", "/api/homelab", "/api/hermaniland", "/api/auth/2fa")
 # Data pages outside /api that need a session too
 _ERP_PROTECTED_PAGES = {"/export.csv", "/submit", "/submit-batch"}
+# Old ERP crew routes that share the /api/contractor/ prefix with the contractor module (which checks its
+# own sessions): these still need an ERP session
+_ERP_LEGACY_CONTRACTOR = {"/api/contractor/profile", "/api/contractor/pin", "/api/contractor/name",
+                          "/api/contractor/status", "/api/contractor/hours", "/api/contractor/password",
+                          "/api/contractor/reset-pin"}
+# Who may call what, beyond being signed in: (method, path pattern, roles allowed)
+_ERP_ADMIN = ("admin", "boss")
+_ERP_ROLE_RULES = [
+    ("POST", r"/api/workers", _ERP_ADMIN),
+    ("POST", r"/api/workers/assign-pins", _ERP_ADMIN),
+    ("PATCH", r"/api/workers/[^/]+", _ERP_ADMIN),
+    ("DELETE", r"/api/workers/[^/]+", _ERP_ADMIN),
+    ("PATCH", r"/api/workers/by-name/.+", _ERP_ADMIN),
+    ("DELETE", r"/api/workers/by-name/.+", _ERP_ADMIN),
+    ("POST", r"/api/workers/[^/]+/reset-pin", _ERP_ADMIN),
+    ("POST", r"/api/config/.+", _ERP_ADMIN),
+    ("GET", r"/api/notifications/admin", _ERP_ADMIN),
+    ("PATCH", r"/api/notifications/[^/]+", _ERP_ADMIN),
+    ("DELETE", r"/api/notifications/[^/]+", _ERP_ADMIN),
+    ("POST", r"/api/notifications", ("admin", "boss", "lead", "supervisor", "inventory")),
+    ("POST", r"/api/checkin/manual", _ERP_ADMIN + ("lead",)),
+    ("POST", r"/api/safety-meeting(/bulk-checkin)?", _ERP_ADMIN + ("lead",)),
+    ("DELETE", r"/api/safety-meeting/[^/]+", _ERP_ADMIN + ("lead",)),
+]
+# Routes that change one person's account: only that person, or an admin
+_ERP_SELF_ROUTES = {("PATCH", "/api/contractor/profile"), ("PATCH", "/api/contractor/pin"),
+                    ("PATCH", "/api/contractor/name"), ("PATCH", "/api/contractor/password"),
+                    ("POST", "/api/contractor/reset-pin"), ("POST", "/api/users/set-consent")}
+
+
+def _erp_role(name):
+    u = _auth_user_row(name, "name,role,approved") or {}
+    return (u.get("role") or "").lower() if u.get("approved") is not False else ""
+
+
+def _erp_access_denied(p, who):
+    """Role and self checks for a signed-in ERP caller; returns an error response or None."""
+    m = request.method
+    for meth, pat, roles in _ERP_ROLE_RULES:
+        if m == meth and re.fullmatch(pat, p) and _erp_role(who) not in roles:
+            return jsonify({"ok": False, "error": "not allowed"}), 403
+    if (m, p) in _ERP_SELF_ROUTES:
+        body = request.get_json(silent=True) or {}
+        target = str(body.get("name") or body.get("old_name") or "").strip()
+        if target and target != who and _erp_role(who) not in _ERP_ADMIN:
+            return jsonify({"ok": False, "error": "You can only change your own account"}), 403
+    return None
 
 
 def _erp_session_user():
@@ -2062,13 +2256,17 @@ def api_login_two_factor():
     if not ok:
         pend["tries"] = pend.get("tries", 0) + 1
         session["pending"] = pend
+        _audit("login.2fa_fail", u["name"], actor=u["name"])
         return jsonify({"error": "That code is not right. Use the newest code in the app."}), 401
     _start_session(u)
+    _audit("login.ok", u["name"], {"2fa": True}, actor=u["name"])
     return jsonify({"name": u["name"], "role": u.get("role", "worker"), "email": u.get("email", "")})
 
 
 @app.route("/api/logout", methods=["POST"])
 def api_logout():
+    if session.get("uid"):
+        _audit("logout", session.get("uid"))
     session.clear()
     return jsonify({"ok": True})
 
@@ -2160,6 +2358,11 @@ def api_login():
     password = data.get("password", "").strip()
     if not username or not password:
         return jsonify({"error": "Username and password required"}), 400
+    # Guessing passwords: 10 wrong tries for an account, or 30 from one IP, wait 15 minutes
+    ukey = "login:" + username.lower()[:120]
+    if _ip_limited("login", 30, 900) or _key_limited(ukey, 10, 900):
+        _audit("login.locked", username[:120], actor="")
+        return jsonify({"error": "Too many wrong tries. Wait 15 minutes and try again."}), 429
     # Try username field, then email, then name (backward compat)
     users = []
     for field in ["username", "email", "name"]:
@@ -2175,16 +2378,21 @@ def api_login():
             users = candidates
             break
     if not users:
+        _ip_fail("login")
+        _key_fail(ukey)
+        _audit("login.fail", username[:120], actor="")
         return jsonify({"error": "Invalid username or password"}), 401
     u = users[0]
     if u.get("approved") == False:
         return jsonify({"error": "pending_approval"}), 403
+    _key_hits.pop(ukey, None)
     if u.get("totp_enabled"):
         # Password is right; the session starts only after the authenticator code
         session.clear()
         session["pending"] = {"uid": u["name"], "fp": _pw_fingerprint(u.get("password")), "exp": int(_ptime.time()) + 300, "tries": 0}
         return jsonify({"two_factor": True, "name": u["name"]})
     _start_session(u)
+    _audit("login.ok", u["name"], actor=u["name"])
     return jsonify({"name": u["name"], "role": u.get("role","worker"), "email": u.get("email",""),
                     "setup_2fa": _two_factor_required(u)})
 
@@ -2935,7 +3143,7 @@ def add_worker():
     for _ in range(50):
         candidate = str(random.randint(1000, 9999))
         check = requests.get(
-            f"{sb_url()}/rest/v1/{WORKERS_TABLE}?pin=eq.{candidate}&select=id&limit=1",
+            f"{sb_url()}/rest/v1/{WORKERS_TABLE}?pin={_pin_in(candidate)}&select=id&limit=1",
             headers=sb_headers()
         )
         if check.ok and not check.json():
@@ -2943,10 +3151,14 @@ def add_worker():
             break
     r = requests.post(
         f"{sb_url()}/rest/v1/{WORKERS_TABLE}",
-        json={"name": name, "role": data.get("role",""), "active": True, "pin": pin},
+        json={"name": name, "role": data.get("role",""), "active": True, "pin": _pin_hash(pin)},
         headers={**sb_headers(), "Prefer": "return=representation"}
     )
-    return jsonify({"ok": r.ok, "worker": r.json()[0] if r.ok and r.json() else {}})
+    worker = dict(r.json()[0]) if r.ok and r.json() else {}
+    if worker:
+        worker["pin"] = pin  # shown once to the admin who added the person; only the hash is stored
+        _audit("worker.add", name)
+    return jsonify({"ok": r.ok, "worker": worker})
 
 @app.route("/api/workers/assign-pins", methods=["POST"])
 def assign_pins_bulk():
@@ -2960,7 +3172,7 @@ def assign_pins_bulk():
     workers = r.json() if r.ok else []
     # Get existing PINs to avoid collisions
     ep = requests.get(
-        f"{sb_url()}/rest/v1/{WORKERS_TABLE}?pin=not.is.null&select=pin&limit=500",
+        f"{sb_url()}/rest/v1/{WORKERS_TABLE}?pin=not.is.null&select=pin&limit=5000",
         headers=sb_headers()
     )
     used = set(w["pin"] for w in (ep.json() if ep.ok else []) if w.get("pin"))
@@ -2968,15 +3180,16 @@ def assign_pins_bulk():
     for worker in workers:
         for _ in range(100):
             candidate = str(random.randint(1000, 9999))
-            if candidate not in used:
-                used.add(candidate)
+            if candidate not in used and _pin_hash(candidate) not in used:
+                used.add(_pin_hash(candidate))
                 requests.patch(
                     f"{sb_url()}/rest/v1/{WORKERS_TABLE}?id=eq.{worker['id']}",
-                    json={"pin": candidate},
+                    json={"pin": _pin_hash(candidate)},
                     headers=sb_headers()
                 )
                 assigned.append({"name": worker["name"], "pin": candidate})
                 break
+    _audit("worker.assign_pins", "", {"count": len(assigned)})
     return jsonify({"ok": True, "assigned": len(assigned), "workers": assigned})
 
 @app.route("/api/workers/<worker_id>", methods=["PATCH"])
@@ -2987,6 +3200,16 @@ def update_worker(worker_id):
     payload = {k: data[k] for k in allowed if k in data}
     if not payload:
         return jsonify({"ok": False, "error": "nothing to update"}), 400
+    if payload.get("pin"):
+        pin = str(payload["pin"]).strip()
+        if not (pin.isdigit() and len(pin) == 4):
+            return jsonify({"ok": False, "error": "PIN must be 4 digits"}), 400
+        dup = requests.get(f"{sb_url()}/rest/v1/{WORKERS_TABLE}?pin={_pin_in(pin)}&id=neq.{worker_id}&select=id&limit=1",
+                           headers=sb_headers())
+        if dup.ok and dup.json():
+            return jsonify({"ok": False, "error": "unique constraint — PIN already taken"}), 409
+        payload["pin"] = _pin_hash(pin)
+    _audit("worker.edit", worker_id, {k: ("***" if k == "pin" else v) for k, v in payload.items()})
     r = requests.patch(
         f"{sb_url()}/rest/v1/{WORKERS_TABLE}?id=eq.{worker_id}",
         json=payload,
@@ -2996,10 +3219,11 @@ def update_worker(worker_id):
         return jsonify({"ok": True})
     if "unique" in r.text.lower() or "duplicate" in r.text.lower():
         return jsonify({"ok": False, "error": "unique constraint — PIN already taken"}), 409
-    return jsonify({"ok": False, "error": r.text}), 400
+    return jsonify({"ok": False, "error": "Could not save"}), 400
 
 @app.route("/api/workers/<worker_id>", methods=["DELETE"])
 def deactivate_worker(worker_id):
+    _audit("worker.deactivate", worker_id)
     r = requests.patch(
         f"{sb_url()}/rest/v1/{WORKERS_TABLE}?id=eq.{worker_id}",
         json={"active": False}, headers=sb_headers()
@@ -4928,8 +5152,11 @@ def set_pin():
     if not pin or len(pin) != 4 or not pin.isdigit():
         return jsonify({"error": "PIN must be 4 digits"}), 400
     # Uniqueness check — no two users can share a PIN
+    if _ip_limited("set-pin", 20, 900):
+        return jsonify({"error": "Too many tries. Wait 15 minutes."}), 429
+    _ip_fail("set-pin")
     chk = requests.get(
-        f"{sb_url()}/rest/v1/app_users?pin=eq.{pin}&select=name&limit=1",
+        f"{sb_url()}/rest/v1/app_users?pin={_pin_in(pin)}&select=name&limit=1",
         headers=sb_headers()
     )
     taken = [r for r in (chk.json() if chk.ok else []) if r.get("name") != name]
@@ -4949,18 +5176,16 @@ def set_pin():
         r = requests.patch(
             f"{url}?name=eq.{requests.utils.quote(name)}",
             headers={**sb_headers(), "Prefer": "return=representation"},
-            json={"pin": pin}
+            json={"pin": _pin_hash(pin)}
         )
     else:
-        r = requests.post(
-            url,
-            headers={**sb_headers(), "Prefer": "return=representation"},
-            json={"name": name, "pin": pin, "role": "lead"}
-        )
+        # The PIN pad never creates accounts: an admin adds people first
+        return jsonify({"error": "Name not found. Ask an admin to add you."}), 404
     if r.ok:
         _pin_session(name, data)
+        _audit("pin.set", name)
         return jsonify({"ok": True})
-    return jsonify({"error": r.text}), 400
+    return jsonify({"error": "Could not save the PIN"}), 400
 
 
 _pin_fails = {}
@@ -4997,11 +5222,12 @@ def verify_pin():
         return jsonify({"ok": False, "error": "User not found"}), 404
     stored = rows[0].get("pin")
     role = rows[0].get("role", "lead")
-    if stored and _hmac.compare_digest(str(stored), str(pin)):
+    if _pin_match(stored, pin):
         _pin_fails.pop(name, None)
         _pin_session(name, data)
         return jsonify({"ok": True, "role": role})
     _pin_fails.setdefault(name, []).append(_ptime.time())
+    _audit("pin.fail", name, actor=name)
     return jsonify({"ok": False, "error": "Incorrect PIN"})
 
 
@@ -5161,7 +5387,8 @@ def create_user():
                "phone": data.get("phone") or None,
                "company": data.get("company") or "Meridian Structural Group"}
     if data.get("pin"):
-        payload["pin"] = str(data["pin"])
+        payload["pin"] = _pin_hash(data["pin"])
+    _audit("user.create", name, {"role": role})
     r = requests.post(
         f"{sb_url()}/rest/v1/app_users",
         headers={**sb_headers(), "Prefer": "return=representation"},
@@ -5169,7 +5396,7 @@ def create_user():
     )
     if r.ok:
         return jsonify({"ok": True})
-    return jsonify({"ok": False, "error": r.text}), 400
+    return jsonify({"ok": False, "error": "Could not create the user"}), 400
 
 @app.route("/api/users/by-name/<path:name>", methods=["PATCH"])
 def update_user_by_name(name):
@@ -5179,7 +5406,7 @@ def update_user_by_name(name):
         return jsonify({"ok": False, "error": "Unauthorized"}), 403
     payload = {}
     if "role"  in data: payload["role"]  = data["role"]
-    if data.get("pin"):  payload["pin"]   = str(data["pin"])
+    if data.get("pin"):  payload["pin"]   = _pin_hash(data["pin"])
     if "email" in data:  payload["email"] = data["email"] or None
     if "phone" in data:  payload["phone"] = data["phone"] or None
     if "led_by"  in data: payload["led_by"]  = data["led_by"] or None
@@ -5188,6 +5415,7 @@ def update_user_by_name(name):
     if new_name:         payload["name"]  = new_name
     if not payload:
         return jsonify({"ok": False, "error": "nothing to update"}), 400
+    _audit("user.edit", name, {k: ("***" if k == "pin" else v) for k, v in payload.items()})
     r = requests.patch(
         f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}",
         headers={**sb_headers(), "Prefer": "return=representation"},
@@ -5208,6 +5436,7 @@ def delete_user_by_name(name):
     caller = data.get("caller_name", "")
     if not _verify_caller_is_admin(caller):
         return jsonify({"ok": False, "error": "Unauthorized"}), 403
+    _audit("user.delete", name)
     r = requests.delete(
         f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}",
         headers=sb_headers()
@@ -5245,12 +5474,15 @@ def update_worker_by_name(name):
     payload = {k: data[k] for k in allowed if k in data}
     if not payload:
         return jsonify({"ok": False, "error": "nothing to update"}), 400
+    if payload.get("pin"):
+        payload["pin"] = _pin_hash(payload["pin"])
+    _audit("worker.edit", name, {k: ("***" if k == "pin" else v) for k, v in payload.items()})
     r = requests.patch(
         f"{sb_url()}/rest/v1/{WORKERS_TABLE}?name=eq.{requests.utils.quote(name)}",
         headers={**sb_headers(), "Prefer": "return=representation"},
         json=payload
     )
-    return jsonify({"ok": r.ok, "error": r.text if not r.ok else None})
+    return jsonify({"ok": r.ok, "error": "Could not save" if not r.ok else None})
 
 @app.route("/api/workers/by-name/<path:name>", methods=["DELETE"])
 def delete_worker_by_name(name):
@@ -5427,21 +5659,26 @@ def checkin_by_pin():
     pin = str(data.get("pin","")).strip().zfill(4)
     if len(pin) != 4 or not pin.isdigit():
         return jsonify({"ok": False, "error": "Invalid PIN"}), 400
+    # A 4-digit PIN is easy to guess: 10 wrong PINs from one tablet lock it for 10 minutes
+    if _ip_limited("kiosk-pin", 10, 600):
+        return jsonify({"ok": False, "error": "Too many wrong PINs. Wait 10 minutes."}), 429
 
     # Find worker with this PIN — look in app_users first, fall back to workers table
     r = requests.get(
-        f"{sb_url()}/rest/v1/app_users?pin=eq.{pin}&approved=eq.true&select=name&limit=1",
+        f"{sb_url()}/rest/v1/app_users?pin={_pin_in(pin)}&approved=eq.true&select=name&limit=1",
         headers=sb_headers()
     )
     rows = r.json() if r.ok else []
     if not rows:
         # Fallback: legacy pins stored in workers table
         r2 = requests.get(
-            f"{sb_url()}/rest/v1/workers?pin=eq.{pin}&select=name&limit=1",
+            f"{sb_url()}/rest/v1/workers?pin={_pin_in(pin)}&active=eq.true&select=name&limit=1",
             headers=sb_headers()
         )
         rows = r2.json() if r2.ok else []
     if not rows:
+        _ip_fail("kiosk-pin")
+        _audit("kiosk.pin_fail", "", actor="kiosk")
         return jsonify({"ok": False, "error": "PIN not found"}), 404
 
     worker_name = rows[0].get("name","")
@@ -5504,18 +5741,18 @@ def set_kiosk_pin(worker_id):
         return jsonify({"ok": False, "error": "PIN must be 4 digits"}), 400
     # Uniqueness check
     check = requests.get(
-        f"{sb_url()}/rest/v1/{WORKERS_TABLE}?pin=eq.{pin}&select=id&limit=1",
+        f"{sb_url()}/rest/v1/{WORKERS_TABLE}?pin={_pin_in(pin)}&select=id&limit=1",
         headers=sb_headers()
     )
     if check.ok and check.json():
         return jsonify({"ok": False, "error": "PIN already taken — choose another"}), 409
-    # Save PIN
+    # Save PIN (only for someone who has none: the kiosk never replaces a PIN)
     r = requests.patch(
-        f"{sb_url()}/rest/v1/{WORKERS_TABLE}?id=eq.{worker_id}",
-        json={"pin": pin},
+        f"{sb_url()}/rest/v1/{WORKERS_TABLE}?id=eq.{requests.utils.quote(worker_id)}&pin=is.null",
+        json={"pin": _pin_hash(pin)},
         headers={**sb_headers(), "Prefer": "return=representation"}
     )
-    if not r.ok:
+    if not r.ok or not r.json():
         return jsonify({"ok": False, "error": "Failed to save PIN"}), 500
     return jsonify({"ok": True})
 
@@ -5581,13 +5818,14 @@ def update_contractor_pin():
     worker_id   = rows[0]["id"]
 
     # Validate old PIN — skip if this is first-time setup (current_pin is null/empty)
-    if current_pin and old_pin != current_pin:
+    if current_pin and not _pin_match(current_pin, old_pin):
+        _audit("pin.fail", name)
         return jsonify({"ok": False, "error": "Current PIN is incorrect"}), 403
 
     # Check new PIN is not already taken by someone else
     dup = requests.get(
         f"{sb_url()}/rest/v1/{WORKERS_TABLE}"
-        f"?pin=eq.{new_pin}&id=neq.{worker_id}&select=id&limit=1",
+        f"?pin={_pin_in(new_pin)}&id=neq.{worker_id}&select=id&limit=1",
         headers=sb_headers()
     )
     if dup.ok and dup.json():
@@ -5596,7 +5834,7 @@ def update_contractor_pin():
     # Save new PIN
     pr = requests.patch(
         f"{sb_url()}/rest/v1/{WORKERS_TABLE}?id=eq.{worker_id}",
-        json={"pin": new_pin},
+        json={"pin": _pin_hash(new_pin)},
         headers={**sb_headers(), "Prefer": "return=representation"}
     )
     return jsonify({"ok": pr.ok})
@@ -5622,8 +5860,12 @@ def update_contractor_name():
 def tablet_page():
     """Tablet check-in/out kiosk — restricted to job site IP, or admin pass."""
     admin_pass = request.args.get("pass", "")
-    if not kiosk_allowed() and admin_pass != KIOSK_PASS:
-        ip = get_client_ip()
+    pass_ok = bool(KIOSK_PASS) and not _ip_limited("tablet-pass", 10, 900) and _hmac.compare_digest(admin_pass, KIOSK_PASS)
+    if admin_pass and not pass_ok:
+        _ip_fail("tablet-pass")
+    if not kiosk_allowed() and not pass_ok:
+        import html as _html
+        ip = _html.escape(get_client_ip()[:64])  # the forwarded header is whatever the caller sends
         return f"""<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>body{{font-family:sans-serif;background:#0f172a;color:#e2e8f0;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;flex-direction:column;gap:16px;text-align:center;padding:24px;}}
 h1{{font-size:28px;color:#ef4444;}}p{{color:#94a3b8;font-size:14px;max-width:340px;}}
@@ -5643,8 +5885,15 @@ button{{background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:10px
     session['kiosk_bypass'] = True
     return render_template("tablet.html")
 
+# The generic config route only reaches the keys the ERP screens use; everything else in app_config
+# (roles, platform admins, company settings, secrets) has its own guarded routes.
+_ERP_CONFIG_KEYS = {"role_permissions"}
+
+
 @app.route("/api/config/<key>", methods=["GET"])
 def get_config(key):
+    if key not in _ERP_CONFIG_KEYS:
+        return jsonify({"ok": False, "value": None}), 404
     r = requests.get(
         f"{sb_url()}/rest/v1/app_config?key=eq.{requests.utils.quote(key)}&select=value&limit=1",
         headers=sb_headers()
@@ -5656,6 +5905,8 @@ def get_config(key):
 
 @app.route("/api/config/<key>", methods=["POST"])
 def set_config(key):
+    if key not in _ERP_CONFIG_KEYS:
+        return jsonify({"ok": False, "error": "unknown setting"}), 404
     data = request.get_json() or {}
     value = data.get("value")
     import datetime as dt
@@ -5664,16 +5915,18 @@ def set_config(key):
         headers={**sb_headers(), "Prefer": "resolution=merge-duplicates,return=representation"},
         json={"key": key, "value": value, "updated_at": dt.datetime.utcnow().isoformat()}
     )
-    return jsonify({"ok": r.ok, "error": r.text if not r.ok else None})
+    _audit("config.set", key)
+    return jsonify({"ok": r.ok, "error": "Could not save" if not r.ok else None})
 
 # ── Cleanup inactive workers ──────────────────────────────────────
 @app.route("/api/workers/inactive", methods=["DELETE"])
 def delete_inactive_workers():
+    _audit("worker.delete_inactive", "")
     r = requests.delete(
         f"{sb_url()}/rest/v1/{WORKERS_TABLE}?active=eq.false",
         headers=sb_headers()
     )
-    return jsonify({"ok": r.ok, "error": r.text if not r.ok else None})
+    return jsonify({"ok": r.ok, "error": "Could not delete" if not r.ok else None})
 
 # ═══════════════════════════════════════════════════════════════════
 #  UNIT SENT — archive + download
@@ -6092,6 +6345,7 @@ def contractor_reset_own_pin():
     if not workers:
         return jsonify({"error":"Worker not found"}),404
     wid = workers[0]["id"]
+    _audit("pin.reset", name)
     r2 = requests.patch(
         f"{sb_url()}/rest/v1/workers?id=eq.{wid}",
         json={"pin": None},
@@ -6102,6 +6356,7 @@ def contractor_reset_own_pin():
 # ── Reset worker PIN (Admin) ──────────────────────────────────────────────────
 @app.route("/api/workers/<worker_id>/reset-pin", methods=["POST"])
 def reset_worker_pin(worker_id):
+    _audit("pin.reset", worker_id)
     r = requests.patch(
         f"{sb_url()}/rest/v1/workers?id=eq.{worker_id}",
         json={"pin": None},
@@ -6129,6 +6384,7 @@ def force_logout_all():
         return jsonify({"error": "Admin access required"}), 403
     import time
     new_ver = str(int(time.time()))
+    _audit("session.force_logout_all", "")
     requests.patch(
         f"{sb_url()}/rest/v1/app_settings?key=eq.session_version",
         json={"value": new_ver},
@@ -7241,6 +7497,7 @@ def contractor_support(company):
         ok, e = _ct_set_config(f"contractor_support_{company}", state)
         if not ok:
             return jsonify({"ok": False, "error": e or "Could not save"}), 500
+        _audit("company.support_access", company, {"hours": hours}, actor=me["name"])
         if hours:
             owner = DEFAULT_COMPANY_ADMIN_USER.lower()
             to = list(dict.fromkeys(_ct_people_emails(company, names=_ct_platform_admins()) +
@@ -7340,6 +7597,7 @@ def contractor_admin_add_user(company):
         f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(user['name'])}",
         json={"contractor_company": company}, headers=sb_headers(), timeout=5
     )
+    _audit("company.member_add", user["name"], {"company": company}, actor=me["name"])
     return jsonify({"ok": r.ok, "name": user["name"]})
 
 
@@ -7365,6 +7623,7 @@ def contractor_admin_update_user(company):
         return jsonify({"ok": False, "error": "Only the platform administrator can change or remove a Manager"}), 403
     if data.get("remove"):
         roles.pop(name, None)
+        _audit("company.member_remove", name, {"company": company}, actor=me["name"])
         ok, e = _ct_set_config(f"contractor_roles_{company}", roles)
         r = requests.patch(
             f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(name)}",
@@ -7374,6 +7633,7 @@ def contractor_admin_update_user(company):
     role = data.get("company_role")
     if role not in CONTRACTOR_ROLES:
         return jsonify({"ok": False, "error": "unknown role"}), 400
+    _audit("company.role_change", name, {"company": company, "from": roles.get(name) or "member", "to": role}, actor=me["name"])
     roles[name] = role
     ok, e = _ct_set_config(f"contractor_roles_{company}", roles)
     return jsonify({"ok": ok, "error": e})
@@ -9579,6 +9839,21 @@ def _ct_auth_guard():
 
 
 @app.after_request
+def _security_headers(resp):
+    """Browser-side protections on every response (pages, API and files)."""
+    h = resp.headers
+    h.setdefault("X-Content-Type-Options", "nosniff")
+    h.setdefault("X-Frame-Options", "SAMEORIGIN")  # no other site can frame BSynch (clickjacking)
+    h.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    # Camera (photos) and location (field visits) only for BSynch itself; nothing else
+    h.setdefault("Permissions-Policy", "camera=(self), geolocation=(self), microphone=(), payment=(), usb=()")
+    h.setdefault("Content-Security-Policy", "frame-ancestors 'self'; base-uri 'self'; object-src 'none'")
+    if request.is_secure or request.headers.get("X-Forwarded-Proto", "") == "https":
+        h.setdefault("Strict-Transport-Security", "max-age=31536000")
+    return resp
+
+
+@app.after_request
 def _ct_cache_after_write(resp):
     # Account changes (approve, role, company, sign-up) must be seen at once, not after the cache expires
     if request.method != "GET" and (request.path.startswith("/api/contractor/") and "/admin/" in request.path
@@ -9591,12 +9866,24 @@ def _ct_cache_after_write(resp):
 def _erp_auth_guard():
     """ERP screens and APIs need a session (password or crew PIN); see ERP_AUTH_MODE."""
     p = request.path
-    if p in _ERP_OPEN_EXACT or p.startswith(_ERP_OPEN_PREFIX) or not (p.startswith("/api/") or p in _ERP_PROTECTED_PAGES):
+    if p == "/api/auto-checkout":
+        # The daily job: the cron secret, or an admin signed in
+        prov = request.headers.get("X-Admin-Secret", "") or request.args.get("key", "")
+        if CRON_SECRET and _hmac.compare_digest(prov, CRON_SECRET):
+            return None
+        who = _erp_session_user()
+        if who and _erp_role(who) in _ERP_ADMIN:
+            return None
+        return jsonify({"ok": False, "error": "not allowed"}), 403
+    legacy = p in _ERP_LEGACY_CONTRACTOR
+    if not legacy and (p in _ERP_OPEN_EXACT or p.startswith(_ERP_OPEN_PREFIX)
+                       or not (p.startswith("/api/") or p in _ERP_PROTECTED_PAGES)):
         return None
     if request.method == "POST" and re.fullmatch(r"/api/checkin/[0-9a-fA-F-]{1,40}/checkout", p):
         return None  # check-out from the QR check-in page on site
-    if _erp_session_user():
-        return None
+    who = _erp_session_user()
+    if who:
+        return _erp_access_denied(p, who)
     if ERP_AUTH_MODE == "enforce":
         return jsonify({"ok": False, "error": "login_required"}), 401
     _erp_report(p)

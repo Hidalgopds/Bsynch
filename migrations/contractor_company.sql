@@ -375,3 +375,18 @@ create table if not exists contractor_client_folders (
 create index if not exists contractor_client_folders_company_idx on contractor_client_folders(company);
 alter table contractor_client_folders enable row level security;
 alter table contractor_contacts add column if not exists folder_id uuid references contractor_client_folders(id) on delete set null;
+
+-- Audit log: security events and account changes (kept AUDIT_RETENTION_DAYS, default 365)
+create table if not exists audit_log (
+  id bigserial primary key,
+  at timestamptz not null default now(),
+  actor text default '',
+  action text not null,
+  target text default '',
+  detail jsonb default '{}'::jsonb,
+  ip text default '',
+  path text default ''
+);
+create index if not exists audit_log_at_idx on audit_log(at desc);
+create index if not exists audit_log_action_idx on audit_log(action, at desc);
+alter table audit_log enable row level security;
