@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ 'Privacy Policy' if doc == 'privacy' else 'Terms of Service' }} – BSynch</title>
+<style>
+:root{--bg:#f6f8fb;--card:#fff;--text:#0f172a;--muted:#475569;--line:#e2e8f0;--accent:#0f766e}
+@media (prefers-color-scheme: dark){:root{--bg:#0f1117;--card:#161a24;--text:#e2e8f0;--muted:#94a3b8;--line:#2a2f3d;--accent:#5eead4}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 "Segoe UI",system-ui,sans-serif}
+main{max-width:780px;margin:0 auto;padding:28px 16px 64px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px 26px}
+h1{font-size:28px;line-height:1.2;margin:0 0 4px}
+h2{font-size:18px;margin:28px 0 6px}
+p,li{color:var(--text)}
+.meta{color:var(--muted);font-size:14px;margin-bottom:18px}
+nav{display:flex;gap:14px;flex-wrap:wrap;font-size:14px;margin-bottom:16px}
+a{color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:8px 0}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600}
+@media (max-width:560px){.card{padding:20px 16px}h1{font-size:24px}}
+</style>
+</head>
+<body>
+<main>
+<nav><a href="/">&#8592; BSynch</a><a href="/privacy">Privacy Policy</a><a href="/terms">Terms of Service</a></nav>
+<div class="card">
+{% if doc == 'privacy' %}
+<h1>Privacy Policy</h1>
+<div class="meta">Last updated: {{ updated }}</div>
+
+<p>This policy explains what information {{ entity }} ({% if entity != "BSynch" %}"BSynch", {% endif %}"we") collects when companies and their people use the BSynch platform at bsynch.com, how it is used, who it is shared with and the choices you have.</p>
+
+<h2>1. Who is responsible for your data</h2>
+<p>Each company that uses BSynch (for example, a contractor and its crew) decides what work information goes into its account. For that information we act as a service provider that processes it on the company's behalf and only under its instructions. For account information (your sign-in, security events) we are responsible. Questions: <a href="mailto:{{ contact }}">{{ contact }}</a>.</p>
+
+<h2>2. What we collect</h2>
+<table>
+<tr><th>Type</th><th>Examples</th><th>Why</th></tr>
+<tr><td>Account</td><td>Name, username, email, phone, password and PIN (stored only as one-way hashes), two-step verification settings, role and company</td><td>Sign you in, keep your account secure, show you the right screens</td></tr>
+<tr><td>Work information</td><td>Work orders, addresses, schedules, visits, notes, photos and their notes, materials, receipts and expenses, estimates, invoices, client names and emails, signed agreements</td><td>Provide the service your company uses</td></tr>
+<tr><td>Location</td><td>Your device's location, only while a BSynch screen is open and in use (about every 5 minutes and when a visit is saved). Never in the background.</td><td>Show where field work happened. Kept for {{ location_days }} days, then deleted automatically.</td></tr>
+<tr><td>Security and technical</td><td>Sign-ins, failed attempts, account changes, IP address, browser type</td><td>Protect accounts, detect abuse, investigate problems</td></tr>
+<tr><td>Email records</td><td>Who an invoice or alert was sent to, when, and whether it was delivered</td><td>Show your company what was sent</td></tr>
+</table>
+<p>We do not sell personal information, we do not use it for advertising, and we do not use your company's data to train AI models.</p>
+
+<h2>3. Cookies and storage on your device</h2>
+<p>BSynch uses one sign-in cookie to keep you signed in, plus storage in your browser for preferences such as theme and the last screen you used. We do not use advertising or tracking cookies.</p>
+
+<h2>4. Who we share it with</h2>
+<p>Only with providers that run the service for us, under contracts that limit their use of the data:</p>
+<ul>
+<li><b>Render</b> – application hosting (United States).</li>
+<li><b>Supabase</b> – database (United States).</li>
+<li><b>Anthropic</b> – reads a photo of a receipt or ticket when you ask the app to fill in the details. Only that image is sent.</li>
+<li><b>Email providers</b> (Resend, Google, Namecheap Private Email) – deliver the invoices, estimates and alerts your company sends.</li>
+</ul>
+<p>We may also disclose information if the law requires it, to protect people's safety, or as part of a sale or merger of the business (with notice to you).</p>
+
+<h2>5. Who inside BSynch can see your company's data</h2>
+<p>Your company's data is private to your company. Platform administrators can open it only when your company's Manager grants support access for a limited time (24 or 72 hours), and every screen opened during that time is logged and visible to the Manager.</p>
+
+<h2>6. How long we keep it</h2>
+<ul>
+<li>Location points: {{ location_days }} days.</li>
+<li>Work information, invoices and records: while your company's account is active, or as your company decides, and as long as the law requires for business and tax records.</li>
+<li>Security logs: kept to protect accounts and investigate incidents.</li>
+<li>When a company closes its account we delete or return its data on request, except what the law requires us to keep.</li>
+</ul>
+
+<h2>7. How we protect it</h2>
+<p>Encrypted connections (HTTPS) only; passwords and PINs stored as one-way hashes; optional or required two-step verification; role-based access; limits on repeated sign-in attempts; database access only from our servers; and a log of security-relevant actions. No system is perfectly secure; if a breach affects your personal information we will notify you and your company as the law requires.</p>
+
+<h2>8. Your choices and rights</h2>
+<p>You can see and correct your account details in the app, turn location off in your phone settings, and ask us to access, correct, export or delete your personal information. Depending on where you live (for example Texas or California), you may have additional rights, and we will not treat you differently for using them. If the information belongs to your employer's account, we may forward your request to them. Write to <a href="mailto:{{ contact }}">{{ contact }}</a>.</p>
+
+<h2>9. Children</h2>
+<p>BSynch's business tools are for adults and are not directed to children. The separate Home Lab family feature stores information about children only when a parent or guardian enters it; see the <a href="/homelab/legal">Home Lab notice</a>.</p>
+
+<h2>10. Changes</h2>
+<p>If we change this policy we will update the date above, and tell your company before material changes take effect.</p>
+
+{% else %}
+<h1>Terms of Service</h1>
+<div class="meta">Last updated: {{ updated }}</div>
+
+<p>These terms apply to the use of the BSynch platform at bsynch.com provided by {{ entity }} ({% if entity != "BSynch" %}"BSynch", {% endif %}"we"). By creating an account or using BSynch you agree to them. If you use BSynch for a company, you accept them for that company.</p>
+
+<h2>1. Accounts</h2>
+<p>Keep your password, PIN and verification codes private, and tell your Manager or us right away if you think someone else used your account. You are responsible for what is done with your account. Your company's Manager decides who joins, their role and what they can see.</p>
+
+<h2>2. Your company's data</h2>
+<p>Your company owns the information it puts into BSynch. It gives us permission to store and process it only to provide, secure and support the service, as described in the <a href="/privacy">Privacy Policy</a>. Your company is responsible for having the right to upload that information (including client details and photos of homes and job sites) and for telling its people that the app records work activity and, while in use, location.</p>
+
+<h2>3. Acceptable use</h2>
+<ul>
+<li>Do not try to access accounts, companies or data that are not yours, or to get around security limits.</li>
+<li>Do not upload unlawful content or anything that infringes someone else's rights.</li>
+<li>Do not use BSynch to send spam or misleading invoices or messages.</li>
+<li>Do not overload, copy or reverse-engineer the service.</li>
+</ul>
+
+<h2>4. Invoices, estimates and AI-filled fields</h2>
+<p>BSynch helps prepare invoices and estimates and can fill in fields from a photo of a receipt. Your company is responsible for checking amounts, taxes, addresses and recipients before sending anything; we are not responsible for billing or tax decisions.</p>
+
+<h2>5. Fees</h2>
+<p>If your company has a paid plan, the price and billing terms agreed with your company apply. We will give notice before changing them.</p>
+
+<h2>6. Availability and changes</h2>
+<p>We work to keep BSynch available and your data safe and backed up, but the service is provided "as is", without guarantees of uninterrupted operation. We may improve or change features; we will give reasonable notice before removing something your company depends on.</p>
+
+<h2>7. Suspension and ending</h2>
+<p>We may suspend accounts that put the service or other customers at risk or break these terms. Your company can stop using BSynch at any time and ask for an export or deletion of its data.</p>
+
+<h2>8. Limitation of liability</h2>
+<p>To the extent the law allows, BSynch is not liable for indirect or consequential damages or lost profits, and its total liability is limited to the amounts your company paid for the service in the 12 months before the claim.</p>
+
+<h2>9. Governing law</h2>
+<p>These terms are governed by the laws of the State of Texas, USA.</p>
+
+<h2>10. Contact</h2>
+<p><a href="mailto:{{ contact }}">{{ contact }}</a></p>
+{% endif %}
+</div>
+</main>
+</body>
+</html>

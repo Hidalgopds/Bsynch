@@ -2542,6 +2542,23 @@ def register_page():
     """Public self-registration page for workers."""
     return render_template("register.html")
 
+LEGAL_ENTITY = os.environ.get("LEGAL_ENTITY", "BSynch")
+LEGAL_CONTACT = os.environ.get("LEGAL_CONTACT_EMAIL", "info@hidalgoops.com")
+LEGAL_UPDATED = "November 13, 2026"
+
+
+@app.route("/privacy")
+def privacy_page():
+    return render_template("legal.html", doc="privacy", entity=LEGAL_ENTITY, contact=LEGAL_CONTACT,
+                           updated=LEGAL_UPDATED, location_days=LOCATION_RETENTION_DAYS)
+
+
+@app.route("/terms")
+def terms_page():
+    return render_template("legal.html", doc="terms", entity=LEGAL_ENTITY, contact=LEGAL_CONTACT,
+                           updated=LEGAL_UPDATED, location_days=LOCATION_RETENTION_DAYS)
+
+
 @app.route("/api/public/leads", methods=["GET"])
 def api_public_leads():
     """Names of the leads a new worker can pick on the sign-up page (no emails, phones or anything else)."""
