@@ -7531,7 +7531,7 @@ def contractor_mailroom_sample(company):
     d = CONTRACTOR_ALERTS[key]
     html = _ct_alert_html(company, f"{d['label']} (sample)", [("What it is", _html_escape(d["help"])),
                           ("Who gets it", ", ".join(CONTRACTOR_ALERT_TARGETS[t] for t in _ct_alert_settings(company)[key]["to"]) or "Only the extra emails")],
-                          f"{request.host_url}contractor/{company}/mail", "Open the Mail room")
+                          f"{_ct_web_base(company)}contractor/{company}/mail", "Open the Mail room")
     ok, e = _ct_mail(company, f"sample:{key}", to, [], f"[Sample] {d['label']}", html,
                      from_name=(_ct_profile(company).get("display_name") or CONTRACTOR_COMPANIES[company]) + " alerts", sent_by=me["name"])
     return jsonify({"ok": ok, "error": e, "to": to[0]})
@@ -7552,10 +7552,7 @@ def _ct_check_job_finished(job_id):
                 ("Client", _html_escape(job.get("client_name") or "—")), ("Address", _html_escape(_ct_full_address(job) or "—")),
                 ("Done by", _html_escape(job.get("assigned_to") or job.get("created_by") or "—")),
                 ("Price", f"${price:,.2f}" if price > 0 else "<b>Not set yet</b> — add it in Invoicing")]
-        try:
-            base = request.host_url
-        except RuntimeError:
-            base = ""
+        base = _ct_web_base(co)
         _ct_alert(co, "job_finished", f"Ready to invoice: {job.get('title')}",
                   _ct_alert_html(co, "A job is finished and ready to invoice", rows, f"{base}contractor/{co}/invoicing", "Open Invoicing"),
                   ref=job["id"], once=True)
@@ -7598,11 +7595,7 @@ def _ct_tomorrow_jobs(company, day):
                 f"{'📍 <a href=' + chr(39) + maps + chr(39) + '>' + _html_escape(addr) + '</a><br>' if addr else ''}"
                 f"{'👤 ' + _html_escape(j.get('client_name')) + '<br>' if j.get('client_name') else ''}"
                 f"{'<ul style=' + chr(39) + 'margin:6px 0 0 18px;padding:0' + chr(39) + '>' + mm + '</ul>' if mm else ''}</div>")
-    base = ""
-    try:
-        base = request.host_url
-    except RuntimeError:
-        pass
+    base = _ct_web_base(company)
     sent = 0
     if "assigned" in cfg["to"]:
         by_person = {}
@@ -7764,7 +7757,7 @@ def _contractor_scope():
     company they asked for only while it gives them support access; everyone else
     is pinned to their own company, or '__none__' when they have not been assigned one yet."""
     me = _contractor_caller()
-    wanted = (request.headers.get("X-Contractor-Company") or request.args.get("company") or "").lower()
+    wanted = (request.headers.get("X-Contractor-Company") or request.args.get("company") or _ct_host_company() or "").lower()
     if me["is_super"]:
         return wanted if _ct_can_view(me, wanted) else "__none__"
     return me["company"] or "__none__"
@@ -7849,7 +7842,7 @@ def contractor_support(company):
                 rows = [("Company", _html_escape(CONTRACTOR_COMPANIES[company])), ("Given by", _html_escape(me["name"])),
                         ("Open for", f"{hours} hours"), ("Until (UTC)", _html_escape(state["until"][:16].replace("T", " ")))]
                 _ct_bg(_ct_mail, company, "support", to, [], f"{CONTRACTOR_COMPANIES[company]} gave you support access for {hours} hours",
-                       _ct_alert_html(company, "Support access granted", rows, f"{request.host_url}contractor/{company}", "Open the company"),
+                       _ct_alert_html(company, "Support access granted", rows, f"{_ct_web_base(company)}contractor/{company}", "Open the company"),
                        None, "BSynch", company)
     sup = _ct_support(company)
     r = requests.get(f"{sb_url()}/rest/v1/contractor_support_log?company=eq.{company}&select=user_name,path,method,created_at"
@@ -8188,6 +8181,52 @@ def _ct_profile(company):
     return p
 
 
+# ── Each company's own web address (<company>.bsynch.com) ──
+CT_WEB_DOMAIN = "bsynch.com"
+
+
+def _ct_web_address(company):
+    return f"https://{company}.{CT_WEB_DOMAIN}/"
+
+
+def _ct_web_ready(company):
+    """(ok, reason). The company's address only works if that subdomain reads the same
+    database as the Contractor data; a subdomain wired to another database (a client
+    company in bsynch_companies) would show broken links."""
+    if company not in CONTRACTOR_COMPANIES:
+        return False, "Unknown company"
+    if _time.time() - _co_cache_ts > 60:
+        _refresh_co_cache()
+    co = _co_cache.get(company)
+    if co and co.get("supabase_url") and co["supabase_url"].rstrip("/") != _MASTER_URL.rstrip("/"):
+        return False, ("This address is connected to another database. "
+                       "Ask the BSynch platform admin to connect it before turning it on.")
+    return True, ""
+
+
+def _ct_web_base(company):
+    """Base for every link Contractor puts in an email or a shared page: the company's own
+    address once its Manager turned it on (and it is wired right), else the current host."""
+    if company in CONTRACTOR_COMPANIES and (_ct_config(f"contractor_company_{company}", {}) or {}).get("web_address_on") \
+            and _ct_web_ready(company)[0]:
+        return _ct_web_address(company)
+    try:
+        return request.host_url
+    except RuntimeError:
+        return f"https://{CT_WEB_DOMAIN}/"
+
+
+def _ct_host_company():
+    """Contractor company of the subdomain being visited (hicons.bsynch.com → 'hicons'), else ''."""
+    try:
+        parts = request.host.split(":")[0].lower().split(".")
+    except RuntimeError:
+        return ""
+    if len(parts) >= 3 and ".".join(parts[-2:]) == CT_WEB_DOMAIN and parts[0] in CONTRACTOR_COMPANIES:
+        return parts[0]
+    return ""
+
+
 def _ct_can_edit_settings(me, company):
     return _ct_can_admin(me, company) or _ct_perms(company).get(me["company_role"] or "member", {}).get("company_settings")
 
@@ -8198,8 +8237,10 @@ def contractor_company_profile(company):
     if company not in CONTRACTOR_COMPANIES or not _ct_can_view(me, company):
         return jsonify({"ok": False, "error": "not your company"}), 403
     if request.method == "GET":
+        ready, why = _ct_web_ready(company)
         out = {"ok": True, "profile": _ct_profile(company), "can_edit": bool(_ct_can_edit_settings(me, company)),
-               "can_security": _ct_can_admin(me, company), "can_support": _ct_is_own_manager(me, company)}
+               "can_security": _ct_can_admin(me, company), "can_support": _ct_is_own_manager(me, company),
+               "web_address": _ct_web_address(company), "web_ready": ready, "web_reason": why}
         if out["can_security"]:
             ur = requests.get(f"{sb_url()}/rest/v1/app_users?approved=eq.true&contractor_company=eq.{company}&select=name,totp_enabled&limit=1000",
                               headers=sb_headers(), timeout=8)
@@ -8231,6 +8272,17 @@ def contractor_company_profile(company):
         if not _ct_can_admin(me, company):
             return jsonify({"ok": False, "error": "Only a Manager can change two-step verification"}), 403
         out["require_2fa"] = bool(data.get("require_2fa"))
+    if "web_address_on" in data:
+        if not _ct_can_admin(me, company):
+            return jsonify({"ok": False, "error": "Only a Manager can change the company's web address"}), 403
+        on = bool(data.get("web_address_on"))
+        if on:
+            ready, why = _ct_web_ready(company)
+            if not ready:
+                return jsonify({"ok": False, "error": why}), 409
+        if on != bool(out.get("web_address_on")):
+            _audit("contractor.web_address", company, {"on": on, "address": _ct_web_address(company)})
+        out["web_address_on"] = on
     if "reminder_days" in data:
         try:
             out["reminder_days"] = max(0, min(365, int(data.get("reminder_days") or 0)))
@@ -8546,7 +8598,7 @@ def contractor_admin_invite(company):
     if err:
         return err
     token = _ct_invite_token(company, regenerate=request.method == "POST")
-    return jsonify({"ok": True, "url": f"{request.host_url.rstrip('/')}/join/{company}/{token}"})
+    return jsonify({"ok": True, "url": f"{_ct_web_base(company)}join/{company}/{token}"})
 
 
 @app.route("/join/<company>/<token>")
@@ -8596,7 +8648,7 @@ def contractor_join(company, token):
 
     co_name = CONTRACTOR_COMPANIES[company]
     approver = f"a {co_name} Manager"  # Managers approve every sign-up, Manager requests included
-    link = f"{request.host_url}contractor/{company}/admin"
+    link = f"{_ct_web_base(company)}contractor/{company}/admin"
     subject = f"{co_name}: {name} is waiting for approval ({CONTRACTOR_ROLE_LABELS[role]})"
     html = _ct_alert_html(company, "Someone is waiting for approval",
                           [("Name", _html_escape(name)), ("Email", _html_escape(email)), ("Role asked", CONTRACTOR_ROLE_LABELS[role])],
@@ -8998,7 +9050,7 @@ def contractor_add_expense(company):
                 ("Added by", _html_escape(ex.get("added_by") or me["name"])), ("For", _html_escape(ex.get("description") or "—"))]
         _ct_alert(company, "expense_over", f"Expense of ${_ct_money(ex.get('amount')):,.2f} at {ex.get('vendor') or 'a store'}",
                   _ct_alert_html(company, f"An expense over ${limit:,.0f} was added", rows,
-                                 f"{request.host_url}contractor/{company}/expenses", "Open Expenses"), ref=ex.get("id"))
+                                 f"{_ct_web_base(company)}contractor/{company}/expenses", "Open Expenses"), ref=ex.get("id"))
     return jsonify({"ok": True, "expense": _ct_expense_out(ex)})
 
 
@@ -9773,7 +9825,7 @@ def contractor_invoice_send(invoice_id):
     if not inv.get("public_token"):
         requests.patch(f"{sb_url()}/rest/v1/contractor_invoices?id=eq.{inv['id']}", json={"public_token": token},
                        headers=sb_headers(), timeout=5)
-    link = f"{request.host_url}i/{token}"
+    link = f"{_ct_web_base(inv['company'])}i/{token}"
     co = inv.get("company_snapshot") or {}
     message = str(data.get("message") or "").strip()[:2000] or "Please find your invoice below."
     inv_html = _ct_invoice_email_html(inv, message, link)
@@ -9881,7 +9933,7 @@ def _ct_alert_paid(company, invs, me):
     subject = (f"Paid: invoice {invs[0].get('invoice_number')} (${total:,.2f})" if len(invs) == 1
                else f"Paid: {len(invs)} invoices (${total:,.2f})")
     _ct_alert(company, "invoice_paid", subject,
-              _ct_alert_html(company, "Payment received", rows, f"{request.host_url}contractor/{company}/invoicing?tab=invoices&status=paid", "Open Invoicing"),
+              _ct_alert_html(company, "Payment received", rows, f"{_ct_web_base(company)}contractor/{company}/invoicing?tab=invoices&status=paid", "Open Invoicing"),
               ref=",".join(i["id"] for i in invs)[:80])
 
 
@@ -9986,7 +10038,7 @@ def contractor_invoice_remind(invoice_id):
     co = inv.get("company_snapshot") or {}
     days = _ct_days_since(inv["sent_at"])
     ok, e = _ct_mail(inv["company"], "reminder", to, cc, f"Reminder: invoice {inv['invoice_number']} from {co.get('display_name') or ''}".strip(),
-                           _ct_reminder_email_html(inv, f"{request.host_url}i/{inv['public_token']}", days),
+                           _ct_reminder_email_html(inv, f"{_ct_web_base(inv['company'])}i/{inv['public_token']}", days),
                            reply_to=(co.get("emails") or [None])[0],
                            from_name=co.get("display_name") or CONTRACTOR_COMPANIES.get(inv["company"]),
                            ref=inv["id"], sent_by=me["name"])
@@ -10904,7 +10956,7 @@ def contractor_estimate_send(est_id):
     if not to:
         return jsonify({"ok": False, "error": "Enter the client's email"}), 400
     token = est.get("public_token") or secrets.token_urlsafe(24)
-    link = f"{request.host_url}e/{token}"
+    link = f"{_ct_web_base(est['company'])}e/{token}"
     co = est.get("company_snapshot") or {}
     message = str(data.get("message") or "").strip()[:2000] or "Here is the estimate we talked about."
     est_html = _ct_est_email_html(est, message, link)
@@ -11071,7 +11123,7 @@ def contractor_public_estimate_answer(token):
             ("Client", _html_escape(est.get("client_name") or "—")), ("Total", f"<b>${_ct_money(est.get('total')):,.2f}</b>"),
             ("Answer", _html_escape(f"Accepted by {upd['accepted_name']}" if answer == "accept" else (upd["decline_reason"] or "Declined, no reason given")))]
     _ct_alert(co, "estimate_answered", sub,
-              _ct_alert_html(co, title, rows, f"{request.host_url}contractor/estimate/{est['id']}",
+              _ct_alert_html(co, title, rows, f"{_ct_web_base(co)}contractor/estimate/{est['id']}",
                              "Open the estimate" if answer == "decline" else "Turn it into a work order"), ref=est["id"])
     return jsonify({"ok": True, "estimate": _ct_est_public_view({**est, **row})})
 
@@ -11502,7 +11554,7 @@ def create_contractor_job():
                         ("What to do", _html_escape((job.get("description") or "")[:400]).replace("\n", "<br>") or "—")]
                 _ct_alert(co, "wo_created", f"New work order from {payload['created_by']}: {job.get('title')}",
                           _ct_alert_html(co, "A User created a work order", rows,
-                                         f"{request.host_url}contractor/projects?company={co}&job={job['id']}", "Open the work order"),
+                                         f"{_ct_web_base(co)}contractor/projects?company={co}&job={job['id']}", "Open the work order"),
                           ref=job["id"])
         return jsonify({"ok": True, "job": job})
     return jsonify({"ok": False, "error": r.text}), 400

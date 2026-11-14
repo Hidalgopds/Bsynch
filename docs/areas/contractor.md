@@ -24,6 +24,7 @@ App para empresas contratistas (hoy **Hicons** y **Bsynch**). Se instala en el t
 - Vista previa del enlace al compartir (número, empresa, logo; sin montos ni dirección).
 - Correos: por empresa (`_ct_mail`), quedan en `contractor_mail_log`.
 - El dictado de órdenes por voz **se quitó** a pedido del dueño.
+- **Dirección web propia** (`<empresa>.bsynch.com`): el Manager la prende en Company settings → Security. Desde ahí, enlaces de facturas, estimados, invitaciones y correos de alerta usan esa dirección (`_ct_web_base`). Apagada por defecto. Se niega a prenderse si ese subdominio está conectado a otra base de datos en `bsynch_companies` (los enlaces saldrían rotos). Queda en `audit_log` (`contractor.web_address`). En la dirección propia, el admin de plataforma cae directo en esa empresa.
 
 ## Pendientes
 - [x] Empresas ya no fijas en el código: `CONTRACTOR_COMPANIES` se lee de la tabla `contractor_companies` (hecho por Settings, 2026-11-14). El hub arma una tarjeta por empresa solo. No vuelvas a escribir `hicons`/`bsynch` a mano en pantallas nuevas.
@@ -32,6 +33,9 @@ App para empresas contratistas (hoy **Hicons** y **Bsynch**). Se instala en el t
 - [ ] Renee creó 5 órdenes duplicadas el día del error de `uploadWoMaterials`; las borra ella desde la app.
 - [ ] Gmail emisor para Hicons (lo configura el dueño).
 
+- [ ] Dirección propia: Settings debe confirmar que cada subdominio (ej. `hicons.bsynch.com`) responden (DNS + dominio en Render) y que la sesión sirve entre subdominios. Hasta entonces, no prenderla en producción.
+
 ## Decisiones tomadas
 - Nada de facturas, órdenes, fotos o recibos se borra solo. Borrar es siempre una acción manual del usuario con permiso.
 - Colores con contraste AA (teal `#0f766e`).
+- El enlace de acceso (`/login`) en el correo de cuenta aprobada sigue en el host actual: el login es de Settings.

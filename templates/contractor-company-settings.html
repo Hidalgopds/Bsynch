@@ -159,6 +159,10 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
       <label class="sec-tgl"><input type="checkbox" id="req2fa"><span><b>Require two-step verification for everyone in this company</b><br><span class="hint">When they sign in, they also type a code from Google Authenticator, Microsoft Authenticator or Authy. Anyone without it is asked to turn it on at their next sign-in.</span></span></label>
       <div class="hint" id="secStats" style="margin-top:8px;"></div>
       <span class="hint" id="secMsg" style="display:block;margin-top:6px;"></span>
+      <div id="webBox" style="border-top:1px solid #e2e8f0;margin-top:14px;padding-top:12px;">
+        <label class="sec-tgl"><input type="checkbox" id="webOn"><span><b>&#127760; Use your own web address: <span id="webAddr"></span></b><br><span class="hint">Invoices, estimates, invite links and alert emails will open at this address instead of bsynch.com. Links already sent keep working.</span></span></label>
+        <span class="hint" id="webMsg" style="display:block;margin-top:6px;"></span>
+      </div>
       <div id="supBox" style="display:none;border-top:1px solid #e2e8f0;margin-top:14px;padding-top:12px;">
         <b>&#128737;&#65039; Support access</b>
         <p class="hint" style="margin:4px 0 8px;">BSynch platform administrators can't see your work orders, invoices, expenses or contacts. If you need help, give them access for a while; it closes by itself and every time they use it shows up here.</p>
@@ -271,6 +275,15 @@ document.getElementById('req2fa').onchange = function(){
       if(!res.ok) cb.checked = !on;
     });
 };
+document.getElementById('webOn').onchange = function(){
+  var cb = this, m = document.getElementById('webMsg'), on = cb.checked;
+  fetch(API + '/profile', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({web_address_on: on})})
+    .then(function(r){ return r.json(); }).then(function(res){
+      m.style.color = res.ok ? '#15803d' : '#dc2626';
+      m.textContent = res.ok ? (on ? 'On ✓ New links use your address.' : 'Off. New links use bsynch.com.') : (res.error || 'Could not save');
+      if(!res.ok) cb.checked = !on;
+    }).catch(function(){ cb.checked = !on; m.style.color = '#dc2626'; m.textContent = 'Connection error.'; });
+};
 document.getElementById('mailTest').onclick = function(){
   var m = document.getElementById('mailTestMsg'), b = this;
   b.disabled = true; m.style.color = '#64748b'; m.textContent = 'Sending...';
@@ -377,6 +390,9 @@ fetch(API + '/profile').then(function(r){ return r.json(); }).then(function(d){
   if(d.can_security){
     document.getElementById('secCard').style.display = '';
     document.getElementById('req2fa').checked = !!p.require_2fa;
+    document.getElementById('webAddr').textContent = (d.web_address || '').replace(/^https:\/\//, '').replace(/\/$/, '');
+    document.getElementById('webOn').checked = !!p.web_address_on;
+    if(!d.web_ready && !p.web_address_on){ document.getElementById('webOn').disabled = true; document.getElementById('webMsg').textContent = d.web_reason || ''; }
     var t = d.two_factor || {total: 0, on: 0, missing: []};
     document.getElementById('secStats').textContent = t.on + ' of ' + t.total + ' people have it on' + (t.missing.length ? '. Still off: ' + t.missing.join(', ') + '.' : '.');
   }

@@ -86,6 +86,32 @@ MAIL.clear()
 send("POST", "/api/contractor/invoices/" + inv2["id"] + "/send", "Hana", {"to": ["c@example.com"]})
 check("no archive email, no copy", len(MAIL) == 1)
 
+# ── each company's own web address (hicons.bsynch.com) ──
+pr = get("/api/contractor/hicons/profile", "Hana").json
+check("web address: settings show the company's own address", pr["web_address"] == "https://hicons.bsynch.com/" and pr["web_ready"])
+check("web address: a User can't turn it on", send("POST", "/api/contractor/hicons/profile", "Mia", {"web_address_on": True}).status_code == 403)
+check("web address: other company can't touch it", send("POST", "/api/contractor/hicons/profile", "Bob", {"web_address_on": True}).status_code == 403)
+MAIL.clear()
+send("POST", "/api/contractor/invoices/" + inv2["id"] + "/send", "Hana", {"to": ["c@example.com"]})
+check("web address off: invoice link stays on the current host", MAIL and "https://hicons.bsynch.com/i/" not in MAIL[0]["html"])
+check("web address: Manager turns it on", send("POST", "/api/contractor/hicons/profile", "Hana", {"web_address_on": True}).json["ok"])
+MAIL.clear()
+send("POST", "/api/contractor/invoices/" + inv2["id"] + "/send", "Hana", {"to": ["c@example.com"]})
+check("web address on: invoice email links to hicons.bsynch.com", MAIL and "https://hicons.bsynch.com/i/" + inv_row["public_token"] in MAIL[0]["html"])
+check("web address on: invite link uses it too", get("/api/contractor/hicons/admin/invite", "Hana").json.get("url", "").startswith("https://hicons.bsynch.com/join/hicons/"))
+check("web address on: the client's link opens there", A.app.test_client().get("/api/public/invoice/" + inv_row["public_token"],
+                                                                                base_url="https://hicons.bsynch.com").status_code == 200)
+DB["bsynch_companies"].append({"id": "co-x", "slug": "hicons", "status": "active", "supabase_url": "https://other-db.example.com", "supabase_key": "k"})
+A._co_cache_ts = 0
+check("web address: refused if that subdomain points to another database",
+      send("POST", "/api/contractor/hicons/profile", "Hana", {"web_address_on": False}).json["ok"]
+      and send("POST", "/api/contractor/hicons/profile", "Hana", {"web_address_on": True}).status_code == 409)
+MAIL.clear()
+send("POST", "/api/contractor/invoices/" + inv2["id"] + "/send", "Hana", {"to": ["c@example.com"]})
+check("web address: miswired subdomain never used for links", MAIL and "hicons.bsynch.com" not in MAIL[0]["html"])
+DB["bsynch_companies"][:] = [c for c in DB["bsynch_companies"] if c.get("id") != "co-x"]
+A._co_cache, A._co_cache_ts = {}, 0
+
 # ── PWA opens on Projects ──
 r = get("/contractor/hicons?source=pwa", "Hana")
 check("app icon opens the Projects screen", r.status_code in (301, 302) and "/contractor/projects" in r.headers.get("Location", ""))
