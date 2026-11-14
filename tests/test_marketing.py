@@ -1,5 +1,7 @@
 """Marketing: public sales landing in English and Spanish.
 Run:  python tests/test_marketing.py"""
+import re
+
 from harness import *  # noqa: F401,F403
 
 seed()
@@ -30,7 +32,9 @@ check("form has the hidden trap field", 'name="website"' in html)
 # ── nothing sensitive in a public page ──
 low = html.lower()
 check("no Supabase details", "supabase" not in low and "service_role" not in low)
-check("no invented prices", "$" not in html)
+check("price set by the owner: $149/month, 14-day trial", "$149" in html and "14-day free trial" in html)
+check("same price in Spanish", "$149" in es and "14 días gratis" in es and "/ mes por empresa" in es)
+check("no other prices", set(re.findall(r"\$\d+", html)) == {"$149"} and set(re.findall(r"\$\d+", es)) == {"$149"})
 check("security headers still on", r.headers.get("X-Content-Type-Options") == "nosniff")
 
 # ── leads: the public form ──

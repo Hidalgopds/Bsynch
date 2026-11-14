@@ -31,12 +31,16 @@ Campañas, leads y herramientas de crecimiento. Hoy tiene: landing pública `/ma
   - Lista: `GET /api/marketing/leads` (filtro `?status=`), `PATCH /api/marketing/leads/<id>` para estado (new, contacted, won, lost) y notas. Solo `_is_platform_operator()`. Cambios auditados. **No hay ruta para borrar.**
   - Si la base falla, el visitante ve el correo de contacto para no perder el lead.
 
+- **2026-11-14: Precios en la landing** (decisión del dueño): **$149 USD al mes por empresa**, sin cobro por usuario, **14 días gratis después de la demostración**. Están en la tarjeta de Precios y en la nota de la portada, en EN y ES. La prueba revisa que no aparezca ningún otro monto.
+
 ## Decisiones
-- La landing sigue con `noindex` (cabecera general de Settings) hasta que haya precios. Para que Google la indexe, Settings tiene que permitir `index` solo en `/marketing`.
+- Precio: un solo plan por empresa y por mes ($149), usuarios ilimitados, 14 días gratis. Hoy la prueba gratis se activa a mano después de la demo, porque todavía no hay registro automático ni Stripe (pendiente de Settings).
+- La landing sigue con `noindex` (cabecera general de Settings). Ya hay precios, así que le toca a Settings permitir `index` solo en `/marketing` para que Google la muestre.
 - Sin chino por ahora: el dueño pidió inglés y español.
 
 ## Pendientes
-- [ ] Precios reales (decisión del dueño).
+- [x] Precios reales: $149/mes por empresa, 14 días gratis.
+- [ ] Pedir a Settings: permitir que Google indexe `/marketing` y crear en Stripe el plan de $149/mes con 14 días de prueba.
 - [x] `migrations/marketing_leads.sql` aplicada en producción (`wanfpiogchwttsippekm`) el 2026-11-14. RLS activo, 0 políticas, 0 filas. Security Advisors: cero ERROR. Solo el INFO "RLS sin políticas" de siempre (58 tablas, antes 57). No se aplica en NNC.
 - [ ] Aviso a Settings: se agregó una línea a `_PUBLIC_FORMS` (`f-lead`, 10/hora).
 - [ ] Botón "Empezar" hacia el registro de empresas cuando Settings lo tenga.
