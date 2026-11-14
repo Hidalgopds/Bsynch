@@ -7009,7 +7009,75 @@ def contractor_workorders():
 def contractor_projects_page():
     return render_template("contractor-projects.html")
 
-CONTRACTOR_COMPANIES = {"hicons": "Hicons", "bsynch": "Bsynch"}
+class _CompanyRegistry(dict):
+    """Contractor companies (slug -> name), read from the contractor_companies table in the main
+    database and cached for a minute. Behaves like the old fixed dict, so every check
+    `company in CONTRACTOR_COMPANIES` keeps working. The two original companies are always there,
+    and if the table can't be read the last good list stays: a hiccup never locks anyone out."""
+    BUILT_IN = {"hicons": "Hicons", "bsynch": "Bsynch"}
+    TTL = 60
+
+    def __init__(self):
+        super().__init__(self.BUILT_IN)
+        self._at = 0.0
+        self._lock = _threading.Lock()
+
+    def _fresh(self):
+        if _ptime.time() - self._at < self.TTL or not self._lock.acquire(blocking=False):
+            return
+        try:
+            r = requests.get(f"{_MASTER_URL}/rest/v1/contractor_companies?status=eq.active&select=slug,name",
+                             headers={"apikey": _MASTER_KEY, "Authorization": f"Bearer {_MASTER_KEY}"}, timeout=5)
+            if r.ok and isinstance(r.json(), list):
+                found = {**self.BUILT_IN, **{row["slug"]: row.get("name") or row["slug"] for row in r.json() if row.get("slug")}}
+                for slug in [s for s in dict.keys(self) if s not in found]:
+                    dict.pop(self, slug, None)
+                dict.update(self, found)  # in place, never emptied: other threads keep reading safely
+            self._at = _ptime.time()
+        except Exception as e:
+            logger.warning("[companies] refresh: %s", e)
+            self._at = _ptime.time()
+        finally:
+            self._lock.release()
+
+    def reload(self):
+        self._at = 0.0
+        self._fresh()
+
+    def __contains__(self, k):
+        self._fresh()
+        return dict.__contains__(self, k)
+
+    def __getitem__(self, k):
+        self._fresh()
+        return dict.__getitem__(self, k)
+
+    def get(self, k, default=None):
+        self._fresh()
+        return dict.get(self, k, default)
+
+    def __iter__(self):
+        self._fresh()
+        return iter(list(dict.keys(self)))
+
+    def keys(self):
+        self._fresh()
+        return list(dict.keys(self))
+
+    def items(self):
+        self._fresh()
+        return list(dict.items(self))
+
+    def values(self):
+        self._fresh()
+        return list(dict.values(self))
+
+    def __len__(self):
+        self._fresh()
+        return dict.__len__(self)
+
+
+CONTRACTOR_COMPANIES = _CompanyRegistry()
 CONTRACTOR_TIME_SLOTS = ["morning", "afternoon"]
 CONTRACTOR_ADDRESS_PARTS = {"residence": 120, "apt": 30, "zone": 80, "zipcode": 12}
 
@@ -10434,6 +10502,51 @@ def platform_move_photos():
     left = _photos_left_in_db()
     _audit("storage.photos_moved", PHOTO_BUCKET, {"moved": moved, "failed": failed, "left": left})
     return jsonify({"ok": failed == 0, "moved": moved, "failed": failed, "left": left})
+
+
+# ── Contractor companies (shared database; every row carries its company slug) ──
+_COMPANY_SLUG = re.compile(r"[a-z][a-z0-9-]{1,29}")
+_RESERVED_SLUGS = {"www", "api", "app", "admin", "platform", "login", "home", "static", "mail", "support",
+                   "billing", "settings", "staging", "test", "demo", "contractor", "erp", "marketing", "homelab"}
+
+
+def _master_hdr():
+    return {"apikey": _MASTER_KEY, "Authorization": f"Bearer {_MASTER_KEY}", "Content-Type": "application/json"}
+
+
+@app.route("/api/platform/contractor-companies", methods=["GET"])
+def platform_list_contractor_companies():
+    if not _session_user():
+        return jsonify({"ok": False, "error": "login_required"}), 401
+    if not _is_platform_operator():
+        return jsonify({"ok": False, "error": "Platform administrator only."}), 403
+    return jsonify({"ok": True, "companies": dict(CONTRACTOR_COMPANIES.items())})
+
+
+@app.route("/api/platform/contractor-companies", methods=["POST"])
+def platform_add_contractor_company():
+    """Add a contractor company. It lives in the shared database (no new Supabase project)."""
+    if not _session_user():
+        return jsonify({"ok": False, "error": "login_required"}), 401
+    if not _is_platform_operator():
+        return jsonify({"ok": False, "error": "Platform administrator only."}), 403
+    data = request.get_json() or {}
+    slug = str(data.get("slug") or "").strip().lower()
+    name = re.sub(r"\s+", " ", str(data.get("name") or "")).strip()[:80]
+    if not _COMPANY_SLUG.fullmatch(slug) or slug in _RESERVED_SLUGS:
+        return jsonify({"ok": False, "error": "Short id: 2-30 lowercase letters, numbers or dashes, starting with a letter"}), 400
+    if not name:
+        return jsonify({"ok": False, "error": "Company name required"}), 400
+    if slug in CONTRACTOR_COMPANIES:
+        return jsonify({"ok": False, "error": "That id is already taken"}), 409
+    r = requests.post(f"{_MASTER_URL}/rest/v1/contractor_companies",
+                      json={"slug": slug, "name": name, "status": "active", "created_by": _session_user()},
+                      headers={**_master_hdr(), "Prefer": "return=minimal"}, timeout=8)
+    if not r.ok:
+        return jsonify({"ok": False, "error": "Could not save the company"}), 502
+    CONTRACTOR_COMPANIES.reload()
+    _audit("company.contractor_added", slug, {"name": name})
+    return jsonify({"ok": True, "slug": slug, "name": name})
 
 
 def _ct_scheduler_loop():

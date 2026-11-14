@@ -26,7 +26,7 @@ App para empresas contratistas (hoy **Hicons** y **Bsynch**). Se instala en el t
 - El dictado de órdenes por voz **se quitó** a pedido del dueño.
 
 ## Pendientes
-- [ ] Empresas fijas en el código (`CONTRACTOR_COMPANIES`): para vender a más contratistas hace falta que se den de alta solas (coordinar con Settings).
+- [x] Empresas ya no fijas en el código: `CONTRACTOR_COMPANIES` se lee de la tabla `contractor_companies` (hecho por Settings, 2026-11-14). El hub arma una tarjeta por empresa solo. No vuelvas a escribir `hicons`/`bsynch` a mano en pantallas nuevas.
 - [x] Fotos de órdenes de trabajo a Storage (hecho por Settings, 2026-11-14). Mismas rutas y pantallas; las plantillas no cambiaron.
 - [ ] Recibos de gastos (`contractor_expenses.photo_data`) y `contractor_files` a Storage: los hace Settings con los mismos helpers.
 - [ ] Renee creó 5 órdenes duplicadas el día del error de `uploadWoMaterials`; las borra ella desde la app.

@@ -70,21 +70,7 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
     <p>Open your company workspace.</p>
   </div>
 
-  <div class="tile-grid">
-
-    <a class="tile" href="/contractor/projects?company=hicons" id="tile-hicons" style="display:none;">
-      <div class="tile-icon icon-teal">&#127959;&#65039;</div>
-      <div class="tile-name">Hicons</div>
-      <div class="tile-desc">Projects, work orders, dashboard, invoicing and settings for Hicons.</div>
-      <div class="tile-arrow">&#8594;</div>
-    </a>
-
-    <a class="tile" href="/contractor/projects?company=bsynch" id="tile-bsynch" style="display:none;">
-      <div class="tile-icon icon-blue">&#127970;</div>
-      <div class="tile-name">Bsynch</div>
-      <div class="tile-desc">Projects, work orders, dashboard, invoicing and settings for Bsynch.</div>
-      <div class="tile-arrow">&#8594;</div>
-    </a>
+  <div class="tile-grid" id="tileGrid">
 
     <a class="tile" href="/contractor/platform" id="tile-platform" style="display:none;">
       <div class="tile-icon icon-red">&#128737;&#65039;</div>
@@ -95,7 +81,7 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
 
   </div>
   <div class="hub-empty" id="hubEmpty" style="display:none;">
-    You haven't been assigned to a company yet. Ask your administrator to add you to Hicons or Bsynch .
+    You haven't been assigned to a company yet. Ask your administrator to add you to your company.
   </div>
   <div class="hub-empty" id="hubLoading">Loading&hellip;</div>
 </div>
@@ -119,14 +105,24 @@ fetch('/api/contractor/me').then(function(r){ return r.json(); }).then(function(
   document.getElementById('hubLoading').style.display = 'none';
   var slugs = Object.keys(me.access || {});
   if(slugs.length === 1 && !me.is_super){ location.replace('/contractor/projects?company=' + slugs[0]); return; }
-  slugs.forEach(function(slug){
-    var t = document.getElementById('tile-' + slug);
-    if(t) t.style.display = '';
-  });
+  // One tile per company, built from the server's list (companies are no longer fixed in the page)
+  var grid = document.getElementById('tileGrid'), platformTile = document.getElementById('tile-platform');
+  var icons = ['&#127959;&#65039;', '&#127970;', '&#128679;', '&#127968;'], colors = ['icon-teal', 'icon-blue'];
+  function makeTile(slug, name, i){
+    var a = document.createElement('a');
+    a.className = 'tile'; a.id = 'tile-' + slug; a.href = '/contractor/projects?company=' + encodeURIComponent(slug);
+    a.innerHTML = '<div class="tile-icon ' + colors[i % colors.length] + '">' + icons[i % icons.length] + '</div>'
+      + '<div class="tile-name"></div><div class="tile-desc"></div><div class="tile-arrow">&#8594;</div>';
+    a.querySelector('.tile-name').textContent = name;
+    a.querySelector('.tile-desc').textContent = 'Projects, work orders, dashboard, invoicing and settings for ' + name + '.';
+    grid.insertBefore(a, platformTile);
+    return a;
+  }
+  slugs.forEach(function(slug, i){ makeTile(slug, (me.access[slug] || {}).name || slug, i); });
   // Platform admins: a company's data stays private until its Manager gives support access
-  Object.keys(me.private || {}).forEach(function(slug){
-    var t = document.getElementById('tile-' + slug); if(!t) return;
-    t.style.display = ''; t.removeAttribute('href'); t.classList.add('locked');
+  Object.keys(me.private || {}).forEach(function(slug, i){
+    var t = makeTile(slug, me.private[slug] || slug, slugs.length + i);
+    t.removeAttribute('href'); t.classList.add('locked');
     t.querySelector('.tile-desc').textContent = 'Private. Its Manager can give you support access from Settings \u2192 Security.';
     t.querySelector('.tile-arrow').innerHTML = '&#128274;';
   });

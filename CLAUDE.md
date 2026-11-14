@@ -34,9 +34,16 @@ Una app web (Flask, un solo archivo grande `app.py` + `templates/` + `static/`) 
 
 **Settings es la conversación de BSynch como un todo**, no solo de la tarjeta Settings: coordina a las demás secciones, decide lo que es de toda la app y además maneja la pantalla Settings. **Settings manda sobre lo común.** Las demás secciones no cambian login, sesiones, roles, cabeceras de seguridad, `_audit`, límites de intentos, `sb_url()/sb_headers()`, migraciones de tablas compartidas ni este archivo. Si lo necesitan, lo dicen y lo hace la conversación de Settings.
 
+## Modelo de clientes (decidido por el dueño, 2026-11-14: lo más económico y eficiente)
+- **Una sola base de producción para todos los clientes** (`wanfpiogchwttsippekm`). Cada fila lleva su empresa (`company`) y el servidor la revisa en cada pedido. Nada de un proyecto de Supabase por hub ni por cliente.
+- Empresas de Contractor: tabla `contractor_companies`, no el código. Se agregan con `POST /api/platform/contractor-companies` (solo dueño). `CONTRACTOR_COMPANIES` se lee de esa tabla.
+- **Excepciones:** Home Lab (datos de niños) puede ir a su propio proyecto más adelante. Una **base dedicada** solo para un cliente grande que la pague aparte (la app ya lo soporta con `bsynch_companies`, como NNC).
+- Una dirección por empresa (`<empresa>.bsynch.com`), no por hub. Cada empresa ve solo los hubs que contrató.
+- Toda función nueva debe probar que una empresa no ve lo de otra (`tests/`).
+
 ## Dónde corre
 - Servidor: **Render**, se despliega solo desde la rama `main` de GitHub (`Hidalgopds/Bsynch`). Gunicorn 1 worker, 4 hilos.
-- Base de datos: **Supabase** producción: `wanfpiogchwttsippekm` (principal) y `fhkfpqgfzegqcyajvjlo` (empresa cliente NNC). Staging para pruebas de carga: `yxlambgifwcmkmzxoosm` (único lugar donde se permite cargar datos falsos).
+- Base de datos: **Supabase** producción: `wanfpiogchwttsippekm` (principal, todos los clientes) y `fhkfpqgfzegqcyajvjlo` (NNC: prueba de base dedicada, **pausada**; ese trabajo se paró. Hicons NO está ahí). Staging para pruebas de carga: `yxlambgifwcmkmzxoosm` (único lugar donde se permite cargar datos falsos).
 - El servidor habla con Supabase por REST con la clave de servicio. **RLS activo en todas las tablas y sin políticas**: solo el servidor lee y escribe. Nunca mandes una clave de Supabase al navegador.
 - Multi-empresa por subdominio (`<empresa>.bsynch.com`) con la tabla `bsynch_companies`.
 

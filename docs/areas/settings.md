@@ -26,11 +26,14 @@
 ## Pendientes
 - [ ] Aplicar el esquema a staging (`loadtest/export_schema.sql`) y correr k6 contra staging.
 - [x] Fotos de órdenes de trabajo a Storage (`migrations/job_photos_storage.sql`, aplicada en producción principal el 2026-11-14).
-- [ ] Aplicar `migrations/job_photos_storage.sql` en NNC (`fhkfpqgfzegqcyajvjlo`): el 2026-11-14 su base no respondía. Mientras tanto ahí las fotos siguen guardándose dentro de la base (respaldo automático).
+- [ ] Si NNC se reactiva: aplicarle `migrations/job_photos_storage.sql`. Mientras tanto ahí las fotos siguen guardándose dentro de la base (respaldo automático).
 - [ ] Siguientes a Storage con los mismos helpers: fotos de niños (`homelab_kid_photos`, ~1 MB), recibos (`contractor_expenses.photo_data`), archivos de contratista (`contractor_files`, hasta 7 MB c/u), fotos de órdenes de compra.
 - [ ] Quitar el correo real del valor por defecto de la variable del admin de empresa en `app.py` (repo público). Antes confirmar que la variable está puesta en Render.
 - [ ] `issue-photos` es un bucket **público** (heredado del ERP): pasarlo a privado y servir por la app.
-- [ ] Para vender como SaaS: registro de empresa por sí misma, cobro mensual con Stripe, landing de ventas, todo en español también. Hoy `CONTRACTOR_COMPANIES` está fijo en el código (`hicons`, `bsynch`) y eso bloquea el alta de empresas nuevas.
+- [x] Empresas de Contractor en la tabla `contractor_companies` (2026-11-14). `CONTRACTOR_COMPANIES` es un registro que se lee de la tabla cada minuto; hicons y bsynch siempre están; si la tabla falla queda la última lista buena. Alta por `POST /api/platform/contractor-companies` (solo dueño, en `audit_log`). Pruebas: `tests/test_companies.py`.
+- [ ] Pantalla para dar de alta empresas (hoy solo por la API) y luego registro de empresa por sí misma.
+- [ ] Cobro mensual con Stripe, landing de ventas, todo en español también.
+- [ ] NNC: pausado, el trabajo con esa empresa se paró. No aplicarle migraciones mientras siga pausado.
 - [ ] Pruebas para ERP, Home Lab y Marketing a medida que se trabajen (cada sección agrega su archivo).
 
 ## Pendientes del dueño (fuera del código; recordarle)
