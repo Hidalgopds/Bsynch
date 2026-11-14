@@ -5,7 +5,13 @@
   var user = ls('bsynchAuth') || ls('mbrName') || ls('companyUser');
   var role = (ls('bsynchRole') || ls('mbrRole')).toLowerCase();
   var fromUrl = (new URLSearchParams(location.search).get('company') || '').toLowerCase();
-  var fromPath = (location.pathname.match(/^\/contractor\/(hicons|bsynch)\b/) || [])[1] || '';
+  // /contractor/<company>/... : any company id, except the module's own pages (kept in step with _RESERVED_SLUGS in app.py)
+  var NOT_CO = ['workorders', 'projects', 'platform', 'agreement', 'account', 'dictate', 'invoice', 'estimate', 'dashboard', 'manifest'];
+  function coInPath(p) {
+    var m = p.match(/^\/contractor\/([a-z][a-z0-9-]{1,29})(?=\/|$)/);
+    return m && NOT_CO.indexOf(m[1]) < 0 ? m[1] : '';
+  }
+  var fromPath = coInPath(location.pathname);
   var company = fromPath || fromUrl || ss('contractorCompany');
   if (company) { ss('contractorCompany', company); try { localStorage.setItem('ctLastCompany', company); } catch (e) {} }
   var here = location.pathname + location.search;
@@ -180,7 +186,8 @@
     if (/^\/contractor\/(workorders|projects)$/.test(p) || /^\/contractor\/invoice\//.test(p)) return /invoice\//.test(p) ? 'invoicing' : 'workorders';
     if (p === '/contractor/dashboard') return 'dashboard';
     if (/^\/contractor\/estimate\//.test(p)) return 'estimates';
-    var m = p.match(/^\/contractor\/(?:hicons|bsynch)(?:\/(\w+))?$/);
+    if (!coInPath(p)) return '';
+    var m = p.match(/^\/contractor\/[a-z0-9-]+(?:\/(\w+))?$/);
     return m ? (m[1] || 'home') : '';
   }
   function renderHubNav(me) {

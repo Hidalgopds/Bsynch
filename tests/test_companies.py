@@ -22,8 +22,12 @@ check("recorded in audit_log", any(a.get("action") == "company.contractor_added"
 check("listed for the owner", "acme-paint" in get("/api/platform/contractor-companies", "owner@example.com").json["companies"])
 check("list hidden from others", get("/api/platform/contractor-companies", "Hana").status_code == 403)
 
+page = get("/contractor/platform", "owner@example.com")
+check("platform page has the add-company form and lists the new company",
+      page.status_code == 200 and b'id="newCo"' in page.data and b"acme-paint" in page.data)
+
 # ── bad or taken ids ──
-for bad in ("A", "1abc", "has space", "www", "admin", "x" * 40, "ab_c"):
+for bad in ("A", "1abc", "has space", "www", "admin", "x" * 40, "ab_c", "dashboard", "workorders", "invoice"):
     check(f"bad id refused: {bad!r}", send("POST", "/api/platform/contractor-companies", "owner@example.com",
                                            {"slug": bad, "name": "X"}).status_code == 400)
 check("taken id refused", send("POST", "/api/platform/contractor-companies", "owner@example.com",

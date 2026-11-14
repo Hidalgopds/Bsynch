@@ -31,7 +31,9 @@
 - [ ] Quitar el correo real del valor por defecto de la variable del admin de empresa en `app.py` (repo público). Antes confirmar que la variable está puesta en Render.
 - [ ] `issue-photos` es un bucket **público** (heredado del ERP): pasarlo a privado y servir por la app.
 - [x] Empresas de Contractor en la tabla `contractor_companies` (2026-11-14). `CONTRACTOR_COMPANIES` es un registro que se lee de la tabla cada minuto; hicons y bsynch siempre están; si la tabla falla queda la última lista buena. Alta por `POST /api/platform/contractor-companies` (solo dueño, en `audit_log`). Pruebas: `tests/test_companies.py`.
-- [ ] Pantalla para dar de alta empresas (hoy solo por la API) y luego registro de empresa por sí misma.
+- [x] Pantalla para dar de alta empresas: "Add a company" en Platform Admin (`/contractor/platform`), 2026-11-14. Arma el id corto solo desde el nombre. Ids bloqueados: `_RESERVED_SLUGS` en `app.py` (igual que `NOT_CO` en `static/contractor-scope.js`; si se agrega una pantalla `/contractor/<x>`, sumarla en las dos listas).
+- [ ] Registro de empresa por sí misma (con Stripe).
+- [ ] Subdominios por empresa: confirmar DNS + dominio en Render y que la sesión sirve entre subdominios (lo pide Contractor antes de prender "dirección propia").
 - [ ] Cobro mensual con Stripe, landing de ventas, todo en español también.
 - [ ] NNC: pausado, el trabajo con esa empresa se paró. No aplicarle migraciones mientras siga pausado.
 - [ ] Pruebas para ERP, Home Lab y Marketing a medida que se trabajen (cada sección agrega su archivo).

@@ -10688,7 +10688,10 @@ def platform_move_photos():
 # ── Contractor companies (shared database; every row carries its company slug) ──
 _COMPANY_SLUG = re.compile(r"[a-z][a-z0-9-]{1,29}")
 _RESERVED_SLUGS = {"www", "api", "app", "admin", "platform", "login", "home", "static", "mail", "support",
-                   "billing", "settings", "staging", "test", "demo", "contractor", "erp", "marketing", "homelab"}
+                   "billing", "settings", "staging", "test", "demo", "contractor", "erp", "marketing", "homelab",
+                   # pages under /contractor/<x> (same list as NOT_CO in static/contractor-scope.js)
+                   "workorders", "projects", "agreement", "account", "dictate", "invoice", "estimate", "dashboard",
+                   "manifest"}
 
 
 def _master_hdr():

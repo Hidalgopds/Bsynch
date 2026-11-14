@@ -52,6 +52,16 @@ select:disabled{opacity:.5;}
 .saved{color:#15803d;font-size:12px;font-weight:700;}
 .empty{text-align:center;color:#566275;padding:30px;}
 footer{text-align:center;padding:16px;font-size:12px;color:#566275;}
+.newco{background:#fff;border:1px dashed #8fcfc2;border-radius:14px;padding:14px;margin-bottom:12px;}
+.newco h3{font-size:15px;margin-bottom:2px;}
+.newco p{font-size:13px;color:#566275;margin-bottom:10px;}
+.nc-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+.nc-row label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;color:#475569;flex:1;min-width:200px;}
+.nc-row label small{font-weight:400;color:#566275;}
+.nc-row input{padding:9px 12px;border:1px solid #cbd5e1;border-radius:9px;font-size:14px;background:#fff;color:#0f172a;font-family:inherit;}
+.nc-row .act{padding:10px 16px;}
+.nc-msg{font-size:13px;margin-top:8px;min-height:18px;}
+.nc-msg.err{color:#b91c1c;}.nc-msg.ok{color:#15803d;}
 </style>
 </head>
 <body data-ct-hub>
@@ -65,6 +75,16 @@ footer{text-align:center;padding:16px;font-size:12px;color:#566275;}
   <h1>&#128737;&#65039; Platform Admin</h1>
   <p class="sub">Every account and every company. Only you (the platform administrator) can open this page.</p>
   <div class="cos" id="cos"></div>
+  <form class="newco" id="newCo" autocomplete="off">
+    <h3>&#10133; Add a company</h3>
+    <p>It starts empty and private. Then add its Manager from its card above.</p>
+    <div class="nc-row">
+      <label>Company name<input id="ncName" maxlength="80" placeholder="Acme Painting LLC" required></label>
+      <label>Short id <small>(lowercase, for links)</small><input id="ncSlug" maxlength="30" placeholder="acme-painting" pattern="[a-z][a-z0-9\-]{1,29}" required></label>
+      <button type="submit" class="act ok" id="ncBtn">Add company</button>
+    </div>
+    <div class="nc-msg" id="ncMsg" role="status"></div>
+  </form>
   <div class="lock">&#128274; <b>Companies are isolated.</b> People in each company only see their own company. Moving someone to another company takes away the old one at once. Only platform administrators see every company.</div>
   <div class="chips" id="chips"></div>
   <div class="tools"><input id="q" type="search" placeholder="Search name, email or username"></div>
@@ -148,6 +168,30 @@ document.getElementById('rows').addEventListener('click', function(e){
   if(b.dataset.act === 'suspend') save(b.dataset.n, {approved: false}, 'Suspend ' + b.dataset.n + '? They will not be able to use the app until approved again.');
   else save(b.dataset.n, {approved: true});
 });
+// ── Add a company (it lives in the shared database; no new project) ──
+var ncName = document.getElementById('ncName'), ncSlug = document.getElementById('ncSlug'), ncMsg = document.getElementById('ncMsg'), slugTouched = false;
+function toSlug(s){
+  s = String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+    .replace(/\b(llc|inc|corp|co|ltd)\b\.?/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  s = s.replace(/^[^a-z]+/, '');
+  return s.slice(0, 30).replace(/-+$/, '');
+}
+ncName.oninput = function(){ if(!slugTouched) ncSlug.value = toSlug(ncName.value); };
+ncSlug.oninput = function(){ slugTouched = true; ncSlug.value = ncSlug.value.toLowerCase().replace(/[^a-z0-9-]/g, ''); };
+document.getElementById('newCo').onsubmit = function(e){
+  e.preventDefault();
+  var name = ncName.value.trim(), slug = ncSlug.value.trim(), btn = document.getElementById('ncBtn');
+  if(!name || !slug){ ncMsg.className = 'nc-msg err'; ncMsg.textContent = 'Fill in the name and the short id.'; return; }
+  if(!confirm('Add the company "' + name + '" (id: ' + slug + ')? The id can\'t be changed later.')) return;
+  btn.disabled = true; ncMsg.className = 'nc-msg'; ncMsg.textContent = 'Saving…';
+  fetch('/api/platform/contractor-companies', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name: name, slug: slug})})
+    .then(function(r){ return r.json(); }).then(function(res){
+      btn.disabled = false;
+      if(!res.ok){ ncMsg.className = 'nc-msg err'; ncMsg.textContent = res.error || 'Could not add the company'; return; }
+      ncMsg.className = 'nc-msg ok'; ncMsg.textContent = res.name + ' added ✓';
+      setTimeout(function(){ location.reload(); }, 700);
+    }).catch(function(){ btn.disabled = false; ncMsg.className = 'nc-msg err'; ncMsg.textContent = 'Connection error'; });
+};
 document.getElementById('chips').onclick = function(e){ var c = e.target.closest('.chip'); if(c){ filter = c.dataset.f; render(); } };
 document.getElementById('q').oninput = render;
 function load(after){
