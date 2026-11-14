@@ -1,6 +1,6 @@
 # Ficha: Marketing
 
-Campañas, leads y herramientas de crecimiento. **Hoy está vacía**: `/marketing-hub` solo muestra "Under construction — coming soon".
+Campañas, leads y herramientas de crecimiento. Hoy tiene: landing pública `/marketing` (EN/ES) con formulario de leads, y la lista de leads en `/marketing-hub` (solo dueño de plataforma). Campañas: pendiente.
 
 ## Qué le pertenece
 - Página: `/marketing-hub` (`templates/marketing-hub.html`).
@@ -23,6 +23,13 @@ Campañas, leads y herramientas de crecimiento. **Hoy está vacía**: `/marketin
   - Solo promete lo que la app ya hace. No hay precios inventados ni promesa de respaldos.
   - `/marketing-hub` tiene un botón para ver la landing.
   - Prueba: `tests/test_marketing.py`.
+- **2026-11-14: Formulario de leads.**
+  - Tabla `marketing_leads` (`migrations/marketing_leads.sql`), solo en el proyecto principal. RLS activo, sin políticas.
+  - Envío público: `POST /api/public/marketing/lead`. Va bajo `/api/public/` porque ese prefijo ya está abierto en la guardia del ERP, así no se tocó la guardia. Honeypot `website` + 10 envíos por IP por hora (una línea agregada a `_PUBLIC_FORMS`).
+  - Pide nombre y al menos correo o teléfono. Errores en el idioma del visitante. Solo en `bsynch.com`; en subdominios de clientes responde 404.
+  - Cada lead nuevo: `_audit("marketing.lead_created")` y correo al dueño (`DEFAULT_COMPANY_ADMIN_USER`) con reply-to al lead.
+  - Lista: `GET /api/marketing/leads` (filtro `?status=`), `PATCH /api/marketing/leads/<id>` para estado (new, contacted, won, lost) y notas. Solo `_is_platform_operator()`. Cambios auditados. **No hay ruta para borrar.**
+  - Si la base falla, el visitante ve el correo de contacto para no perder el lead.
 
 ## Decisiones
 - La landing sigue con `noindex` (cabecera general de Settings) hasta que haya precios. Para que Google la indexe, Settings tiene que permitir `index` solo en `/marketing`.
@@ -30,6 +37,7 @@ Campañas, leads y herramientas de crecimiento. **Hoy está vacía**: `/marketin
 
 ## Pendientes
 - [ ] Precios reales (decisión del dueño).
-- [ ] Formulario de leads (`marketing_leads`, honeypot + límite por IP) en lugar del botón de correo.
+- [ ] **Correr `migrations/marketing_leads.sql` en producción** (`wanfpiogchwttsippekm`) y revisar los Security Advisors (cero ERROR). Hasta entonces el formulario muestra el correo de contacto.
+- [ ] Aviso a Settings: se agregó una línea a `_PUBLIC_FORMS` (`f-lead`, 10/hora).
 - [ ] Botón "Empezar" hacia el registro de empresas cuando Settings lo tenga.
 - [ ] Decidir si `bsynch.com/` (hoy manda a `/login`) debe mostrar la landing. Eso toca la ruta `/`, hay que coordinarlo con Settings.

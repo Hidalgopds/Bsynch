@@ -29,6 +29,26 @@ h1{font-size:28px;font-weight:700;}
 .sp-back:hover{color:#1e9484;}
 .sp-section{background:#1a1d27;border:1px solid #2a2d3e;border-radius:14px;padding:20px;margin-bottom:16px;}
 .sp-section h3{font-size:13px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;}
+.hub-content.has-leads{flex:0;padding:32px 20px 8px}
+.leads{max-width:980px;width:100%;margin:0 auto;padding:8px 20px 40px}
+.leads-hdr{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.leads-hdr h2{font-size:20px}
+.cnt{font-size:13px;color:#94a3b8;font-weight:600}
+.flt{font-size:13px;color:#94a3b8;display:flex;align-items:center;gap:8px}
+.flt select,.lead-card select,.lead-card textarea{background:#0f1117;color:#e2e8f0;border:1px solid #334155;border-radius:8px;padding:6px 8px;font:inherit;font-size:13px}
+.leads-empty{color:#94a3b8;font-size:14px;padding:20px;border:1px dashed #334155;border-radius:12px;text-align:center}
+.lead-card{background:#1a1d27;border:1px solid #2a2d3e;border-radius:12px;padding:14px 16px;margin-bottom:10px}
+.lead-top{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
+.lead-name{font-weight:700;font-size:15px}
+.lead-co{color:#94a3b8;font-size:13px}
+.lead-date{margin-left:auto;color:#94a3b8;font-size:12px}
+.lead-meta{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:8px;font-size:13px}
+.lead-meta a{color:#5eead4}
+.lead-msg{margin-top:8px;font-size:13px;color:#cbd5e1;white-space:pre-wrap}
+.lead-act{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;align-items:flex-start}
+.lead-act textarea{flex:1 1 240px;min-height:34px}
+.st-new{border-left:3px solid #f59e0b}.st-contacted{border-left:3px solid #4f8ef7}.st-won{border-left:3px solid #22c55e}.st-lost{border-left:3px solid #64748b}
+.saved{font-size:12px;color:#5eead4;align-self:center}
 footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1px solid #1e2533;}
 </style>
 </head>
@@ -48,8 +68,22 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
   <h1>Marketing Hub</h1>
   <p class="hub-desc">Campaigns, leads, and growth tools for your business.</p>
   <a class="btn-settings" href="/marketing" target="_blank" rel="noopener" style="text-decoration:none;padding:10px 18px;font-size:14px">View sales page (EN/ES) ↗</a>
-  <span class="badge">Leads and campaigns: coming soon</span>
+  <span class="badge">Campaigns: coming soon</span>
 </div>
+
+<section class="leads" id="leadsBox" hidden aria-labelledby="leadsTitle">
+  <div class="leads-hdr">
+    <h2 id="leadsTitle">Leads <span id="leadsCount" class="cnt"></span></h2>
+    <label class="flt">Show
+      <select id="leadsFilter" aria-label="Filter leads by status">
+        <option value="">All</option><option value="new">New</option><option value="contacted">Contacted</option>
+        <option value="won">Won</option><option value="lost">Lost</option>
+      </select>
+    </label>
+  </div>
+  <p class="leads-empty" id="leadsEmpty" hidden>No leads yet. They will appear here when someone fills in the form on the sales page.</p>
+  <div id="leadsList"></div>
+</section>
 
 <div class="settings-panel" id="settingsPanel">
   <div class="sp-back" onclick="showHub()">← Back to Marketing</div>
@@ -75,6 +109,63 @@ function showHub(){
   document.getElementById('settingsPanel').classList.remove('open');
   document.getElementById('hubContent').style.display = '';
 }
+
+// ── Leads (platform owner only; the server says no to everyone else) ──
+var STATUSES = ['new','contacted','won','lost'];
+function el(tag, cls, text){ var e = document.createElement(tag); if(cls) e.className = cls; if(text != null) e.textContent = text; return e; }
+function saveLead(id, patch, card, note){
+  fetch('/api/marketing/leads/' + encodeURIComponent(id), {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(patch)})
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      note.textContent = j.ok ? 'Saved' : (j.error || 'Could not save');
+      if(j.ok && patch.status){ card.className = 'lead-card st-' + patch.status; }
+      setTimeout(function(){ note.textContent = ''; }, 2000);
+    }).catch(function(){ note.textContent = 'Connection error'; });
+}
+function renderLeads(list){
+  var box = document.getElementById('leadsList'); box.innerHTML = '';
+  document.getElementById('leadsCount').textContent = '(' + list.length + ')';
+  document.getElementById('leadsEmpty').hidden = list.length > 0;
+  list.forEach(function(l){
+    var card = el('article', 'lead-card st-' + (l.status || 'new'));
+    var top = el('div', 'lead-top');
+    top.appendChild(el('span', 'lead-name', l.name));
+    if(l.company) top.appendChild(el('span', 'lead-co', l.company));
+    top.appendChild(el('span', 'lead-date', l.created_at ? new Date(l.created_at).toLocaleString() : ''));
+    card.appendChild(top);
+    var meta = el('div', 'lead-meta');
+    if(l.email){ var a = el('a', null, l.email); a.href = 'mailto:' + l.email; meta.appendChild(a); }
+    if(l.phone){ var p = el('a', null, l.phone); p.href = 'tel:' + l.phone.replace(/[^\d+]/g, ''); meta.appendChild(p); }
+    if(l.trade) meta.appendChild(el('span', null, 'Trade: ' + l.trade));
+    if(l.crew_size) meta.appendChild(el('span', null, 'Crew: ' + l.crew_size));
+    meta.appendChild(el('span', null, 'Language: ' + (l.lang || 'en').toUpperCase()));
+    card.appendChild(meta);
+    if(l.message) card.appendChild(el('p', 'lead-msg', l.message));
+    var act = el('div', 'lead-act');
+    var sel = el('select'); sel.setAttribute('aria-label', 'Status for ' + l.name);
+    STATUSES.forEach(function(s){ var o = el('option', null, s.charAt(0).toUpperCase() + s.slice(1)); o.value = s; if(s === (l.status || 'new')) o.selected = true; sel.appendChild(o); });
+    var notes = el('textarea'); notes.value = l.notes || ''; notes.placeholder = 'Notes'; notes.setAttribute('aria-label', 'Notes for ' + l.name);
+    var note = el('span', 'saved');
+    sel.addEventListener('change', function(){ saveLead(l.id, {status: sel.value}, card, note); });
+    notes.addEventListener('change', function(){ saveLead(l.id, {notes: notes.value}, card, note); });
+    act.appendChild(sel); act.appendChild(notes); act.appendChild(note);
+    card.appendChild(act);
+    document.getElementById('leadsList').appendChild(card);
+  });
+}
+function loadLeads(){
+  var st = document.getElementById('leadsFilter').value;
+  fetch('/api/marketing/leads' + (st ? '?status=' + st : ''))
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(j){
+      if(!j || !j.ok) return;
+      document.getElementById('leadsBox').hidden = false;
+      document.getElementById('hubContent').classList.add('has-leads');
+      renderLeads(j.leads || []);
+    }).catch(function(){});
+}
+document.getElementById('leadsFilter').addEventListener('change', loadLeads);
+loadLeads();
 </script>
 </body>
 </html>

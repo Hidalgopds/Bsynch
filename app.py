@@ -427,6 +427,119 @@ def marketing_landing():
     resp.headers["Vary"] = "Accept-Language"
     return resp
 
+
+# ── Marketing: leads from the sales page ──
+# Public POST is under /api/public/ (open path) and is guarded by _PUBLIC_FORMS: honeypot + 10 per IP per hour.
+# Only on bsynch.com: a client subdomain has its own database and no sales page.
+MARKETING_LEADS_TABLE = "marketing_leads"
+MARKETING_LEAD_STATUSES = ("new", "contacted", "won", "lost")
+_MKT_LIMITS = {"name": 120, "company": 160, "email": 160, "phone": 40, "trade": 80, "crew_size": 20, "message": 2000}
+_MKT_CREW_SIZES = ("1-5", "6-15", "16-50", "50+")
+_MKT_EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
+
+
+def _mkt_clean(v, n):
+    return re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", str(v or "")).strip()[:n]
+
+
+def _mkt_notify(lead):
+    """Email the platform owner about a new lead (background; a failure never loses the lead)."""
+    owner = (DEFAULT_COMPANY_ADMIN_USER or "").strip().lower()
+    if not _MKT_EMAIL_RE.fullmatch(owner):
+        return
+    rows = "".join(f"<tr><td style='padding:4px 10px;color:#566275'>{k}</td><td style='padding:4px 10px'>{_html_escape(lead.get(f))}</td></tr>"
+                   for k, f in (("Name", "name"), ("Company", "company"), ("Email", "email"), ("Phone", "phone"),
+                                ("Trade", "trade"), ("Crew size", "crew_size"), ("Language", "lang"), ("Message", "message")))
+    html_body = (f"<p>New lead from the BSynch sales page.</p><table style='border-collapse:collapse'>{rows}</table>"
+                 f"<p>See all leads in Marketing.</p>")
+    reply = [lead["email"]] if lead.get("email") else None
+    _ct_send_email([owner], [], f"New BSynch lead: {lead.get('name')}", html_body,
+                   reply_to=reply[0] if reply else None, from_name="BSynch")
+
+
+@app.route("/api/public/marketing/lead", methods=["POST"])
+def api_marketing_lead_create():
+    if _get_client_co():
+        return jsonify({"ok": False, "error": "not found"}), 404
+    body = request.get_json(silent=True) or {}
+    if not isinstance(body, dict):
+        return jsonify({"ok": False, "error": "bad request"}), 400
+    lead = {k: _mkt_clean(body.get(k), n) for k, n in _MKT_LIMITS.items()}
+    lead["lang"] = body.get("lang") if body.get("lang") in MARKETING_LANGS else "en"
+    es = lead["lang"] == "es"
+    if not lead["name"]:
+        return jsonify({"ok": False, "error": "Escribe tu nombre." if es else "Please enter your name."}), 400
+    if not lead["email"] and not lead["phone"]:
+        return jsonify({"ok": False, "error": "Déjanos un correo o un teléfono." if es else "Leave an email or a phone number."}), 400
+    if lead["email"] and not _MKT_EMAIL_RE.fullmatch(lead["email"]):
+        return jsonify({"ok": False, "error": "Ese correo no parece válido." if es else "That email doesn't look right."}), 400
+    if lead["phone"] and len(re.sub(r"\D", "", lead["phone"])) < 7:
+        return jsonify({"ok": False, "error": "Ese teléfono no parece válido." if es else "That phone number doesn't look right."}), 400
+    if lead["crew_size"] not in _MKT_CREW_SIZES:
+        lead["crew_size"] = ""
+    lead["email"] = lead["email"].lower()
+    lead["source"] = _mkt_clean(body.get("source"), 40) or "landing"
+    lead["status"] = "new"
+    r = requests.post(f"{sb_url()}/rest/v1/{MARKETING_LEADS_TABLE}", json=lead,
+                      headers={**sb_headers(), "Prefer": "return=representation"}, timeout=8)
+    if not r.ok:
+        logger.error("[Marketing] lead not saved: %s %s", r.status_code, r.text[:200])
+        return jsonify({"ok": False, "error": "No pudimos guardar tus datos. Intenta de nuevo." if es
+                        else "We couldn't save your details. Please try again."}), 502
+    saved = (r.json() or [{}])[0]
+    _audit("marketing.lead_created", saved.get("id", ""), {"source": lead["source"], "lang": lead["lang"]}, actor="")
+    if app.config.get("AUDIT_SYNC"):
+        _mkt_notify(lead)
+    else:
+        _ct_bg(_mkt_notify, lead)
+    return jsonify({"ok": True})
+
+
+def _mkt_guard():
+    if _get_client_co() or not _is_platform_operator():
+        return jsonify({"ok": False, "error": "not allowed"}), 403
+    return None
+
+
+@app.route("/api/marketing/leads", methods=["GET"])
+def api_marketing_leads_list():
+    g = _mkt_guard()
+    if g:
+        return g
+    st = request.args.get("status", "")
+    flt = f"&status=eq.{st}" if st in MARKETING_LEAD_STATUSES else ""
+    r = requests.get(f"{sb_url()}/rest/v1/{MARKETING_LEADS_TABLE}?select=*&order=created_at.desc&limit=500{flt}",
+                     headers=sb_headers(), timeout=8)
+    return jsonify({"ok": r.ok, "leads": r.json() if r.ok else []})
+
+
+@app.route("/api/marketing/leads/<lead_id>", methods=["PATCH"])
+def api_marketing_lead_update(lead_id):
+    g = _mkt_guard()
+    if g:
+        return g
+    if not re.fullmatch(r"[0-9a-fA-F-]{36}", lead_id):
+        return jsonify({"ok": False, "error": "not found"}), 404
+    body = request.get_json(silent=True) or {}
+    patch = {}
+    if "status" in body:
+        if body["status"] not in MARKETING_LEAD_STATUSES:
+            return jsonify({"ok": False, "error": "bad status"}), 400
+        patch["status"] = body["status"]
+    if "notes" in body:
+        patch["notes"] = _mkt_clean(body["notes"], 2000)
+    if not patch:
+        return jsonify({"ok": False, "error": "nothing to change"}), 400
+    patch["updated_at"] = datetime.now(timezone.utc).isoformat()
+    patch["updated_by"] = _session_user()
+    r = requests.patch(f"{sb_url()}/rest/v1/{MARKETING_LEADS_TABLE}?id=eq.{lead_id}", json=patch,
+                       headers={**sb_headers(), "Prefer": "return=representation"}, timeout=8)
+    rows = r.json() if r.ok else []
+    if not rows:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    _audit("marketing.lead_updated", lead_id, {k: patch[k] for k in ("status",) if k in patch})
+    return jsonify({"ok": True, "lead": rows[0]})
+
 @app.route("/homelab-hub")
 def homelab_hub():
     g = _hl_page_guard()
@@ -2696,7 +2809,8 @@ def _server_error(e):
 # ── Public forms (sign-up, invites, estimate answers): a hidden trap field and per-IP limits ──
 _PUBLIC_FORMS = [(r"/api/register", "f-register", 20, 3600), (r"/api/self-register", "f-selfreg", 30, 3600),
                  (r"/api/forgot-password", "f-forgot", 5, 900), (r"/api/reset-password", "f-reset", 10, 900),
-                 (r"/api/join/[^/]+/[^/]+", "f-join", 30, 3600), (r"/api/public/estimate/[^/]+/answer", "f-estimate", 20, 3600)]
+                 (r"/api/join/[^/]+/[^/]+", "f-join", 30, 3600), (r"/api/public/estimate/[^/]+/answer", "f-estimate", 20, 3600),
+                 (r"/api/public/marketing/lead", "f-lead", 10, 3600)]
 
 
 @app.before_request

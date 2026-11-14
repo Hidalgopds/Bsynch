@@ -37,6 +37,16 @@
     "final_h": "Ready to leave the paper behind?",
     "final_p": "Tell us about your company and we will show you BSynch with your own jobs.",
     "mail_subject": "BSynch demo request",
+    "form_h": "Request a demo",
+    "form_p": "Leave your details and we will contact you within one business day.",
+    "fl_name": "Your name", "fl_company": "Company", "fl_email": "Email", "fl_phone": "Phone",
+    "fl_trade": "What kind of work do you do?", "fl_trade_ph": "Roofing, framing, electrical...",
+    "fl_crew": "How many people in the field?", "fl_crew_any": "Choose one",
+    "fl_msg": "Anything else? (optional)", "fl_req": "required", "fl_one": "Email or phone, at least one.",
+    "fl_send": "Send", "fl_sending": "Sending...",
+    "fl_ok_h": "Thank you!", "fl_ok_p": "We got your details and will contact you soon.",
+    "fl_err": "Something went wrong. Please try again or write to us at",
+    "fl_privacy": "We only use your details to contact you about BSynch.",
     "footer_legal": "Terms and privacy",
     "lang_label": "Language"
   },
@@ -78,12 +88,21 @@
     "final_h": "¿Listo para dejar el papel?",
     "final_p": "Cuéntanos de tu empresa y te mostramos BSynch con tus propios trabajos.",
     "mail_subject": "Solicitud de demostración BSynch",
+    "form_h": "Pide una demostración",
+    "form_p": "Déjanos tus datos y te contactamos en menos de un día hábil.",
+    "fl_name": "Tu nombre", "fl_company": "Empresa", "fl_email": "Correo", "fl_phone": "Teléfono",
+    "fl_trade": "¿Qué tipo de trabajo hacen?", "fl_trade_ph": "Techos, framing, electricidad...",
+    "fl_crew": "¿Cuántas personas en campo?", "fl_crew_any": "Elige una",
+    "fl_msg": "¿Algo más? (opcional)", "fl_req": "obligatorio", "fl_one": "Correo o teléfono, al menos uno.",
+    "fl_send": "Enviar", "fl_sending": "Enviando...",
+    "fl_ok_h": "¡Gracias!", "fl_ok_p": "Recibimos tus datos y te contactamos pronto.",
+    "fl_err": "Algo falló. Intenta de nuevo o escríbenos a",
+    "fl_privacy": "Solo usamos tus datos para contactarte sobre BSynch.",
     "footer_legal": "Términos y privacidad",
     "lang_label": "Idioma"
   }
 } -%}
 {%- set t = T[lang] -%}
-{%- set mail = "mailto:" ~ contact ~ "?subject=" ~ (t.mail_subject | urlencode) -%}
 <!DOCTYPE html>
 <html lang="{{ lang }}">
 <head>
@@ -136,7 +155,7 @@ nav.links a:hover{color:var(--teal)}
 .cta-row{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}
 .note{font-size:13px;color:var(--gray);margin-top:16px}
 
-section{padding:64px 0}
+section{padding:64px 0;scroll-margin-top:60px}
 section.alt{background:var(--soft)}
 h2{font-size:clamp(24px,3.4vw,34px);letter-spacing:-.01em}
 .sub{color:var(--gray);margin-top:8px;font-size:16px;max-width:620px}
@@ -164,6 +183,21 @@ h2{font-size:clamp(24px,3.4vw,34px);letter-spacing:-.01em}
 .final .sub{color:#cbd5e1;margin:10px auto 26px}
 .final .btn-primary{border-color:#fff}
 
+.lead{margin-top:24px;max-width:720px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:24px}
+.lead .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.fld{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.fld label{font-size:14px;font-weight:600}
+.req{font-weight:400;color:var(--gray);font-size:13px}
+.fld input,.fld select,.fld textarea{font:inherit;font-size:16px;padding:10px 12px;border:1px solid #94a3b8;border-radius:10px;background:#fff;color:var(--ink)}
+.fld input:focus,.fld select:focus,.fld textarea:focus{border-color:var(--teal);outline:2px solid #99f6e4}
+.hint{font-size:13px;color:var(--gray);margin:-6px 0 14px}
+.lead .hint:last-child{margin:14px 0 0}
+.err{color:#b91c1c;font-size:14px;font-weight:600;min-height:0;margin-bottom:10px}
+.err:empty{display:none}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.done{margin-top:24px;max-width:720px;background:#f0fdfa;border:2px solid var(--teal);border-radius:16px;padding:24px}
+.done h3{font-size:20px;margin-bottom:6px;color:var(--teal-dk)}
+@media (max-width:720px){.lead .row{grid-template-columns:1fr;gap:0}}
 footer{border-top:1px solid var(--line);padding:24px 0;font-size:13px;color:var(--gray)}
 .foot{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
 
@@ -203,7 +237,7 @@ footer{border-top:1px solid var(--line);padding:24px 0;font-size:13px;color:var(
       <h1>{{ t.hero_h }}</h1>
       <p class="lead">{{ t.hero_p }}</p>
       <div class="cta-row">
-        <a class="btn btn-primary" href="{{ mail }}" data-cta="demo-hero">{{ t.cta_demo }}</a>
+        <a class="btn btn-primary" href="#demo" data-cta="demo-hero">{{ t.cta_demo }}</a>
         <a class="btn btn-ghost" href="/login">{{ t.cta_signin }}</a>
       </div>
       <p class="note">{{ t.hero_note }}</p>
@@ -245,7 +279,7 @@ footer{border-top:1px solid var(--line);padding:24px 0;font-size:13px;color:var(
       <h2>{{ t.price_h }}</h2>
       <div class="price">
         <p>{{ t.price_p }}</p>
-        <a class="btn btn-primary" href="{{ mail }}" data-cta="demo-pricing">{{ t.price_cta }}</a>
+        <a class="btn btn-primary" href="#demo" data-cta="demo-pricing">{{ t.price_cta }}</a>
       </div>
     </div>
   </section>
@@ -254,7 +288,43 @@ footer{border-top:1px solid var(--line);padding:24px 0;font-size:13px;color:var(
     <div class="wrap">
       <h2>{{ t.final_h }}</h2>
       <p class="sub">{{ t.final_p }}</p>
-      <a class="btn btn-primary" href="{{ mail }}" data-cta="demo-final">{{ t.cta_demo }}</a>
+      <a class="btn btn-primary" href="#demo" data-cta="demo-final">{{ t.cta_demo }}</a>
+    </div>
+  </section>
+
+  <section id="demo">
+    <div class="wrap">
+      <h2>{{ t.form_h }}</h2>
+      <p class="sub">{{ t.form_p }}</p>
+      <form id="leadForm" class="lead" novalidate>
+        <div class="hp" aria-hidden="true"><label for="website">Website</label><input id="website" name="website" type="text" tabindex="-1" autocomplete="off"></div>
+        <div class="row">
+          <div class="fld"><label for="lf_name">{{ t.fl_name }} <span class="req">({{ t.fl_req }})</span></label>
+            <input id="lf_name" name="name" required maxlength="120" autocomplete="name"></div>
+          <div class="fld"><label for="lf_company">{{ t.fl_company }}</label>
+            <input id="lf_company" name="company" maxlength="160" autocomplete="organization"></div>
+        </div>
+        <div class="row">
+          <div class="fld"><label for="lf_email">{{ t.fl_email }}</label>
+            <input id="lf_email" name="email" type="email" maxlength="160" autocomplete="email" aria-describedby="lf_one"></div>
+          <div class="fld"><label for="lf_phone">{{ t.fl_phone }}</label>
+            <input id="lf_phone" name="phone" type="tel" maxlength="40" autocomplete="tel" aria-describedby="lf_one"></div>
+        </div>
+        <p class="hint" id="lf_one">{{ t.fl_one }}</p>
+        <div class="row">
+          <div class="fld"><label for="lf_trade">{{ t.fl_trade }}</label>
+            <input id="lf_trade" name="trade" maxlength="80" placeholder="{{ t.fl_trade_ph }}"></div>
+          <div class="fld"><label for="lf_crew">{{ t.fl_crew }}</label>
+            <select id="lf_crew" name="crew_size"><option value="">{{ t.fl_crew_any }}</option>
+              {% for c in ["1-5", "6-15", "16-50", "50+"] %}<option value="{{ c }}">{{ c }}</option>{% endfor %}</select></div>
+        </div>
+        <div class="fld"><label for="lf_msg">{{ t.fl_msg }}</label>
+          <textarea id="lf_msg" name="message" rows="3" maxlength="2000"></textarea></div>
+        <p class="err" id="lf_err" role="alert"></p>
+        <button class="btn btn-primary" type="submit" id="lf_send">{{ t.fl_send }}</button>
+        <p class="hint">{{ t.fl_privacy }}</p>
+      </form>
+      <div class="done" id="leadDone" hidden tabindex="-1"><h3>{{ t.fl_ok_h }}</h3><p>{{ t.fl_ok_p }}</p></div>
     </div>
   </section>
 </main>
@@ -265,5 +335,30 @@ footer{border-top:1px solid var(--line);padding:24px 0;font-size:13px;color:var(
     <span><a href="/terms">{{ "Terms" if lang == "en" else "Términos" }}</a> · <a href="/privacy">{{ "Privacy" if lang == "en" else "Privacidad" }}</a></span>
   </div>
 </footer>
+<script>
+(function(){
+  var f = document.getElementById('leadForm'); if(!f) return;
+  var err = document.getElementById('lf_err'), btn = document.getElementById('lf_send');
+  var MSG = {send: {{ t.fl_send|tojson }}, sending: {{ t.fl_sending|tojson }},
+             err: {{ (t.fl_err ~ " " ~ contact)|tojson }}, one: {{ t.fl_one|tojson }}, name: {{ t.fl_name|tojson }}};
+  f.addEventListener('submit', function(e){
+    e.preventDefault();
+    err.textContent = '';
+    var d = {lang: {{ lang|tojson }}, source: 'landing'};
+    ['website','name','company','email','phone','trade','crew_size','message'].forEach(function(k){ d[k] = (f.elements[k].value || '').trim(); });
+    if(!d.name){ err.textContent = MSG.name + ': ' + {{ t.fl_req|tojson }}; f.elements.name.focus(); return; }
+    if(!d.email && !d.phone){ err.textContent = MSG.one; f.elements.email.focus(); return; }
+    btn.disabled = true; btn.textContent = MSG.sending;
+    fetch('/api/public/marketing/lead', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(d)})
+      .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ j = j || {}; j._status = r.status; return j; }); })
+      .then(function(j){
+        if(j.ok){ f.hidden = true; var done = document.getElementById('leadDone'); done.hidden = false; done.focus(); return; }
+        err.textContent = (j._status === 400 || j._status === 429) && j.error ? j.error : MSG.err;
+      })
+      .catch(function(){ err.textContent = MSG.err; })
+      .then(function(){ btn.disabled = false; btn.textContent = MSG.send; });
+  });
+})();
+</script>
 </body>
 </html>
