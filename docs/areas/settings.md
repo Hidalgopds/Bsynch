@@ -39,6 +39,10 @@
   - Sin pago al terminar la prueba: **puede leer y exportar todo, no editar** (402 + aviso). Hicons y Bsynch exentas (`billing_exempt`). Sin Stripe configurado no se bloquea a nadie.
   - **Usuarios de empresas cliente solo entran a Contractor y Billing** (`_saas_scope_guard`): ERP, Home Lab, Marketing y Settings bloqueados en el servidor; `/home` muestra solo Contractor.
   - Pruebas: `tests/test_billing.py`. SQL: `migrations/saas_billing.sql` (aplicado).
+- [x] **Arreglado (2026-11-14): `/api/forgot-password` era un hueco grave.** Cambiaba la clave de cualquier cuenta sabiendo su correo y, sin Gmail configurado, devolvía la clave nueva en la respuesta. Ahora manda un enlace de un solo uso. Revisar en `audit_log` y con el dueño si alguien la usó antes (no quedaba registrado).
+- [x] "Add a company" pide (opcional) nombre y correo del Manager: se crea su cuenta sin clave conocida y le llega el enlace para elegirla. La empresa arranca con su prueba gratis. Pruebas: `tests/test_passwords.py`.
+- [ ] El dueño debe entrar con `daniel@hidalgoops.com` (no con "Daniel Hidalgo", que es de Hicons) y activarle 2FA.
+- [ ] `/api/reset-password` (admin cambia la clave de otro, mínimo 4 caracteres) sigue existiendo para la pantalla vieja de ERP: pasarlo a "mandar enlace" y subir el mínimo.
 - [ ] **Dueño:** crear cuenta Stripe, 2 precios mensuales (base y por persona), webhook a `https://bsynch.com/api/stripe/webhook` (eventos `checkout.session.completed`, `customer.subscription.*`, `invoice.payment_failed`) y activar el portal de clientes. Variables en Render: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_BASE`, `STRIPE_PRICE_SEAT` (y `SAAS_*` si cambian los precios mostrados).
 - [ ] ERP: agregar columna de empresa a sus tablas para poder venderlo (lo hace la conversación de ERP). Hasta entonces `SAAS_HUBS_READY = {"contractor"}`.
 - [ ] Landing de ventas (Marketing) que lleve a `/signup`. `robots.txt` hoy bloquea todo: abrir `/signup` y la landing cuando se lance.
@@ -58,6 +62,8 @@
 - Servicio de staging en Render; Gmail emisor de Hicons; cuenta de Stripe y precios.
 
 ## Decisiones tomadas
+- **Dueño de la plataforma = cuenta `Daniel Admin`** (usuario de `DEFAULT_COMPANY_ADMIN_USER`, sin empresa). El dueño **ve los datos de todas las empresas sin pedir acceso de soporte** (decisión del dueño, 2026-11-14); cada visita queda en el `contractor_support_log` de esa empresa, que su Manager ve, y la política de privacidad lo dice. Los demás admins de plataforma siguen necesitando acceso de soporte. Ojo: un cliente grande o una auditoría SOC 2 puede pedir quitarlo.
+- **Contraseñas: nunca una clave inventada por otro, mandada por correo o mostrada.** Cuenta nueva o "olvidé mi contraseña" = enlace de un solo uso (`password_links`, solo se guarda el hash): 72 h para cuenta nueva, 1 h para cambio. Pedir un enlace nuevo anula el anterior. "Forgot password" responde igual exista o no el correo.
 - Fotos: bucket privado y la app las sirve (no URLs firmadas ni públicas), así la regla "cada empresa ve solo lo suyo" vive en un solo lugar. Borrar una foto (acción manual) borra también su archivo.
 - Un solo worker de gunicorn: los límites de intentos viven en memoria (si se suben workers, moverlos a la base).
 - Reporte de seguridad: mensual (día 1) + alertas inmediatas; va al dueño (`DEFAULT_COMPANY_ADMIN_USER` o `SECURITY_REPORT_TO`).

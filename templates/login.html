@@ -182,6 +182,21 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh;pad
 </div>
 
 <script>
+// Forgot password: the server emails a one-time link; the answer is the same for any email
+function doForgot() {
+  var email = (document.getElementById('fp-email').value || '').trim();
+  var err = document.getElementById('fp-err'), ok = document.getElementById('fp-success'), btn = document.getElementById('btn-fp');
+  err.style.display = 'none'; ok.style.display = 'none';
+  if (email.indexOf('@') < 1) { err.textContent = 'Enter the email on your account.'; err.style.display = 'block'; return; }
+  btn.disabled = true;
+  fetch('/api/forgot-password', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({email: email})})
+    .then(function (r) { return r.json(); }).then(function (d) {
+      btn.disabled = false;
+      if (!d.ok) { err.textContent = d.error || 'Could not send. Try again.'; err.style.display = 'block'; return; }
+      ok.textContent = 'If that email has an account, we sent a link to choose a new password. It works for 1 hour.';
+      ok.style.display = 'block';
+    }).catch(function () { btn.disabled = false; err.textContent = 'Connection error. Try again.'; err.style.display = 'block'; });
+}
 var usernameTimer = null;
 var usernameOk = false;
 

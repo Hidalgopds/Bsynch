@@ -2821,7 +2821,7 @@ def register_page():
 
 LEGAL_ENTITY = os.environ.get("LEGAL_ENTITY", "BSynch")
 LEGAL_CONTACT = os.environ.get("LEGAL_CONTACT_EMAIL", "info@hidalgoops.com")
-LEGAL_UPDATED = "November 13, 2026"
+LEGAL_UPDATED = "November 14, 2026"
 
 
 @app.route("/robots.txt")
@@ -2861,7 +2861,8 @@ def _server_error(e):
 _PUBLIC_FORMS = [(r"/api/register", "f-register", 20, 3600), (r"/api/self-register", "f-selfreg", 30, 3600),
                  (r"/api/forgot-password", "f-forgot", 5, 900), (r"/api/reset-password", "f-reset", 10, 900),
                  (r"/api/join/[^/]+/[^/]+", "f-join", 30, 3600), (r"/api/public/estimate/[^/]+/answer", "f-estimate", 20, 3600),
-                 (r"/api/public/marketing/lead", "f-lead", 10, 3600), (r"/api/public/signup", "f-signup", 5, 3600)]
+                 (r"/api/public/marketing/lead", "f-lead", 10, 3600), (r"/api/public/signup", "f-signup", 5, 3600),
+                 (r"/api/public/set-password", "f-setpw", 10, 900)]
 
 
 @app.before_request
@@ -2942,61 +2943,110 @@ def api_self_register():
     return jsonify({"error": err}), 400
 
 
+# ── Password links: one-time links to set or reset a password ──
+# Nobody's password is ever made up by someone else, emailed or shown. A new person or a forgotten
+# password gets a link that works once and expires; only a hash of it is stored.
+PW_LINK_HOURS = {"setup": 72, "reset": 1}
+
+
+def _pw_token_hash(token):
+    return _hashlib.sha256(str(token).encode()).hexdigest()
+
+
+def _pw_link_new(user_name, purpose, by=""):
+    """A fresh link for this person (older open links of the same person stop working). URL or None."""
+    import datetime as dt, secrets
+    token = secrets.token_urlsafe(32)
+    now = dt.datetime.now(dt.timezone.utc)
+    requests.patch(f"{sb_url()}/rest/v1/password_links?user_name=eq.{requests.utils.quote(user_name)}&used_at=is.null",
+                   json={"used_at": now.isoformat(), "used_note": "replaced"},
+                   headers={**sb_headers(), "Prefer": "return=minimal"}, timeout=6)
+    r = requests.post(f"{sb_url()}/rest/v1/password_links",
+                      json={"token_hash": _pw_token_hash(token), "user_name": user_name, "purpose": purpose,
+                            "expires_at": (now + dt.timedelta(hours=PW_LINK_HOURS[purpose])).isoformat(), "created_by": by[:80]},
+                      headers={**sb_headers(), "Prefer": "return=minimal"}, timeout=6)
+    return f"{request.host_url}set-password/{token}" if r.ok else None
+
+
+def _pw_link_find(token):
+    """The open, unexpired link row for this token, else None."""
+    import datetime as dt
+    if not re.fullmatch(r"[A-Za-z0-9_-]{20,100}", str(token or "")):
+        return None
+    r = requests.get(f"{sb_url()}/rest/v1/password_links?token_hash=eq.{_pw_token_hash(token)}&used_at=is.null&select=*&limit=1",
+                     headers=sb_headers(), timeout=6)
+    row = r.json()[0] if r.ok and r.json() else None
+    if not row:
+        return None
+    try:
+        end = dt.datetime.fromisoformat(str(row["expires_at"]).replace("Z", "+00:00"))
+        end = end if end.tzinfo else end.replace(tzinfo=dt.timezone.utc)
+    except (KeyError, ValueError):
+        return None
+    return row if end > dt.datetime.now(dt.timezone.utc) else None
+
+
+def _pw_link_email(email, name, link, purpose, es=False):
+    if purpose == "setup":
+        subj = "Crea tu contraseña de BSynch" if es else "Set up your BSynch password"
+        lines = [f"Hola {_html_escape(name)}," if es else f"Hi {_html_escape(name)},",
+                 "Te crearon una cuenta en BSynch. Elige tu contraseña con este enlace. Sirve una sola vez y vence en 72 horas." if es
+                 else "An account was created for you on BSynch. Choose your password with this link. It works once and expires in 72 hours."]
+    else:
+        subj = "Cambia tu contraseña de BSynch" if es else "Reset your BSynch password"
+        lines = [f"Hola {_html_escape(name)}," if es else f"Hi {_html_escape(name)},",
+                 "Alguien pidió cambiar tu contraseña. Si fuiste tú, usa este enlace (sirve una vez y vence en 1 hora). Si no, ignora este correo: tu contraseña no cambió." if es
+                 else "Someone asked to reset your password. If it was you, use this link (it works once and expires in 1 hour). If not, ignore this email: your password did not change."]
+    _saas_mail([email], subj, lines, link, "Elegir contraseña" if es else "Choose password")
+
+
 @app.route("/api/forgot-password", methods=["POST"])
 def forgot_password():
-    """Generate a temp password and email it, OR return admin contact info."""
-    import datetime as dt, random, string
+    """Email a one-time reset link. Same answer whether or not the email has an account."""
     data = request.get_json() or {}
-    email = data.get("email","").strip().lower()
-    if not email:
-        return jsonify({"error": "Email required"}), 400
-    # Look up user by email
-    r = requests.get(
-        f"{sb_url()}/rest/v1/app_users?email=eq.{requests.utils.quote(email)}&select=name,role&limit=1",
-        headers=sb_headers()
-    )
-    users = r.json() if r.ok else []
-    if not users:
-        return jsonify({"error": "No account found with that email."}), 404
-    user = users[0]
-    # Generate temp password
-    temp_pw = "".join(random.choices(string.ascii_letters + string.digits, k=8))
-    # Update password in DB
-    upd = requests.patch(
-        f"{sb_url()}/rest/v1/app_users?email=eq.{requests.utils.quote(email)}",
-        headers={**sb_headers(), "Prefer": "return=representation"},
-        json={"password": hash_password(temp_pw)}
-    )
-    if not upd.ok:
-        return jsonify({"error": "Failed to reset password"}), 500
-    # Try to send email
-    email_sent = False
-    if SMTP_EMAIL and SMTP_PASSWORD:
-        try:
-            import smtplib
-            from email.mime.multipart import MIMEMultipart as MM
-            from email.mime.text import MIMEText as MT
-            msg = MM("alternative")
-            msg["Subject"] = "Meridian Structural Group — Password Reset"
-            msg["From"] = SMTP_EMAIL
-            msg["To"] = email
-            html = f"""
-            <div style="font-family:Arial,sans-serif;max-width:480px;background:#0f1117;color:#e2e8f0;padding:32px;border-radius:12px;">
-              <div style="background:#1e9484;width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;margin-bottom:20px;font-size:16px;">MSG</div>
-              <h2 style="margin:0 0 8px;">Password Reset</h2>
-              <p style="color:#94a3b8;">Hi {user['name']}, here is your temporary password:</p>
-              <div style="background:#1a2234;border:1px solid #1e2d45;border-radius:8px;padding:16px 20px;margin:20px 0;font-size:24px;font-weight:700;letter-spacing:4px;color:#5eead4;">{temp_pw}</div>
-              <p style="color:#94a3b8;font-size:13px;">Sign in with this password, then change it immediately in your profile.</p>
-              <a href="https://bsynch.com/login" style="display:inline-block;background:#1e9484;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:8px;">Go to Login →</a>
-            </div>"""
-            msg.attach(MT(html,"html"))
-            with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as srv:
-                srv.login(SMTP_EMAIL, SMTP_PASSWORD)
-                srv.sendmail(SMTP_EMAIL, [email], msg.as_string())
-            email_sent = True
-        except Exception as e:
-            logger.error("[Reset email] %s", e)
-    return jsonify({"ok": True, "email_sent": email_sent, "temp_pw": temp_pw if not email_sent else None})
+    email = str(data.get("email") or "").strip().lower()[:160]
+    if not _EMAIL_OK.fullmatch(email):
+        return jsonify({"ok": False, "error": "Enter the email on your account"}), 400
+    r = requests.get(f"{sb_url()}/rest/v1/app_users?email=eq.{requests.utils.quote(email)}&approved=eq.true&select=name,email&limit=1",
+                     headers=sb_headers(), timeout=6)
+    user = r.json()[0] if r.ok and r.json() else None
+    if user:
+        link = _pw_link_new(user["name"], "reset", by="forgot-password")
+        if link:
+            _pw_link_email(user["email"], user["name"], link, "reset", es=_saas_lang(data) == "es")
+        _audit("password.reset_requested", user["name"], actor="")
+    return jsonify({"ok": True, "message": "If that email has an account, we sent a link to reset the password."})
+
+
+@app.route("/set-password/<token>")
+def set_password_page(token):
+    row = _pw_link_find(token)
+    return render_template("set-password.html", token=token if row else "", valid=bool(row),
+                           purpose=(row or {}).get("purpose", ""), lang=_saas_lang())
+
+
+@app.route("/api/public/set-password", methods=["POST"])
+def set_password_by_link():
+    import datetime as dt
+    data = request.get_json() or {}
+    es = _saas_lang(data) == "es"
+    row = _pw_link_find(data.get("token"))
+    if not row:
+        return jsonify({"ok": False, "error": "Este enlace ya no sirve. Pide uno nuevo." if es
+                        else "This link no longer works. Ask for a new one."}), 410
+    pw = str(data.get("password") or "")
+    if len(pw) < 8 or len(pw) > 200:
+        return jsonify({"ok": False, "error": "La contraseña debe tener al menos 8 caracteres." if es
+                        else "Password must be at least 8 characters."}), 400
+    u = requests.patch(f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(row['user_name'])}",
+                       json={"password": hash_password(pw)}, headers={**sb_headers(), "Prefer": "return=representation"}, timeout=8)
+    if not (u.ok and u.json()):
+        return jsonify({"ok": False, "error": "No pudimos guardar la contraseña." if es else "We couldn't save the password."}), 502
+    requests.patch(f"{sb_url()}/rest/v1/password_links?id=eq.{row['id']}",
+                   json={"used_at": dt.datetime.now(dt.timezone.utc).isoformat(), "used_note": "used"},
+                   headers={**sb_headers(), "Prefer": "return=minimal"}, timeout=6)
+    _audit("password.set_by_link", row["user_name"], {"purpose": row.get("purpose")}, actor=row["user_name"])
+    return jsonify({"ok": True, "login": "/login"})
 
 
 @app.route("/api/users/approve", methods=["POST"])
@@ -7945,8 +7995,11 @@ def _contractor_caller_uncached():
         company = rows[0].get("contractor_company")
         owner = DEFAULT_COMPANY_ADMIN_USER.lower()
         if owner and owner in ((rows[0].get("username") or "").lower(), (rows[0].get("email") or "").lower()):
-            # The platform owner is admin of every contractor company, even if assigned to one.
+            # The platform owner is admin of every contractor company, even if assigned to one, and
+            # (owner's decision, 2026-11-14) sees every company's data without asking for support access.
+            # Each visit is still written to the company's support log, which its Manager sees.
             me["is_super"] = True
+            me["is_owner"] = True
         elif company in CONTRACTOR_COMPANIES:
             me["company"] = company
             me["company_role"] = _ct_company_roles(company).get(name, "member")
@@ -7996,6 +8049,9 @@ def _ct_support_used(me, company):
 
 
 def _ct_support_access(me, company):
+    if me.get("is_owner") and company in CONTRACTOR_COMPANIES:
+        _ct_support_used(me, company)  # the owner needs no permission, but every visit stays on record
+        return True
     if not me["is_super"] or company not in CONTRACTOR_COMPANIES or not _ct_support_open(company):
         return False
     _ct_support_used(me, company)
@@ -8067,7 +8123,9 @@ def contractor_admin_settings(company):
 @app.route("/api/contractor/me", methods=["GET"])
 def contractor_me():
     me = _contractor_caller()
-    if me["is_super"]:
+    if me.get("is_owner"):
+        visible = list(CONTRACTOR_COMPANIES)  # the platform owner sees every company (logged per visit)
+    elif me["is_super"]:
         visible = [co for co in CONTRACTOR_COMPANIES if _ct_support_open(co)]
     else:
         visible = [me["company"]] if me["company"] else []
@@ -8079,7 +8137,8 @@ def contractor_me():
                       # client companies pay: their Managers get a Billing button (Settings owns billing)
                       "billing": admin and co not in _CompanyRegistry.BUILT_IN
                                  and not CONTRACTOR_COMPANIES.info(co).get("billing_exempt")}
-    role_label = "Platform admin" if me["is_super"] else CONTRACTOR_ROLE_LABELS.get(me["company_role"] or "member", "User")
+    role_label = "Platform owner" if me.get("is_owner") else "Platform admin" if me["is_super"] \
+        else CONTRACTOR_ROLE_LABELS.get(me["company_role"] or "member", "User")
     private = {co: CONTRACTOR_COMPANIES[co] for co in CONTRACTOR_COMPANIES if me["is_super"] and co not in access}
     support = {co: _ct_support(co).get("until") for co in access if me["is_super"]}
     return jsonify({**me, "access": access, "role_label": role_label, "member_only": _ct_is_member_only(me),
@@ -10988,16 +11047,49 @@ def platform_add_contractor_company():
         return jsonify({"ok": False, "error": "Short id: 2-30 lowercase letters, numbers or dashes, starting with a letter"}), 400
     if not name:
         return jsonify({"ok": False, "error": "Company name required"}), 400
-    if slug in CONTRACTOR_COMPANIES:
+    if slug in CONTRACTOR_COMPANIES or _saas_row(slug, "slug"):
         return jsonify({"ok": False, "error": "That id is already taken"}), 409
+    # Optional first Manager: gets an account with no known password and a one-time link to choose one
+    mgr_name = " ".join(str(data.get("manager_name") or "").split())[:80]
+    mgr_email = str(data.get("manager_email") or "").strip().lower()[:160]
+    if mgr_name or mgr_email:
+        if len(mgr_name) < 2 or not _EMAIL_OK.fullmatch(mgr_email):
+            return jsonify({"ok": False, "error": "Manager: write a full name and a valid email (or leave both empty)"}), 400
+        for field, value in (("email", mgr_email), ("username", mgr_email), ("name", mgr_name)):
+            chk = requests.get(f"{_MASTER_URL}/rest/v1/app_users?{field}=eq.{requests.utils.quote(value)}&select=id&limit=1",
+                               headers=_master_hdr(), timeout=6)
+            if chk.ok and chk.json():
+                return jsonify({"ok": False, "error": f"That Manager {field} already has an account. Add the company "
+                                                      f"without a Manager, then pick them from its card."}), 409
+    import datetime as dt
+    ends = dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=SAAS_TRIAL_DAYS)
     r = requests.post(f"{_MASTER_URL}/rest/v1/contractor_companies",
-                      json={"slug": slug, "name": name, "status": "active", "created_by": _session_user()},
+                      json={"slug": slug, "name": name, "status": "active", "created_by": _session_user(),
+                            "approved_by": _session_user(), "approved_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+                            "trial_ends_at": ends.isoformat(), "billing_status": "trial",
+                            "contact_name": mgr_name or None, "contact_email": mgr_email or None},
                       headers={**_master_hdr(), "Prefer": "return=minimal"}, timeout=8)
     if not r.ok:
         return jsonify({"ok": False, "error": "Could not save the company"}), 502
     CONTRACTOR_COMPANIES.reload()
-    _audit("company.contractor_added", slug, {"name": name})
-    return jsonify({"ok": True, "slug": slug, "name": name})
+    _audit("company.contractor_added", slug, {"name": name, "manager": mgr_name or None})
+    invited = False
+    if mgr_name:
+        import secrets
+        u = requests.post(f"{_MASTER_URL}/rest/v1/app_users",
+                          json={"name": mgr_name, "username": mgr_email, "email": mgr_email, "role": "worker", "approved": True,
+                                "contractor_company": slug, "password": hash_password(secrets.token_urlsafe(32))},
+                          headers={**_master_hdr(), "Prefer": "return=minimal"}, timeout=8)
+        if u.ok:
+            roles = _ct_company_roles(slug)
+            roles[mgr_name] = "admin"
+            _ct_set_config(f"contractor_roles_{slug}", roles)
+            link = _pw_link_new(mgr_name, "setup", by=_session_user())
+            if link:
+                _pw_link_email(mgr_email, mgr_name, link, "setup", es=_saas_lang(data) == "es")
+                invited = True
+            _audit("company.manager_invited", mgr_name, {"company": slug})
+    return jsonify({"ok": True, "slug": slug, "name": name, "invited": invited})
 
 
 # ══ SaaS: companies sign up on their own, the owner approves, Stripe bills monthly ══
@@ -11266,7 +11358,7 @@ def _billing_gate():
 # ── Client companies only reach Contractor and their billing page ──
 _SAAS_OPEN_EXACT = {"/", "/home", "/login", "/logout", "/privacy", "/terms", "/signup", "/billing", "/contractor-hub",
                     "/robots.txt", "/sw.js", "/favicon.ico"}
-_SAAS_OPEN_PAGES = ("/contractor/", "/static/", "/join/", "/i/", "/e/")  # public invoice/estimate links; prefixes end with "/" so "/home" never lets "/homelab" through
+_SAAS_OPEN_PAGES = ("/contractor/", "/static/", "/join/", "/i/", "/e/", "/set-password/")  # public invoice/estimate links; prefixes end with "/" so "/home" never lets "/homelab" through
 _SAAS_OPEN_API = ("/api/contractor/", "/api/billing/", "/api/auth/", "/api/public/", "/api/join/", "/api/stripe/", "/api/me/")
 
 
