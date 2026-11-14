@@ -37,7 +37,7 @@ Campañas, leads y herramientas de crecimiento. Hoy tiene: landing pública `/ma
 
 ## Pendientes
 - [ ] Precios reales (decisión del dueño).
-- [ ] **Correr `migrations/marketing_leads.sql` en producción** (`wanfpiogchwttsippekm`) y revisar los Security Advisors (cero ERROR). Hasta entonces el formulario muestra el correo de contacto.
+- [x] `migrations/marketing_leads.sql` aplicada en producción (`wanfpiogchwttsippekm`) el 2026-11-14. RLS activo, 0 políticas, 0 filas. Security Advisors: cero ERROR. Solo el INFO "RLS sin políticas" de siempre (58 tablas, antes 57). No se aplica en NNC.
 - [ ] Aviso a Settings: se agregó una línea a `_PUBLIC_FORMS` (`f-lead`, 10/hora).
 - [ ] Botón "Empezar" hacia el registro de empresas cuando Settings lo tenga.
 - [ ] Decidir si `bsynch.com/` (hoy manda a `/login`) debe mostrar la landing. Eso toca la ruta `/`, hay que coordinarlo con Settings.
