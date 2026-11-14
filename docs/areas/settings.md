@@ -32,7 +32,17 @@
 - [ ] `issue-photos` es un bucket **público** (heredado del ERP): pasarlo a privado y servir por la app.
 - [x] Empresas de Contractor en la tabla `contractor_companies` (2026-11-14). `CONTRACTOR_COMPANIES` es un registro que se lee de la tabla cada minuto; hicons y bsynch siempre están; si la tabla falla queda la última lista buena. Alta por `POST /api/platform/contractor-companies` (solo dueño, en `audit_log`). Pruebas: `tests/test_companies.py`.
 - [x] Pantalla para dar de alta empresas: "Add a company" en Platform Admin (`/contractor/platform`), 2026-11-14. Arma el id corto solo desde el nombre. Ids bloqueados: `_RESERVED_SLUGS` en `app.py` (igual que `NOT_CO` en `static/contractor-scope.js`; si se agrega una pantalla `/contractor/<x>`, sumarla en las dos listas).
-- [ ] Registro de empresa por sí misma (con Stripe).
+- [x] Registro + cobro (2026-11-14). Decisiones del dueño: plan fijo + por persona (por ahora $49/mes incluye 5, $8 por persona extra: `SAAS_BASE_USD`, `SAAS_INCLUDED_SEATS`, `SAAS_SEAT_USD`), 14 días gratis sin tarjeta, **el dueño aprueba cada empresa**, se vende Contractor (ERP cuando separe empresas).
+  - `/signup` (es/en) → empresa `pending` en `contractor_companies` + cuenta sin aprobar (Manager). Anti-spam: honeypot + 5 por hora por conexión.
+  - Platform Admin → "Waiting for your approval": Approve (prueba de 14 días, correo al cliente) / Reject (queda guardada, nunca se borra).
+  - `/billing?company=` (es/en), botón 💳 Billing en la barra de Contractor solo para el Manager de empresas que pagan. Stripe Checkout + portal de Stripe. Webhook `/api/stripe/webhook` con firma. Cada día se ajusta la cantidad de personas extra en Stripe.
+  - Sin pago al terminar la prueba: **puede leer y exportar todo, no editar** (402 + aviso). Hicons y Bsynch exentas (`billing_exempt`). Sin Stripe configurado no se bloquea a nadie.
+  - **Usuarios de empresas cliente solo entran a Contractor y Billing** (`_saas_scope_guard`): ERP, Home Lab, Marketing y Settings bloqueados en el servidor; `/home` muestra solo Contractor.
+  - Pruebas: `tests/test_billing.py`. SQL: `migrations/saas_billing.sql` (aplicado).
+- [ ] **Dueño:** crear cuenta Stripe, 2 precios mensuales (base y por persona), webhook a `https://bsynch.com/api/stripe/webhook` (eventos `checkout.session.completed`, `customer.subscription.*`, `invoice.payment_failed`) y activar el portal de clientes. Variables en Render: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_BASE`, `STRIPE_PRICE_SEAT` (y `SAAS_*` si cambian los precios mostrados).
+- [ ] ERP: agregar columna de empresa a sus tablas para poder venderlo (lo hace la conversación de ERP). Hasta entonces `SAAS_HUBS_READY = {"contractor"}`.
+- [ ] Landing de ventas (Marketing) que lleve a `/signup`. `robots.txt` hoy bloquea todo: abrir `/signup` y la landing cuando se lance.
+- [ ] `ADMIN_EMAIL` y `DEFAULT_COMPANY_ADMIN_USER` tienen el correo real como valor por defecto en `app.py`: sacarlo cuando el dueño confirme las variables en Render.
 - [ ] Subdominios por empresa: confirmar DNS + dominio en Render y que la sesión sirve entre subdominios (lo pide Contractor antes de prender "dirección propia").
 - [ ] Cobro mensual con Stripe, landing de ventas, todo en español también.
 - [ ] NNC: pausado, el trabajo con esa empresa se paró. No aplicarle migraciones mientras siga pausado.

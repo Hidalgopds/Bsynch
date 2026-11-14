@@ -112,6 +112,17 @@
     }).catch(function(){});
   }
 
+  // Client companies (SaaS) only have Contractor: hide the rest (the server blocks them anyway)
+  if(!_isSubdomain){
+    fetch('/api/me/hubs', {credentials:'same-origin'}).then(function(r){ return r.json(); }).then(function(d){
+      if(!d.ok || !d.tiles) return;
+      ['erp','contractor','marketing','settings','homelab'].forEach(function(t){
+        var el = document.getElementById('tile-'+t);
+        if(el) el.style.display = d.tiles.indexOf(t) >= 0 ? '' : 'none';
+      });
+    }).catch(function(){});
+  }
+
   var role = localStorage.getItem('mbrRole') || '';
   var name = localStorage.getItem('mbrName') || localStorage.getItem('companyUser') || '';
   document.getElementById('hdrUserName').textContent = name ? ('Hi, ' + name) : '';

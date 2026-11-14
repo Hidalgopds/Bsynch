@@ -35,6 +35,20 @@
     if (leaving || location.pathname === '/contractor/account') return; leaving = true;
     location.replace('/contractor/account?setup2fa=1');
   }
+  // Trial over and no payment: the company can still read everything, but edits need billing
+  function billingBanner(url) {
+    if (document.getElementById('ctBilling')) return;
+    var b = document.createElement('div');
+    b.id = 'ctBilling'; b.setAttribute('role', 'alert');
+    b.style.cssText = 'position:sticky;top:0;z-index:999;background:#fef3c7;color:#78350f;border-bottom:1px solid #fcd34d;padding:10px 14px;font:600 14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;text-align:center;';
+    b.innerHTML = 'Your free trial ended. You can still see everything; to keep editing, ';
+    var a = document.createElement('a');
+    a.href = /^\/billing\?company=[a-z0-9-]+$/.test(url || '') ? url : '/billing';
+    a.textContent = 'add a payment method';
+    a.style.cssText = 'color:#0f766e;font-weight:800;';
+    b.appendChild(a);
+    document.body.insertBefore(b, document.body.firstChild);
+  }
   var origFetch = window.fetch.bind(window);
   window.fetch = function (input, init) {
     var url = typeof input === 'string' ? input : (input && input.url) || '';
@@ -50,6 +64,7 @@
     if (!mine) return p;
     return p.then(function (r) {
       if (r.status === 401) toLogin();
+      else if (r.status === 402) r.clone().json().then(function (d) { billingBanner(d && d.billing_url); }).catch(function () {});
       else if (r.status === 403) r.clone().json().then(function (d) { if (d && d.error === '2fa_setup_required') toTwoFactor(); }).catch(function () {});
       return r;
     });
@@ -179,7 +194,8 @@
     ['contacts', '&#128101;', 'Contacts', function (c) { return '/contractor/' + c + '/contacts'; }, 'contacts'],
     ['mail', '&#128236;', 'Mail room', function (c) { return '/contractor/' + c + '/mail'; }, 'mailroom'],
     ['settings', '&#9881;&#65039;', 'Settings', function (c) { return '/contractor/' + c + '/settings'; }, 'company_settings'],
-    ['admin', '&#128272;', 'Admin', function (c) { return '/contractor/' + c + '/admin'; }, '__admin']
+    ['admin', '&#128272;', 'Admin', function (c) { return '/contractor/' + c + '/admin'; }, '__admin'],
+    ['billing', '&#128179;', 'Billing', function (c) { return '/billing?company=' + c; }, '__billing']
   ];
   function activeHub() {
     var p = location.pathname;
@@ -198,6 +214,7 @@
     var list = HUBS.filter(function (h) {
       if (member) return ['home', 'workorders', 'calendar', 'expenses'].indexOf(h[0]) >= 0;
       if (h[4] === '__admin') return acc.is_admin;
+      if (h[4] === '__billing') return !!acc.billing;
       return !h[4] || perms[h[4]];
     });
     var style = document.createElement('style');

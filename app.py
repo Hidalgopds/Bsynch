@@ -2447,7 +2447,8 @@ _ERP_OPEN_EXACT = {"/api/login", "/api/login/2fa", "/api/logout", "/api/register
                    "/api/users/has-pin", "/api/users/verify-pin", "/api/users/set-pin",
                    "/api/checkin", "/api/checkin/by-name", "/api/checkin/by-pin", "/api/worker/location",
                    "/api/auth/whoami", "/api/auth/session"}
-_ERP_OPEN_PREFIX = ("/api/contractor/", "/api/public/", "/api/join/", "/api/hermaniland", "/api/auth/2fa", "/api/stop/")
+_ERP_OPEN_PREFIX = ("/api/contractor/", "/api/public/", "/api/join/", "/api/hermaniland", "/api/auth/2fa", "/api/stop/",
+                    "/api/billing/", "/api/stripe/", "/api/me/")  # these three check their own access (SaaS block)
 # Data pages outside /api that need a session too
 _ERP_PROTECTED_PAGES = {"/export.csv", "/submit", "/submit-batch"}
 # Old ERP crew routes that share the /api/contractor/ prefix with the contractor module (which checks its
@@ -2860,7 +2861,7 @@ def _server_error(e):
 _PUBLIC_FORMS = [(r"/api/register", "f-register", 20, 3600), (r"/api/self-register", "f-selfreg", 30, 3600),
                  (r"/api/forgot-password", "f-forgot", 5, 900), (r"/api/reset-password", "f-reset", 10, 900),
                  (r"/api/join/[^/]+/[^/]+", "f-join", 30, 3600), (r"/api/public/estimate/[^/]+/answer", "f-estimate", 20, 3600),
-                 (r"/api/public/marketing/lead", "f-lead", 10, 3600)]
+                 (r"/api/public/marketing/lead", "f-lead", 10, 3600), (r"/api/public/signup", "f-signup", 5, 3600)]
 
 
 @app.before_request
@@ -7302,14 +7303,21 @@ class _CompanyRegistry(dict):
         super().__init__(self.BUILT_IN)
         self._at = 0.0
         self._lock = _threading.Lock()
+        self.meta = {}  # slug -> {hubs, trial_ends_at, billing_status, billing_exempt} (billing gate)
+
+    def info(self, slug):
+        self._fresh()
+        return self.meta.get(slug) or {}
 
     def _fresh(self):
         if _ptime.time() - self._at < self.TTL or not self._lock.acquire(blocking=False):
             return
         try:
-            r = requests.get(f"{_MASTER_URL}/rest/v1/contractor_companies?status=eq.active&select=slug,name",
+            r = requests.get(f"{_MASTER_URL}/rest/v1/contractor_companies?status=eq.active&select=*",
                              headers={"apikey": _MASTER_KEY, "Authorization": f"Bearer {_MASTER_KEY}"}, timeout=5)
             if r.ok and isinstance(r.json(), list):
+                self.meta = {row["slug"]: {k: row.get(k) for k in ("hubs", "trial_ends_at", "billing_status", "billing_exempt")}
+                             for row in r.json() if row.get("slug")}
                 found = {**self.BUILT_IN, **{row["slug"]: row.get("name") or row["slug"] for row in r.json() if row.get("slug")}}
                 for slug in [s for s in dict.keys(self) if s not in found]:
                     dict.pop(self, slug, None)
@@ -8067,7 +8075,10 @@ def contractor_me():
     for co in visible:
         admin = True if me["is_super"] else _ct_can_admin(me, co)  # not counted as using support access
         perms = _ALL_PERMS if admin else _ct_perms(co).get(me["company_role"] or "member", {})
-        access[co] = {"name": CONTRACTOR_COMPANIES[co], "is_admin": admin, "permissions": perms}
+        access[co] = {"name": CONTRACTOR_COMPANIES[co], "is_admin": admin, "permissions": perms,
+                      # client companies pay: their Managers get a Billing button (Settings owns billing)
+                      "billing": admin and co not in _CompanyRegistry.BUILT_IN
+                                 and not CONTRACTOR_COMPANIES.info(co).get("billing_exempt")}
     role_label = "Platform admin" if me["is_super"] else CONTRACTOR_ROLE_LABELS.get(me["company_role"] or "member", "User")
     private = {co: CONTRACTOR_COMPANIES[co] for co in CONTRACTOR_COMPANIES if me["is_super"] and co not in access}
     support = {co: _ct_support(co).get("until") for co in access if me["is_super"]}
@@ -10885,6 +10896,507 @@ def platform_add_contractor_company():
     return jsonify({"ok": True, "slug": slug, "name": name})
 
 
+# ══ SaaS: companies sign up on their own, the owner approves, Stripe bills monthly ══
+# Price = base plan (includes SAAS_INCLUDED_SEATS people) + each extra person. Free trial without a card.
+# The real prices live in Stripe (STRIPE_PRICE_BASE / STRIPE_PRICE_SEAT); the numbers here are only shown.
+# Data is never deleted or hidden over billing: an unpaid company can still read and export, it just can't edit.
+STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+STRIPE_PRICE_BASE = os.environ.get("STRIPE_PRICE_BASE", "")
+STRIPE_PRICE_SEAT = os.environ.get("STRIPE_PRICE_SEAT", "")
+SAAS_TRIAL_DAYS = int(os.environ.get("SAAS_TRIAL_DAYS", "14"))
+SAAS_INCLUDED_SEATS = int(os.environ.get("SAAS_INCLUDED_SEATS", "5"))
+SAAS_BASE_USD = float(os.environ.get("SAAS_BASE_USD", "49"))
+SAAS_SEAT_USD = float(os.environ.get("SAAS_SEAT_USD", "8"))
+SAAS_HUBS = {"contractor": "Contractor", "erp": "ERP"}
+SAAS_HUBS_READY = {"contractor"}  # ERP tables have no company column yet: not sold until they do
+_SAAS_PAID = {"active", "trialing", "past_due"}  # Stripe subscription states that keep editing on
+_EMAIL_OK = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]{2,}")
+
+
+def _stripe_on():
+    return bool(STRIPE_SECRET_KEY and STRIPE_PRICE_BASE)
+
+
+def _stripe(method, path, data=None):
+    """Call the Stripe API (form-encoded). Returns (ok, json)."""
+    try:
+        r = requests.request(method, f"https://api.stripe.com/v1/{path}", data=data, auth=(STRIPE_SECRET_KEY, ""), timeout=20)
+        body = r.json() if r.content else {}
+        if not r.ok:
+            logger.warning("[stripe] %s %s: %s %s", method, path, r.status_code, str(body)[:300])
+        return r.ok, body
+    except Exception as e:
+        logger.warning("[stripe] %s %s: %s", method, path, e)
+        return False, {}
+
+
+def _saas_row(slug, fields="*"):
+    r = requests.get(f"{_MASTER_URL}/rest/v1/contractor_companies?slug=eq.{requests.utils.quote(slug)}&select={fields}&limit=1",
+                     headers=_master_hdr(), timeout=8)
+    return r.json()[0] if r.ok and r.json() else None
+
+
+def _saas_patch(slug, fields):
+    r = requests.patch(f"{_MASTER_URL}/rest/v1/contractor_companies?slug=eq.{requests.utils.quote(slug)}", json=fields,
+                       headers={**_master_hdr(), "Prefer": "return=minimal"}, timeout=8)
+    CONTRACTOR_COMPANIES.reload()
+    return r.ok
+
+
+def _saas_owner_to():
+    return _sec_report_to()
+
+
+def _saas_lang(data=None):
+    want = str((data or {}).get("lang") or request.args.get("lang") or "").lower()
+    if want in ("es", "en"):
+        return want
+    return "es" if (request.accept_languages.best_match(["en", "es"]) or "en") == "es" else "en"
+
+
+def _saas_slug_for(company):
+    import unicodedata
+    s = unicodedata.normalize("NFD", company).encode("ascii", "ignore").decode().lower()
+    s = re.sub(r"\b(llc|inc|corp|co|ltd)\b\.?", "", s)
+    s = re.sub(r"[^a-z0-9]+", "-", s).strip("-")
+    s = re.sub(r"^[^a-z]+", "", s)[:26].strip("-") or "company"
+    if len(s) < 2:
+        s = s + "co"
+    for n in range(1, 30):
+        cand = s if n == 1 else f"{s}-{n}"
+        if cand in _RESERVED_SLUGS or cand in _CompanyRegistry.BUILT_IN:
+            continue
+        if not _saas_row(cand, "slug"):
+            return cand
+    return f"{s[:20]}-{uuid.uuid4().hex[:6]}"
+
+
+def _saas_mail(to, subject, lines, link=None, link_text=None):
+    rows = "".join(f'<p style="margin:0 0 10px">{ln}</p>' for ln in lines)
+    btn = (f'<p style="margin:18px 0"><a href="{_html_escape(link)}" style="background:#0f766e;color:#fff;padding:10px 18px;'
+           f'border-radius:8px;text-decoration:none;font-weight:700">{_html_escape(link_text)}</a></p>') if link else ""
+    html = (f'<div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:auto;color:#0f172a;font-size:15px;line-height:1.5">'
+            f'<h2 style="color:#0f766e;margin:0 0 14px">BSynch</h2>{rows}{btn}</div>')
+    _ct_send_email_async([t for t in to if t], [], subject, html, company="platform", kind="saas")
+
+
+@app.route("/signup")
+def saas_signup_page():
+    if _get_client_co():
+        return redirect("/login")
+    return render_template("signup.html", lang=_saas_lang(), trial_days=SAAS_TRIAL_DAYS, base=SAAS_BASE_USD,
+                           seat=SAAS_SEAT_USD, included=SAAS_INCLUDED_SEATS, hubs=SAAS_HUBS, ready=sorted(SAAS_HUBS_READY))
+
+
+@app.route("/api/public/signup", methods=["POST"])
+def saas_signup():
+    """A company asks for an account. It waits for the platform owner's approval; the trial starts then."""
+    import datetime as dt
+    if _get_client_co():
+        return jsonify({"ok": False, "error": "not here"}), 404
+    data = request.get_json() or {}
+    es = _saas_lang(data) == "es"
+    company = re.sub(r"\s+", " ", str(data.get("company") or "")).strip()[:80]
+    name = " ".join(str(data.get("name") or "").split())[:80]
+    email = str(data.get("email") or "").strip().lower()[:160]
+    phone = str(data.get("phone") or "").strip()[:30]
+    password = str(data.get("password") or "")
+    hubs = [h for h in (data.get("hubs") or ["contractor"]) if h in SAAS_HUBS] or ["contractor"]
+    if len(company) < 2 or len(name) < 2 or not _EMAIL_OK.fullmatch(email):
+        return jsonify({"ok": False, "error": "Revisa el nombre de la empresa, tu nombre y tu correo." if es
+                        else "Check the company name, your name and your email."}), 400
+    if len(password) < 8:
+        return jsonify({"ok": False, "error": "La contraseña debe tener al menos 8 caracteres." if es
+                        else "Password must be at least 8 characters."}), 400
+    if not data.get("consent"):
+        return jsonify({"ok": False, "error": "Debes aceptar los términos y la privacidad." if es
+                        else "Please accept the terms and privacy policy."}), 400
+    for field, value in (("email", email), ("username", email), ("name", name)):
+        chk = requests.get(f"{_MASTER_URL}/rest/v1/app_users?{field}=eq.{requests.utils.quote(value)}&select=id&limit=1",
+                           headers=_master_hdr(), timeout=6)
+        if chk.ok and chk.json():
+            msg = {"name": ("Ya hay una cuenta con ese nombre. Agrega tu segundo apellido o una inicial.",
+                            "There is already an account with that name. Add a middle initial."),
+                   }.get(field, ("Ese correo ya tiene cuenta. Inicia sesión.", "That email already has an account. Sign in instead."))
+            return jsonify({"ok": False, "error": msg[0] if es else msg[1]}), 409
+    slug = _saas_slug_for(company)
+    r = requests.post(f"{_MASTER_URL}/rest/v1/contractor_companies",
+                      json={"slug": slug, "name": company, "status": "pending", "created_by": "signup",
+                            "contact_name": name, "contact_email": email, "contact_phone": phone or None,
+                            "hubs": hubs, "billing_status": "none"},
+                      headers={**_master_hdr(), "Prefer": "return=minimal"}, timeout=8)
+    if not r.ok:
+        return jsonify({"ok": False, "error": "No pudimos guardar tu solicitud. Intenta de nuevo." if es
+                        else "We couldn't save your request. Try again."}), 502
+    u = requests.post(f"{_MASTER_URL}/rest/v1/app_users",
+                      json={"name": name, "username": email, "email": email, "phone": phone or None,
+                            "password": hash_password(password), "role": "worker", "approved": False,
+                            "contractor_company": slug, "consent_signed": True,
+                            "consent_date": dt.datetime.utcnow().isoformat()},
+                      headers={**_master_hdr(), "Prefer": "return=minimal"}, timeout=8)
+    if not u.ok:
+        _saas_patch(slug, {"status": "rejected", "review_note": "account could not be created"})
+        return jsonify({"ok": False, "error": "No pudimos crear tu cuenta. Intenta de nuevo." if es
+                        else "We couldn't create your account. Try again."}), 502
+    roles = _ct_company_roles(slug)
+    roles[name] = "admin"
+    _ct_set_config(f"contractor_roles_{slug}", roles)
+    _audit("saas.signup", slug, {"company": company, "contact": name, "hubs": hubs}, actor=name)
+    base = request.host_url
+    _saas_mail(_saas_owner_to(), f"BSynch: new company waiting for approval: {company}",
+               [f"<b>{_html_escape(company)}</b> signed up.", f"Contact: {_html_escape(name)} ({_html_escape(email)})",
+                f"Hubs asked: {_html_escape(', '.join(SAAS_HUBS[h] for h in hubs))}"],
+               f"{base}contractor/platform", "Review in Platform Admin")
+    _saas_mail([email], "Recibimos tu solicitud de BSynch" if es else "We got your BSynch request",
+               [f"Hola {_html_escape(name)}," if es else f"Hi {_html_escape(name)},",
+                (f"Recibimos la solicitud de <b>{_html_escape(company)}</b>. La revisamos y te avisamos por correo apenas esté lista. "
+                 f"Tu prueba gratis de {SAAS_TRIAL_DAYS} días empieza ese día.") if es else
+                (f"We received the request for <b>{_html_escape(company)}</b>. We'll review it and email you as soon as it's ready. "
+                 f"Your {SAAS_TRIAL_DAYS}-day free trial starts that day.")])
+    return jsonify({"ok": True, "pending": True})
+
+
+@app.route("/api/platform/signups", methods=["GET"])
+def saas_list_signups():
+    if not _session_user():
+        return jsonify({"ok": False, "error": "login_required"}), 401
+    if not _is_platform_operator():
+        return jsonify({"ok": False, "error": "Platform administrator only."}), 403
+    r = requests.get(f"{_MASTER_URL}/rest/v1/contractor_companies?status=eq.pending"
+                     f"&select=slug,name,contact_name,contact_email,contact_phone,hubs,created_at&order=created_at.asc",
+                     headers=_master_hdr(), timeout=8)
+    return jsonify({"ok": True, "signups": r.json() if r.ok else []})
+
+
+@app.route("/api/platform/signups/<slug>/<action>", methods=["POST"])
+def saas_review_signup(slug, action):
+    import datetime as dt
+    if not _session_user():
+        return jsonify({"ok": False, "error": "login_required"}), 401
+    if not _is_platform_operator():
+        return jsonify({"ok": False, "error": "Platform administrator only."}), 403
+    if action not in ("approve", "reject") or not _COMPANY_SLUG.fullmatch(slug):
+        return jsonify({"ok": False, "error": "unknown"}), 404
+    row = _saas_row(slug)
+    if not row or row.get("status") != "pending":
+        return jsonify({"ok": False, "error": "This request was already reviewed"}), 409
+    me = _session_user()
+    now = dt.datetime.now(dt.timezone.utc)
+    login = f"{request.host_url}login"
+    if action == "reject":
+        note = str((request.get_json() or {}).get("note") or "").strip()[:300]
+        _saas_patch(slug, {"status": "rejected", "approved_by": me, "approved_at": now.isoformat(), "review_note": note})
+        _audit("saas.signup_rejected", slug, {"note": note})
+        _saas_mail([row.get("contact_email")], f"Your BSynch request for {row.get('name')}",
+                   [f"Hi {_html_escape(row.get('contact_name'))},",
+                    "Thanks for your interest in BSynch. We can't open this account right now. Reply to this email if you have questions."])
+        return jsonify({"ok": True, "status": "rejected"})
+    ends = now + dt.timedelta(days=SAAS_TRIAL_DAYS)
+    _saas_patch(slug, {"status": "active", "approved_by": me, "approved_at": now.isoformat(),
+                       "trial_ends_at": ends.isoformat(), "billing_status": "trial"})
+    requests.patch(f"{_MASTER_URL}/rest/v1/app_users?contractor_company=eq.{requests.utils.quote(slug)}"
+                   f"&email=eq.{requests.utils.quote(row.get('contact_email') or '')}",
+                   json={"approved": True}, headers={**_master_hdr(), "Prefer": "return=minimal"}, timeout=8)
+    _audit("saas.signup_approved", slug, {"trial_ends_at": ends.isoformat()})
+    _saas_mail([row.get("contact_email")], f"Your BSynch account for {row.get('name')} is ready",
+               [f"Hi {_html_escape(row.get('contact_name'))},",
+                f"<b>{_html_escape(row.get('name'))}</b> is ready. Your free trial runs until <b>{ends:%B %d, %Y}</b>. "
+                f"No card needed until then.",
+                f"Sign in with your email ({_html_escape(row.get('contact_email'))}) and the password you chose. "
+                f"Then invite your team from Admin settings."], login, "Sign in")
+    return jsonify({"ok": True, "status": "active", "trial_ends_at": ends.isoformat()})
+
+
+# ── Who may edit: the billing gate ──
+def _saas_trial_left(info):
+    import datetime as dt
+    t = info.get("trial_ends_at")
+    if not t:
+        return None
+    try:
+        end = dt.datetime.fromisoformat(str(t).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if end.tzinfo is None:
+        end = end.replace(tzinfo=dt.timezone.utc)
+    return end - dt.datetime.now(dt.timezone.utc)
+
+
+def _billing_ok(company):
+    """True when this company may edit. Built-in and exempt companies always may; without Stripe set up
+    nobody is locked (there would be no way to pay)."""
+    if not company or company in _CompanyRegistry.BUILT_IN or not _stripe_on():
+        return True
+    info = CONTRACTOR_COMPANIES.info(company)
+    if not info or info.get("billing_exempt"):
+        return True
+    if info.get("billing_status") in _SAAS_PAID:
+        return True
+    left = _saas_trial_left(info)
+    return bool(left and left.total_seconds() > 0)
+
+
+_BILLING_FREE_API = re.compile(r"^/api/contractor/(me|agreement|account|location|whoami)(/|$)")
+_CT_COMPANY_IN_PATH = re.compile(r"^/api/contractor/([a-z][a-z0-9-]{1,29})/")
+
+
+@app.before_request
+def _billing_gate():
+    """After the trial, a company that hasn't paid can still read and export everything, but not edit."""
+    p = request.path
+    if request.method in ("GET", "HEAD", "OPTIONS") or not p.startswith("/api/contractor/") or _BILLING_FREE_API.match(p):
+        return None
+    if not _stripe_on() or not _session_user():
+        return None
+    m = _CT_COMPANY_IN_PATH.match(p)
+    co = (m.group(1) if m and m.group(1) in CONTRACTOR_COMPANIES else "") or \
+         (request.headers.get("X-Contractor-Company") or request.args.get("company") or "").lower()
+    if co not in CONTRACTOR_COMPANIES:
+        co = (_contractor_caller() or {}).get("company") or ""
+    if co and not _billing_ok(co):
+        return jsonify({"ok": False, "error": "billing_required", "billing_url": f"/billing?company={co}"}), 402
+    return None
+
+
+# ── Client companies only reach Contractor and their billing page ──
+_SAAS_OPEN_EXACT = {"/", "/home", "/login", "/logout", "/privacy", "/terms", "/signup", "/billing", "/contractor-hub",
+                    "/robots.txt", "/sw.js", "/favicon.ico"}
+_SAAS_OPEN_PAGES = ("/contractor/", "/static/", "/join/", "/i/", "/e/")  # public invoice/estimate links; prefixes end with "/" so "/home" never lets "/homelab" through
+_SAAS_OPEN_API = ("/api/contractor/", "/api/billing/", "/api/auth/", "/api/public/", "/api/join/", "/api/stripe/", "/api/me/")
+
+
+def _saas_client_company():
+    """The client company (not Hicons/Bsynch) of the person signed in, else ''. Cached per request."""
+    from flask import g
+    if hasattr(g, "_saas_co"):
+        return g._saas_co
+    g._saas_co = ""
+    name = _session_user() or (session.get("uid") or "").strip()
+    if name and not _get_client_co():
+        hit = _saas_co_cache.get(name)
+        if hit and _ptime.time() - hit[1] < 60:
+            g._saas_co = hit[0]
+            return g._saas_co
+        u = _auth_user_row(name, "contractor_company,username,email") or {}
+        co = u.get("contractor_company") or ""
+        if co and co not in _CompanyRegistry.BUILT_IN and not _ct_is_owner_account(u):
+            g._saas_co = co
+        if len(_saas_co_cache) > 5000:
+            _saas_co_cache.clear()
+        _saas_co_cache[name] = (g._saas_co, _ptime.time())
+    return g._saas_co
+
+
+_saas_co_cache = {}  # name -> (client company or "", when): one lookup a minute per person
+
+
+@app.before_request
+def _saas_scope_guard():
+    p = request.path
+    if p.startswith(_SAAS_OPEN_API) and p not in _ERP_LEGACY_CONTRACTOR:
+        return None
+    if p in _ERP_OPEN_EXACT or p in _SAAS_OPEN_EXACT or (not p.startswith("/api/") and p.startswith(_SAAS_OPEN_PAGES)):
+        return None
+    if not (session.get("uid") or _session_user()):
+        return None
+    co = _saas_client_company()
+    if not co:
+        return None
+    if p.startswith("/api/"):
+        return jsonify({"ok": False, "error": "Not part of your plan"}), 403
+    return redirect("/contractor-hub")
+
+
+@app.route("/api/me/hubs", methods=["GET"])
+def saas_my_hubs():
+    """Which /home tiles to show this person: client companies see Contractor only (and Billing)."""
+    co = _saas_client_company()
+    if co:
+        return jsonify({"ok": True, "client": True, "tiles": ["contractor"], "company": co})
+    return jsonify({"ok": True, "client": False, "tiles": None})
+
+
+# ── Billing page and Stripe ──
+def _billing_can(company):
+    if not _session_user() or company not in CONTRACTOR_COMPANIES:
+        return False
+    return _is_platform_operator() or _ct_can_admin(_contractor_caller(), company)
+
+
+def _billing_seats(company):
+    r = requests.get(f"{_MASTER_URL}/rest/v1/app_users?contractor_company=eq.{requests.utils.quote(company)}&approved=eq.true&select=id",
+                     headers={**_master_hdr(), "Prefer": "count=exact"}, timeout=8)
+    try:
+        return int((r.headers.get("Content-Range") or "").split("/")[-1])
+    except ValueError:
+        return len(r.json() or []) if r.ok else 0
+
+
+def _billing_state(company):
+    row = _saas_row(company) or {}
+    exempt = company in _CompanyRegistry.BUILT_IN or bool(row.get("billing_exempt"))
+    seats = _billing_seats(company)
+    extra = max(0, seats - SAAS_INCLUDED_SEATS)
+    left = _saas_trial_left(row)
+    return {"company": company, "name": CONTRACTOR_COMPANIES.get(company), "exempt": exempt,
+            "status": row.get("billing_status") or ("exempt" if exempt else "none"),
+            "trial_ends_at": row.get("trial_ends_at"),
+            "trial_days_left": max(0, -(-int(left.total_seconds()) // 86400)) if left else 0,
+            "has_subscription": bool(row.get("stripe_subscription_id")), "seats": seats, "included": SAAS_INCLUDED_SEATS,
+            "extra": extra, "base": SAAS_BASE_USD, "seat_price": SAAS_SEAT_USD,
+            "monthly": round(SAAS_BASE_USD + extra * SAAS_SEAT_USD, 2), "can_edit": _billing_ok(company),
+            "stripe_on": _stripe_on()}
+
+
+@app.route("/billing")
+def billing_page():
+    if not _session_user():
+        return redirect("/login?next=" + requests.utils.quote(request.full_path))
+    company = (request.args.get("company") or _saas_client_company() or "").lower()
+    if not _billing_can(company):
+        return redirect("/contractor-hub")
+    return render_template("billing.html", company=company, lang=_saas_lang())
+
+
+@app.route("/api/billing/<company>", methods=["GET"])
+def billing_status(company):
+    if not _billing_can(company):
+        return jsonify({"ok": False, "error": "Only a Manager of this company"}), 403
+    return jsonify({"ok": True, **_billing_state(company)})
+
+
+@app.route("/api/billing/<company>/checkout", methods=["POST"])
+def billing_checkout(company):
+    """Stripe Checkout for the monthly plan. If the trial still runs, Stripe charges only when it ends."""
+    if not _billing_can(company):
+        return jsonify({"ok": False, "error": "Only a Manager of this company"}), 403
+    if not _stripe_on():
+        return jsonify({"ok": False, "error": "Online payment isn't set up yet. We'll contact you."}), 503
+    st = _billing_state(company)
+    if st["exempt"]:
+        return jsonify({"ok": False, "error": "This company has no bill"}), 400
+    row = _saas_row(company) or {}
+    back = f"{request.host_url}billing?company={company}"
+    data = {"mode": "subscription", "success_url": back + "&paid=1", "cancel_url": back,
+            "client_reference_id": company, "metadata[company]": company,
+            "subscription_data[metadata][company]": company, "allow_promotion_codes": "true",
+            "line_items[0][price]": STRIPE_PRICE_BASE, "line_items[0][quantity]": 1}
+    if st["extra"] and STRIPE_PRICE_SEAT:
+        data.update({"line_items[1][price]": STRIPE_PRICE_SEAT, "line_items[1][quantity]": st["extra"]})
+    left = _saas_trial_left(row)
+    if left and left.total_seconds() > 2 * 86400 + 600:  # Stripe needs a trial end at least 48 h away
+        import datetime as dt
+        data["subscription_data[trial_end]"] = int((dt.datetime.now(dt.timezone.utc) + left).timestamp())
+    if row.get("stripe_customer_id"):
+        data["customer"] = row["stripe_customer_id"]
+    elif row.get("contact_email"):
+        data["customer_email"] = row["contact_email"]
+    ok, s = _stripe("POST", "checkout/sessions", data)
+    if not ok or not s.get("url"):
+        return jsonify({"ok": False, "error": "Couldn't open the payment page. Try again."}), 502
+    _audit("billing.checkout_started", company, {"seats": st["seats"]})
+    return jsonify({"ok": True, "url": s["url"]})
+
+
+@app.route("/api/billing/<company>/portal", methods=["POST"])
+def billing_portal(company):
+    """Stripe's own page to change the card, see invoices or cancel."""
+    if not _billing_can(company):
+        return jsonify({"ok": False, "error": "Only a Manager of this company"}), 403
+    row = _saas_row(company) or {}
+    if not (_stripe_on() and row.get("stripe_customer_id")):
+        return jsonify({"ok": False, "error": "No billing account yet"}), 400
+    ok, s = _stripe("POST", "billing_portal/sessions", {"customer": row["stripe_customer_id"],
+                                                         "return_url": f"{request.host_url}billing?company={company}"})
+    if not ok or not s.get("url"):
+        return jsonify({"ok": False, "error": "Couldn't open the billing page. Try again."}), 502
+    return jsonify({"ok": True, "url": s["url"]})
+
+
+def _stripe_sig_ok(payload, header):
+    """Stripe-Signature: t=<time>,v1=<hmac>. Checked with the webhook secret; at most 5 minutes old."""
+    if not STRIPE_WEBHOOK_SECRET or not header:
+        return False
+    parts = {}
+    for item in header.split(","):
+        k, _, v = item.partition("=")
+        parts.setdefault(k.strip(), []).append(v.strip())
+    try:
+        ts = int((parts.get("t") or ["0"])[0])
+    except ValueError:
+        return False
+    if abs(_ptime.time() - ts) > 300:
+        return False
+    want = _hmac.new(STRIPE_WEBHOOK_SECRET.encode(), f"{ts}.".encode() + payload, _hashlib.sha256).hexdigest()
+    return any(_hmac.compare_digest(want, sig) for sig in parts.get("v1", []))
+
+
+@app.route("/api/stripe/webhook", methods=["POST"])
+def stripe_webhook():
+    payload = request.get_data()
+    if not _stripe_sig_ok(payload, request.headers.get("Stripe-Signature", "")):
+        return jsonify({"ok": False, "error": "bad signature"}), 400
+    try:
+        ev = __import__("json").loads(payload)
+    except ValueError:
+        return jsonify({"ok": False}), 400
+    kind, obj = ev.get("type", ""), (ev.get("data") or {}).get("object") or {}
+    company = str((obj.get("metadata") or {}).get("company") or obj.get("client_reference_id") or "").lower()
+    if not _COMPANY_SLUG.fullmatch(company or "") and obj.get("subscription" if kind.startswith("invoice") else "id"):
+        sub = obj.get("subscription") if kind.startswith("invoice") else obj.get("id")
+        r = requests.get(f"{_MASTER_URL}/rest/v1/contractor_companies?stripe_subscription_id=eq.{requests.utils.quote(str(sub))}"
+                         f"&select=slug&limit=1", headers=_master_hdr(), timeout=8)
+        company = r.json()[0]["slug"] if r.ok and r.json() else ""
+    if not company or not _saas_row(company, "slug"):
+        return jsonify({"ok": True, "ignored": True})
+    if kind == "checkout.session.completed":
+        _saas_patch(company, {"stripe_customer_id": obj.get("customer"), "stripe_subscription_id": obj.get("subscription")})
+    elif kind in ("customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted"):
+        status = "canceled" if kind.endswith("deleted") else str(obj.get("status") or "none")
+        _saas_patch(company, {"billing_status": status, "stripe_subscription_id": obj.get("id"),
+                              "stripe_customer_id": obj.get("customer")})
+    elif kind == "invoice.payment_failed":
+        _saas_mail(_saas_owner_to(), f"BSynch: a payment failed ({CONTRACTOR_COMPANIES.get(company, company)})",
+                   ["Stripe couldn't charge this company. Stripe retries on its own; the company can still edit while it does."])
+    else:
+        return jsonify({"ok": True, "ignored": True})
+    _audit("billing." + kind, company, {"status": obj.get("status")}, actor="stripe")
+    return jsonify({"ok": True})
+
+
+_billing_day = {"done": ""}
+
+
+def _billing_daily():
+    """Once a day: the number of people billed follows the people approved in each paying company."""
+    import datetime as dt
+    today = dt.date.today().isoformat()
+    if _billing_day["done"] == today or not (_stripe_on() and STRIPE_PRICE_SEAT):
+        return
+    _billing_day["done"] = today
+    r = requests.get(f"{_MASTER_URL}/rest/v1/contractor_companies?stripe_subscription_id=not.is.null&status=eq.active"
+                     f"&select=slug,stripe_subscription_id", headers=_master_hdr(), timeout=10)
+    for row in (r.json() if r.ok else []):
+        extra = max(0, _billing_seats(row["slug"]) - SAAS_INCLUDED_SEATS)
+        ok, sub = _stripe("GET", f"subscriptions/{row['stripe_subscription_id']}")
+        if not ok:
+            continue
+        items = (sub.get("items") or {}).get("data") or []
+        seat = next((i for i in items if (i.get("price") or {}).get("id") == STRIPE_PRICE_SEAT), None)
+        if seat and seat.get("quantity") != extra:
+            if extra:
+                _stripe("POST", f"subscription_items/{seat['id']}", {"quantity": extra})
+            else:
+                _stripe("DELETE", f"subscription_items/{seat['id']}")
+        elif not seat and extra:
+            _stripe("POST", "subscription_items", {"subscription": row["stripe_subscription_id"],
+                                                   "price": STRIPE_PRICE_SEAT, "quantity": extra})
+        else:
+            continue
+        _audit("billing.seats_synced", row["slug"], {"extra": extra}, actor="system")
+
+
 def _ct_scheduler_loop():
     # The app runs on an always-on instance, so a quiet loop checks every 10 minutes
     while True:
@@ -10894,6 +11406,11 @@ def _ct_scheduler_loop():
                 _ct_daily_tasks()
         except Exception as e:
             logger.error("[Contractor scheduler] %s", e)
+        try:
+            with app.test_request_context("/"):
+                _billing_daily()
+        except Exception as e:
+            logger.error("[Billing scheduler] %s", e)
 
 
 if os.environ.get("CT_SCHEDULER", "1") == "1":

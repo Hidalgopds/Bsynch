@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Billing – BSynch</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#f0f4f8;color:#0f172a;min-height:100vh}
+header{background:#19354d;color:#e2e8f0;padding:14px 20px;display:flex;align-items:center;gap:12px}
+.logo{width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,#0f766e,#4f8ef7);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff}
+header b{font-size:17px}
+.right{margin-left:auto;display:flex;gap:8px;align-items:center}
+.right a,.right button{background:transparent;border:1px solid rgba(255,255,255,.35);color:#e2e8f0;border-radius:7px;padding:6px 12px;font-size:12px;font-weight:700;text-decoration:none;cursor:pointer}
+.right button[aria-pressed="true"]{background:#e2e8f0;color:#19354d}
+main{max-width:680px;margin:0 auto;padding:24px 16px 50px}
+h1{font-size:24px;margin-bottom:4px}
+.sub{color:#566275;font-size:14px;margin-bottom:16px}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px;margin-bottom:14px}
+.status{display:inline-block;font-size:13px;font-weight:800;padding:4px 12px;border-radius:20px;margin-bottom:10px}
+.s-ok{background:#dcfce7;color:#15803d}.s-trial{background:#e0f2fe;color:#075985}.s-warn{background:#fef3c7;color:#92400e}.s-bad{background:#fee2e2;color:#b91c1c}
+.big{font-size:30px;font-weight:800;color:#115e59}
+.big small{font-size:14px;color:#566275;font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:14px;margin-top:10px}
+td{padding:7px 0;border-bottom:1px solid #f1f5f9}
+td:last-child{text-align:right;font-weight:700}
+.btn{display:inline-block;background:#0f766e;color:#fff;border:none;border-radius:10px;padding:12px 18px;font-size:15px;font-weight:800;cursor:pointer;margin-top:12px}
+.btn.ghost{background:#fff;color:#0f766e;border:1px solid #8fcfc2}
+.btn:disabled{opacity:.6;cursor:default}
+.note{font-size:13px;color:#566275;line-height:1.5;margin-top:10px}
+.msg{font-size:14px;margin-top:10px;min-height:18px;color:#b91c1c}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo" aria-hidden="true">B</div><b>BSynch</b>
+  <div class="right">
+    <button type="button" data-l="es">ES</button><button type="button" data-l="en">EN</button>
+    <a href="/contractor/{{ company }}" data-t="back"></a>
+  </div>
+</header>
+<main>
+  <h1 data-t="title"></h1>
+  <p class="sub" id="coName"></p>
+  <div class="card" id="box"><p data-t="loading"></p></div>
+</main>
+<script>
+var CO = {{ company|tojson }}, lang = {{ lang|tojson }}, S = null;
+var T = {
+  en: {title: 'Billing', back: '← Back', loading: 'Loading…', exempt: 'No bill', exemptText: 'This company has no monthly bill.',
+       trial: 'Free trial', trialLeft: function(n){ return n + ' day' + (n === 1 ? '' : 's') + ' left in your free trial.'; },
+       active: 'Active', past_due: 'Payment pending', canceled: 'Canceled', ended: 'Trial ended', none: 'Not started',
+       month: ' /month', plan: 'Plan (up to ' + '{n}' + ' people)', extra: 'Extra people', people: 'People with access now', total: 'Estimated monthly total',
+       subscribe: 'Add payment method', manage: 'Manage card, invoices or cancel', paid: 'Thanks! Your payment method was saved.',
+       readOnly: 'Editing is paused until a payment method is added. You can still see and export everything.',
+       chargeLater: 'You will not be charged until your free trial ends.', notReady: 'Online payment is not set up yet. We will contact you.',
+       seatsNote: 'The number of people is updated once a day from the people approved in your company.', conn: 'Connection error. Try again.'},
+  es: {title: 'Facturación', back: '← Volver', loading: 'Cargando…', exempt: 'Sin cobro', exemptText: 'Esta empresa no tiene cobro mensual.',
+       trial: 'Prueba gratis', trialLeft: function(n){ return 'Te queda' + (n === 1 ? ' ' : 'n ') + n + ' día' + (n === 1 ? '' : 's') + ' de prueba gratis.'; },
+       active: 'Activa', past_due: 'Pago pendiente', canceled: 'Cancelada', ended: 'Prueba terminada', none: 'Sin empezar',
+       month: ' /mes', plan: 'Plan (hasta {n} personas)', extra: 'Personas extra', people: 'Personas con acceso hoy', total: 'Total mensual estimado',
+       subscribe: 'Agregar forma de pago', manage: 'Cambiar tarjeta, ver facturas o cancelar', paid: '¡Gracias! Tu forma de pago quedó guardada.',
+       readOnly: 'La edición está en pausa hasta que agregues una forma de pago. Igual puedes ver y exportar todo.',
+       chargeLater: 'No se te cobra nada hasta que termine tu prueba gratis.', notReady: 'El pago en línea todavía no está listo. Te contactamos.',
+       seatsNote: 'La cantidad de personas se actualiza una vez al día según las personas aprobadas en tu empresa.', conn: 'Error de conexión. Intenta de nuevo.'}
+};
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function money(n){ return '$' + Number(n).toFixed(2).replace(/\.00$/, ''); }
+function render(){
+  var t = T[lang];
+  document.documentElement.lang = lang;
+  document.querySelectorAll('[data-t]').forEach(function(el){ var v = t[el.dataset.t]; if(typeof v === 'string') el.textContent = v; });
+  document.querySelectorAll('.right button').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.l === lang ? 'true' : 'false'); });
+  if(!S) return;
+  document.getElementById('coName').textContent = S.name || CO;
+  var box = document.getElementById('box');
+  if(S.exempt){ box.innerHTML = '<span class="status s-ok">' + esc(t.exempt) + '</span><p>' + esc(t.exemptText) + '</p>'; return; }
+  var st = S.status, label, cls;
+  if(st === 'active' || st === 'trialing'){ label = st === 'trialing' ? t.trial : t.active; cls = st === 'trialing' ? 's-trial' : 's-ok'; }
+  else if(st === 'past_due'){ label = t.past_due; cls = 's-warn'; }
+  else if(st === 'trial' && S.trial_days_left > 0){ label = t.trial; cls = 's-trial'; }
+  else if(st === 'canceled'){ label = t.canceled; cls = 's-bad'; }
+  else { label = st === 'none' ? t.none : t.ended; cls = 's-bad'; }
+  var h = '<span class="status ' + cls + '">' + esc(label) + '</span>';
+  if(S.trial_days_left > 0 && !S.has_subscription) h += '<p>' + esc(t.trialLeft(S.trial_days_left)) + '</p>';
+  if(!S.can_edit) h += '<p class="msg" style="color:#92400e">' + esc(t.readOnly) + '</p>';
+  h += '<div class="big" style="margin-top:10px">' + money(S.monthly) + '<small>' + esc(t.month) + '</small></div>' +
+       '<table><tr><td>' + esc(t.plan.replace('{n}', S.included)) + '</td><td>' + money(S.base) + '</td></tr>' +
+       '<tr><td>' + esc(t.extra) + ' (' + S.extra + ' × ' + money(S.seat_price) + ')</td><td>' + money(S.extra * S.seat_price) + '</td></tr>' +
+       '<tr><td>' + esc(t.people) + '</td><td>' + S.seats + '</td></tr>' +
+       '<tr><td><b>' + esc(t.total) + '</b></td><td>' + money(S.monthly) + '</td></tr></table>';
+  if(!S.stripe_on) h += '<p class="note">' + esc(t.notReady) + '</p>';
+  else if(S.has_subscription) h += '<button class="btn ghost" id="portal">' + esc(t.manage) + '</button>';
+  else h += '<button class="btn" id="pay">' + esc(t.subscribe) + '</button>' + (S.trial_days_left > 2 ? '<p class="note">' + esc(t.chargeLater) + '</p>' : '');
+  if(/[?&]paid=1/.test(location.search)) h += '<p class="note" style="color:#15803d;font-weight:700">' + esc(t.paid) + '</p>';
+  h += '<p class="note">' + esc(t.seatsNote) + '</p><p class="msg" id="msg" role="status"></p>';
+  box.innerHTML = h;
+  var pay = document.getElementById('pay'), portal = document.getElementById('portal');
+  if(pay) pay.onclick = function(){ go('checkout', pay); };
+  if(portal) portal.onclick = function(){ go('portal', portal); };
+}
+function go(what, btn){
+  btn.disabled = true;
+  fetch('/api/billing/' + encodeURIComponent(CO) + '/' + what, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}', credentials: 'same-origin'})
+    .then(function(r){ return r.json(); }).then(function(d){
+      if(d.ok && /^https:\/\/(checkout|billing)\.stripe\.com\//.test(d.url || '')){ location.href = d.url; return; }
+      btn.disabled = false; document.getElementById('msg').textContent = d.error || T[lang].conn;
+    }).catch(function(){ btn.disabled = false; document.getElementById('msg').textContent = T[lang].conn; });
+}
+document.querySelectorAll('.right button').forEach(function(b){ b.onclick = function(){ lang = b.dataset.l; render(); }; });
+render();
+fetch('/api/billing/' + encodeURIComponent(CO), {credentials: 'same-origin'}).then(function(r){ return r.json(); }).then(function(d){
+  if(!d.ok){ location.replace('/contractor-hub'); return; }
+  S = d; render();
+}).catch(function(){ document.getElementById('box').textContent = T[lang].conn; });
+</script>
+</body>
+</html>

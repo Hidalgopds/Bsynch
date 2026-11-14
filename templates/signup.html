@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BSynch – Start your free trial</title>
+<meta name="description" content="BSynch for contractors: projects, work orders, estimates and invoices in one place.">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f0f4f8;--card:#fff;--ink:#0f172a;--muted:#566275;--line:#cbd5e1;--teal:#0f766e;--teal-d:#115e59;--err:#b91c1c;--ok:#15803d}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+header{background:#19354d;color:#e2e8f0;padding:14px 20px;display:flex;align-items:center;gap:12px}
+.logo{width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,#0f766e,#4f8ef7);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff}
+header b{font-size:17px}
+.lang{margin-left:auto;display:flex;gap:6px}
+.lang button{background:transparent;border:1px solid rgba(255,255,255,.35);color:#e2e8f0;border-radius:7px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer}
+.lang button[aria-pressed="true"]{background:#e2e8f0;color:#19354d}
+main{max-width:980px;margin:0 auto;padding:28px 16px 50px;display:grid;grid-template-columns:1fr 1.1fr;gap:24px}
+@media(max-width:820px){main{grid-template-columns:1fr}}
+h1{font-size:28px;line-height:1.2;margin-bottom:10px}
+.lead{color:var(--muted);font-size:16px;line-height:1.5;margin-bottom:18px}
+.price{background:var(--card);border:1px solid #e2e8f0;border-radius:14px;padding:18px;margin-bottom:14px}
+.price .big{font-size:34px;font-weight:800;color:var(--teal-d)}
+.price .big small{font-size:15px;color:var(--muted);font-weight:600}
+.price ul{list-style:none;margin-top:10px;font-size:14px;line-height:1.9;color:#334155}
+.price li::before{content:"✓ ";color:var(--teal);font-weight:800}
+.note{font-size:13px;color:var(--muted);line-height:1.5}
+form{background:var(--card);border:1px solid #e2e8f0;border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:12px}
+form h2{font-size:19px}
+label{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:700;color:#334155}
+input[type=text],input[type=email],input[type=password],input[type=tel]{padding:11px 12px;border:1px solid var(--line);border-radius:9px;font-size:15px;font-family:inherit;color:var(--ink);background:#fff}
+input:focus{outline:2px solid var(--teal);outline-offset:1px}
+fieldset{border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px}
+legend{font-size:13px;font-weight:700;color:#334155;padding:0 4px}
+.chk{flex-direction:row;align-items:flex-start;gap:8px;font-weight:500;font-size:14px;color:var(--ink)}
+.chk input{margin-top:3px;width:17px;height:17px;flex-shrink:0}
+.soon{font-size:12px;color:var(--muted);font-weight:600}
+.trap{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+button.go{background:var(--teal);color:#fff;border:none;border-radius:10px;padding:13px;font-size:16px;font-weight:800;cursor:pointer}
+button.go:disabled{opacity:.6;cursor:default}
+.msg{font-size:14px;min-height:20px}
+.msg.err{color:var(--err)}
+.done{text-align:center;padding:30px 10px}
+.done h2{color:var(--ok);margin-bottom:8px}
+a{color:var(--teal)}
+footer{text-align:center;font-size:12px;color:var(--muted);padding:0 16px 30px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo" aria-hidden="true">B</div><b>BSynch</b>
+  <div class="lang" role="group" aria-label="Language">
+    <button type="button" data-l="es">ES</button><button type="button" data-l="en">EN</button>
+  </div>
+</header>
+<main>
+  <section>
+    <h1 data-t="h1"></h1>
+    <p class="lead" data-t="lead"></p>
+    <div class="price">
+      <div class="big">${{ '%g' % base }}<small data-t="perMonth"></small></div>
+      <ul>
+        <li data-t="inc1"></li>
+        <li data-t="inc2"></li>
+        <li data-t="inc3"></li>
+        <li data-t="inc4"></li>
+      </ul>
+    </div>
+    <p class="note" data-t="howItWorks"></p>
+  </section>
+
+  <section>
+    <form id="f" novalidate>
+      <h2 data-t="formTitle"></h2>
+      <label><span data-t="company"></span><input type="text" id="company" maxlength="80" autocomplete="organization" required></label>
+      <label><span data-t="name"></span><input type="text" id="name" maxlength="80" autocomplete="name" required></label>
+      <label><span data-t="email"></span><input type="email" id="email" maxlength="160" autocomplete="email" required></label>
+      <label><span data-t="phone"></span><input type="tel" id="phone" maxlength="30" autocomplete="tel"></label>
+      <label><span data-t="password"></span><input type="password" id="password" minlength="8" autocomplete="new-password" required></label>
+      <fieldset>
+        <legend data-t="hubs"></legend>
+        {% for key, label in hubs.items() %}
+        <label class="chk"><input type="checkbox" name="hub" value="{{ key }}"{% if key in ready %} checked{% else %} disabled{% endif %}>
+          <span>{{ label }}{% if key not in ready %} <span class="soon" data-t="soon"></span>{% endif %}</span></label>
+        {% endfor %}
+      </fieldset>
+      <div class="trap" aria-hidden="true"><label>Website<input type="text" id="website" tabindex="-1" autocomplete="off"></label></div>
+      <label class="chk"><input type="checkbox" id="consent" required><span data-t="consent"></span></label>
+      <button type="submit" class="go" id="go" data-t="submit"></button>
+      <div class="msg" id="msg" role="status" aria-live="polite"></div>
+      <p class="note"><span data-t="haveAccount"></span> <a href="/login" data-t="signIn"></a></p>
+    </form>
+    <div class="done" id="done" hidden>
+      <h2 data-t="doneTitle"></h2>
+      <p class="lead" data-t="doneText"></p>
+    </div>
+  </section>
+</main>
+<footer><a href="/privacy" data-t="privacy"></a> &middot; <a href="/terms" data-t="terms"></a></footer>
+
+<script>
+var DAYS = {{ trial_days|tojson }}, SEAT = {{ ('%g' % seat)|tojson }}, INCL = {{ included|tojson }};
+var T = {
+  en: {h1: 'Run your contracting company from one place', lead: 'Projects, work orders, photos, estimates and invoices, on the phone and the office computer.',
+       perMonth: ' /month', inc1: 'Up to ' + INCL + ' people included', inc2: '$' + SEAT + '/month for each extra person',
+       inc3: DAYS + ' days free, no card needed', inc4: 'Your data is private to your company',
+       howItWorks: 'Sign up, we review your request (usually within one business day) and email you. Your free trial starts that day. Add a card before it ends to keep editing; you can always see and export your data.',
+       formTitle: 'Start your free trial', company: 'Company name', name: 'Your full name', email: 'Work email (you sign in with it)',
+       phone: 'Phone (optional)', password: 'Password (8+ characters)', hubs: 'What do you need?', soon: '(coming soon)',
+       consent: 'I accept the Terms and the Privacy policy.', submit: 'Request my account', haveAccount: 'Already have an account?', signIn: 'Sign in',
+       doneTitle: 'Request received ✓', doneText: 'We sent you an email. We will let you know as soon as your account is ready.',
+       fill: 'Fill in the company, your name, email and a password of 8+ characters.', consentErr: 'Please accept the Terms and the Privacy policy.',
+       sending: 'Sending…', conn: 'Connection error. Try again.', privacy: 'Privacy', terms: 'Terms'},
+  es: {h1: 'Maneja tu empresa de construcción desde un solo lugar', lead: 'Proyectos, órdenes de trabajo, fotos, estimados y facturas, en el teléfono y en la oficina.',
+       perMonth: ' /mes', inc1: 'Hasta ' + INCL + ' personas incluidas', inc2: '$' + SEAT + '/mes por cada persona extra',
+       inc3: DAYS + ' días gratis, sin tarjeta', inc4: 'Tus datos son privados de tu empresa',
+       howItWorks: 'Te registras, revisamos tu solicitud (normalmente en un día hábil) y te avisamos por correo. Tu prueba gratis empieza ese día. Agrega una tarjeta antes de que termine para seguir editando; siempre puedes ver y exportar tus datos.',
+       formTitle: 'Empieza tu prueba gratis', company: 'Nombre de la empresa', name: 'Tu nombre completo', email: 'Correo de trabajo (con él inicias sesión)',
+       phone: 'Teléfono (opcional)', password: 'Contraseña (8 caracteres o más)', hubs: '¿Qué necesitas?', soon: '(próximamente)',
+       consent: 'Acepto los Términos y la Política de privacidad.', submit: 'Pedir mi cuenta', haveAccount: '¿Ya tienes cuenta?', signIn: 'Inicia sesión',
+       doneTitle: 'Solicitud recibida ✓', doneText: 'Te mandamos un correo. Te avisamos apenas tu cuenta esté lista.',
+       fill: 'Completa la empresa, tu nombre, tu correo y una contraseña de 8 caracteres o más.', consentErr: 'Debes aceptar los Términos y la Política de privacidad.',
+       sending: 'Enviando…', conn: 'Error de conexión. Intenta de nuevo.', privacy: 'Privacidad', terms: 'Términos'}
+};
+var lang = {{ lang|tojson }};
+function apply(l){
+  lang = l; document.documentElement.lang = l;
+  document.querySelectorAll('[data-t]').forEach(function(el){ var v = T[l][el.dataset.t]; if(v != null) el.textContent = v; });
+  document.querySelectorAll('.lang button').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.l === l ? 'true' : 'false'); });
+  document.title = 'BSynch – ' + T[l].formTitle;
+}
+document.querySelectorAll('.lang button').forEach(function(b){ b.onclick = function(){ apply(b.dataset.l); }; });
+apply(lang);
+
+var f = document.getElementById('f'), msg = document.getElementById('msg'), go = document.getElementById('go');
+function val(id){ return document.getElementById(id).value.trim(); }
+f.onsubmit = function(e){
+  e.preventDefault();
+  var body = {company: val('company'), name: val('name'), email: val('email'), phone: val('phone'),
+              password: document.getElementById('password').value, consent: document.getElementById('consent').checked,
+              website: val('website'), lang: lang,
+              hubs: Array.prototype.map.call(document.querySelectorAll('input[name=hub]:checked'), function(c){ return c.value; })};
+  msg.className = 'msg err';
+  if(body.company.length < 2 || body.name.length < 2 || body.email.indexOf('@') < 1 || body.password.length < 8){ msg.textContent = T[lang].fill; return; }
+  if(!body.consent){ msg.textContent = T[lang].consentErr; return; }
+  go.disabled = true; msg.className = 'msg'; msg.textContent = T[lang].sending;
+  fetch('/api/public/signup', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)})
+    .then(function(r){ return r.json(); }).then(function(d){
+      go.disabled = false;
+      if(!d.ok){ msg.className = 'msg err'; msg.textContent = d.error || T[lang].conn; return; }
+      f.hidden = true; document.getElementById('done').hidden = false;
+    }).catch(function(){ go.disabled = false; msg.className = 'msg err'; msg.textContent = T[lang].conn; });
+};
+</script>
+</body>
+</html>

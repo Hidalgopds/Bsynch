@@ -341,8 +341,29 @@ def fake_delete(url, headers=None, timeout=None, params=None, json=None, **kw):
     return Resp(copy.deepcopy(gone), 200)
 
 
+STRIPE = {"calls": [], "fail": False, "sub": None}  # a fake Stripe API: tests read the calls the app made
+
+
+def fake_request(method, url, **kw):
+    if "api.stripe.com" in url:
+        path = url.split("/v1/", 1)[1]
+        STRIPE["calls"].append((method.upper(), path, dict(kw.get("data") or {})))
+        if STRIPE["fail"]:
+            return Resp({"error": {"message": "card_declined"}}, 402)
+        if path == "checkout/sessions":
+            return Resp({"id": "cs_test_1", "url": "https://checkout.stripe.com/c/pay/cs_test_1"})
+        if path == "billing_portal/sessions":
+            return Resp({"id": "bps_1", "url": "https://billing.stripe.com/p/session/test_1"})
+        if path.startswith("subscriptions/"):
+            return Resp(STRIPE["sub"] or {"id": path.split("/")[1], "items": {"data": []}})
+        return Resp({"id": "si_new", "deleted": method.upper() == "DELETE"})
+    return {"GET": fake_get, "POST": fake_post, "PATCH": fake_patch, "PUT": fake_patch,
+            "DELETE": fake_delete}[method.upper()](url, **kw)
+
+
 requests.get, requests.post, requests.patch, requests.put, requests.delete = (
     fake_get, fake_post, fake_patch, fake_patch, fake_delete)
+requests.request = fake_request
 
 import bcrypt  # noqa: E402
 

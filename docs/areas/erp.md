@@ -24,6 +24,7 @@ La parte original de BSynch: cuadrillas en obra, entrada/salida con PIN, horas, 
 - `tests/test_erp.py` (59 pruebas): sesión obligatoria, inventario (SKU, permisos, aviso de stock bajo), issues (pins, unir, estados), órdenes de compra (recibir parcial/total, asignar a obra, nunca stock negativo), solicitudes de material (aprobar, entregar, borrar devuelve stock), facturas de proveedor y horas del timesheet.
 
 ## Pendientes
+- [ ] **Para vender el ERP (pedido de Settings, 2026-11-14):** sus tablas (`workers`, `checkins`, `inventory_items`, `unit_issues`, `purchase_orders`, `material_requests`, `project_units`, `suppliers`, `daily_log`, etc.) no tienen columna de empresa. Hay que agregar `company` a cada una, filtrar por la empresa de quien llama en cada consulta y probar que una empresa no ve lo de otra. Cuando esté, Settings agrega `"erp"` a `SAAS_HUBS_READY`. Hoy los usuarios de empresas cliente tienen el ERP bloqueado en el servidor.
 - [x] Escribir `tests/test_erp.py` con los flujos principales (inventario, issues, compras, timesheet).
 - [ ] Revisar con el dueño qué pantallas siguen en uso y cuáles se pueden retirar.
 
