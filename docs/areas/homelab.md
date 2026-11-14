@@ -6,7 +6,7 @@ La parte familiar: checklist de los niños, juegos y Hermaniland. Guarda datos d
 - Páginas: `/homelab-hub`, `/homelab/kids-checklist`, `/homelab/legal`, `/homelab/games-hub`, `/homelab/games*`, `/games`, `/homelab/tball`, `/hermaniland`.
 - API: `/api/homelab/*`, `/api/stop/*` (juego Stop, público a propósito), `/api/hermaniland/*`.
 - Plantillas: `homelab-*.html`, `hermaniland.html`.
-- Datos de Hermaniland: `hermaniland_*.py`, `hermaniland_players_*.csv/json/txt`, `regenerate_players_fixed.py`.
+- Datos de Hermaniland: carpeta `hermaniland/`. El juego usa `players.py` (junta las listas), `players_gk/def/mid/fwd.py` (630 jugadores) y `data.py` (entrenadores y formaciones). `hermaniland/archive/` guarda versiones viejas que nada carga (ver su `README.md`).
 - Tablas: `homelab_kids`, `homelab_guardians`, `homelab_kid_photos` y las de Hermaniland.
 - Pruebas: `tests/test_homelab.py` (las de seguridad de Home Lab están en `test_security.py`, que es de Settings).
 
@@ -29,10 +29,11 @@ La parte familiar: checklist de los niños, juegos y Hermaniland. Guarda datos d
   - Nombres, categorías y mensaje de victoria se muestran como texto (`esc()` en `homelab-stop.html`): un nombre con código ya no se ejecuta en el navegador de los demás.
   - Textos recortados (nombre 30, categoría 40, máx. 12 categorías, mensaje 80) y una petición vacía o con datos raros ya no da error 500.
   - Probado con dos jugadores en un navegador real.
+- 2026-11-14: Hermaniland ordenado. Los 19 archivos sueltos de la raíz pasaron a `hermaniland/`: los 6 que el juego usa arriba, con nombres cortos, y los 13 que nada cargaba en `hermaniland/archive/` (no se borró nada). La lista buena es la que el juego ya usaba: 630 jugadores en las 4 listas por posición.
 
 ## Pendientes
 - [ ] Si algún día otra persona de la familia necesita entrar en `bsynch.com`, cambiar `_hl_may_see_family` por una lista de cuentas (hoy es solo el dueño).
-- [ ] Ordenar los archivos sueltos de Hermaniland (varias versiones de la lista de jugadores) cuando el dueño diga cuál es la buena.
+- [ ] Decidir si alguna lista del archivo de Hermaniland (por ejemplo la de 7500) debe reemplazar a la actual de 630. Mientras tanto, el juego sigue con la de 630.
 
 ## Reglas propias
 - Nunca exponer fotos ni nombres de niños en enlaces públicos.

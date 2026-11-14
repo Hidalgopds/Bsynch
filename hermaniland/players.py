@@ -7,10 +7,10 @@ Combined database with 621 real verified football players across 4 categories:
 - Forwards (FWD): 167 players
 """
 
-from hermaniland_players_gk import get_goalkeepers
-from hermaniland_players_def import get_defenders
-from hermaniland_players_mid import get_midfielders
-from hermaniland_players_fwd import get_forwards
+from .players_gk import get_goalkeepers
+from .players_def import get_defenders
+from .players_mid import get_midfielders
+from .players_fwd import get_forwards
 
 # Cache for all players by position
 _CACHE = {

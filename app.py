@@ -12393,8 +12393,8 @@ def delete_all_job_steps(job_id):
 
 
 # ── Hermaniland: Football Draft Game ──────────────────────────────────────────
-from hermaniland_players import get_all_players, get_players_by_position, search_players, get_stats
-from hermaniland_data import COACHES, FORMATIONS, FORMATION_SLOTS, POSITION_GROUP
+from hermaniland.players import get_all_players, get_players_by_position, search_players, get_stats
+from hermaniland.data import COACHES, FORMATIONS, FORMATION_SLOTS, POSITION_GROUP
 
 HERMANILAND_GAMES = {}
 
