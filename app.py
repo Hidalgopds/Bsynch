@@ -789,7 +789,9 @@ def get_stop_room(room_code):
         "status": room["status"],
         "letter": room["letter"],
         "started_at": room["started_at"].isoformat() if room["started_at"] else None,
-        "duration": room["duration"],
+        # The lobby poll starts the game for players who joined: they need the same time and categories as the host
+        "time_limit": room.get("time_limit", 120),
+        "categories": room.get("categories", ["First Name", "Last Name", "City", "Animal", "Food"]),
         "players": {
             pid: {
                 "name": pdata["name"],
@@ -12704,7 +12706,7 @@ def next_hermaniland_pick(code):
         next_player_id = room["pick_order"][room["current_pick_index"]]
         next_player = room["participants"][next_player_id]
 
-        if not next_player.get("is_ai"):
+        if not next_player.get("is_ai") or len(next_player["players"]) >= 11:
             break
 
         # AI picks a player
@@ -12724,11 +12726,17 @@ def next_hermaniland_pick(code):
     next_player_id = room["pick_order"][room["current_pick_index"]]
     next_player = room["participants"][next_player_id]
 
+    # The AI can make the very last pick here: then the draft is over and the review round starts
+    draft_complete = all(len(p["players"]) >= 11 for p in room["participants"].values())
+    if draft_complete and room["status"] == "drafting":
+        _hermaniland_begin_review(room)
+
     return jsonify({
         "next_player_id": next_player_id,
         "next_player_name": next_player["name"],
         "round": room["current_round"],
-        "pick_index": room["current_pick_index"]
+        "pick_index": room["current_pick_index"],
+        "draft_complete": draft_complete
     })
 
 @app.route("/api/hermaniland/review-turn/<code>", methods=["POST"])
@@ -12801,6 +12809,8 @@ def select_hermaniland_formation(code):
     coach_name = data.get("coach_name")
 
     room = HERMANILAND_GAMES[code]
+    if player_id not in room["participants"]:
+        return jsonify({"error": "Player not in room"}), 404
     room["participants"][player_id]["formation"] = formation
     room["participants"][player_id]["coach"] = coach_name
 
