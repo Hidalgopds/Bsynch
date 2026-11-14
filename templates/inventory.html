@@ -1785,8 +1785,6 @@ function procPIN(){
     fetch('/api/users/set-pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:curPinUser,pin:pinBuf})})
     .then(function(r){return r.json();}).then(function(d){
       if(d.ok){
-        var body='BSynch Inventory%0A%0APIN Set For: '+encodeURIComponent(curPinUser)+'%0APIN: '+pinBuf+'%0ADate: '+new Date().toLocaleDateString();
-        window.open('mailto:dshidalgop@gmail.com?subject='+encodeURIComponent('MSG PIN – '+curPinUser)+'&body='+body,'_blank');
         edUser=curPinUser;sessionStorage.setItem('edUser',edUser);activateEd();goS3();inlineReqs();
       }else{document.getElementById('pinErr').textContent='Error saving PIN';}
     }).catch(function(){document.getElementById('pinErr').textContent='Error saving PIN';});

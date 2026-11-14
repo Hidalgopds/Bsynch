@@ -28,7 +28,7 @@ La parte original de BSynch: cuadrillas en obra, entrada/salida con PIN, horas, 
 - [ ] Revisar con el dueño qué pantallas siguen en uso y cuáles se pueden retirar.
 
 ## Riesgos encontrados (confirmados con pruebas, sin arreglar todavía)
-1. **Inventario confía en el nombre que manda el navegador** (`is_editor(data["editor"])`). Cualquiera con sesión, incluso una cuadrilla con PIN, manda `"editor": "Dispatcher"` y crea, cambia o borra artículos. Arreglo: usar el usuario de la sesión, no el del cuerpo. Aplica también a aprobar solicitudes (`approved_by`).
+1. ~~Inventario confía en el nombre que manda el navegador.~~ **Arreglado (14-nov-2026):** `_inventory_editor()` usa el usuario de la sesión (contraseña o el teclado de PIN de editor). Crear, editar, borrar, generar SKUs y aprobar solicitudes ya no leen `editor`/`approved_by` del cuerpo, y `created_by`/`updated_by`/`approved_by` se guardan con el nombre de la sesión. En el mismo cambio se quitó el `mailto` que mandaba el PIN nuevo en texto plano al correo del dueño (inventory, index, dashboard, issues_log).
 2. **Borrados sin permiso ni auditoría**: `DELETE /api/issues/<id>`, `DELETE /api/facturas/<id>` y borrar artículos de inventario los puede hacer cualquier sesión y no pasan por `_audit`. Choca con "nunca borrar datos de negocio". Arreglo propuesto: archivar en vez de borrar, y solo admin.
 3. **Entregar dos veces la misma solicitud descuenta el stock dos veces.** Arreglo: rechazar si ya está `Delivered`.
 4. **`/api/po-test`** es una ruta de depuración que sigue publicada. Quitarla.

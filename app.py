@@ -4139,6 +4139,13 @@ def is_editor(name):
     return False
 
 
+def _inventory_editor():
+    """Name of the signed-in inventory editor, or "" if the session isn't one.
+    Uses the session (password or the editor PIN pad), never a name the page sends."""
+    who = _erp_session_user()
+    return who if who and is_editor(who) else ""
+
+
 @app.route("/api/users/editors", methods=["GET"])
 def get_editors():
     """Return the fixed list of editor names for the picker modal."""
@@ -4388,10 +4395,11 @@ def get_inventory():
 @app.route("/api/inventory", methods=["POST"])
 def add_inventory_item():
     data = request.json or {}
-    if not is_editor(data.get("editor", "")):
+    editor = _inventory_editor()
+    if not editor:
         return jsonify({"error": "Editor access required"}), 403
     payload = {k: data[k] for k in ["name","category","unit","qty_on_hand","notes","safe_qty","location_code"] if k in data}
-    if data.get("created_by"): payload["created_by"] = data["created_by"]
+    payload["created_by"] = editor
     url = f"{sb_url()}/rest/v1/inventory_items"
     r = requests.post(url, headers={**sb_headers(), "Prefer": "return=representation"}, json=payload)
     if r.ok:
@@ -4411,7 +4419,8 @@ def add_inventory_item():
 @app.route("/api/inventory/<item_id>", methods=["PUT"])
 def update_inventory_item(item_id):
     data = request.json or {}
-    if not is_editor(data.get("editor", "")):
+    editor = _inventory_editor()
+    if not editor:
         return jsonify({"error": "Editor access required"}), 403
     payload = {}
     if "qty_on_hand" in data:
@@ -4433,7 +4442,7 @@ def update_inventory_item(item_id):
     if "safe_qty" in data: payload["safe_qty"] = data["safe_qty"]
     if "location_code" in data: payload["location_code"] = data["location_code"]
     if "unit_cost" in data: payload["unit_cost"] = data["unit_cost"]
-    if data.get("updated_by"): payload["updated_by"] = data["updated_by"]
+    payload["updated_by"] = editor
     payload["updated_at"] = "now()"
     url = f"{sb_url()}/rest/v1/inventory_items?id=eq.{item_id}"
     r = requests.patch(url, headers={**sb_headers(), "Prefer": "return=representation"}, json=payload)
@@ -5057,8 +5066,7 @@ def inventory_locations_qr_pdf():
 @app.route("/api/inventory/sku-backfill", methods=["POST"])
 def sku_backfill():
     """Generate SKUs for existing items that don't have one."""
-    data = request.json or {}
-    if not is_editor(data.get("editor","")):
+    if not _inventory_editor():
         return jsonify({"error":"Editor access required"}),403
     url = f"{sb_url()}/rest/v1/inventory_items?sku=is.null&select=id,category&limit=500"
     r = requests.get(url, headers=sb_headers())
@@ -5077,8 +5085,7 @@ def sku_backfill():
 
 @app.route("/api/inventory/<item_id>", methods=["DELETE"])
 def delete_inventory_item(item_id):
-    data = request.json or {}
-    if not is_editor(data.get("editor", "")):
+    if not _inventory_editor():
         return jsonify({"error": "Editor access required"}), 403
     url = f"{sb_url()}/rest/v1/inventory_items?id=eq.{item_id}"
     r = requests.delete(url, headers=sb_headers())
@@ -5193,10 +5200,11 @@ def create_material_request():
 @app.route("/api/material-requests/<req_id>/approve", methods=["POST"])
 def approve_material_request(req_id):
     data = request.json or {}
-    if not is_editor(data.get("approved_by", "")):
+    approver = _inventory_editor()
+    if not approver:
         return jsonify({"error": "Editor access required"}), 403
     status = data.get("status", "Approved")
-    payload = {"status": status, "approved_by": data["approved_by"], "approved_at": "now()"}
+    payload = {"status": status, "approved_by": approver, "approved_at": "now()"}
     url = f"{sb_url()}/rest/v1/material_requests?id=eq.{req_id}"
     r = requests.patch(url, headers={**sb_headers(), "Prefer": "return=representation"}, json=payload)
     if r.ok:

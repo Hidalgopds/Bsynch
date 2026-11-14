@@ -30,10 +30,27 @@ check("admin adds an inventory item and gets a SKU", r.json.get("ok") and r.json
 screw = next(i for i in DB["inventory_items"] if i["name"] == "Tek screw")
 check("SKU saved on the item", screw.get("sku") == r.json["sku"])
 check("plain worker can't add items", send("POST", "/api/inventory", "Mia", {"editor": "Mia", "name": "X"}).status_code == 403)
-check("no editor name, no edit", send("POST", "/api/inventory", OWN, {"name": "X"}).status_code == 403)
+check("signed-in admin needs no name in the request", send("POST", "/api/inventory", OWN, {"name": "Washer"}).json.get("ok")
+      and next(i for i in DB["inventory_items"] if i["name"] == "Washer")["created_by"] == "Owner")
 check("inventory role may edit", send("PUT", "/api/inventory/" + screw["id"], "Ivy", {"editor": "Ivy", "notes": "aisle 3"}).json.get("ok"))
 check("plain worker can't edit", send("PUT", "/api/inventory/" + screw["id"], "Mia", {"editor": "Mia", "qty_on_hand": 0}).status_code == 403)
 check("refused edit changed nothing", row("inventory_items", screw["id"])["qty_on_hand"] == 20)
+
+# the editor is whoever is signed in, never the name the page sends
+check("worker pretending to be Dispatcher can't edit",
+      send("PUT", "/api/inventory/" + screw["id"], "Mia", {"editor": "Dispatcher", "qty_on_hand": 0}).status_code == 403
+      and row("inventory_items", screw["id"])["qty_on_hand"] == 20)
+check("crew PIN pretending to be Dispatcher can't delete",
+      crew.delete("/api/inventory/" + screw["id"], json={"editor": "Dispatcher"}).status_code == 403 and row("inventory_items", screw["id"]))
+check("crew PIN can't add items either", crew.post("/api/inventory", json={"editor": "Owner", "name": "Y"}).status_code == 403)
+check("SKU backfill needs a real editor", send("POST", "/api/inventory/sku-backfill", "Mia", {"editor": "Dispatcher"}).status_code == 403)
+send("PUT", "/api/inventory/" + screw["id"], "Ivy", {"editor": "Owner", "updated_by": "Owner", "notes": "checked"})
+check("change is recorded under the signed-in editor", row("inventory_items", screw["id"])["updated_by"] == "Ivy")
+DB["app_users"].append({"id": "u-disp", "name": "Dispatcher", "role": "worker", "approved": True, "pin": "7311", "password": None})
+pad = client()
+check("editor PIN pad signs in Dispatcher", pad.post("/api/users/verify-pin", json={"name": "Dispatcher", "pin": "7311"}).json["ok"])
+check("Dispatcher via the PIN pad may edit", pad.put("/api/inventory/" + screw["id"], json={"notes": "from pad"}).json.get("ok")
+      and row("inventory_items", screw["id"])["updated_by"] == "Dispatcher")
 
 send("PUT", "/api/inventory/" + screw["id"], "Ivy", {"editor": "Ivy", "qty_on_hand": 30})
 check("more stock marks the restock date", row("inventory_items", screw["id"]).get("last_restocked_at"))
@@ -102,8 +119,11 @@ send("POST", "/api/material-requests", "Mia", {"requester_name": "Mia", "item_na
 mr = next(m for m in DB["material_requests"] if m["item_name"] == "Tek screw")
 check("request starts Pending", mr["status"] == "Pending")
 check("plain worker can't approve", send("POST", f"/api/material-requests/{mr['id']}/approve", "Mia", {"approved_by": "Mia"}).status_code == 403)
-check("admin approves", send("POST", f"/api/material-requests/{mr['id']}/approve", OWN, {"approved_by": "Owner"}).json["ok"]
-      and row("material_requests", mr["id"])["status"] == "Approved")
+check("worker pretending to be an editor can't approve",
+      send("POST", f"/api/material-requests/{mr['id']}/approve", "Mia", {"approved_by": "Dispatcher"}).status_code == 403)
+check("admin approves, recorded under the signed-in name",
+      send("POST", f"/api/material-requests/{mr['id']}/approve", OWN, {"approved_by": "Fabio"}).json["ok"]
+      and row("material_requests", mr["id"])["status"] == "Approved" and row("material_requests", mr["id"])["approved_by"] == "Owner")
 check("delivery needs who delivered", send("POST", f"/api/material-requests/{mr['id']}/deliver", "Ivy", {}).status_code == 400)
 send("POST", f"/api/material-requests/{mr['id']}/deliver", "Ivy", {"delivered_by": "Ivy", "pickup_by": "Mia"})
 check("delivery takes it out of stock", row("inventory_items", screw["id"])["qty_on_hand"] == 34
