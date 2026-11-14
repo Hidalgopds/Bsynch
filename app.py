@@ -3788,20 +3788,45 @@ def admin_wipe():
         <style>body{background:#0d1117;color:#e2e8f0;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:20px;}
         button{background:#ef4444;color:#fff;border:none;padding:12px 28px;border-radius:8px;font-size:16px;cursor:pointer;font-weight:700;}
         button:hover{opacity:.85;} .warn{color:#f59e0b;font-size:13px;}</style></head>
-        <body><h2>Admin: Wipe All Log Data</h2>
-        <p class="warn">This will permanently delete ALL records from daily_log.</p>
-        <form method="POST"><button type="submit">DELETE ALL LOG DATA</button></form>
+        <body><h2>Admin: Archive All Log Data</h2>
+        <p class="warn">This empties daily_log. Every record is first copied to daily_log_archive: nothing is lost.</p>
+        <form method="POST"><button type="submit">ARCHIVE ALL LOG DATA</button></form>
         <a href="/" style="color:#6b7280;font-size:13px">Cancel</a></body></html>"""
-    # POST — actually wipe
-    resp = requests.delete(
-        f"{sb_url()}/rest/v1/{TABLE}?created_at=gte.2000-01-01",
-        headers=sb_headers()
-    )
-    if resp.ok:
-        return """<!DOCTYPE html><html><head><title>Wiped</title>
-        <style>body{background:#0d1117;color:#22c55e;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:16px;}</style></head>
-        <body><h2>All log data deleted.</h2><a href="/" style="color:#6b7280">Back to home</a></body></html>"""
-    return f"Error: {resp.status_code} {resp.text}", 500
+    # POST: move every row to daily_log_archive; a row leaves daily_log only once its copy is saved
+    moved, err = _daily_log_archive_all()
+    _audit("erp.archive", f"{TABLE}:all", {"moved": moved, "error": err}, actor="admin-key")
+    if err:
+        return f"Stopped after archiving {moved} records: {err}", 500
+    return f"""<!DOCTYPE html><html><head><title>Archived</title>
+        <style>body{{background:#0d1117;color:#22c55e;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:16px;}}</style></head>
+        <body><h2>{moved} log records archived.</h2><p style="color:#9ca3af">They are kept in daily_log_archive.</p>
+        <a href="/" style="color:#6b7280">Back to home</a></body></html>"""
+
+
+def _daily_log_archive_all(batch=500, max_batches=400):
+    """Copy daily_log rows into daily_log_archive (whole row as JSON), then remove exactly the copied ids.
+    Returns (rows moved, error text or None). If the archive table is missing, nothing is removed."""
+    base, hdr = sb_url(), sb_headers()
+    stamp = datetime.now(timezone.utc).isoformat()
+    moved = 0
+    for _ in range(max_batches):
+        g = requests.get(f"{base}/rest/v1/{TABLE}?select=*&order=id.asc&limit={batch}", headers=hdr, timeout=20)
+        if not g.ok:
+            return moved, f"read failed ({g.status_code})"
+        rows = g.json() or []
+        if not rows:
+            return moved, None
+        copies = [{"original_id": str(r.get("id")), "data": r, "archived_at": stamp, "archived_by": "admin-key"} for r in rows]
+        c = requests.post(f"{base}/rest/v1/daily_log_archive", json=copies,
+                          headers={**hdr, "Prefer": "return=minimal"}, timeout=30)
+        if not c.ok:
+            return moved, "could not copy to daily_log_archive (is migrations/erp_archive.sql applied?)"
+        ids = ",".join(str(r["id"]) for r in rows if r.get("id") is not None)
+        d = requests.delete(f"{base}/rest/v1/{TABLE}?id=in.({ids})", headers=hdr, timeout=30)
+        if not d.ok:
+            return moved, f"copied, but could not empty daily_log ({d.status_code}); the copy is kept"
+        moved += len(rows)
+    return moved, "stopped: too many records for one run, run it again"
 
 
 
@@ -3820,6 +3845,8 @@ _ERP_ARCHIVE = {  # kind -> (table, roles that may archive; None = inventory edi
     "unit-materials": ("unit_materials", None),
     "project-units": ("project_units", _ERP_ADMIN),
     "material-requests": ("material_requests", _ERP_ADMIN),
+    "attendance": ("attendance_reports", _ERP_ADMIN + ("lead",)),
+    "contacts": ("contacts", _ERP_ADMIN),
 }
 
 
@@ -4489,7 +4516,7 @@ def get_attendance():
         f"{sb_url()}/rest/v1/attendance_reports?{qs}",
         headers=sb_headers()
     )
-    return jsonify(resp.json() if resp.ok else [])
+    return jsonify(_erp_live(resp.json()) if resp.ok else [])
 
 @app.route("/api/attendance", methods=["POST"])
 def post_attendance():
@@ -4558,11 +4585,8 @@ def patch_attendance(att_id):
 
 @app.route("/api/attendance/<int:att_id>", methods=["DELETE"])
 def delete_attendance(att_id):
-    r = requests.delete(
-        f"{sb_url()}/rest/v1/attendance_reports?id=eq.{att_id}",
-        headers=sb_headers()
-    )
-    return jsonify({"ok": r.ok})
+    """Archives the attendance record (never deleted); leads and admins only."""
+    return _erp_archive("attendance", att_id, _erp_reason())
 
 @app.route("/api/attendance/today", methods=["GET"])
 def get_attendance_today():
@@ -4573,7 +4597,7 @@ def get_attendance_today():
         f"?report_date=eq.{today}&select=*&order=created_at.desc",
         headers=sb_headers(), timeout=5
     )
-    return jsonify(r.json() if r.ok else [])
+    return jsonify(_erp_live(r.json()) if r.ok else [])
 
 @app.route("/api/attendance/active", methods=["GET"])
 def get_attendance_active():
@@ -4602,7 +4626,7 @@ def get_attendance_active():
     if not r.ok:
         return jsonify([])
 
-    rows = r.json()
+    rows = _erp_live(r.json())
     active = []
     for row in rows:
         t            = (row.get("type") or "absent").lower()
@@ -6023,7 +6047,7 @@ def list_contacts():
         f"{sb_url()}/rest/v1/{CONTACTS_TABLE}?order=name.asc&limit=200",
         headers=sb_headers()
     )
-    return jsonify(r.json() if r.ok else [])
+    return jsonify(_erp_live(r.json()) if r.ok else [])
 
 @app.route("/api/contacts", methods=["POST"])
 def create_contact():
@@ -6055,11 +6079,8 @@ def update_contact(contact_id):
 
 @app.route("/api/contacts/<contact_id>", methods=["DELETE"])
 def delete_contact(contact_id):
-    r = requests.delete(
-        f"{sb_url()}/rest/v1/{CONTACTS_TABLE}?id=eq.{contact_id}",
-        headers=sb_headers()
-    )
-    return jsonify({"ok": r.ok})
+    """Archives the contact (never deleted); admins only."""
+    return _erp_archive("contacts", contact_id, _erp_reason())
 
 # ── Hours / Checkins week view ────────────────────────────────────
 @app.route("/api/checkins/week", methods=["GET"])

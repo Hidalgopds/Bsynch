@@ -1988,12 +1988,12 @@ async function approveAtt(id){
 }
 
 async function deleteAtt(id){
-  if(!confirm('Delete this attendance record? This cannot be undone.')) return;
+  if(!confirm('Archive this attendance record? An admin can restore it.')) return;
   try{
     var r = await fetch('/api/attendance/'+id,{method:'DELETE'});
     var d = await r.json();
     if(d.ok){ loadAttendance(); }
-    else{ alert('Error deleting.'); }
+    else{ alert(d.error || 'Error archiving.'); }
   }catch(e){ alert('Network error: '+e.message); }
 }
 

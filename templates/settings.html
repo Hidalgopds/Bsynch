@@ -1352,9 +1352,9 @@ function saveContact(){
     });
 }
 function deleteContact(id,name){
-  if(!confirm('Delete "'+name+'"?'))return;
+  if(!confirm('Archive "'+name+'"? An admin can restore it.'))return;
   fetch('/api/contacts/'+id,{method:'DELETE'}).then(function(r){return r.json();}).then(function(d){
-    if(d.ok){loadContacts();showToast('Deleted');}else showToast(d.error||'Failed',true);
+    if(d.ok){loadContacts();showToast('Archived');}else showToast(d.error||'Failed',true);
   });
 }
 

@@ -221,7 +221,42 @@ check("plain worker can't delete a receipt", send("DELETE", "/api/facturas/" + f
 check("crew lead can't delete a receipt either", crew.delete("/api/facturas/" + fid).status_code == 403)
 check("admin delete archives the receipt", send("DELETE", "/api/facturas/" + fid, OWN).json.get("archived")
       and row("facturas", fid) and get("/api/facturas", "Mia").json["facturas"] == [])
+# ── attendance and contacts are archived too ──
+DB["attendance_reports"] = [{"id": 501, "worker_name": "Zed", "type": "late", "report_date": "2026-11-14", "created_at": "2026-11-14"}]
+DB["contacts"] = [{"id": "k1", "name": "Site Inspector", "company": "City"}]
+check("plain worker can't archive attendance", send("DELETE", "/api/attendance/501", "Mia").status_code == 403)
+check("lead archives attendance, record kept", crew.delete("/api/attendance/501").json.get("archived")
+      and row("attendance_reports", 501)["archived_by"] == "Crew One" and get("/api/attendance", "Mia").json == [])
+check("lead can't archive a contact", crew.delete("/api/contacts/k1").status_code == 403)
+check("admin archives a contact, record kept", send("DELETE", "/api/contacts/k1", OWN).json.get("archived")
+      and row("contacts", "k1") and get("/api/contacts", "Mia").json == [])
+check("admin restores the contact", send("POST", "/api/erp/archive/contacts/k1/restore", OWN).json["ok"]
+      and [c["name"] for c in get("/api/contacts", "Mia").json] == ["Site Inspector"])
+
+# ── /admin/wipe moves the log to daily_log_archive, nothing is lost ──
+A.CRON_SECRET = "test-cron-key"
+DB["daily_log"] = [{"id": i, "position": "A-101", "date": "2026-11-0%d" % (i % 9 + 1), "progress_pct": i, "notes": "n%d" % i}
+                   for i in range(1, 8)]
+original = [dict(x) for x in DB["daily_log"]]
+check("wipe without the key is refused", anon.post("/admin/wipe").status_code == 403 and len(DB["daily_log"]) == 7)
+r = anon.post("/admin/wipe?key=test-cron-key")
+arch = DB.get("daily_log_archive", [])
+check("wipe empties daily_log", r.status_code == 200 and b"7 log records archived" in r.data and DB["daily_log"] == [])
+check("every log record is kept, whole, in the archive", sorted((a["data"] for a in arch), key=lambda x: x["id"]) == original
+      and {a["original_id"] for a in arch} == {str(x["id"]) for x in original})
+check("wipe is in the audit log", any(a["action"] == "erp.archive" and a["target"] == "daily_log:all" and a["detail"].get("moved") == 7
+                                      for a in DB["audit_log"]))
+_real_post = A.requests.post
+A.requests.post = lambda url, *a, **k: (Resp({"message": "relation does not exist"}, 404) if "daily_log_archive" in url
+                                        else _real_post(url, *a, **k))
+DB["daily_log"] = [dict(x) for x in original]
+r = anon.post("/admin/wipe?key=test-cron-key")
+A.requests.post = _real_post
+check("if the archive copy fails, nothing is removed", r.status_code == 500 and len(DB["daily_log"]) == 7)
+A.CRON_SECRET = ""
+
 check("no business record was really deleted", not [c for c in CALLS if c[0] == "DELETE" and c[1] in (
+    "attendance_reports", "contacts",
     "unit_issues", "facturas", "inventory_items", "suppliers", "project_units", "unit_materials", "material_requests")])
 
 # ── timesheet hours ──
