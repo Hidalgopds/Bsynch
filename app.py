@@ -308,9 +308,24 @@ def _hl_page_guard():
     """Home Lab holds children's names and photos: its screens need a sign-in."""
     if not _client_can_access_module("homelab"):
         return redirect("/home")
-    if _hl_family_session() or _erp_session_user():
+    if _hl_family_session():
         return None
+    if _erp_session_user():
+        return None if _hl_may_see_family() else redirect("/home")
     return redirect("/login?next=" + requests.utils.quote(request.path))
+
+
+def _hl_may_see_family():
+    """On bsynch.com the Home Lab family is the platform owner's own: only the owner account,
+    signed in with a password, sees or changes it. Any other account (a contractor, a crew PIN,
+    someone with no company) does not. Client subdomains keep their own family login rules."""
+    if _get_client_co():
+        return True
+    name = _session_user()
+    if not name:
+        return False
+    u = _auth_user_row(name, "name,username,email,approved") or {}
+    return u.get("approved") is not False and _ct_is_owner_account(u)
 
 
 HL_FREE_GAME_LIMIT = 4
@@ -1001,6 +1016,19 @@ HL_APPROVAL_NOTIF = "homelab_approval_notifications"
 HL_GUARDIANS   = "homelab_guardians"
 HL_KID_PHOTOS  = "homelab_kid_photos"
 HL_MAX_PHOTOS_PER_KID = 5
+
+
+@app.before_request
+def _hl_owner_only():
+    """Children's data on bsynch.com: signed-in accounts other than the owner get 403.
+    No session at all is left to the common sign-in check (401)."""
+    if not request.path.startswith("/api/homelab"):
+        return None
+    if _get_client_co() or not session.get("uid"):
+        return None
+    if not _hl_may_see_family():
+        return jsonify({"ok": False, "error": "not allowed"}), 403
+    return None
 
 
 def _hl_today():

@@ -22,9 +22,10 @@ La parte familiar: checklist de los niños, juegos y Hermaniland. Guarda datos d
   - Stop: la sala de espera fallaba siempre (pedía un dato `duration` que no existe), así que los invitados nunca veían empezar la partida. Ahora responde y les da el tiempo y las categorías del anfitrión.
   - Hermaniland: si la IA hacía la última elección del draft, la partida se quedaba trabada y nunca pasaba a la revisión. Ahora pasa sola. La IA ya no elige más de 11.
   - Hermaniland: elegir formación con un jugador que no está en la sala daba error 500; ahora da 404.
+- 2026-11-14: decisión del dueño: en `bsynch.com` la familia es **solo el dueño**. Antes cualquier cuenta con sesión veía y editaba a los niños. Ahora `_hl_may_see_family` y el filtro `_hl_owner_only` dejan pasar solo la cuenta del dueño con contraseña: las demás reciben 403 en la API y van a `/home` en las páginas. Sin sesión sigue siendo 401. Los subdominios de familias cliente no cambian.
 
 ## Pendientes
-- [ ] **Importante (datos de menores)**: en `bsynch.com` cualquier persona con sesión (un trabajador de Hicons, un líder de Bsynch, alguien sin empresa, una cuadrilla con PIN) puede ver y editar los niños y sus fotos de la familia principal. Falta decidir quién es "la familia" en el dominio principal (por ejemplo, solo el dueño o una lista de usuarios). El permiso vive en `_erp_access_denied` y los roles, que son de Settings: pedirlo allá.
+- [ ] Si algún día otra persona de la familia necesita entrar en `bsynch.com`, cambiar `_hl_may_see_family` por una lista de cuentas (hoy es solo el dueño).
 - [ ] Stop: cualquiera que sepa el código de sala puede iniciar la partida (no se revisa que sea el anfitrión).
 - [ ] Stop: los nombres de jugadores se pintan como HTML en la página (`homelab-stop.html`): un nombre con código podría ejecutarse en el navegador de los otros jugadores. Pasarlo a texto.
 - [ ] Ordenar los archivos sueltos de Hermaniland (varias versiones de la lista de jugadores) cuando el dueño diga cuál es la buena.

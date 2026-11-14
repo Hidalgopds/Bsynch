@@ -19,6 +19,22 @@ for p in ("/homelab-hub", "/homelab/kids-checklist", "/homelab/games-hub", "/hom
 for p in ("/homelab/legal", "/homelab/games/stop", "/games", "/hermaniland"):
     check(f"public page {p} opens", anon.get(p).status_code == 200)
 
+# ── bsynch.com: the family is the owner's alone; other accounts are kept out ──
+DB["homelab_kids"].append({"id": "kx", "name": "Niño Ajeno", "active": True, "company_id": None, "order_num": 0})
+crew = client()
+crew.post("/api/users/verify-pin", json={"name": "Crew One", "pin": "4821"})
+for who, cl in (("Hicons user", as_user("Mia")), ("Bsynch leader", as_user("Bob")), ("no company", as_user("Newbie")),
+                ("crew PIN", crew)):
+    check(f"{who} can't read the family's kids", cl.get("/api/homelab/kids").status_code == 403)
+    check(f"{who} can't add a kid", cl.post("/api/homelab/kids", json={"name": "x"}).status_code == 403)
+    check(f"{who} can't rename a kid", cl.patch("/api/homelab/kids/kx", json={"name": "x"}).status_code == 403)
+    r = cl.get("/homelab/kids-checklist")
+    check(f"{who} sent away from the checklist page", r.status_code == 302 and r.headers["Location"].endswith("/home"))
+check("no one else changed the kid", DB["homelab_kids"][-1]["name"] == "Niño Ajeno" and len(DB["homelab_kids"]) == 1)
+check("anonymous still gets 401", anon.get("/api/homelab/kids").status_code == 401)
+check("owner reads the family's kids", [k["name"] for k in own.get("/api/homelab/kids").json] == ["Niño Ajeno"])
+DB["homelab_kids"].clear()
+
 # ── first guardian = family account: needs the legal notice accepted ──
 r = own.post("/api/homelab/guardians", json={"name": "Tutor Uno", "pin": "1357"})
 check("first guardian refused without accepting terms", r.status_code == 400 and not DB["homelab_guardians"])
