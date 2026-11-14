@@ -30,8 +30,8 @@ La parte original de BSynch: cuadrillas en obra, entrada/salida con PIN, horas, 
 ## Riesgos encontrados (confirmados con pruebas, sin arreglar todavía)
 1. ~~Inventario confía en el nombre que manda el navegador.~~ **Arreglado (14-nov-2026):** `_inventory_editor()` usa el usuario de la sesión (contraseña o el teclado de PIN de editor). Crear, editar, borrar, generar SKUs y aprobar solicitudes ya no leen `editor`/`approved_by` del cuerpo, y `created_by`/`updated_by`/`approved_by` se guardan con el nombre de la sesión. En el mismo cambio se quitó el `mailto` que mandaba el PIN nuevo en texto plano al correo del dueño (inventory, index, dashboard, issues_log).
 2. **Borrados sin permiso ni auditoría**: `DELETE /api/issues/<id>`, `DELETE /api/facturas/<id>` y borrar artículos de inventario los puede hacer cualquier sesión y no pasan por `_audit`. Choca con "nunca borrar datos de negocio". Arreglo propuesto: archivar en vez de borrar, y solo admin.
-3. **Entregar dos veces la misma solicitud descuenta el stock dos veces.** Arreglo: rechazar si ya está `Delivered`.
-4. **`/api/po-test`** es una ruta de depuración que sigue publicada. Quitarla.
+3. ~~Entregar dos veces la misma solicitud descuenta el stock dos veces.~~ **Arreglado (14-nov-2026):** la entrega primero marca la solicitud como `Delivered` solo si no lo estaba (un único cambio en la base). Si ya estaba entregada responde 409 y no toca el stock, aunque sean dos toques seguidos o dos aparatos a la vez. Si la solicitud no existe, responde 404. `delivered_by` se guarda con el nombre de la sesión.
+4. ~~`/api/po-test` ruta de depuración publicada.~~ **Quitada (14-nov-2026).**
 5. Filtros que pasan el texto del usuario sin escapar a Supabase (`unit`, `status`, `limit`, `item_id`). Solo lectura, riesgo bajo. Escaparlos.
 - Las reglas de rol (`_ERP_ROLE_RULES`) son de Settings: si se decide que solo admin borra, se le pide a esa conversación.
 

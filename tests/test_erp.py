@@ -22,6 +22,7 @@ for path in ("/api/inventory", "/api/issues/all", "/api/po", "/api/facturas", "/
              "/api/checkins/week", "/api/workers/hours"):
     check("anonymous blocked: " + path, anon.get(path).status_code == 401)
 check("crew PIN session can read inventory", crew.get("/api/inventory").status_code == 200)
+check("debug route /api/po-test is gone", get("/api/po-test", OWN).status_code in (404, 405))
 
 # ── inventory ──
 r = send("POST", "/api/inventory", OWN, {"editor": "Owner", "name": "Tek screw", "category": "Fasteners",
@@ -130,6 +131,16 @@ check("delivery takes it out of stock", row("inventory_items", screw["id"])["qty
       and row("material_requests", mr["id"])["status"] == "Delivered")
 gi = [d for d in DB["material_documents"] if d["mvt_type"] == "GI"]
 check("goods issue written for the job", len(gi) == 1 and gi[0]["job_name"] == "Tower B" and gi[0]["qty"] == 6)
+r = send("POST", f"/api/material-requests/{mr['id']}/deliver", "Ivy", {"delivered_by": "Ivy", "pickup_by": "Mia"})
+check("second delivery of the same request is refused", r.status_code == 409 and not r.json["ok"])
+check("second delivery takes nothing more out of stock", row("inventory_items", screw["id"])["qty_on_hand"] == 34
+      and len([d for d in DB["material_documents"] if d["mvt_type"] == "GI"]) == 1)
+check("delivering a request that doesn't exist is 404",
+      send("POST", "/api/material-requests/nope/deliver", "Ivy", {"delivered_by": "Ivy"}).status_code == 404)
+send("POST", "/api/material-requests", "Mia", {"requester_name": "Mia", "item_name": "Gutter", "item_id": gutter["id"], "qty_needed": 1})
+mr2 = next(m for m in DB["material_requests"] if m["item_name"] == "Gutter")
+send("POST", f"/api/material-requests/{mr2['id']}/deliver", "Ivy", {"delivered_by": "Owner"})
+check("delivery recorded under the signed-in name", row("material_requests", mr2["id"])["delivered_by"] == "Ivy")
 check("plain worker can't delete a request", send("DELETE", f"/api/material-requests/{mr['id']}", "Mia", {}).status_code == 403
       and row("material_requests", mr["id"]))
 r = send("DELETE", f"/api/material-requests/{mr['id']}", OWN, {})

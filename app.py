@@ -4785,11 +4785,6 @@ def delete_factura(factura_id):
 #  PURCHASE ORDERS  (Albaranes / Receiving)
 # ══════════════════════════════════════════════════════════════════
 
-@app.route("/api/po-test", methods=["POST","GET"])
-def po_test():
-    """Debug: confirm Flask receives POSTs"""
-    return {"ok": True, "method": request.method, "got": (request.get_json(silent=True) or {})}
-
 @app.route("/api/po", methods=["GET"])
 def list_pos():
     """List purchase orders — optional ?status= filter."""
@@ -5336,19 +5331,28 @@ def deliver_material_request(req_id):
     pickup_by = data.get("pickup_by", "")
     if not delivered_by:
         return jsonify({"error": "delivered_by required"}), 400
-    # Fetch the request to get all material lines
-    req_r = requests.get(
-        f"{sb_url()}/rest/v1/material_requests?id=eq.{req_id}&select=*&limit=1",
-        headers=sb_headers()
-    )
+    delivered_by = _erp_session_user() or delivered_by  # who is signed in, not what the page says
+    # Mark it delivered first, only if it isn't already: a second tap (or two devices at once)
+    # finds nothing to change and never takes the stock out twice
+    claim = requests.patch(
+        f"{sb_url()}/rest/v1/material_requests?id=eq.{req_id}&or=(status.is.null,status.neq.Delivered)",
+        headers={**sb_headers(), "Prefer": "return=representation"},
+        json={"status": "Delivered", "delivered_by": delivered_by, "delivered_at": "now()",
+              "signature_data": signature_data, "pickup_by": pickup_by})
+    if not claim.ok:
+        return jsonify({"error": claim.text}), 400
+    if not claim.json():
+        ex = requests.get(f"{sb_url()}/rest/v1/material_requests?id=eq.{req_id}&select=id&limit=1", headers=sb_headers())
+        if ex.ok and ex.json():
+            return jsonify({"ok": False, "error": "This request was already delivered"}), 409
+        return jsonify({"ok": False, "error": "Request not found"}), 404
+    rd = claim.json()[0]
     materials = []
-    if req_r.ok and req_r.json():
-        rd = req_r.json()[0]
-        if rd.get("materials_json"):
-            try: materials = _json.loads(rd["materials_json"])
-            except Exception: pass
-        if not materials:
-            materials = [{"item_id": rd.get("item_id"), "item_name": rd.get("item_name",""), "qty_needed": rd.get("qty_needed", 0)}]
+    if rd.get("materials_json"):
+        try: materials = _json.loads(rd["materials_json"])
+        except Exception: pass
+    if not materials:
+        materials = [{"item_id": rd.get("item_id"), "item_name": rd.get("item_name",""), "qty_needed": rd.get("qty_needed", 0)}]
     # Decrement inventory for each material line
     for mat in materials:
         iid = mat.get("item_id")
@@ -5371,8 +5375,8 @@ def deliver_material_request(req_id):
     if materials:
         try:
             _rn = 'REQ-' + str(req_id).replace('-','').upper()[:8]
-            _job = rd.get("job_name") if 'rd' in dir() else None
-            _bld = rd.get("building") if 'rd' in dir() else None
+            _job = rd.get("job_name")
+            _bld = rd.get("building")
             for _m in materials:
                 _iid = _m.get("item_id"); _qty = int(_m.get("qty_needed") or 0)
                 if _iid and _qty > 0:
@@ -5382,19 +5386,7 @@ def deliver_material_request(req_id):
                                   performed_by=delivered_by)
         except Exception:
             pass
-    # Mark request delivered
-    payload = {
-        "status": "Delivered",
-        "delivered_by": delivered_by,
-        "delivered_at": "now()",
-        "signature_data": signature_data,
-        "pickup_by": pickup_by
-    }
-    url = f"{sb_url()}/rest/v1/material_requests?id=eq.{req_id}"
-    r = requests.patch(url, headers={**sb_headers(), "Prefer": "return=representation"}, json=payload)
-    if r.ok:
-        return jsonify({"ok": True})
-    return jsonify({"error": r.text}), 400
+    return jsonify({"ok": True})
 
 
 @app.route("/api/material-requests/<req_id>", methods=["DELETE"])
