@@ -75,6 +75,7 @@ th.c,td.c{text-align:center;}
 tbody td{font-size:12px;padding:12px 10px;vertical-align:top;border-bottom:1px solid var(--line);line-height:1.5;}
 tbody td.desc{white-space:pre-line;}
 .totals{margin-left:auto;width:3.4in;margin-top:16px;}
+.sub-row{display:flex;justify-content:space-between;font-size:12px;color:#566275;padding:6px 10px;}
 .due{display:flex;justify-content:space-between;align-items:center;background:var(--navy);color:#fff;border-radius:5px;padding:12px 12px;margin-top:8px;}
 .due span{font-size:12.5px;font-weight:700;}
 .due b{font-size:20px;color:var(--gold);}
@@ -208,7 +209,11 @@ function renderSheet(){
       '</div></div>' +
     (e.title ? '<div class="job-title">' + esc(e.title) + '</div>' : '') +
     '<table><thead><tr><th>Description</th><th class="c">Qty</th><th class="n">Price</th><th class="n">Total</th></tr></thead><tbody>' + rows + '</tbody></table>' +
-    '<div class="totals"><div class="due"><span>ESTIMATE TOTAL</span><b>' + money(e.total) + '</b></div></div>' +
+    '<div class="totals">' + (parseFloat(e.discount) || parseFloat(e.tax) ?
+      '<div class="sub-row"><span>Subtotal</span><span>' + money(e.subtotal) + '</span></div>' +
+      (parseFloat(e.discount) ? '<div class="sub-row"><span>Discount</span><span>&minus;' + money(e.discount) + '</span></div>' : '') +
+      (parseFloat(e.tax) ? '<div class="sub-row"><span>Sales tax (' + esc(+e.tax_rate) + '%)</span><span>' + money(e.tax) + '</span></div>' : '') : '') +
+      '<div class="due"><span>ESTIMATE TOTAL</span><b>' + money(e.total) + '</b></div></div>' +
     (e.notes ? '<div class="notes"><div class="t">Notes and terms</div><p>' + esc(e.notes) + '</p></div>' : '') +
     (accepted ? '<div class="sign">Accepted by <b>' + esc(e.accepted_name || '') + '</b> on ' + esc(new Date(e.accepted_at).toLocaleString()) + '</div>' : '') +
     '<div class="spacer"></div>' +

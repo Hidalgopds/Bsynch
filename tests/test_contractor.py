@@ -112,6 +112,73 @@ check("web address: miswired subdomain never used for links", MAIL and "hicons.b
 DB["bsynch_companies"][:] = [c for c in DB["bsynch_companies"] if c.get("id") != "co-x"]
 A._co_cache, A._co_cache_ts = {}, 0
 
+# ── sales tax, discount and due dates ──
+import datetime as _d
+_today = _d.date.today()
+check("tax: over 30% refused", send("POST", "/api/contractor/hicons/profile", "Hana", {"tax_rate": 31}).status_code == 400)
+check("tax: not a number refused", send("POST", "/api/contractor/hicons/profile", "Hana", {"tax_rate": "abc"}).status_code == 400)
+check("tax: company rate and days to pay saved", send("POST", "/api/contractor/hicons/profile", "Hana", {"tax_rate": 8.25, "terms_days": 30}).json["ok"])
+jt = send("POST", "/api/contractor/jobs", "Hana", {"title": "Tax job", "client_name": "Tess", "client_email": "tess@example.com"}).json["job"]
+send("PATCH", "/api/contractor/jobs/" + jt["id"], "Hana", {"progress_pct": 100})
+[x for x in DB["contractor_jobs"] if x["id"] == jt["id"]][0]["service_price"] = 1000
+r = send("POST", "/api/contractor/hicons/invoices", "Hana", {"job_id": jt["id"]})
+it = [x for x in DB["contractor_invoices"] if x["id"] == r.json["invoice"]["id"]][0]
+check("tax: new invoice adds the company's sales tax", it["subtotal"] == 1000 and it["tax_rate"] == 8.25 and it["tax"] == 82.5 and it["total"] == 1082.5)
+check("due: new invoice due in the company's days to pay", it["due_date"] == (_today + _d.timedelta(days=30)).isoformat())
+r = send("PATCH", "/api/contractor/invoices/" + it["id"], "Hana", {"discount": 100})
+check("discount: total = (subtotal − discount) + tax", r.json["ok"] and r.json["invoice"]["total"] == 974.25 and r.json["invoice"]["tax"] == 74.25)
+check("discount: never more than the subtotal", send("PATCH", "/api/contractor/invoices/" + it["id"], "Hana", {"discount": 5000}).json["invoice"]["total"] == 0)
+send("PATCH", "/api/contractor/invoices/" + it["id"], "Hana", {"discount": 100})
+check("tax: invoice rate over 30% refused", send("PATCH", "/api/contractor/invoices/" + it["id"], "Hana", {"tax_rate": 40}).status_code == 400)
+check("discount: negative refused", send("PATCH", "/api/contractor/invoices/" + it["id"], "Hana", {"discount": -5}).status_code == 400)
+check("due: before the invoice date refused", send("PATCH", "/api/contractor/invoices/" + it["id"], "Hana",
+                                                    {"due_date": (_today - _d.timedelta(days=1)).isoformat()}).status_code == 400)
+r = send("PATCH", "/api/contractor/invoices/" + it["id"], "Hana", {"invoice_date": (_today + _d.timedelta(days=2)).isoformat()})
+check("due: a new invoice date moves the due date too", r.json["invoice"]["due_date"] == (_today + _d.timedelta(days=32)).isoformat())
+check("tax: a User can't edit invoices", send("PATCH", "/api/contractor/invoices/" + it["id"], "Mia", {"tax_rate": 0}).status_code == 403)
+it.update({"status": "sent", "sent_at": (_today - _d.timedelta(days=40)).isoformat() + "T12:00:00Z",
+           "invoice_date": (_today - _d.timedelta(days=40)).isoformat(), "due_date": (_today - _d.timedelta(days=10)).isoformat(), "public_token": "t" * 24})
+lst = {x["id"]: x for x in get("/api/contractor/hicons/invoices", "Hana").json}
+check("overdue: past its due date shows days late", lst[it["id"]]["overdue_days"] in (9, 10, 11))
+inv_row.update({"status": "sent", "sent_at": (_today - _d.timedelta(days=3)).isoformat() + "T12:00:00Z",
+                "invoice_date": (_today - _d.timedelta(days=3)).isoformat(), "due_date": (_today - _d.timedelta(days=3)).isoformat()})
+lst = {x["id"]: x for x in get("/api/contractor/hicons/invoices", "Hana").json}
+check("overdue: due on receipt waits for the reminder days", lst[inv_row["id"]]["overdue_days"] is None)
+inv_row["sent_at"] = (_today - _d.timedelta(days=20)).isoformat() + "T12:00:00Z"
+lst = {x["id"]: x for x in get("/api/contractor/hicons/invoices", "Hana").json}
+check("overdue: due on receipt, unpaid 15+ days after sending", lst[inv_row["id"]]["overdue_days"] == 20)
+it["status"] = "paid"
+check("overdue: paid invoices are never late", {x["id"]: x for x in get("/api/contractor/hicons/invoices", "Hana").json}[it["id"]]["overdue_days"] is None)
+it["status"] = "sent"
+dash = {x["id"]: x for x in get("/api/contractor/hicons/dashboard", "Hana").json["invoices"]}
+check("overdue: the dashboard uses the same rule", dash[it["id"]]["overdue_days"] is not None)
+pub = anon.get("/api/public/invoice/" + "t" * 24).json["invoice"]
+check("tax: the client's link shows discount, tax and due date", pub["tax"] == 74.25 and pub["discount"] == 100 and pub["due_date"])
+MAIL.clear()
+send("POST", "/api/contractor/invoices/" + it["id"] + "/send", "Hana", {"to": ["tess@example.com"]})
+check("tax: the invoice email lists discount and sales tax", MAIL and "Sales tax (8.25%)" in MAIL[0]["html"] and "Discount" in MAIL[0]["html"])
+
+r = send("POST", "/api/contractor/hicons/estimates", "Hana", {"title": "Deck", "client_name": "Tess", "items": [{"description": "Deck boards", "qty": 2, "amount": 500}]})
+est = [x for x in DB["contractor_estimates"] if x["id"] == r.json["estimate"]["id"]][0]
+check("tax: new estimate starts with the company's rate", est["tax_rate"] == 8.25 and est["total"] == 1082.5)
+r = send("PATCH", "/api/contractor/estimates/" + est["id"], "Hana", {"discount": 100})
+check("discount: estimate total recomputed with its saved lines", r.json["ok"] and r.json["estimate"]["total"] == 974.25 and len(r.json["estimate"]["items"]) == 1)
+est["status"] = "accepted"
+r = send("POST", "/api/contractor/estimates/" + est["id"] + "/convert", "Hana", {})
+jc = [x for x in DB["contractor_jobs"] if x["id"] == r.json["job"]["id"]][0]
+check("estimate → work order keeps the price before tax", jc["service_price"] == 1000)
+send("PATCH", "/api/contractor/jobs/" + jc["id"], "Hana", {"progress_pct": 100})
+r = send("POST", "/api/contractor/hicons/invoices", "Hana", {"job_id": jc["id"]})
+ic = [x for x in DB["contractor_invoices"] if x["id"] == r.json["invoice"]["id"]][0]
+check("estimate → invoice bills the same discount and tax the client accepted", ic["discount"] == 100 and ic["tax_rate"] == 8.25 and ic["total"] == 974.25)
+send("POST", "/api/contractor/hicons/profile", "Hana", {"tax_rate": 0, "terms_days": 0})
+jz = send("POST", "/api/contractor/jobs", "Hana", {"title": "No tax job", "client_name": "Zed"}).json["job"]
+send("PATCH", "/api/contractor/jobs/" + jz["id"], "Hana", {"progress_pct": 100})
+[x for x in DB["contractor_jobs"] if x["id"] == jz["id"]][0]["service_price"] = 300
+iz_id = send("POST", "/api/contractor/hicons/invoices", "Hana", {"job_id": jz["id"]}).json["invoice"]["id"]
+iz = [x for x in DB["contractor_invoices"] if x["id"] == iz_id][0]
+check("tax 0%: invoice total unchanged, due on receipt", iz["total"] == 300 and iz["tax"] == 0 and iz["due_date"] == _today.isoformat())
+
 # ── PWA opens on Projects ──
 r = get("/contractor/hicons?source=pwa", "Hana")
 check("app icon opens the Projects screen", r.status_code in (301, 302) and "/contractor/projects" in r.headers.get("Location", ""))

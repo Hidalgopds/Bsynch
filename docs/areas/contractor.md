@@ -24,12 +24,14 @@ App para empresas contratistas (hoy **Hicons** y **Bsynch**). Se instala en el t
 - Vista previa del enlace al compartir (número, empresa, logo; sin montos ni dirección).
 - Correos: por empresa (`_ct_mail`), quedan en `contractor_mail_log`.
 - El dictado de órdenes por voz **se quitó** a pedido del dueño.
+- **Impuesto, descuento y vencimiento** (aprobado por Renee): la empresa pone su sales tax (%) y "Clients pay within" (Net 7/15/30/45/60) en Company settings. Facturas y estimados nuevos llevan Subtotal, Discount ($), Sales tax y Total (`_ct_totals`); se pueden cambiar en cada uno. Estimado → orden de trabajo guarda el precio antes de impuesto, y la factura vuelve a aplicar el descuento y el impuesto que el cliente aceptó. Cada factura nueva tiene `due_date`. Atrasada (`_ct_inv_overdue`): pasó su fecha de vencimiento; si es "Due on receipt", cuando lleva los días de recordatorio sin pagarse desde que se mandó. La misma regla usan la lista, el dashboard y el correo diario. SQL: `migrations/contractor_tax_due.sql`.
 - **Dirección web propia** (`<empresa>.bsynch.com`): el Manager la prende en Company settings → Security. Desde ahí, enlaces de facturas, estimados, invitaciones y correos de alerta usan esa dirección (`_ct_web_base`). Apagada por defecto. Se niega a prenderse si ese subdominio está conectado a otra base de datos en `bsynch_companies` (los enlaces saldrían rotos). Queda en `audit_log` (`contractor.web_address`). En la dirección propia, el admin de plataforma cae directo en esa empresa.
 
 ## Pendientes
 - [x] Empresas ya no fijas en el código: `CONTRACTOR_COMPANIES` se lee de la tabla `contractor_companies` (hecho por Settings, 2026-11-14). El hub arma una tarjeta por empresa solo. No vuelvas a escribir `hicons`/`bsynch` a mano en pantallas nuevas. `static/contractor-scope.js` ya reconoce cualquier empresa en `/contractor/<empresa>/...`; si creas una pantalla nueva `/contractor/<x>`, agrega `<x>` a `NOT_CO` ahí y a `_RESERVED_SLUGS` en `app.py` (lo hace Settings). Alta de empresas: "Add a company" en Platform Admin.
 - [x] Fotos de órdenes de trabajo a Storage (hecho por Settings, 2026-11-14). Mismas rutas y pantallas; las plantillas no cambiaron.
 - [ ] Recibos de gastos (`contractor_expenses.photo_data`) y `contractor_files` a Storage: los hace Settings con los mismos helpers.
+- [ ] Pagos parciales y anticipos (punto 3 aprobado para después).
 - [ ] Renee creó 5 órdenes duplicadas el día del error de `uploadWoMaterials`; las borra ella desde la app.
 - [ ] Gmail emisor para Hicons (lo configura el dueño).
 

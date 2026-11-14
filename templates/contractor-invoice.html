@@ -133,7 +133,10 @@ tbody td.desc{white-space:pre-line;}
       <div><label for="eSite">Job site</label><input id="eSite" maxlength="300"></div>
       <div><label for="eTerms">Payment terms</label><input id="eTerms" maxlength="60" placeholder="Due on receipt"></div>
       <div><label for="eDate">Invoice date</label><input id="eDate" type="date"></div>
+      <div><label for="eDue">Due date</label><input id="eDue" type="date"></div>
       <div><label for="eAddr">Billing address</label><textarea id="eAddr" rows="2" maxlength="300"></textarea></div>
+      <div><label for="eDisc">Discount ($)</label><input id="eDisc" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+      <div><label for="eTax">Sales tax (%)</label><input id="eTax" type="number" min="0" max="30" step="0.001" inputmode="decimal" placeholder="0"></div>
     </div>
     <div class="e-lines">
       <div class="e-head"><span>Description</span><span>Qty</span><span>Price ($)</span><span style="text-align:right">Total</span><span></span></div>
@@ -187,9 +190,12 @@ function renderInvoice(){
         '<div><span>Date</span><b class="plain">' + esc(fmtDate(inv.invoice_date)) + '</b></div>' +
         '<div><span>Customer ID</span><b class="plain">' + esc(inv.customer_id || '-') + '</b></div>' +
         '<div><span>Payment terms</span><b>' + esc(inv.payment_terms || '-') + '</b></div>' +
+        (inv.due_date && inv.due_date > (inv.invoice_date || '') ? '<div><span>Due date</span><b class="plain">' + esc(fmtDate(inv.due_date)) + '</b></div>' : '') +
       '</div></div>' +
     '<table><thead><tr><th>Description</th><th class="c">Qty</th><th class="n">Amount</th><th class="n">Total</th></tr></thead><tbody>' + rows + '</tbody></table>' +
     '<div class="totals"><div class="sub-row"><span>Subtotal</span><span>' + money(inv.subtotal) + '</span></div>' +
+      (parseFloat(inv.discount) ? '<div class="sub-row"><span>Discount</span><span>&minus;' + money(inv.discount) + '</span></div>' : '') +
+      (parseFloat(inv.tax) ? '<div class="sub-row"><span>Sales tax (' + esc(+inv.tax_rate) + '%)</span><span>' + money(inv.tax) + '</span></div>' : '') +
       '<div class="due"><span>TOTAL DUE</span><b>' + money(inv.total) + '</b></div></div>' +
     (co.payment_note ? '<div class="pay"><div class="t">Payment</div><p>' + esc(co.payment_note) + '</p></div>' : '') +
     (logo ? '<img class="watermark" alt="" src="' + logo + '">' : '') +
@@ -250,11 +256,15 @@ function eRecalc(){
     var v = (parseFloat(row.querySelector('.l-qty').value) || 0) * (parseFloat(row.querySelector('.l-amt').value) || 0);
     t += v; row.querySelector('.e-tot').textContent = money(v);
   });
-  document.getElementById('eTotal').textContent = 'Total ' + money(t);
+  var disc = Math.min(Math.max(parseFloat(document.getElementById('eDisc').value) || 0, 0), t);
+  var tax = Math.round((t - disc) * (parseFloat(document.getElementById('eTax').value) || 0)) / 100;
+  document.getElementById('eTotal').textContent = (disc || tax ? 'Subtotal ' + money(t) + (disc ? ' − ' + money(disc) : '') + (tax ? ' + tax ' + money(tax) : '') + ' = ' : 'Total ') + money(t - disc + tax);
 }
 function openEdit(){
   document.getElementById('eNum').textContent = inv.invoice_number;
-  [['eBill','bill_to'],['eCust','customer_id'],['eSite','job_site'],['eTerms','payment_terms'],['eDate','invoice_date'],['eAddr','bill_address']].forEach(function(p){ document.getElementById(p[0]).value = inv[p[1]] || ''; });
+  [['eBill','bill_to'],['eCust','customer_id'],['eSite','job_site'],['eTerms','payment_terms'],['eDate','invoice_date'],['eDue','due_date'],['eAddr','bill_address']].forEach(function(p){ document.getElementById(p[0]).value = inv[p[1]] || ''; });
+  document.getElementById('eDisc').value = parseFloat(inv.discount) ? inv.discount : '';
+  document.getElementById('eTax').value = parseFloat(inv.tax_rate) ? +inv.tax_rate : '';
   document.getElementById('eLines').innerHTML = ((inv.items || []).length ? inv.items : [null]).map(eLineHtml).join('');
   document.getElementById('eSentNote').style.display = inv.sent_at ? '' : 'none';
   document.getElementById('eOut').textContent = '';
@@ -269,6 +279,8 @@ function setupEdit(){
 }
 if(!PUBLIC_TOKEN){
   document.getElementById('eLines').addEventListener('input', eRecalc);
+  document.getElementById('eDisc').addEventListener('input', eRecalc);
+  document.getElementById('eTax').addEventListener('input', eRecalc);
   document.getElementById('eLines').addEventListener('click', function(e){
     if(!e.target.classList.contains('e-x')) return;
     e.target.closest('.e-line').remove();
@@ -288,9 +300,11 @@ if(!PUBLIC_TOKEN){
     if(!document.getElementById('eBill').value.trim()){ out.textContent = 'Who is the invoice for?'; return; }
     if(!items.length){ out.textContent = 'The invoice needs at least one line.'; return; }
     btn.disabled = true; btn.textContent = 'Saving...';
-    fetch('/api/contractor/invoices/' + encodeURIComponent(inv.id), {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+    fetch('/api/contractor/invoices/' + encodeURIComponent(inv.id), {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(Object.assign({
       bill_to: document.getElementById('eBill').value, customer_id: document.getElementById('eCust').value, job_site: document.getElementById('eSite').value,
-      payment_terms: document.getElementById('eTerms').value, invoice_date: document.getElementById('eDate').value, bill_address: document.getElementById('eAddr').value, items: items})})
+      payment_terms: document.getElementById('eTerms').value, invoice_date: document.getElementById('eDate').value, bill_address: document.getElementById('eAddr').value, items: items,
+      discount: document.getElementById('eDisc').value || 0, tax_rate: document.getElementById('eTax').value || 0},
+      document.getElementById('eDue').value ? {due_date: document.getElementById('eDue').value} : {}))})
       .then(function(r){ return r.json(); }).then(function(res){
         btn.disabled = false; btn.textContent = 'Save changes';
         if(!res.ok){ out.textContent = res.error || 'Could not save'; return; }

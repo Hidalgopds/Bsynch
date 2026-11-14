@@ -8452,7 +8452,7 @@ def _ct_profile(company):
          "invoice_next": 1000, "payment_terms": "Due on receipt", "footer_note": "Thank you for your business!",
          "brand_primary": "#0d1b36", "brand_accent": "#e8a317", "emails": [],
          "hours_morning": 4, "hours_afternoon": 4,
-         "invoice_pad": 6, "invoice_end": None, "reminder_days": 15,
+         "invoice_pad": 6, "invoice_end": None, "reminder_days": 15, "tax_rate": 0, "terms_days": 0,
          "estimate_prefix": "EST-", "estimate_valid_days": 30, "estimate_terms": ""}
     p.update(_ct_config(f"contractor_company_{company}", {}) or {})
     if not p.get("emails") and p.get("email"):
@@ -8567,6 +8567,16 @@ def contractor_company_profile(company):
             out["reminder_days"] = max(0, min(365, int(data.get("reminder_days") or 0)))
         except (TypeError, ValueError):
             return jsonify({"ok": False, "error": "Reminder days must be a number"}), 400
+    if "tax_rate" in data:
+        rate = _ct_rate(data.get("tax_rate"))
+        if rate is None:
+            return jsonify({"ok": False, "error": f"Sales tax must be between 0 and {CT_MAX_TAX_RATE}%"}), 400
+        out["tax_rate"] = rate
+    if "terms_days" in data:
+        try:
+            out["terms_days"] = max(0, min(365, int(data.get("terms_days") or 0)))
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "Days to pay must be a number"}), 400
     if "estimate_valid_days" in data:
         try:
             out["estimate_valid_days"] = max(1, min(365, int(data.get("estimate_valid_days") or 30)))
@@ -9156,6 +9166,70 @@ def _ct_clean_items(raw):
             return None, "Each line needs a quantity above 0 and a price of 0 or more"
         items.append({"description": desc, "qty": q, "amount": a, "total": round(q * a, 2)})
     return items, None
+
+
+CT_MAX_TAX_RATE = 30
+
+
+def _ct_rate(v):
+    """A tax rate in % (0 to 30, up to 3 decimals), or None if it is not one."""
+    try:
+        r = round(float(v if v not in (None, "") else 0), 3)
+    except (TypeError, ValueError):
+        return None
+    return r if 0 <= r <= CT_MAX_TAX_RATE else None
+
+
+def _ct_totals(items, discount=0, tax_rate=0):
+    """Subtotal of the lines, minus a discount in dollars (never more than the subtotal),
+    plus sales tax on what is left."""
+    sub = round(sum(_ct_money(i.get("total")) for i in (items or [])), 2)
+    disc = round(min(max(_ct_money(discount), 0.0), sub), 2)
+    rate = _ct_rate(tax_rate) or 0.0
+    tax = round((sub - disc) * rate / 100, 2)
+    return {"subtotal": sub, "discount": disc, "tax_rate": rate, "tax": tax, "total": round(sub - disc + tax, 2)}
+
+
+def _ct_money_pieces(data, current):
+    """(items, discount, tax_rate, error) from a form, keeping what the form doesn't send."""
+    items = current.get("items") or []
+    if "items" in data:
+        items, e = _ct_clean_items(data.get("items"))
+        if e:
+            return None, None, None, e
+    discount = current.get("discount") or 0
+    if "discount" in data:
+        discount = _ct_money(data.get("discount"))
+        if discount < 0:
+            return None, None, None, "The discount can't be negative"
+    rate = current.get("tax_rate") or 0
+    if "tax_rate" in data:
+        rate = _ct_rate(data.get("tax_rate"))
+        if rate is None:
+            return None, None, None, f"Sales tax must be between 0 and {CT_MAX_TAX_RATE}%"
+    return items, discount, rate, None
+
+
+def _ct_add_days(day, n):
+    import datetime as dt
+    return (dt.date.fromisoformat(day) + dt.timedelta(days=int(n or 0))).isoformat()
+
+
+def _ct_inv_overdue(inv, reminder_days):
+    """Days an unpaid, sent invoice is late, or None. With real terms (due date after the
+    invoice date): days past the due date. Due on receipt: days since it was sent, once they
+    reach the company's reminder days."""
+    import datetime as dt
+    if inv.get("status") not in ("sent", "in_process"):
+        return None
+    due, issued = inv.get("due_date"), inv.get("invoice_date")
+    if due and issued and str(due) > str(issued):
+        late = (dt.date.fromisoformat(_ct_today_local()) - dt.date.fromisoformat(str(due)[:10])).days
+        return late if late > 0 else None
+    if not inv.get("sent_at") or int(reminder_days or 0) <= 0:
+        return None
+    since = _ct_days_since(inv["sent_at"])
+    return since if since >= int(reminder_days) else None
 
 
 CONTRACTOR_EXPENSE_CATEGORIES = ["materials", "paint", "tools", "fuel", "repairs", "equipment_rental", "meals", "supplies", "other"]
@@ -9867,7 +9941,7 @@ def contractor_invoicing_update_job(company, job_id):
     return jsonify({"ok": True})
 
 
-_CT_INV_LIST_FIELDS = ("id,invoice_number,bill_to,customer_id,job_site,invoice_date,total,status,created_by,job_id,"
+_CT_INV_LIST_FIELDS = ("id,invoice_number,bill_to,customer_id,job_site,invoice_date,due_date,total,status,created_by,job_id,"
                        "sent_at,sent_to,sent_cc,paid_at,payment_ref,status_history,last_reminder_at,reminder_count,created_at")
 CONTRACTOR_INVOICE_STATUSES = {"issued": "Not sent", "sent": "Sent", "in_process": "In process", "paid": "Paid"}
 
@@ -9882,7 +9956,11 @@ def contractor_invoices_list(company):
         f"&select={_CT_INV_LIST_FIELDS}&order=created_at.desc&limit=1000",
         headers=sb_headers(), timeout=8
     )
-    return jsonify(r.json() if r.ok else [])
+    rows = r.json() if r.ok else []
+    days = int(_ct_profile(company).get("reminder_days") or 15)
+    for i in rows:
+        i["overdue_days"] = _ct_inv_overdue(i, days)
+    return jsonify(rows)
 
 
 @app.route("/api/contractor/<company>/invoices", methods=["POST"])
@@ -9909,14 +9987,22 @@ def contractor_create_invoice(company):
 
     items = [{"description": (job.get("invoice_description") or job.get("description") or job.get("title") or "").strip(),
               "qty": 1, "amount": price, "total": price}]
-    er = requests.get(f"{sb_url()}/rest/v1/contractor_estimates?job_id=eq.{job_id}&company=eq.{company}&select=items,total&limit=1",
+    profile = _ct_profile(company)
+    discount, tax_rate = 0, _ct_rate(profile.get("tax_rate")) or 0
+    er = requests.get(f"{sb_url()}/rest/v1/contractor_estimates?job_id=eq.{job_id}&company=eq.{company}"
+                      f"&select=items,subtotal,total,discount,tax_rate&limit=1",
                       headers=sb_headers(), timeout=5)
     est = er.json()[0] if er.ok and er.json() else None
     est_text = "\n".join(i.get("description") or "" for i in (est or {}).get("items") or [] if i.get("description"))
-    # Same price and description as the accepted estimate: bill its lines one by one
-    if est and est.get("items") and abs(_ct_money(est.get("total")) - price) < 0.005 \
+    # Same price (before tax) and description as the accepted estimate: bill its lines one by one,
+    # with the discount and sales tax the client accepted
+    est_price = _ct_money((est or {}).get("subtotal") if (est or {}).get("subtotal") is not None else (est or {}).get("total"))
+    if est and est.get("items") and abs(est_price - price) < 0.005 \
             and (job.get("invoice_description") or "").strip() == est_text.strip():
         items = [{k: i.get(k) for k in ("description", "qty", "amount", "total")} for i in est["items"]]
+        discount = _ct_money(est.get("discount"))
+        if est.get("tax_rate") is not None:
+            tax_rate = _ct_rate(est.get("tax_rate")) or 0
     if data.get("include_costs"):
         c = _ct_job_costs([job_id]).get(job_id, {"materials": [], "receipts": []})
         for m in c["materials"]:
@@ -9927,9 +10013,7 @@ def contractor_create_invoice(company):
             a = _ct_money(x.get("amount"))
             if a > 0:
                 items.append({"description": f"Purchase: {x.get('vendor') or 'receipt'}", "qty": 1, "amount": a, "total": a})
-    subtotal = round(sum(i["total"] for i in items), 2)
-
-    profile = _ct_profile(company)
+    totals = _ct_totals(items, discount, tax_rate)
     import datetime as dt
     prefix = re.sub(r"[^A-Za-z0-9 _./#-]", "", str(profile.get("invoice_prefix") or ""))[:20]
     pad = max(1, min(12, int(profile.get("invoice_pad") or 6)))
@@ -9949,7 +10033,8 @@ def contractor_create_invoice(company):
         "job_id": job_id, "bill_to": job.get("client_name") or "", "customer_id": job.get("customer_id") or "",
         "job_site": _ct_full_address(job), "bill_address": job.get("bill_address") or "",
         "invoice_date": dt.date.today().isoformat(),
-        "payment_terms": profile.get("payment_terms") or "", "items": items, "subtotal": subtotal, "total": subtotal,
+        "due_date": (dt.date.today() + dt.timedelta(days=int(profile.get("terms_days") or 0))).isoformat(),
+        "payment_terms": profile.get("payment_terms") or "", "items": items, **totals,
         "company_snapshot": snapshot, "created_by": me["name"][:80],
     }
     r = requests.post(f"{sb_url()}/rest/v1/contractor_invoices", json=row,
@@ -10007,14 +10092,25 @@ def contractor_invoice_update(invoice_id):
         if not d:
             return jsonify({"ok": False, "error": "Invalid date"}), 400
         upd["invoice_date"] = d
-    if "items" in data:
-        items, e = _ct_clean_items(data.get("items"))
+        # A new invoice date moves the due date with it (same days to pay)
+        if "due_date" not in data and inv.get("due_date") and inv.get("invoice_date"):
+            gap = (dt.date.fromisoformat(str(inv["due_date"])[:10]) - dt.date.fromisoformat(str(inv["invoice_date"])[:10])).days
+            upd["due_date"] = _ct_add_days(d, max(0, gap))
+    if "due_date" in data:
+        d = _ct_valid_date(data.get("due_date"))
+        if not d:
+            return jsonify({"ok": False, "error": "Invalid due date"}), 400
+        if d < str(upd.get("invoice_date") or inv.get("invoice_date") or "")[:10]:
+            return jsonify({"ok": False, "error": "The due date can't be before the invoice date"}), 400
+        upd["due_date"] = d
+    if any(k in data for k in ("items", "discount", "tax_rate")):
+        items, discount, rate, e = _ct_money_pieces(data, inv)
         if e:
             return jsonify({"ok": False, "error": e}), 400
         if not items:
             return jsonify({"ok": False, "error": "The invoice needs at least one line"}), 400
         upd["items"] = items
-        upd["subtotal"] = upd["total"] = round(sum(i["total"] for i in items), 2)
+        upd.update(_ct_totals(items, discount, rate))
     if not upd:
         return jsonify({"ok": False, "error": "nothing to update"}), 400
     note = "Edited" + (f" (total ${_ct_money(inv.get('total')):,.2f} → ${upd['total']:,.2f})"
@@ -10052,12 +10148,13 @@ def _ct_invoice_email_html(inv, message, link):
     <p style="font-size:14px;line-height:1.6">{msg}</p>
     <table style="width:100%;font-size:13px;margin:14px 0"><tr>
       <td><b>Bill to:</b> {_html_escape(inv.get('bill_to'))}{('<br>' + _html_escape(inv.get('bill_address')).replace(chr(10), '<br>')) if inv.get('bill_address') else ''}<br><b>Job site:</b> {_html_escape(inv.get('job_site'))}</td>
-      <td style="text-align:right"><b>Date:</b> {_html_escape(inv.get('invoice_date'))}<br><b>Terms:</b> {_html_escape(inv.get('payment_terms'))}</td>
+      <td style="text-align:right"><b>Date:</b> {_html_escape(inv.get('invoice_date'))}<br><b>Terms:</b> {_html_escape(inv.get('payment_terms'))}{('<br><b>Due:</b> ' + _html_escape(inv.get('due_date'))) if inv.get('due_date') and str(inv.get('due_date')) > str(inv.get('invoice_date') or '') else ''}</td>
     </tr></table>
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       <tr style="background:{navy};color:#fff"><th style="padding:8px;text-align:left">Description</th><th style="padding:8px">Qty</th><th style="padding:8px;text-align:right">Total</th></tr>
       {rows}
     </table>
+    {_ct_totals_email_rows(inv)}
     <div style="text-align:right;margin-top:14px;font-size:18px"><b>Total due: <span style="color:{navy}">{money(inv.get('total'))}</span></b></div>
     <div style="text-align:center;margin:26px 0 8px">
       <a href="{link}" style="background:{navy};color:#fff;text-decoration:none;padding:12px 22px;border-radius:6px;font-weight:bold;display:inline-block">View and download the invoice</a>
@@ -10158,7 +10255,8 @@ def contractor_public_invoice(token):
     if not re.fullmatch(r"[A-Za-z0-9_-]{20,64}", token):
         return jsonify({"ok": False, "error": "not found"}), 404
     r = requests.get(f"{sb_url()}/rest/v1/contractor_invoices?public_token=eq.{token}"
-                     f"&select=invoice_number,bill_to,bill_address,customer_id,job_site,invoice_date,payment_terms,items,subtotal,total,company_snapshot&limit=1",
+                     f"&select=invoice_number,bill_to,bill_address,customer_id,job_site,invoice_date,due_date,payment_terms,items,"
+                     f"subtotal,discount,tax_rate,tax,total,company_snapshot&limit=1",
                      headers=sb_headers(), timeout=8)
     inv = r.json()[0] if r.ok and r.json() else None
     if not inv:
@@ -10446,24 +10544,30 @@ def _ct_overdue_digest(company):
     if not cfg["on"] or not to or days <= 0:
         return
     r = requests.get(f"{sb_url()}/rest/v1/contractor_invoices?company=eq.{company}&status=in.(sent,in_process)"
-                     f"&sent_at=not.is.null&select=invoice_number,bill_to,job_site,total,sent_at,sent_to,status,last_reminder_at&limit=1000",
+                     f"&sent_at=not.is.null&select=invoice_number,bill_to,job_site,total,sent_at,sent_to,status,last_reminder_at,"
+                     f"invoice_date,due_date&limit=1000",
                      headers=sb_headers(), timeout=10)
-    late = [i for i in (r.json() if r.ok else []) if _ct_days_since(i["sent_at"]) >= days]
+    late = []
+    for i in (r.json() if r.ok else []):
+        i["overdue_days"] = _ct_inv_overdue(i, days)
+        if i["overdue_days"] is not None:
+            late.append(i)
     if not late:
         return
-    late.sort(key=lambda i: i["sent_at"])
+    late.sort(key=lambda i: -i["overdue_days"])
     rows = "".join(
         f"<tr><td style='padding:6px;border-bottom:1px solid #e5e7eb'>{_html_escape(i['invoice_number'])}</td>"
         f"<td style='padding:6px;border-bottom:1px solid #e5e7eb'>{_html_escape(i.get('bill_to'))}<br><span style='color:#6b7280'>{_html_escape(i.get('job_site'))}</span></td>"
         f"<td style='padding:6px;border-bottom:1px solid #e5e7eb;text-align:right'>${_ct_money(i.get('total')):,.2f}</td>"
-        f"<td style='padding:6px;border-bottom:1px solid #e5e7eb;text-align:center'><b>{_ct_days_since(i['sent_at'])}</b></td></tr>"
+        f"<td style='padding:6px;border-bottom:1px solid #e5e7eb;text-align:center'><b>{i['overdue_days']}</b></td></tr>"
         for i in late)
     total = sum(_ct_money(i.get("total")) for i in late)
     html = f"""<div style="font-family:Arial,Helvetica,sans-serif;max-width:620px;margin:0 auto;color:#111827">
-  <h2 style="font-size:18px">{len(late)} invoice{'s' if len(late) != 1 else ''} unpaid for {days}+ days &middot; ${total:,.2f}</h2>
+  <h2 style="font-size:18px">{len(late)} overdue invoice{'s' if len(late) != 1 else ''} &middot; ${total:,.2f}</h2>
+  <p style="font-size:13px;color:#6b7280">Past their due date, or unpaid {days}+ days after sending when they are due on receipt.</p>
   <p style="font-size:14px">Open Invoicing &rarr; Invoices to send a reminder to the client or mark them paid.</p>
   <table style="width:100%;border-collapse:collapse;font-size:13px">
-    <tr style="background:#0d1b36;color:#fff"><th style="padding:6px;text-align:left">Invoice</th><th style="padding:6px;text-align:left">Client</th><th style="padding:6px;text-align:right">Total</th><th style="padding:6px">Days</th></tr>
+    <tr style="background:#0d1b36;color:#fff"><th style="padding:6px;text-align:left">Invoice</th><th style="padding:6px;text-align:left">Client</th><th style="padding:6px;text-align:right">Total</th><th style="padding:6px">Days late</th></tr>
     {rows}
   </table>
 </div>"""
@@ -11531,19 +11635,20 @@ def _ct_est_for(est_id):
     return (None, me, err) if err else (est, me, None)
 
 
-def _ct_est_payload(data):
-    """Fields an estimate can be saved with; (payload, error)."""
+def _ct_est_payload(data, current=None):
+    """Fields an estimate can be saved with; (payload, error). `current` is the saved estimate
+    when editing, so a new tax rate or discount recomputes the total with the saved lines."""
     payload = {k: str(data.get(k) or "").strip()[:n] for k, n in _CT_EST_TEXT.items() if k in data}
     if payload.get("client_email") and not _EMAIL_RE.fullmatch(payload["client_email"]):
         return None, "Enter a valid client email"
     if "client_email" in payload:
         payload["client_email"] = payload["client_email"].lower()
-    if "items" in data:
-        items, e = _ct_clean_items(data.get("items"))
+    if any(k in data for k in ("items", "discount", "tax_rate")):
+        items, discount, rate, e = _ct_money_pieces(data, current or {})
         if e:
             return None, e
         payload["items"] = items
-        payload["subtotal"] = payload["total"] = round(sum(i["total"] for i in items), 2)
+        payload.update(_ct_totals(items, discount, rate))
     if "valid_until" in data:
         payload["valid_until"] = _ct_valid_date(data.get("valid_until"))
     return payload, None
@@ -11592,6 +11697,7 @@ def contractor_estimates_list(company):
     prof = _ct_profile(company)
     return jsonify({"ok": True, "estimates": r.json() if r.ok else [], "statuses": CONTRACTOR_ESTIMATE_STATUSES,
                     "can_delete": _ct_can_admin(me, company), "valid_days": int(prof.get("estimate_valid_days") or 30),
+                    "default_tax": _ct_rate(prof.get("tax_rate")) or 0,
                     "default_notes": prof.get("estimate_terms") or ""})
 
 
@@ -11602,6 +11708,9 @@ def _ct_est_insert(company, me, payload):
     prefix = re.sub(r"[^A-Za-z0-9 _./#-]", "", str(prof.get("estimate_prefix") or "EST-"))[:20]
     payload.setdefault("valid_until", (dt.date.today() + dt.timedelta(days=int(prof.get("estimate_valid_days") or 30))).isoformat())
     payload.setdefault("notes", prof.get("estimate_terms") or "")
+    if "tax_rate" not in payload:  # new estimates start with the company's sales tax
+        payload.update(_ct_totals(payload.get("items") or [], payload.get("discount") or 0, prof.get("tax_rate") or 0))
+        payload.setdefault("items", [])
     snapshot = {k: prof.get(k) for k in ("display_name", "subtitle", "tagline", "phone", "address", "emails", "logo",
                                           "footer_note", "brand_primary", "brand_accent")}
     for _ in range(3):  # two people saving at once take the same number; the unique index sends one back here
@@ -11629,7 +11738,8 @@ def contractor_estimates_create(company):
     if err:
         return err
     data = request.get_json() or {}
-    payload, e = _ct_est_payload(data)
+    # A new estimate starts with the company's sales tax unless the form sends its own
+    payload, e = _ct_est_payload(data, {"tax_rate": _ct_rate(_ct_profile(company).get("tax_rate")) or 0})
     if e:
         return jsonify({"ok": False, "error": e}), 400
     if not payload.get("title"):
@@ -11656,7 +11766,7 @@ def contractor_estimate_update(est_id):
         return err
     if est["status"] in ("accepted", "converted"):
         return jsonify({"ok": False, "error": "The client already accepted this estimate, so it can't be changed. Duplicate it to make a new one."}), 409
-    payload, e = _ct_est_payload(request.get_json() or {})
+    payload, e = _ct_est_payload(request.get_json() or {}, est)
     if e:
         return jsonify({"ok": False, "error": e}), 400
     if "title" in payload and not payload["title"]:
@@ -11687,12 +11797,26 @@ def contractor_estimate_duplicate(est_id):
     est, me, err = _ct_est_for(est_id)
     if err:
         return err
-    data = {k: est.get(k) for k in (*_CT_EST_TEXT, "items")}
+    data = {k: est.get(k) for k in (*_CT_EST_TEXT, "items", "discount", "tax_rate")}
     data["title"] = (est.get("title") or "")[:150] + " (copy)"
     payload, e = _ct_est_payload(data)
     if e:
         return jsonify({"ok": False, "error": e}), 400
     return _ct_est_insert(est["company"], me, payload)
+
+
+def _ct_totals_email_rows(doc):
+    """Subtotal / discount / sales tax lines for an email, only when there is a discount or tax."""
+    if not (_ct_money(doc.get("discount")) or _ct_money(doc.get("tax"))):
+        return ""
+    money = lambda v: f"${_ct_money(v):,.2f}"
+    rows = [("Subtotal", money(doc.get("subtotal")))]
+    if _ct_money(doc.get("discount")):
+        rows.append(("Discount", "−" + money(doc.get("discount"))))
+    if _ct_money(doc.get("tax")):
+        rows.append((f"Sales tax ({float(doc.get('tax_rate') or 0):g}%)", money(doc.get("tax"))))
+    return "".join(f"<div style='text-align:right;font-size:13px;color:#374151;margin-top:4px'>{_html_escape(a)}: {b}</div>"
+                   for a, b in rows)
 
 
 def _ct_est_email_html(est, message, link):
@@ -11719,6 +11843,7 @@ def _ct_est_email_html(est, message, link):
       <tr style="background:{navy};color:#fff"><th style="padding:8px;text-align:left">Description</th><th style="padding:8px">Qty</th><th style="padding:8px;text-align:right">Total</th></tr>
       {rows}
     </table>
+    {_ct_totals_email_rows(est)}
     <div style="text-align:right;margin-top:14px;font-size:18px"><b>Estimate total: <span style="color:{navy}">{money(est.get('total'))}</span></b></div>
     <div style="text-align:center;margin:26px 0 8px">
       <a href="{link}" style="background:{navy};color:#fff;text-decoration:none;padding:12px 22px;border-radius:6px;font-weight:bold;display:inline-block">Review and accept the estimate</a>
@@ -11818,7 +11943,8 @@ def contractor_estimate_convert(est_id):
         "created_by": me["name"][:80], "company": co, "tracking": "percent",
         "time_slot": data.get("time_slot") if data.get("time_slot") in CONTRACTOR_TIME_SLOTS else "",
         "est_hours": _ct_hours(data.get("est_hours")) or 0,
-        "service_price": _ct_money(est.get("total")) or None,
+        # The job price is before discount and tax; the invoice applies the estimate's discount and tax again
+        "service_price": _ct_money(est.get("subtotal") if est.get("subtotal") is not None else est.get("total")) or None,
         "invoice_description": "\n".join(f"{l}" for l in lines)[:2000],
     }
     if start:
@@ -11842,7 +11968,7 @@ def contractor_estimate_convert(est_id):
 
 
 _CT_EST_PUBLIC_FIELDS = ("id,company,estimate_number,title,client_name,location,residence,apt,zone,zipcode,bill_address,items,"
-                         "subtotal,total,notes,estimate_date,valid_until,status,accepted_at,accepted_name,declined_at,"
+                         "subtotal,discount,tax_rate,tax,total,notes,estimate_date,valid_until,status,accepted_at,accepted_name,declined_at,"
                          "viewed_at,status_history,company_snapshot")
 
 
@@ -12704,7 +12830,7 @@ def contractor_dashboard_data(company):
         return jsonify({"ok": False, "error": "no dashboard permission"}), 403
     get = lambda url: (lambda r: r.json() if r.ok else [])(requests.get(url, headers=sb_headers(), timeout=10))
     invoices = get(f"{sb_url()}/rest/v1/contractor_invoices?company=eq.{company}"
-                   f"&select=id,invoice_number,bill_to,job_site,total,status,invoice_date,sent_at,paid_at,payment_ref,job_id&limit=5000")
+                   f"&select=id,invoice_number,bill_to,job_site,total,status,invoice_date,due_date,sent_at,paid_at,payment_ref,job_id&limit=5000")
     jobs = get(f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?company=eq.{company}"
                f"&select=id,job_number,title,client_name,status,progress_pct,service_price,invoice_id,created_at,completed_date,"
                f"scheduled_date,est_hours,assigned_to&limit=5000")
@@ -12713,6 +12839,8 @@ def contractor_dashboard_data(company):
     for j in jobs:
         j["is_done"] = _ct_job_is_done(j)
     prof = _ct_profile(company)
+    for i in invoices:
+        i["overdue_days"] = _ct_inv_overdue(i, int(prof.get("reminder_days") or 15))
     return jsonify({"ok": True, "invoices": invoices, "jobs": jobs, "expenses": expenses,
                     "reminder_days": int(prof.get("reminder_days") or 15),
                     "can_invoice": bool(_ct_can_invoice(me, company))})

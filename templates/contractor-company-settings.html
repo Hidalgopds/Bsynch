@@ -137,7 +137,11 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
         <div class="field"><label for="invoice_start">Next invoice number</label><input id="invoice_start" maxlength="32" placeholder="H001001 or SSDE-983478"></div>
         <div class="field"><label for="invoice_end">Range ends at (optional)</label><input id="invoice_end" maxlength="32" placeholder="SSDE-999999"></div>
       </div>
-      <div class="field"><label for="reminder_days">Email me about unpaid invoices after (days)</label><input id="reminder_days" type="number" min="0" max="365" step="1" placeholder="15"><span class="hint">0 turns the daily reminder off.</span></div>
+      <div class="field"><label for="reminder_days">Email me about unpaid invoices after (days)</label><input id="reminder_days" type="number" min="0" max="365" step="1" placeholder="15"><span class="hint">Counts from the day it was sent, for invoices due on receipt. Invoices with a due date show up once they are late. 0 turns the daily reminder off.</span></div>
+      <div class="row">
+        <div class="field"><label for="terms_days">Clients pay within</label><select id="terms_days"><option value="0">Due on receipt</option><option value="7">7 days (Net 7)</option><option value="15">15 days (Net 15)</option><option value="30">30 days (Net 30)</option><option value="45">45 days (Net 45)</option><option value="60">60 days (Net 60)</option></select><span class="hint">Each new invoice gets a due date. After it passes, the invoice shows as Overdue.</span></div>
+        <div class="field"><label for="tax_rate">Sales tax (%)</label><input id="tax_rate" type="number" min="0" max="30" step="0.001" inputmode="decimal" placeholder="0"><span class="hint">Added to new invoices and estimates; you can change it on each one. 0 = no tax.</span></div>
+      </div>
       <div class="field"><label for="payment_terms">Payment terms</label><input id="payment_terms" maxlength="60" placeholder="Due on receipt"></div>
       <div class="field"><label for="payment_note">Payment instructions</label><textarea id="payment_note" maxlength="400" placeholder="Make all checks payable to ..."></textarea></div>
       <div class="field"><label for="footer_note">Closing message</label><input id="footer_note" maxlength="200" placeholder="Thank you for your business!"></div>
@@ -203,7 +207,7 @@ footer{text-align:center;padding:16px;font-size:12px;color:#334155;border-top:1p
 
 <script>
 var COMPANY = {{ company|tojson }};
-var TEXT = ['display_name','subtitle','tagline','contact_name','phone','address','notify_email','invoice_start','invoice_end','reminder_days','payment_terms','payment_note','footer_note','brand_primary','brand_accent','hours_morning','hours_afternoon','estimate_prefix','estimate_valid_days','estimate_terms','archive_email'];
+var TEXT = ['display_name','subtitle','tagline','contact_name','phone','address','notify_email','invoice_start','invoice_end','reminder_days','payment_terms','payment_note','footer_note','brand_primary','brand_accent','hours_morning','hours_afternoon','estimate_prefix','estimate_valid_days','estimate_terms','archive_email','terms_days','tax_rate'];
 var API = '/api/contractor/' + COMPANY;
 var emails = [], logo = '', canEdit = false;
 
@@ -295,6 +299,11 @@ document.getElementById('mailTest').onclick = function(){
     }).catch(function(){ b.disabled = false; m.style.color = '#dc2626'; m.textContent = 'Connection error.'; });
 };
 document.getElementById('invoice_start').oninput = updateNextPreview;
+document.getElementById('terms_days').onchange = function(){
+  // Keep the printed terms in step with the days, unless someone wrote their own text
+  var t = document.getElementById('payment_terms'), n = +this.value;
+  if(!t.value || /^(Due on receipt|Net \d+)$/i.test(t.value.trim())) t.value = n ? 'Net ' + n : 'Due on receipt';
+};
 document.getElementById('invoice_end').oninput = updateNextPreview;
 
 document.getElementById('logoFile').onchange = function(){

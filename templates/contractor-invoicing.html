@@ -417,7 +417,8 @@ var ST = {issued:['Not sent','#94a3b8','#f1f5f9'], sent:['Sent','#dc2626','#fee2
 function daysSince(ts){ if(!ts) return null; var d = new Date(ts); return Math.max(0, Math.floor((Date.now() - d.getTime()) / 864e5)); }
 function fmtD(v){ if(!v) return ''; var p = String(v).slice(0, 10).split('-'); return (+p[1]) + '/' + (+p[2]) + '/' + p[0].slice(2); }
 function unpaid(i){ return i.status !== 'paid'; }
-function overdue(i){ return (i.status === 'sent' || i.status === 'in_process') && daysSince(i.sent_at) >= reminderDays; }
+// Late = past the due date, or (due on receipt) unpaid reminderDays+ after sending; the server works it out
+function overdue(i){ return (i.status === 'sent' || i.status === 'in_process') && i.overdue_days != null; }
 function invMatches(i){
   var cl = document.getElementById('clientSel').value, q = document.getElementById('invSearch').value.trim().toLowerCase();
   if(cl && (i.bill_to || '') !== cl) return false;
@@ -434,7 +435,7 @@ function renderKpis(){
   var un = base.filter(function(i){ return unpaid(i) && i.status !== 'issued'; }), od = base.filter(overdue), pd = base.filter(function(i){ return i.status === 'paid'; }), ns = base.filter(function(i){ return (i.status || 'issued') === 'issued'; });
   document.getElementById('invKpis').innerHTML =
     '<div class="kpi amber" data-s="unpaid"><span>To collect</span><b>' + money(sum(un)) + '</b><small>' + un.length + ' sent, unpaid</small></div>' +
-    '<div class="kpi red" data-s="overdue"><span>Overdue (' + reminderDays + '+ days)</span><b>' + money(sum(od)) + '</b><small>' + od.length + ' invoice' + (od.length === 1 ? '' : 's') + '</small></div>' +
+    '<div class="kpi red" data-s="overdue"><span>Overdue</span><b>' + money(sum(od)) + '</b><small>' + od.length + ' invoice' + (od.length === 1 ? '' : 's') + '</small></div>' +
     '<div class="kpi green" data-s="paid"><span>Paid</span><b>' + money(sum(pd)) + '</b><small>' + pd.length + ' invoice' + (pd.length === 1 ? '' : 's') + '</small></div>' +
     '<div class="kpi" data-s="issued"><span>Not sent yet</span><b>' + money(sum(ns)) + '</b><small>' + ns.length + ' invoice' + (ns.length === 1 ? '' : 's') + '</small></div>';
 }
@@ -463,12 +464,12 @@ function renderInvoices(){
           Object.keys(ST).map(function(k){ return '<option value="' + k + '"' + (k === st ? ' selected' : '') + '>' + (k === 'paid' ? '🟢 ' : k === 'in_process' ? '🟡 ' : k === 'sent' ? '🔴 ' : '⚪ ') + ST[k][0] + '</option>'; }).join('') + '</select>'
         : lightHtml(st);
       return '<tr>' + (isManager ? '<td><input type="checkbox" class="sel" data-id="' + esc(i.id) + '"' + (selected[i.id] ? ' checked' : '') + (st === 'paid' ? ' disabled' : '') + '></td>' : '') +
-        '<td><a class="inv-link" href="/contractor/invoice/' + esc(i.id) + '">' + esc(i.invoice_number) + '</a><span class="cell-sub">' + fmtD(i.invoice_date) + '</span></td>' +
+        '<td><a class="inv-link" href="/contractor/invoice/' + esc(i.id) + '">' + esc(i.invoice_number) + '</a><span class="cell-sub">' + fmtD(i.invoice_date) + (i.due_date && i.due_date > (i.invoice_date || '') ? ' &middot; due ' + fmtD(i.due_date) : '') + '</span></td>' +
         '<td>' + esc(i.bill_to) + '<span class="cell-sub">' + esc(i.job_site) + '</span></td>' +
         '<td class="r"><b>' + money(i.total) + '</b></td>' +
         '<td>' + stCell + '</td>' +
         '<td>' + (i.sent_at ? fmtD(i.sent_at) + '<span class="cell-sub" title="' + esc([i.sent_to, i.sent_cc].filter(Boolean).join(', ')) + '">' + esc(i.sent_to || '') + '</span>' : '<span class="cell-sub">Not sent</span>') + '</td>' +
-        '<td class="r">' + (d !== null ? '<span class="days' + (overdue(i) ? ' late' : '') + '">' + d + '</span>' : paidDays !== null ? '<span class="cell-sub">in ' + paidDays + 'd</span>' : '') + '</td>' +
+        '<td class="r">' + (d !== null ? '<span class="days' + (overdue(i) ? ' late' : '') + '"' + (overdue(i) ? ' title="' + i.overdue_days + ' days overdue"' : '') + '>' + d + '</span>' : paidDays !== null ? '<span class="cell-sub">in ' + paidDays + 'd</span>' : '') + '</td>' +
         '<td>' + (st === 'paid' ? fmtD(i.paid_at) + '<span class="cell-sub">' + esc(i.payment_ref || '') + '</span>' : '') + '</td>' +
         '<td style="white-space:nowrap;">' + (st !== 'paid' ? '<a class="edit-inv" href="/contractor/invoice/' + esc(i.id) + '?edit=1" title="Edit this invoice" aria-label="Edit ' + esc(i.invoice_number) + '">&#9998;</a> ' : '') + (i.sent_at && st !== 'paid' ? '<button class="remind" data-id="' + esc(i.id) + '" title="' + (i.reminder_count ? i.reminder_count + ' sent, last ' + fmtD(i.last_reminder_at) : 'Email the client a reminder') + '">&#128276; Remind' + (i.reminder_count ? ' (' + i.reminder_count + ')' : '') + '</button>' : '') +
           ' <button class="hist-btn" data-id="' + esc(i.id) + '" title="History">&#128340;</button></td></tr>' +

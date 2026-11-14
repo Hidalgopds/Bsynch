@@ -131,6 +131,10 @@ footer{text-align:center;padding:16px;font-size:12px;color:#566275;}
     </div>
 
     <div class="grid" style="margin-top:12px;">
+      <div class="field"><label for="fDisc">Discount ($)</label><input id="fDisc" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+      <div class="field"><label for="fTax">Sales tax (%)</label><input id="fTax" type="number" min="0" max="30" step="0.001" inputmode="decimal" placeholder="0"></div>
+    </div>
+    <div class="grid" style="margin-top:10px;">
       <div class="field"><label for="fValid">Valid until</label><input id="fValid" type="date"></div>
       <div></div>
     </div>
@@ -145,7 +149,7 @@ footer{text-align:center;padding:16px;font-size:12px;color:#566275;}
 <script>
 var COMPANY = {{ company|tojson }};
 var API = '/api/contractor/' + COMPANY;
-var ests = [], filter = 'all', validDays = 30, defaultNotes = '', editId = null, clients = [];
+var ests = [], filter = 'all', validDays = 30, defaultTax = 0, defaultNotes = '', editId = null, clients = [];
 var ST = {draft:['Draft','#94a3b8','#f1f5f9'], sent:['Sent','#2563eb','#dbeafe'], accepted:['Accepted','#16a34a','#dcfce7'],
           declined:['Declined','#dc2626','#fee2e2'], converted:['Work order','#0f766e','#ccfbf1']};
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
@@ -217,9 +221,13 @@ function recalc(){
     var v = (parseFloat(row.querySelector('.l-qty').value) || 0) * (parseFloat(row.querySelector('.l-amt').value) || 0);
     t += v; row.querySelector('.tot').textContent = money(v);
   });
-  document.getElementById('edTotal').textContent = 'Total ' + money(t);
+  var disc = Math.min(Math.max(parseFloat(document.getElementById('fDisc').value) || 0, 0), t);
+  var tax = Math.round((t - disc) * (parseFloat(document.getElementById('fTax').value) || 0)) / 100;
+  document.getElementById('edTotal').textContent = (disc || tax ? 'Subtotal ' + money(t) + (disc ? ' − ' + money(disc) : '') + (tax ? ' + tax ' + money(tax) : '') + ' = ' : 'Total ') + money(t - disc + tax);
 }
 document.getElementById('lineBox').addEventListener('input', recalc);
+document.getElementById('fDisc').addEventListener('input', recalc);
+document.getElementById('fTax').addEventListener('input', recalc);
 document.getElementById('lineBox').addEventListener('click', function(e){
   if(!e.target.classList.contains('x')) return;
   e.target.closest('.line').remove();
@@ -240,6 +248,9 @@ function openEditor(e){
   Object.keys(F).forEach(function(k){ document.getElementById(F[k]).value = vals[k] || ''; });
   document.getElementById('moreBox').style.display = (vals.residence || vals.apt || vals.zone || vals.zipcode || vals.bill_address) ? '' : 'none';
   document.getElementById('lineBox').innerHTML = ((e && e.items && e.items.length) ? e.items : [null]).map(lineHtml).join('');
+  document.getElementById('fDisc').value = e && parseFloat(e.discount) ? e.discount : '';
+  var rate = e ? parseFloat(e.tax_rate) || 0 : defaultTax;
+  document.getElementById('fTax').value = rate ? rate : '';
   document.getElementById('edMsg').textContent = '';
   recalc();
   document.getElementById('edModal').classList.add('open');
@@ -256,6 +267,8 @@ document.getElementById('edSave').onclick = function(){
   var b = this, msg = document.getElementById('edMsg'), body = {};
   Object.keys(F).forEach(function(k){ body[k] = document.getElementById(F[k]).value.trim(); });
   body.items = readLines();
+  body.discount = document.getElementById('fDisc').value || 0;
+  body.tax_rate = document.getElementById('fTax').value || 0;
   if(!body.title){ msg.textContent = 'Give the estimate a title.'; return; }
   if(!body.items.length){ msg.textContent = 'Add at least one line with what is included and its price.'; return; }
   b.disabled = true; msg.textContent = '';
@@ -270,7 +283,7 @@ document.getElementById('edSave').onclick = function(){
 function load(){
   fetch(API + '/estimates').then(function(r){ return r.json(); }).then(function(d){
     if(!d.ok){ location.replace('/contractor/' + COMPANY); return; }
-    ests = d.estimates; validDays = d.valid_days || 30; defaultNotes = d.default_notes || '';
+    ests = d.estimates; validDays = d.valid_days || 30; defaultTax = parseFloat(d.default_tax) || 0; defaultNotes = d.default_notes || '';
     document.getElementById('content').style.visibility = '';
     render();
     var edit = new URLSearchParams(location.search).get('edit');

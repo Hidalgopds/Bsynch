@@ -163,7 +163,7 @@ function range(){
 function inRange(d, r){ d = day(d); return !!d && d >= r[0] && d <= r[1]; }
 function clientOk(name){ var c = document.getElementById('client').value; return !c || (name || '') === c; }
 function openInv(i){ return i.status === 'sent' || i.status === 'in_process'; }
-function overdue(i){ return openInv(i) && daysSince(i.sent_at) >= D.reminder_days; }
+function overdue(i){ return openInv(i) && i.overdue_days != null; }
 function ageIdx(i){ var d = daysSince(i.sent_at); for(var k = 0; k < AGES.length; k++) if(d >= AGES[k][1] && d <= AGES[k][2]) return k; return 0; }
 function sum(l, f){ return l.reduce(function(a, x){ return a + num(f ? f(x) : x.total); }, 0); }
 
@@ -200,7 +200,7 @@ function renderKpis(r){
   var inv_url = '/contractor/' + COMPANY + '/invoicing?tab=invoices' + (document.getElementById('client').value ? '&client=' + encodeURIComponent(document.getElementById('client').value) : '');
   var k = [
     ['To collect', money(sum(open)), open.length + ' sent, waiting for payment', '--serious', inv_url + '&status=unpaid'],
-    ['Overdue ' + D.reminder_days + '+ days', money(sum(late)), late.length + ' invoice' + (late.length === 1 ? '' : 's') + ' to follow up', '--critical', inv_url + '&status=overdue'],
+    ['Overdue', money(sum(late)), late.length + ' invoice' + (late.length === 1 ? '' : 's') + ' to follow up', '--critical', inv_url + '&status=overdue'],
     ['Invoiced', money(sum(invoiced)), invoiced.length + ' invoice' + (invoiced.length === 1 ? '' : 's') + ' in the period', '--series-1', inv_url],
     ['Collected', money(sum(paid)), paid.length + ' paid in the period', '--series-3', inv_url + '&status=paid'],
     ['Expenses', money(sum(exp, function(e){ return e.amount; })), exp.length + ' ticket' + (exp.length === 1 ? '' : 's') + ' in the period', '--series-2', '/contractor/' + COMPANY + '/expenses'],
