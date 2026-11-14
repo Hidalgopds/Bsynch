@@ -854,7 +854,7 @@ async function deleteIssue(evt, id){
   evt.stopPropagation();
   var issue = ALL_ISSUES.find(function(i){ return String(i.id) === String(id); });
   var label = issue ? (issue.unit + ' — ' + issue.title) : id;
-  if(!confirm('Delete issue:\n"' + label + '"\n\nThis cannot be undone.')) return;
+  if(!confirm('Archive issue:\n"' + label + '"\n\nIt leaves the list; an admin can restore it.')) return;
   try{
     var r = await fetch('/api/issues/'+id, {method:'DELETE'});
     var d = await r.json();
@@ -1733,7 +1733,7 @@ async function qcSetStatus(status){
   }
 }
 async function qcDeletePin(){
-  if(!QC_POPUP_ISSUE || !confirm('Delete this issue?')) return;
+  if(!QC_POPUP_ISSUE || !confirm('Archive this issue? An admin can restore it.')) return;
   var r = await fetch('/api/issues/'+QC_POPUP_ISSUE.id,{method:'DELETE'});
   var d = await r.json();
   if(d.ok){

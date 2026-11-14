@@ -3566,9 +3566,9 @@ function saveCat(id){
 }
 function delItem(id,name){
   if(!edUser){toast('Editor access required','error');return;}
-  if(!confirm('Delete "'+name+'"?'))return;
+  if(!confirm('Archive "'+name+'"? It leaves the list; an admin can restore it.'))return;
   fetch('/api/inventory/'+id,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({editor:edUser,updated_by:localStorage.getItem('bsynchAuth')||edUser})})
-  .then(function(r){return r.json();}).then(function(d){if(d.ok){toast('Deleted');loadInv();}else toast(d.error||'Error','error');});
+  .then(function(r){return r.json();}).then(function(d){if(d.ok){toast('Archived');loadInv();}else toast(d.error||'Error','error');});
 }
 function doAddItem(){
   if(!edUser){toast('Editor access required','error');return;}
@@ -3807,9 +3807,9 @@ function loadAndRenderFacts(){
 }
 
 function deleteFact(id){
-  if(!confirm('Delete this invoice?'))return;
+  if(!confirm('Archive this invoice? An admin can restore it.'))return;
   fetch('/api/facturas/'+id,{method:'DELETE'}).then(function(r){return r.json();}).then(function(d){
-    if(d.ok){toast('Invoice deleted');loadAndRenderFacts();}
+    if(d.ok){toast('Invoice archived');loadAndRenderFacts();}
     else toast(d.error||'Error deleting','error');
   }).catch(function(){toast('Network error','error');});
 }

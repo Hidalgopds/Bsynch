@@ -67,6 +67,25 @@ gutter = next(i for i in DB["inventory_items"] if i["name"] == "Gutter")
 check("item with plenty of stock is not on the low list", not any(i["id"] == gutter["id"] for i in get("/api/inventory/low-stock", "Mia").json))
 check("plain worker can't delete items", send("DELETE", "/api/inventory/" + gutter["id"], "Mia", {"editor": "Mia"}).status_code == 403
       and row("inventory_items", gutter["id"]))
+send("POST", "/api/inventory", OWN, {"name": "Old caulk", "category": "Sealant", "qty_on_hand": 0})
+caulk = next(i for i in DB["inventory_items"] if i["name"] == "Old caulk")
+r = send("DELETE", "/api/inventory/" + caulk["id"], "Ivy", {"reason": "discontinued"})
+check("deleting an item archives it, the row stays", r.json.get("archived") and row("inventory_items", caulk["id"])
+      and row("inventory_items", caulk["id"])["archived_by"] == "Ivy" and row("inventory_items", caulk["id"])["archive_reason"] == "discontinued")
+check("archived item leaves the list and the low-stock list",
+      not any(i["id"] == caulk["id"] for i in get("/api/inventory", "Mia").json)
+      and not any(i["id"] == caulk["id"] for i in get("/api/inventory/low-stock", "Mia").json))
+check("archiving is in the audit log", any(a["action"] == "erp.archive" and caulk["id"] in a["target"] and a["actor"] == "Ivy"
+                                           for a in DB["audit_log"]))
+check("only admins see the archive", get("/api/erp/archive/inventory", "Ivy").status_code == 403
+      and any(i["id"] == caulk["id"] for i in get("/api/erp/archive/inventory", OWN).json["items"]))
+check("only admins restore", send("POST", f"/api/erp/archive/inventory/{caulk['id']}/restore", "Ivy").status_code == 403)
+check("admin restores the item", send("POST", f"/api/erp/archive/inventory/{caulk['id']}/restore", OWN).json["ok"]
+      and any(i["id"] == caulk["id"] for i in get("/api/inventory", "Mia").json)
+      and any(a["action"] == "erp.restore" for a in DB["audit_log"]))
+check("restoring something unknown is 404", send("POST", "/api/erp/archive/inventory/nope/restore", OWN).status_code == 404
+      and get("/api/erp/archive/nothing", OWN).status_code == 404)
+check("archiving something that doesn't exist is 404", send("DELETE", "/api/inventory/nope", "Ivy", {}).status_code == 404)
 
 # ── quality issues ──
 check("issue needs unit and title", send("POST", "/api/issues", "Mia", {"unit": "A-101"}).status_code == 400)
@@ -81,7 +100,16 @@ check("add pin needs x and y", send("PATCH", f"/api/issues/{i1}/add-pin", "Mia",
 check("add pin to a missing issue is 404", send("PATCH", "/api/issues/nope/add-pin", "Mia", {"x": 1, "y": 1}).status_code == 404)
 check("add pin appends", len(send("PATCH", f"/api/issues/{i1}/add-pin", "Mia", {"x": 0.3, "y": 0.3}).json["pins"]) == 2)
 r = send("POST", f"/api/issues/{i2}/merge-into/{i1}", "Mia")
-check("merge joins the pins into one issue", r.json["ok"] and len(row("unit_issues", i1)["pins"]) == 3 and row("unit_issues", i2) is None)
+check("merge joins the pins into one issue", r.json["ok"] and len(row("unit_issues", i1)["pins"]) == 3)
+check("merged issue is archived, not deleted", row("unit_issues", i2) and row("unit_issues", i2)["archive_reason"] == "merged into " + i1
+      and not any(x["id"] == i2 for x in get("/api/issues/A-101", "Mia").json))
+check("can't merge an issue into itself", send("POST", f"/api/issues/{i1}/merge-into/{i1}", "Mia").status_code == 400)
+i3 = send("POST", "/api/issues", "Mia", {"unit": "A-101", "title": "Wrong unit"}).json["id"]
+check("plain worker can't archive an issue", send("DELETE", f"/api/issues/{i3}", "Mia").status_code == 403)
+check("lead archives an issue, it stays in the database", crew.delete(f"/api/issues/{i3}").json.get("archived")
+      and row("unit_issues", i3)["archived_by"] == "Crew One")
+check("archived issue leaves both lists", not any(x["id"] == i3 for x in get("/api/issues/A-101", "Mia").json)
+      and not any(x["id"] == i3 for x in get("/api/issues/all", "Mia").json))
 check("status change needs a status", send("PATCH", f"/api/issues/{i1}/status", "Mia", {}).status_code == 400)
 send("PATCH", f"/api/issues/{i1}/status", "Mia", {"status": "Resolved", "resolution": "Panel replaced"})
 check("issue resolved with its note", row("unit_issues", i1)["status"] == "Resolved" and row("unit_issues", i1)["resolution"] == "Panel replaced")
@@ -151,6 +179,12 @@ check("admin delete of a delivered request puts the stock back",
 r = send("POST", "/api/facturas", "Mia", {"numero": " F-9 ", "proveedor": "ACME", "monto": "120.50"})
 check("receipt saved, cleaned, default uploader", r.json["ok"] and r.json["factura"]["numero"] == "F-9" and r.json["factura"]["uploader"] == "Unknown")
 check("receipts listed", [f["numero"] for f in get("/api/facturas", "Mia").json["facturas"]] == ["F-9"])
+fid = r.json["factura"]["id"]
+check("plain worker can't delete a receipt", send("DELETE", "/api/facturas/" + fid, "Mia").status_code == 403)
+check("crew lead can't delete a receipt either", crew.delete("/api/facturas/" + fid).status_code == 403)
+check("admin delete archives the receipt", send("DELETE", "/api/facturas/" + fid, OWN).json.get("archived")
+      and row("facturas", fid) and get("/api/facturas", "Mia").json["facturas"] == [])
+check("no business record was really deleted", not [c for c in CALLS if c[0] == "DELETE" and c[1] in ("unit_issues", "facturas", "inventory_items")])
 
 # ── timesheet hours ──
 DB["checkins"] = [

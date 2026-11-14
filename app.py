@@ -3789,6 +3789,76 @@ def admin_wipe():
 def issues_log_page():
     return render_template("issues_log.html")
 
+
+# ── ERP archive: business records are never deleted, only archived (and can be restored) ──
+# Columns archived_at / archived_by / archive_reason: migrations/erp_archive.sql
+_ERP_ARCHIVE = {  # kind -> (table, roles that may archive; None = inventory editors)
+    "issues": ("unit_issues", _ERP_ADMIN + ("lead",)),
+    "facturas": ("facturas", _ERP_ADMIN),
+    "inventory": ("inventory_items", None),
+}
+
+
+def _erp_live(rows):
+    """Leave archived rows out of a list (works before and after the migration)."""
+    return [r for r in (rows or []) if isinstance(r, dict) and not r.get("archived_at")] if isinstance(rows, list) else rows
+
+
+def _erp_can_archive(kind, who):
+    roles = _ERP_ARCHIVE[kind][1]
+    return bool(who) and (bool(_inventory_editor()) if roles is None else _erp_role(who) in roles)
+
+
+def _erp_archive(kind, rid, reason=""):
+    """Archive one record instead of deleting it. Returns a Flask response."""
+    table = _ERP_ARCHIVE[kind][0]
+    who = _erp_session_user()
+    if not _erp_can_archive(kind, who):
+        return jsonify({"ok": False, "error": "not allowed"}), 403
+    r = requests.patch(f"{sb_url()}/rest/v1/{table}?id=eq.{requests.utils.quote(str(rid))}",
+                       headers={**sb_headers(), "Prefer": "return=representation"},
+                       json={"archived_at": datetime.now(timezone.utc).isoformat(), "archived_by": who,
+                             "archive_reason": (reason or "")[:300] or None})
+    if not r.ok:
+        logger.warning("[erp archive] %s %s: %s", table, rid, r.text[:200])
+        return jsonify({"ok": False, "error": "Could not archive (is migrations/erp_archive.sql applied?)"}), 500
+    if not r.json():
+        return jsonify({"ok": False, "error": "Not found"}), 404
+    _audit("erp.archive", f"{table}:{rid}", {"reason": (reason or "")[:300]}, actor=who)
+    return jsonify({"ok": True, "archived": True})
+
+
+@app.route("/api/erp/archive/<kind>", methods=["GET"])
+def erp_archived_list(kind):
+    """Archived records of one kind, for admins (to look at or restore)."""
+    if kind not in _ERP_ARCHIVE:
+        return jsonify({"ok": False, "error": "unknown"}), 404
+    if _erp_role(_erp_session_user()) not in _ERP_ADMIN:
+        return jsonify({"ok": False, "error": "not allowed"}), 403
+    r = requests.get(f"{sb_url()}/rest/v1/{_ERP_ARCHIVE[kind][0]}?archived_at=not.is.null&order=archived_at.desc&limit=500",
+                     headers=sb_headers())
+    return jsonify({"ok": r.ok, "items": r.json() if r.ok else []})
+
+
+@app.route("/api/erp/archive/<kind>/<rid>/restore", methods=["POST"])
+def erp_restore(kind, rid):
+    """Bring an archived record back (admins only)."""
+    if kind not in _ERP_ARCHIVE:
+        return jsonify({"ok": False, "error": "unknown"}), 404
+    who = _erp_session_user()
+    if _erp_role(who) not in _ERP_ADMIN:
+        return jsonify({"ok": False, "error": "not allowed"}), 403
+    table = _ERP_ARCHIVE[kind][0]
+    r = requests.patch(f"{sb_url()}/rest/v1/{table}?id=eq.{requests.utils.quote(str(rid))}",
+                       headers={**sb_headers(), "Prefer": "return=representation"},
+                       json={"archived_at": None, "archived_by": None, "archive_reason": None})
+    if not r.ok:
+        return jsonify({"ok": False, "error": "Could not restore"}), 500
+    if not r.json():
+        return jsonify({"ok": False, "error": "Not found"}), 404
+    _audit("erp.restore", f"{table}:{rid}", actor=who)
+    return jsonify({"ok": True})
+
 @app.route("/api/issues/all", methods=["GET"])
 def get_all_issues():
     """All issues across all units, newest first."""
@@ -3800,7 +3870,7 @@ def get_all_issues():
     if status_filter:
         qs += f"&status=eq.{requests.utils.quote(status_filter)}"
     resp = requests.get(qs, headers=sb_headers())
-    return jsonify(resp.json() if resp.ok else [])
+    return jsonify(_erp_live(resp.json()) if resp.ok else [])
 
 @app.route("/api/issues/<issue_id>/status", methods=["PATCH"])
 def update_issue_status(issue_id):
@@ -3837,17 +3907,16 @@ def edit_issue(issue_id):
 
 @app.route("/api/issues/<issue_id>", methods=["DELETE"])
 def delete_issue(issue_id):
-    resp = requests.delete(
-        f"{sb_url()}/rest/v1/unit_issues?id=eq.{issue_id}",
-        headers=sb_headers()
-    )
-    return jsonify({"ok": resp.ok, "error": resp.text if not resp.ok else None})
+    """Archives the issue (never deleted); leads and admins only."""
+    return _erp_archive("issues", issue_id, (request.get_json(silent=True) or {}).get("reason", ""))
 
 
 @app.route("/api/issues/<source_id>/merge-into/<target_id>", methods=["POST"])
 def merge_issues(source_id, target_id):
-    """Combine source issue's pins into target, then delete source."""
+    """Combine source issue's pins into target, then archive the source (kept, marked as merged)."""
     h = sb_headers()
+    if source_id == target_id:
+        return jsonify({"ok": False, "error": "Pick two different issues"}), 400
     # Fetch both issues
     r_src = requests.get(f"{sb_url()}/rest/v1/unit_issues?id=eq.{source_id}&select=id,pins,pin_x,pin_y,drawing_type", headers=h)
     r_tgt = requests.get(f"{sb_url()}/rest/v1/unit_issues?id=eq.{target_id}&select=id,pins,pin_x,pin_y,drawing_type", headers=h)
@@ -3865,6 +3934,13 @@ def merge_issues(source_id, target_id):
         return []
 
     combined = issue_pins(tgt) + issue_pins(src)
+    # Archive the source first: if that can't be done, nothing changes
+    who = _erp_session_user()
+    ra = requests.patch(f"{sb_url()}/rest/v1/unit_issues?id=eq.{source_id}", headers=h,
+                        json={"archived_at": datetime.now(timezone.utc).isoformat(), "archived_by": who,
+                              "archive_reason": f"merged into {target_id}"})
+    if not ra.ok:
+        return jsonify({"ok": False, "error": "Could not archive (is migrations/erp_archive.sql applied?)"}), 500
     # Update target with combined pins
     r2 = requests.patch(
         f"{sb_url()}/rest/v1/unit_issues?id=eq.{target_id}",
@@ -3873,8 +3949,7 @@ def merge_issues(source_id, target_id):
     )
     if not r2.ok:
         return jsonify({"ok": False, "error": r2.text}), 500
-    # Delete source
-    requests.delete(f"{sb_url()}/rest/v1/unit_issues?id=eq.{source_id}", headers=h)
+    _audit("erp.archive", f"unit_issues:{source_id}", {"reason": f"merged into {target_id}"}, actor=who)
     return jsonify({"ok": True, "pins": combined})
 
 @app.route("/issues/<unit>")
@@ -3888,7 +3963,7 @@ def get_issues(unit):
         f"?unit=eq.{unit}&order=created_at.desc&limit=100",
         headers=sb_headers()
     )
-    return jsonify(resp.json() if resp.ok else [])
+    return jsonify(_erp_live(resp.json()) if resp.ok else [])
 
 @app.route("/api/issues", methods=["POST"])
 def create_issue():
@@ -4534,7 +4609,7 @@ def gen_sku(category, item_id):
 def get_inventory():
     url = f"{sb_url()}/rest/v1/inventory_items?select=*&order=category.asc,name.asc&limit=500"
     r = requests.get(url, headers=sb_headers())
-    return jsonify(r.json() if r.ok else [])
+    return jsonify(_erp_live(r.json()) if r.ok else [])
 
 @app.route("/api/inventory", methods=["POST"])
 def add_inventory_item():
@@ -4635,7 +4710,7 @@ def get_low_stock():
         if q <= 0:          return True   # Out of stock
         if s > 0: return q <= s           # Alert: below safe qty
         return q < 10                     # Low fallback (no safe qty set)
-    items = [it for it in r.json() if _needs_attention(it)]
+    items = [it for it in _erp_live(r.json()) if _needs_attention(it)]
     if not items:
         return jsonify([])
     # Fetch most recent material_request per item (by item_id or item_name fallback)
@@ -4704,7 +4779,7 @@ def email_low_stock():
         if q <= 0: return True
         if s > 0: return q <= s
         return q < 10
-    all_items = [it for it in r.json() if _alert(it)]
+    all_items = [it for it in _erp_live(r.json()) if _alert(it)]
     # Optional: filter to only selected item_ids sent from frontend
     body = request.get_json(silent=True) or {}
     sel_ids = body.get("item_ids")
@@ -4772,7 +4847,7 @@ def list_facturas():
     r = requests.get(url, headers=sb_headers())
     if not r.ok:
         return jsonify({"ok": False, "facturas": [], "error": r.text}), 500
-    return jsonify({"ok": True, "facturas": r.json()})
+    return jsonify({"ok": True, "facturas": _erp_live(r.json())})
 
 
 @app.route("/api/facturas", methods=["POST"])
@@ -4800,14 +4875,8 @@ def create_factura():
 
 @app.route("/api/facturas/<factura_id>", methods=["DELETE"])
 def delete_factura(factura_id):
-    r = requests.delete(
-        f"{sb_url()}/rest/v1/facturas?id=eq.{factura_id}",
-        headers=sb_headers(),
-        timeout=10
-    )
-    if r.ok:
-        return jsonify({"ok": True})
-    return jsonify({"error": r.text}), 400
+    """Archives the receipt (never deleted); admins only."""
+    return _erp_archive("facturas", factura_id, (request.get_json(silent=True) or {}).get("reason", ""))
 
 # ══════════════════════════════════════════════════════════════════
 #  PURCHASE ORDERS  (Albaranes / Receiving)
@@ -5089,11 +5158,12 @@ def allocate_po(po_id):
 @app.route("/api/inventory/locations", methods=["GET"])
 def get_inventory_locations():
     """Return items grouped by location_code."""
-    url = f"{sb_url()}/rest/v1/inventory_items?select=id,name,category,sku,location_code,qty_on_hand,unit&order=location_code.asc,name.asc&limit=500"
+    url = f"{sb_url()}/rest/v1/inventory_items?select=*&order=location_code.asc,name.asc&limit=500"
     r = requests.get(url, headers=sb_headers())
     if not r.ok:
         return jsonify([])
-    items = r.json()
+    items = [{k: it.get(k) for k in ("id", "name", "category", "sku", "location_code", "qty_on_hand", "unit")}
+             for it in _erp_live(r.json())]
     groups = {}
     unassigned = []
     for it in items:
@@ -5120,11 +5190,11 @@ def inventory_locations_qr_pdf():
     from reportlab.lib.utils import ImageReader
 
     # Fetch distinct locations
-    url = f"{sb_url()}/rest/v1/inventory_items?select=location_code&not.location_code.is=null&order=location_code.asc&limit=500"
+    url = f"{sb_url()}/rest/v1/inventory_items?select=*&not.location_code.is=null&order=location_code.asc&limit=500"
     r = requests.get(url, headers=sb_headers())
     if not r.ok:
         return "Error fetching locations", 500
-    rows = r.json()
+    rows = _erp_live(r.json())
     locs = sorted(set((row.get("location_code") or "").strip() for row in rows if (row.get("location_code") or "").strip()))
     if not locs:
         return "No locations assigned yet", 404
@@ -5224,13 +5294,10 @@ def sku_backfill():
 
 @app.route("/api/inventory/<item_id>", methods=["DELETE"])
 def delete_inventory_item(item_id):
+    """Archives the item (never deleted); inventory editors only."""
     if not _inventory_editor():
         return jsonify({"error": "Editor access required"}), 403
-    url = f"{sb_url()}/rest/v1/inventory_items?id=eq.{item_id}"
-    r = requests.delete(url, headers=sb_headers())
-    if r.ok:
-        return jsonify({"ok": True})
-    return jsonify({"error": r.text}), 400
+    return _erp_archive("inventory", item_id, (request.get_json(silent=True) or {}).get("reason", ""))
 
 # ── Material Documents (stock movement log) ─────────────────────────────────
 def write_mat_doc(mvt_type, item_id, item_name, qty, **kw):
