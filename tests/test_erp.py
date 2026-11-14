@@ -171,9 +171,46 @@ send("POST", f"/api/material-requests/{mr2['id']}/deliver", "Ivy", {"delivered_b
 check("delivery recorded under the signed-in name", row("material_requests", mr2["id"])["delivered_by"] == "Ivy")
 check("plain worker can't delete a request", send("DELETE", f"/api/material-requests/{mr['id']}", "Mia", {}).status_code == 403
       and row("material_requests", mr["id"]))
+check("inventory clerk can't delete a request", send("DELETE", f"/api/material-requests/{mr['id']}", "Ivy", {}).status_code == 403)
 r = send("DELETE", f"/api/material-requests/{mr['id']}", OWN, {})
 check("admin delete of a delivered request puts the stock back",
       r.json.get("ok") and r.json["qty_restored"] == 6 and row("inventory_items", screw["id"])["qty_on_hand"] == 40)
+check("the request is archived, not deleted", row("material_requests", mr["id"]) and row("material_requests", mr["id"])["archived_by"] == "Owner"
+      and row("material_requests", mr["id"])["stock_returned"] is True
+      and not any(m["id"] == mr["id"] for m in get("/api/material-requests", "Mia").json))
+check("returned stock is written as a goods receipt", any(d["mvt_type"] == "GR" and d["qty"] == 6 and "archived" in (d.get("notes") or "")
+                                                          for d in DB["material_documents"]))
+r = send("DELETE", f"/api/material-requests/{mr['id']}", OWN, {})
+check("archiving twice is refused and gives nothing back twice", r.status_code == 409 and row("inventory_items", screw["id"])["qty_on_hand"] == 40)
+r = send("POST", f"/api/erp/archive/material-requests/{mr['id']}/restore", OWN)
+check("restoring a delivered request takes the stock out again", r.json["ok"] and r.json["stock_taken_again"]
+      and row("inventory_items", screw["id"])["qty_on_hand"] == 34 and row("material_requests", mr["id"])["stock_returned"] is False)
+check("restoring twice does nothing more", send("POST", f"/api/erp/archive/material-requests/{mr['id']}/restore", OWN).status_code == 404
+      and row("inventory_items", screw["id"])["qty_on_hand"] == 34)
+send("POST", "/api/material-requests", "Mia", {"requester_name": "Mia", "item_name": "Tek screw", "item_id": screw["id"], "qty_needed": 2})
+mr3 = [m for m in DB["material_requests"] if m["item_name"] == "Tek screw" and m["status"] == "Pending"][0]
+r = send("DELETE", f"/api/material-requests/{mr3['id']}", OWN, {})
+check("archiving an undelivered request leaves stock alone", r.json["ok"] and r.json["qty_restored"] == 0
+      and row("inventory_items", screw["id"])["qty_on_hand"] == 34)
+check("an archived request can't be delivered", send("POST", f"/api/material-requests/{mr3['id']}/deliver", "Ivy", {"delivered_by": "Ivy"}).status_code == 409
+      and row("inventory_items", screw["id"])["qty_on_hand"] == 34)
+check("archived requests left out of the export", not any(m["id"] == mr3["id"] for m in get("/api/material-requests/export", "Mia").json))
+
+# ── suppliers, project units and unit materials are archived too ──
+DB["suppliers"] = [{"id": "s1", "name": "ACME Supply"}]
+DB["project_units"] = [{"id": "u1", "unit_name": "A-101", "status": "active", "created_at": "2026-01-01"}]
+DB["unit_materials"] = [{"id": "m1", "unit": "A-101", "material": "Gutter", "date": "2026-11-01", "created_at": "2026-11-01"}]
+check("plain worker can't archive a supplier", send("DELETE", "/api/suppliers/s1", "Mia").status_code == 403)
+check("inventory clerk archives a supplier", send("DELETE", "/api/suppliers/s1", "Ivy").json.get("archived")
+      and row("suppliers", "s1") and get("/api/suppliers", "Mia").json["suppliers"] == [])
+check("inventory clerk can't archive a project unit", send("DELETE", "/api/project-units/u1", "Ivy").status_code == 403)
+check("admin archives a project unit", send("DELETE", "/api/project-units/u1", OWN).json.get("archived")
+      and row("project_units", "u1") and get("/api/project-units", "Mia").json == [])
+check("plain worker can't archive a unit material", send("DELETE", "/api/unit-materials/m1", "Mia").status_code == 403)
+check("inventory clerk archives a unit material", send("DELETE", "/api/unit-materials/m1", "Ivy").json.get("archived")
+      and row("unit_materials", "m1") and get("/api/unit-materials/A-101", "Mia").json == [])
+check("admin restores a supplier", send("POST", "/api/erp/archive/suppliers/s1/restore", OWN).json["ok"]
+      and [s["name"] for s in get("/api/suppliers", "Mia").json["suppliers"]] == ["ACME Supply"])
 
 # ── supplier receipts (facturas) ──
 r = send("POST", "/api/facturas", "Mia", {"numero": " F-9 ", "proveedor": "ACME", "monto": "120.50"})
@@ -184,7 +221,8 @@ check("plain worker can't delete a receipt", send("DELETE", "/api/facturas/" + f
 check("crew lead can't delete a receipt either", crew.delete("/api/facturas/" + fid).status_code == 403)
 check("admin delete archives the receipt", send("DELETE", "/api/facturas/" + fid, OWN).json.get("archived")
       and row("facturas", fid) and get("/api/facturas", "Mia").json["facturas"] == [])
-check("no business record was really deleted", not [c for c in CALLS if c[0] == "DELETE" and c[1] in ("unit_issues", "facturas", "inventory_items")])
+check("no business record was really deleted", not [c for c in CALLS if c[0] == "DELETE" and c[1] in (
+    "unit_issues", "facturas", "inventory_items", "suppliers", "project_units", "unit_materials", "material_requests")])
 
 # ── timesheet hours ──
 DB["checkins"] = [

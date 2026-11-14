@@ -1928,14 +1928,14 @@ function renderReqCard(req){
 }
 
 function deleteReq(id,status){
-  var msg='Delete this request? This cannot be undone.';
-  if(status==='Delivered')msg='Delete this DELIVERED request? Inventory quantities will be restored.';
+  var msg='Archive this request? An admin can restore it.';
+  if(status==='Delivered')msg='Archive this DELIVERED request? Inventory quantities will be restored.';
   if(!confirm(msg))return;
   fetch('/api/material-requests/'+id,{method:'DELETE',headers:{'X-Role':_ROLE}})
     .then(function(r){return r.json();})
     .then(function(d){
       if(d.ok){
-        var msg=d.inventory_restored?'Request deleted · '+d.qty_restored+' units restored to inventory':'Request deleted';
+        var msg=d.inventory_restored?'Request archived · '+d.qty_restored+' units restored to inventory':'Request archived';
         toast(msg,'success');
         loadAndRenderInbox();
         if(d.inventory_restored){loadInv();setTimeout(loadLowStock,1200);}
@@ -2830,9 +2830,9 @@ function saveSupplier(){
   }).catch(function(e){if(errEl){errEl.textContent='⚠ '+e.message;errEl.style.display='block';}});
 }
 function deleteSupplier(id){
-  if(!confirm('Delete this supplier?'))return;
+  if(!confirm('Archive this supplier? An admin can restore it.'))return;
   fetch('/api/suppliers/'+id,{method:'DELETE'}).then(function(r){return r.json();}).then(function(d){
-    if(d.ok){toast('Supplier removed');loadSuppliers();}else toast(d.error||'Error','error');
+    if(d.ok){toast('Supplier archived');loadSuppliers();}else toast(d.error||'Error','error');
   });
 }
 
@@ -4041,7 +4041,7 @@ async function doReopenUnit(id){
 function reopenUnit(){if(umCurrentUnitId)doReopenUnit(umCurrentUnitId);}
 
 async function doDeleteUnit(id,name){
-  if(!confirm('Delete unit "'+name+'"? This will NOT delete its materials records.'))return;
+  if(!confirm('Archive unit "'+name+'"? Its material records are kept, and an admin can restore it.'))return;
   try{
     var r=await fetch('/api/project-units/'+id,{method:'DELETE'});
     var d=await r.json();
@@ -4053,7 +4053,7 @@ async function doDeleteUnit(id,name){
         document.getElementById('umSelectPrompt').style.display='';
       }
       renderUnitBar();
-    }
+    }else{toast(d.error||'Error','error');}
   }catch(e){toast('Network error.','error');}
 }
 
@@ -4156,11 +4156,11 @@ async function saveMaterial(){
 }
 
 async function deleteMaterial(id){
-  if(!confirm('Delete this material record?'))return;
+  if(!confirm('Archive this material record? An admin can restore it.'))return;
   try{
     var r=await fetch('/api/unit-materials/'+id,{method:'DELETE'});
     var d=await r.json();
-    if(d.ok)loadUMTable(umCurrentUnit.unit_name);
+    if(d.ok)loadUMTable(umCurrentUnit.unit_name);else toast(d.error||'Error','error');
   }catch(e){toast('Network error.','error');}
 }
 
