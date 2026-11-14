@@ -1,6 +1,6 @@
 # Ficha: Settings (lo común de toda la plataforma)
 
-**Esta conversación ve y maneja todo.** Es la dueña de lo que comparten las secciones, revisa lo que piden las demás y es la única que cambia las reglas de `CLAUDE.md`.
+**Esta conversación es la de BSynch como plataforma** (lo que se vende como SaaS) y además de la pantalla Settings. **Ve y maneja todo.** Es la dueña de lo que comparten las secciones, revisa lo que piden las demás y es la única que cambia las reglas de `CLAUDE.md`.
 
 ## Qué le pertenece
 - Inicio de sesión y sesiones: `/login`, `/api/login`, `/api/logout`, `/api/auth/*` (2FA TOTP), `/register`, `/api/register`, `/api/forgot-password`, `/api/reset-password`, `/api/session-version`.

@@ -2,10 +2,24 @@
 
 Léelo completo antes de tocar nada. Después lee la ficha de tu sección en `docs/areas/`.
 
-## Cómo hablar con el dueño
-- Responde **en español**, simple y corto. Él escribe rápido, desde el teléfono y a veces con errores: entiende la intención.
-- Nada de jerga técnica sin explicarla. Di qué cambió, cómo se ve en la app y qué tiene que hacer él (si algo).
-- Si una decisión es suya (precio, diseño, borrar datos), pregunta. Si es técnica y obvia, decide y avisa.
+## Cómo hablar con quien te escribe
+- Te puede escribir el dueño o la persona que él puso a llevar la app. Trata a los dos igual: puede que no sean técnicos.
+- Responde **en español**, simple y corto. Escriben rápido, desde el teléfono y a veces con errores: entiende la intención.
+- Nada de jerga técnica sin explicarla. Di qué cambió, cómo se ve en la app y qué tiene que hacer la persona (si algo).
+- Si una decisión es del dueño (precio, diseño, borrar datos), pregunta. Si es técnica y obvia, decide y avisa.
+
+## ¿Estás en la conversación correcta? (revisa esto en CADA pedido)
+Cada conversación es dueña de una sola sección (tabla de abajo). Antes de hacer algo, mira a qué sección pertenece el pedido:
+- **Es de tu sección:** hazlo.
+- **Es de otra sección:** no lo hagas. Responde primero con este aviso y espera:
+  > ⚠️ **Ojo: estás en la conversación de _<tu sección>_.** Esto que pides es de **_<la otra sección>_**. Mejor pásalo a esa conversación para no pisar el trabajo de la otra. Si quieres, te dejo el pedido escrito para que lo copies y lo pegues allá.
+
+  Y deja el pedido redactado, listo para copiar y pegar.
+- **Toca dos secciones o algo común** (login, roles, empresas, cobros, seguridad, este manual): eso es de **Settings**. Si no estás en Settings, avisa igual y manda a Settings.
+- **No sabes de cuál es:** pregunta antes de tocar nada.
+- Si la persona insiste en que lo hagas aquí, hazlo solo si es pequeño y no toca archivos de otra sección. Anota en la ficha de la otra sección qué cambiaste.
+
+Pistas rápidas: cuadrillas, PIN, check-in, timesheets, inventario o compras = **ERP** · proyectos, órdenes de trabajo, clientes, estimados, facturas, gastos = **Contractor** · campañas, leads, página de ventas = **Marketing** · niños, checklist, juegos, Hermaniland = **Home Lab** · usuarios, roles, empresas, login, seguridad, la pantalla de inicio `/home`, la pantalla Settings, cobros/Stripe, despliegue = **Settings**.
 
 ## Qué es BSynch
 Una app web (Flask, un solo archivo grande `app.py` + `templates/` + `static/`) con 5 secciones, las mismas tarjetas de `/home`:
@@ -16,9 +30,9 @@ Una app web (Flask, un solo archivo grande `app.py` + `templates/` + `static/`) 
 | Contractor | Contratistas (Hicons, Bsynch): proyectos, órdenes de trabajo, clientes, estimados, facturas | `docs/areas/contractor.md` |
 | Marketing | Campañas y leads. Hoy vacía ("coming soon") | `docs/areas/marketing.md` |
 | Home Lab (Family Hub) | Familia: checklist de niños, juegos, Hermaniland | `docs/areas/homelab.md` |
-| Settings | **Todo lo común**: login, usuarios y roles, empresas, seguridad, legal, pruebas, despliegue, cobros | `docs/areas/settings.md` |
+| Settings | **BSynch como plataforma** y la pantalla Settings: login, usuarios y roles, empresas, seguridad, legal, pruebas, despliegue, cobros, venta como SaaS | `docs/areas/settings.md` |
 
-**Settings manda sobre lo común.** Las demás secciones no cambian login, sesiones, roles, cabeceras de seguridad, `_audit`, límites de intentos, `sb_url()/sb_headers()`, migraciones de tablas compartidas ni este archivo. Si lo necesitan, lo dicen y lo hace la conversación de Settings.
+**Settings es la conversación de BSynch como un todo**, no solo de la tarjeta Settings: coordina a las demás secciones, decide lo que es de toda la app y además maneja la pantalla Settings. **Settings manda sobre lo común.** Las demás secciones no cambian login, sesiones, roles, cabeceras de seguridad, `_audit`, límites de intentos, `sb_url()/sb_headers()`, migraciones de tablas compartidas ni este archivo. Si lo necesitan, lo dicen y lo hace la conversación de Settings.
 
 ## Dónde corre
 - Servidor: **Render**, se despliega solo desde la rama `main` de GitHub (`Hidalgopds/Bsynch`). Gunicorn 1 worker, 4 hilos.
