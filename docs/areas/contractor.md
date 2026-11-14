@@ -39,3 +39,4 @@ App para empresas contratistas (hoy **Hicons** y **Bsynch**). Se instala en el t
 - Nada de facturas, órdenes, fotos o recibos se borra solo. Borrar es siempre una acción manual del usuario con permiso.
 - Colores con contraste AA (teal `#0f766e`).
 - El enlace de acceso (`/login`) en el correo de cuenta aprobada sigue en el host actual: el login es de Settings.
+- Textos de ayuda y placeholders sin nombres de empresas reales (las ven todas las empresas nuevas).
