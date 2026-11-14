@@ -414,6 +414,19 @@ def marketing_hub():
         return redirect("/home")
     return render_template("marketing-hub.html")
 
+# ── Marketing: public sales landing (EN/ES) ──
+MARKETING_LANGS = ("en", "es")
+
+@app.route("/marketing")
+def marketing_landing():
+    """Public page that sells BSynch to contractors. ?lang=en|es, else the browser's language."""
+    lang = (request.args.get("lang") or "").lower()
+    if lang not in MARKETING_LANGS:
+        lang = request.accept_languages.best_match(MARKETING_LANGS) or "en"
+    resp = Response(render_template("marketing-landing.html", lang=lang, contact=LEGAL_CONTACT), mimetype="text/html")
+    resp.headers["Vary"] = "Accept-Language"
+    return resp
+
 @app.route("/homelab-hub")
 def homelab_hub():
     g = _hl_page_guard()

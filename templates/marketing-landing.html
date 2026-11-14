@@ -1,0 +1,269 @@
+{%- set T = {
+  "en": {
+    "title": "BSynch: run your contracting business from one app",
+    "desc": "Work orders, crews, timesheets, estimates and invoices for contractors, in English and Spanish.",
+    "nav_features": "Features", "nav_how": "How it works", "nav_pricing": "Pricing", "signin": "Sign in",
+    "hero_tag": "Built for contractors and field crews",
+    "hero_h": "Your jobs, your crews and your invoices. All in one place.",
+    "hero_p": "BSynch replaces the paper, the group chats and the spreadsheets. Your office sees what happens on site in real time, and your crews only need a phone.",
+    "cta_demo": "Request a demo", "cta_signin": "I already have an account",
+    "hero_note": "English and Spanish for every user. Works on any phone, no app store needed.",
+    "feat_h": "Everything a contracting company needs",
+    "feat_p": "From the first estimate to the last invoice, without switching tools.",
+    "f": [
+      ["Work orders", "Create jobs, assign crews, attach photos and track every status change."],
+      ["Crew check-in", "Workers clock in on site with a personal PIN. You see who is where, and when."],
+      ["Timesheets", "Hours are calculated automatically and ready for payroll, no retyping."],
+      ["Estimates and invoices", "Send professional estimates, let clients approve them online and turn them into invoices."],
+      ["Clients and projects", "Every client, contact, project and document organized and easy to find."],
+      ["Inventory and purchase orders", "Know what material you have, what you ordered and where it went."]
+    ],
+    "how_h": "How it works",
+    "how": [
+      ["Set up your company", "We create your company space with your logo and your own web address."],
+      ["Add your team", "Office staff get a login. Crews get a PIN, nothing to install."],
+      ["Work from day one", "Create your first work order and watch it move from estimate to invoice."]
+    ],
+    "trust_h": "Your data is safe",
+    "trust": [
+      "Each company only sees its own information.",
+      "Personal logins and roles: managers, leaders and crews see different things.",
+      "Every important change is recorded: who did it and when.",
+      "Encrypted connections (HTTPS) on every page."
+    ],
+    "price_h": "Pricing",
+    "price_p": "Simple monthly plans per company. We are finishing the price list.",
+    "price_cta": "Ask for pricing",
+    "final_h": "Ready to leave the paper behind?",
+    "final_p": "Tell us about your company and we will show you BSynch with your own jobs.",
+    "mail_subject": "BSynch demo request",
+    "footer_legal": "Terms and privacy",
+    "lang_label": "Language"
+  },
+  "es": {
+    "title": "BSynch: maneja tu empresa de construcción desde una sola app",
+    "desc": "Órdenes de trabajo, cuadrillas, horas, estimados y facturas para contratistas, en inglés y español.",
+    "nav_features": "Funciones", "nav_how": "Cómo funciona", "nav_pricing": "Precios", "signin": "Entrar",
+    "hero_tag": "Hecho para contratistas y cuadrillas de campo",
+    "hero_h": "Tus trabajos, tus cuadrillas y tus facturas. Todo en un solo lugar.",
+    "hero_p": "BSynch reemplaza el papel, los grupos de chat y las hojas de Excel. Tu oficina ve lo que pasa en la obra al momento, y tus cuadrillas solo necesitan un teléfono.",
+    "cta_demo": "Pide una demostración", "cta_signin": "Ya tengo cuenta",
+    "hero_note": "Inglés y español para cada usuario. Funciona en cualquier teléfono, sin descargar nada.",
+    "feat_h": "Todo lo que necesita una empresa contratista",
+    "feat_p": "Desde el primer estimado hasta la última factura, sin cambiar de herramienta.",
+    "f": [
+      ["Órdenes de trabajo", "Crea trabajos, asigna cuadrillas, sube fotos y sigue cada cambio de estado."],
+      ["Check-in de cuadrillas", "Los trabajadores marcan entrada en la obra con su PIN personal. Sabes quién está dónde y a qué hora."],
+      ["Horas trabajadas", "Las horas se calculan solas y quedan listas para la nómina, sin volver a escribir nada."],
+      ["Estimados y facturas", "Manda estimados profesionales, deja que el cliente los apruebe en línea y conviértelos en facturas."],
+      ["Clientes y proyectos", "Cada cliente, contacto, proyecto y documento ordenado y fácil de encontrar."],
+      ["Inventario y órdenes de compra", "Sabes qué material tienes, qué pediste y a dónde se fue."]
+    ],
+    "how_h": "Cómo funciona",
+    "how": [
+      ["Creamos tu empresa", "Preparamos el espacio de tu empresa con tu logo y tu propia dirección web."],
+      ["Agregas a tu equipo", "La oficina entra con usuario y contraseña. Las cuadrillas con un PIN, sin instalar nada."],
+      ["Trabajas desde el primer día", "Crea tu primera orden de trabajo y mírala pasar de estimado a factura."]
+    ],
+    "trust_h": "Tus datos están seguros",
+    "trust": [
+      "Cada empresa ve solo su propia información.",
+      "Usuarios personales y roles: gerentes, líderes y cuadrillas ven cosas distintas.",
+      "Cada cambio importante queda registrado: quién lo hizo y cuándo.",
+      "Conexiones cifradas (HTTPS) en cada página."
+    ],
+    "price_h": "Precios",
+    "price_p": "Planes mensuales simples por empresa. Estamos terminando la lista de precios.",
+    "price_cta": "Pregunta por precios",
+    "final_h": "¿Listo para dejar el papel?",
+    "final_p": "Cuéntanos de tu empresa y te mostramos BSynch con tus propios trabajos.",
+    "mail_subject": "Solicitud de demostración BSynch",
+    "footer_legal": "Términos y privacidad",
+    "lang_label": "Idioma"
+  }
+} -%}
+{%- set t = T[lang] -%}
+{%- set mail = "mailto:" ~ contact ~ "?subject=" ~ (t.mail_subject | urlencode) -%}
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ t.title }}</title>
+<meta name="description" content="{{ t.desc }}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="BSynch">
+<meta property="og:title" content="{{ t.title }}">
+<meta property="og:description" content="{{ t.desc }}">
+<link rel="alternate" hreflang="en" href="/marketing?lang=en">
+<link rel="alternate" hreflang="es" href="/marketing?lang=es">
+<link rel="icon" href="/static/img/bsynch-logo.png">
+<style>
+:root{--teal:#0f766e;--teal-dk:#115e59;--ink:#0f172a;--gray:#566275;--line:#e2e8f0;--soft:#f1f5f9;--bg:#ffffff}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:var(--teal)}
+.wrap{max-width:1080px;margin:0 auto;padding:0 16px}
+:focus-visible{outline:3px solid #f59e0b;outline-offset:2px}
+.skip{position:absolute;left:-999px;top:8px;background:#fff;padding:8px 12px;border-radius:6px;z-index:10}
+.skip:focus{left:8px}
+
+/* header */
+header{position:sticky;top:0;background:rgba(255,255,255,.95);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);z-index:5}
+.hdr{display:flex;align-items:center;gap:16px;height:60px}
+.brand{display:flex;align-items:center;gap:9px;text-decoration:none;color:var(--ink);font-weight:800;font-size:18px}
+.brand img{width:30px;height:30px;border-radius:7px;object-fit:contain}
+nav.links{display:flex;gap:20px;margin-left:12px}
+nav.links a{color:var(--gray);text-decoration:none;font-size:14px;font-weight:600}
+nav.links a:hover{color:var(--teal)}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.lang{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.lang a{padding:5px 10px;font-size:13px;font-weight:700;color:var(--gray);text-decoration:none}
+.lang a[aria-current="true"]{background:var(--teal);color:#fff}
+.btn{display:inline-block;padding:11px 20px;border-radius:10px;font-weight:700;font-size:15px;text-decoration:none;border:2px solid var(--teal);transition:background .15s,color .15s}
+.btn-primary{background:var(--teal);color:#fff}
+.btn-primary:hover{background:var(--teal-dk);border-color:var(--teal-dk)}
+.btn-ghost{background:#fff;color:var(--teal)}
+.btn-ghost:hover{background:var(--soft)}
+.btn-sm{padding:6px 14px;font-size:13px;border-radius:8px}
+
+/* hero */
+.hero{padding:64px 0 56px;background:linear-gradient(180deg,#f0fdfa 0%,#fff 100%)}
+.tag{display:inline-block;background:#ccfbf1;color:var(--teal-dk);font-size:13px;font-weight:700;padding:5px 12px;border-radius:999px;margin-bottom:18px}
+.hero h1{font-size:clamp(30px,5vw,50px);line-height:1.12;letter-spacing:-.02em;max-width:760px}
+.hero p.lead{font-size:clamp(16px,2vw,19px);color:var(--gray);max-width:640px;margin-top:18px}
+.cta-row{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}
+.note{font-size:13px;color:var(--gray);margin-top:16px}
+
+section{padding:64px 0}
+section.alt{background:var(--soft)}
+h2{font-size:clamp(24px,3.4vw,34px);letter-spacing:-.01em}
+.sub{color:var(--gray);margin-top:8px;font-size:16px;max-width:620px}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-top:32px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px}
+.card .ico{width:40px;height:40px;border-radius:10px;background:#ccfbf1;color:var(--teal-dk);display:flex;align-items:center;justify-content:center;font-weight:800;margin-bottom:12px}
+.card h3{font-size:17px;margin-bottom:6px}
+.card p{color:var(--gray);font-size:15px}
+
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;margin-top:32px;counter-reset:s;list-style:none}
+.steps li{counter-increment:s;position:relative;padding-left:52px}
+.steps li::before{content:counter(s);position:absolute;left:0;top:0;width:38px;height:38px;border-radius:50%;background:var(--teal);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center}
+.steps h3{font-size:17px;margin-bottom:4px}
+.steps p{color:var(--gray);font-size:15px}
+
+.trust{list-style:none;margin-top:24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.trust li{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px 14px 44px;position:relative;font-size:15px}
+.trust li::before{content:"";position:absolute;left:16px;top:18px;width:14px;height:8px;border-left:3px solid var(--teal);border-bottom:3px solid var(--teal);transform:rotate(-45deg)}
+
+.price{margin-top:28px;background:#fff;border:2px solid var(--teal);border-radius:16px;padding:28px;max-width:520px}
+.price p{color:var(--gray);margin-bottom:18px}
+
+.final{text-align:center;background:var(--ink);color:#fff}
+.final .sub{color:#cbd5e1;margin:10px auto 26px}
+.final .btn-primary{border-color:#fff}
+
+footer{border-top:1px solid var(--line);padding:24px 0;font-size:13px;color:var(--gray)}
+.foot{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
+
+@media (max-width:720px){
+  nav.links{display:none}
+  .hero{padding:44px 0 40px}
+  section{padding:48px 0}
+  .cta-row .btn{flex:1 1 100%;text-align:center}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">{{ "Skip to content" if lang == "en" else "Saltar al contenido" }}</a>
+
+<header>
+  <div class="wrap hdr">
+    <a class="brand" href="/marketing?lang={{ lang }}"><img src="/static/img/bsynch-logo.png" alt="">BSynch</a>
+    <nav class="links" aria-label="{{ t.nav_features }}">
+      <a href="#features">{{ t.nav_features }}</a>
+      <a href="#how">{{ t.nav_how }}</a>
+      <a href="#pricing">{{ t.nav_pricing }}</a>
+    </nav>
+    <div class="hdr-right">
+      <div class="lang" role="group" aria-label="{{ t.lang_label }}">
+        <a href="/marketing?lang=en" hreflang="en" lang="en" aria-current="{{ 'true' if lang == 'en' else 'false' }}">EN</a>
+        <a href="/marketing?lang=es" hreflang="es" lang="es" aria-current="{{ 'true' if lang == 'es' else 'false' }}">ES</a>
+      </div>
+      <a class="btn btn-ghost btn-sm" href="/login">{{ t.signin }}</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <div class="hero">
+    <div class="wrap">
+      <span class="tag">{{ t.hero_tag }}</span>
+      <h1>{{ t.hero_h }}</h1>
+      <p class="lead">{{ t.hero_p }}</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="{{ mail }}" data-cta="demo-hero">{{ t.cta_demo }}</a>
+        <a class="btn btn-ghost" href="/login">{{ t.cta_signin }}</a>
+      </div>
+      <p class="note">{{ t.hero_note }}</p>
+    </div>
+  </div>
+
+  <section id="features">
+    <div class="wrap">
+      <h2>{{ t.feat_h }}</h2>
+      <p class="sub">{{ t.feat_p }}</p>
+      <div class="grid">
+        {% for f in t.f %}
+        <div class="card"><div class="ico" aria-hidden="true">{{ loop.index }}</div><h3>{{ f[0] }}</h3><p>{{ f[1] }}</p></div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <section id="how" class="alt">
+    <div class="wrap">
+      <h2>{{ t.how_h }}</h2>
+      <ol class="steps">
+        {% for s in t.how %}<li><h3>{{ s[0] }}</h3><p>{{ s[1] }}</p></li>{% endfor %}
+      </ol>
+    </div>
+  </section>
+
+  <section id="trust">
+    <div class="wrap">
+      <h2>{{ t.trust_h }}</h2>
+      <ul class="trust">
+        {% for x in t.trust %}<li>{{ x }}</li>{% endfor %}
+      </ul>
+    </div>
+  </section>
+
+  <section id="pricing" class="alt">
+    <div class="wrap">
+      <h2>{{ t.price_h }}</h2>
+      <div class="price">
+        <p>{{ t.price_p }}</p>
+        <a class="btn btn-primary" href="{{ mail }}" data-cta="demo-pricing">{{ t.price_cta }}</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="final">
+    <div class="wrap">
+      <h2>{{ t.final_h }}</h2>
+      <p class="sub">{{ t.final_p }}</p>
+      <a class="btn btn-primary" href="{{ mail }}" data-cta="demo-final">{{ t.cta_demo }}</a>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <span>© BSynch</span>
+    <span><a href="/terms">{{ "Terms" if lang == "en" else "Términos" }}</a> · <a href="/privacy">{{ "Privacy" if lang == "en" else "Privacidad" }}</a></span>
+  </div>
+</footer>
+</body>
+</html>
