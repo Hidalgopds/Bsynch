@@ -2056,6 +2056,88 @@ def _retention_purge(base, hdr):
             logger.warning("[retention] %s: %s", table, e)
 
 
+# ── Photos in Supabase Storage ──
+# Private bucket with no policies: only the server (service key) reads or writes it, and every
+# photo goes out through an app route that checks the company first. The browser never gets a
+# storage URL. If Storage fails, the photo is kept inside the database as before: never lost.
+PHOTO_BUCKET = "job-photos"
+PHOTO_MAX_BYTES = 6_000_000
+_PHOTO_URI = re.compile(r"data:(image/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=\s]+)", re.DOTALL)
+_PHOTO_EXT = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
+
+
+def _photo_decode(data_uri):
+    """A browser data URI -> (mime, bytes), or (None, None) if it is not a JPG/PNG/WEBP we accept."""
+    import base64
+    m = _PHOTO_URI.fullmatch((data_uri or "").strip())
+    if not m:
+        return None, None
+    try:
+        blob = base64.b64decode(re.sub(r"\s", "", m.group(2)), validate=True)
+    except Exception:
+        return None, None
+    if not blob or len(blob) > PHOTO_MAX_BYTES:
+        return None, None
+    return m.group(1), blob
+
+
+def _storage_hdr(mime=None):
+    key = sb_key()
+    h = {"apikey": key, "Authorization": f"Bearer {key}"}
+    if mime:
+        h.update({"Content-Type": mime, "x-upsert": "false", "cache-control": "max-age=31536000"})
+    return h
+
+
+def _storage_put(path, blob, mime):
+    try:
+        r = requests.post(f"{sb_url()}/storage/v1/object/{PHOTO_BUCKET}/{path}", data=blob,
+                          headers=_storage_hdr(mime), timeout=20)
+        if not r.ok:
+            logger.warning("[storage] put %s: %s %s", path, r.status_code, r.text[:200])
+        return r.ok
+    except Exception as e:
+        logger.warning("[storage] put %s: %s", path, e)
+        return False
+
+
+def _storage_get(path):
+    """(bytes, mime) of a stored photo, or (None, None)."""
+    try:
+        r = requests.get(f"{sb_url()}/storage/v1/object/authenticated/{PHOTO_BUCKET}/{path}",
+                         headers=_storage_hdr(), timeout=15)
+    except Exception as e:
+        logger.warning("[storage] get %s: %s", path, e)
+        return None, None
+    if not r.ok:
+        return None, None
+    mime = (r.headers.get("Content-Type") or "").split(";")[0]
+    return r.content, (mime if mime in _PHOTO_EXT else "image/jpeg")
+
+
+def _storage_del(paths):
+    paths = [p for p in (paths or []) if p]
+    if not paths:
+        return True
+    try:
+        r = requests.delete(f"{sb_url()}/storage/v1/object/{PHOTO_BUCKET}", json={"prefixes": paths},
+                            headers={**_storage_hdr(), "Content-Type": "application/json"}, timeout=15)
+        return r.ok
+    except Exception as e:
+        logger.warning("[storage] delete: %s", e)
+        return False
+
+
+def _photo_store(folder, data_uri):
+    """Put a photo in Storage. Returns its path, or None (then the caller keeps it in the database)."""
+    mime, blob = _photo_decode(data_uri)
+    if not mime:
+        return None
+    folder = re.sub(r"[^0-9A-Za-z_-]", "", str(folder))[:60] or "misc"
+    path = f"{folder}/{uuid.uuid4().hex}.{_PHOTO_EXT[mime]}"
+    return path if _storage_put(path, blob, mime) else None
+
+
 @app.before_request
 def _retention_hook():
     """Once a day per database, in the background: delete location points older than the retention period."""
@@ -10285,7 +10367,12 @@ def platform_security_report_page():
     bar = (f'<div style="max-width:680px;margin:16px auto;display:flex;gap:10px;flex-wrap:wrap;font-family:Segoe UI,Arial,sans-serif">'
            f'<a href="/platform/security-report?period={other[0]}" style="padding:8px 14px;border:1px solid #8fcfc2;border-radius:8px;color:#0f766e;text-decoration:none">{other[1]}</a>'
            f'<button id="sendNow" style="padding:8px 14px;border:none;border-radius:8px;background:#1e9484;color:#fff;font-weight:700;cursor:pointer">Email it now</button>'
+           f'<button id="movePhotos" style="padding:8px 14px;border:1px solid #8fcfc2;border-radius:8px;background:#fff;color:#0f766e;font-weight:700;cursor:pointer">Move photos to Storage</button>'
            f'<span id="msg" style="align-self:center;color:#475569;font-size:13px"></span></div>'
+           f'<script>document.getElementById("movePhotos").onclick=function(){{var b=this,m=document.getElementById("msg"),total=0;b.disabled=true;'
+           f'(function step(){{fetch("/api/platform/storage/move-photos",{{method:"POST",headers:{{"Content-Type":"application/json"}},body:"{{}}"}})'
+           f'.then(function(r){{return r.json()}}).then(function(d){{total+=d.moved||0;m.textContent="Moved "+total+" photos. Left in the database: "+(d.left==null?"?":d.left)+(d.failed?" ("+d.failed+" could not move)":"");'
+           f'if(d.moved>0&&d.left>0){{step()}}else{{b.disabled=false}}}}).catch(function(){{b.disabled=false;m.textContent="Connection error"}})}})()}}</script>'
            f'<script>document.getElementById("sendNow").onclick=function(){{var b=this;b.disabled=true;'
            f'fetch("/api/platform/security-report/send",{{method:"POST",headers:{{"Content-Type":"application/json"}},body:JSON.stringify({{period:"{which}"}})}})'
            f'.then(function(r){{return r.json()}}).then(function(d){{b.disabled=false;document.getElementById("msg").textContent=d.ok?"Sent to "+d.to:(d.error||"Could not send")}})'
@@ -10305,6 +10392,48 @@ def platform_security_report_send():
     ok, err = _security_report_send(which, force=True)
     _audit("security.report_sent", which)
     return jsonify({"ok": bool(ok), "to": ", ".join(_sec_report_to()), "error": None if ok else err})
+
+
+def _photos_left_in_db():
+    r = requests.get(f"{sb_url()}/rest/v1/{JOB_PHOTOS_TABLE}?photo_data=not.is.null&select=id",
+                     headers={**sb_headers(), "Prefer": "count=exact"}, timeout=8)
+    if not r.ok:
+        return None
+    try:
+        return int((r.headers.get("Content-Range") or "").split("/")[-1])
+    except ValueError:
+        return len(r.json() or [])
+
+
+@app.route("/api/platform/storage/move-photos", methods=["POST"])
+def platform_move_photos():
+    """Move work-order photos out of the database into the private Storage bucket, a few at a time.
+    A photo is cleared from the database only after Storage confirms it holds it."""
+    if not _session_user():
+        return jsonify({"ok": False, "error": "login_required"}), 401
+    if not _is_platform_operator():
+        return jsonify({"ok": False, "error": "Platform administrator only."}), 403
+    r = requests.get(f"{sb_url()}/rest/v1/{JOB_PHOTOS_TABLE}?photo_data=not.is.null&select=id,job_id,photo_data"
+                     f"&order=created_at.asc&limit=10", headers=sb_headers(), timeout=20)
+    if not r.ok:
+        return jsonify({"ok": False, "error": "Could not read photos"}), 502
+    moved, failed = 0, 0
+    for row in r.json() or []:
+        path = _photo_store(row.get("job_id"), row.get("photo_data"))
+        if not path:
+            failed += 1
+            continue
+        u = requests.patch(f"{sb_url()}/rest/v1/{JOB_PHOTOS_TABLE}?id=eq.{row['id']}",
+                           json={"storage_path": path, "photo_data": None},
+                           headers={**sb_headers(), "Prefer": "return=minimal"}, timeout=10)
+        if u.ok:
+            moved += 1
+        else:
+            _storage_del([path])
+            failed += 1
+    left = _photos_left_in_db()
+    _audit("storage.photos_moved", PHOTO_BUCKET, {"moved": moved, "failed": failed, "left": left})
+    return jsonify({"ok": failed == 0, "moved": moved, "failed": failed, "left": left})
 
 
 def _ct_scheduler_loop():
@@ -11322,10 +11451,12 @@ def delete_contractor_job(job_id):
         f"{sb_url()}/rest/v1/{JOB_MATERIALS_TABLE}?job_id=eq.{job_id}",
         headers=sb_headers(), timeout=5
     )
-    requests.delete(
-        f"{sb_url()}/rest/v1/{JOB_PHOTOS_TABLE}?job_id=eq.{job_id}",
-        headers=sb_headers(), timeout=5
+    pr = requests.delete(
+        f"{sb_url()}/rest/v1/{JOB_PHOTOS_TABLE}?job_id=eq.{job_id}&select=storage_path",
+        headers={**sb_headers(), "Prefer": "return=representation"}, timeout=5
     )
+    if pr.ok:
+        _storage_del([g.get("storage_path") for g in (pr.json() or [])])
     r = requests.delete(
         f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?id=eq.{job_id}",
         headers=sb_headers(), timeout=5
@@ -11404,7 +11535,11 @@ def get_job_photo_data(job_id, photo_id):
     rows = r.json() if r.ok else []
     if not rows:
         return jsonify({"error": "not found"}), 404
-    return jsonify(rows[0])
+    row = rows[0]
+    if row.pop("storage_path", None) and not row.get("photo_data"):
+        # Stored in Storage: the lightbox gets the app's own image route, never a storage URL
+        row["photo_data"] = f"/api/contractor/jobs/{job_id}/photos/{row['id']}/img"
+    return jsonify(row)
 
 
 @app.route("/api/contractor/jobs/<job_id>/photos", methods=["POST"])
@@ -11413,6 +11548,8 @@ def add_job_photo(job_id):
     photo_data = data.get("photo_data", "").strip()
     if not photo_data:
         return jsonify({"ok": False, "error": "photo_data required"}), 400
+    if not re.match(r"data:image/[a-z0-9.+-]+;base64,", photo_data) or len(photo_data) > 9_000_000:
+        return jsonify({"ok": False, "error": "Only photos (JPG, PNG, WEBP) up to 6 MB"}), 400
     payload = {
         "job_id":      job_id,
         "photo_data":  photo_data,
@@ -11420,12 +11557,22 @@ def add_job_photo(job_id):
         "photo_type":  data.get("photo_type", "progress"),
         "uploaded_by": _contractor_caller()["name"] or str(data.get("uploaded_by") or "")[:80],
     }
-    r = requests.post(
-        f"{sb_url()}/rest/v1/{JOB_PHOTOS_TABLE}",
-        json=payload,
-        headers={**sb_headers(), "Prefer": "return=representation"},
-        timeout=10
-    )
+    path = _photo_store(job_id, photo_data)
+    r = None
+    if path:
+        r = requests.post(f"{sb_url()}/rest/v1/{JOB_PHOTOS_TABLE}",
+                          json={**payload, "photo_data": None, "storage_path": path},
+                          headers={**sb_headers(), "Prefer": "return=representation"}, timeout=10)
+        if not (r.ok and r.json()):
+            _storage_del([path])  # e.g. the storage_path column is not there yet: keep it in the database
+            r = None
+    if r is None:
+        r = requests.post(
+            f"{sb_url()}/rest/v1/{JOB_PHOTOS_TABLE}",
+            json=payload,
+            headers={**sb_headers(), "Prefer": "return=representation"},
+            timeout=10
+        )
     if r.ok and r.json():
         row = r.json()[0]
         return jsonify({"ok": True, "photo": {k: row.get(k) for k in ("id", "caption", "photo_type", "uploaded_by", "created_at")}})
@@ -11450,9 +11597,11 @@ def update_job_photo(job_id, photo_id):
 @app.route("/api/contractor/jobs/<job_id>/photos/<photo_id>", methods=["DELETE"])
 def delete_job_photo(job_id, photo_id):
     r = requests.delete(
-        f"{sb_url()}/rest/v1/{JOB_PHOTOS_TABLE}?id=eq.{photo_id}&job_id=eq.{job_id}",
-        headers=sb_headers(), timeout=5
+        f"{sb_url()}/rest/v1/{JOB_PHOTOS_TABLE}?id=eq.{requests.utils.quote(photo_id)}&job_id=eq.{job_id}&select=storage_path",
+        headers={**sb_headers(), "Prefer": "return=representation"}, timeout=5
     )
+    if r.ok:
+        _storage_del([g.get("storage_path") for g in (r.json() or [])])
     return jsonify({"ok": r.ok})
 
 
@@ -11464,10 +11613,15 @@ def serve_job_photo_img(job_id, photo_id):
     import base64, re
     r = requests.get(
         f"{sb_url()}/rest/v1/{JOB_PHOTOS_TABLE}"
-        f"?id=eq.{photo_id}&job_id=eq.{job_id}&select=photo_data&limit=1",
+        f"?id=eq.{requests.utils.quote(photo_id)}&job_id=eq.{job_id}&select=*&limit=1",
         headers=sb_headers(), timeout=8
     )
     rows = r.json() if r.ok else []
+    if rows and rows[0].get("storage_path") and not rows[0].get("photo_data"):
+        blob, mime = _storage_get(rows[0]["storage_path"])
+        if blob is None:
+            return ("", 404)
+        return Response(blob, mimetype=mime, headers={"Cache-Control": "private, max-age=86400"})
     if not rows or not rows[0].get("photo_data"):
         return ("", 404)
     data_uri = rows[0]["photo_data"]
@@ -11480,7 +11634,7 @@ def serve_job_photo_img(job_id, photo_id):
         img_bytes = base64.b64decode(b64)
     except Exception:
         return ("", 400)
-    return Response(img_bytes, mimetype=mime, headers={"Cache-Control": "max-age=86400"})
+    return Response(img_bytes, mimetype=mime, headers={"Cache-Control": "private, max-age=86400"})
 
 
 @app.route("/api/contractor/jobs/<job_id>/receipt-ocr", methods=["POST"])

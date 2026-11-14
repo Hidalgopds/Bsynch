@@ -223,7 +223,26 @@ def _prefer(headers):
     return (headers or {}).get("Prefer", "")
 
 
+STORAGE = {}  # "bucket/path" -> (bytes, mime): a fake Supabase Storage
+STORAGE_DOWN = {"on": False}  # tests flip this to see the fallback to the database
+
+
+def _storage_key(url):
+    p = url.split("/storage/v1/object/", 1)[1].split("?", 1)[0]
+    for pre in ("authenticated/", "public/"):
+        if p.startswith(pre):
+            p = p[len(pre):]
+    return p
+
+
 def fake_get(url, params=None, headers=None, timeout=None, **kw):
+    if "/storage/v1/object/" in url:
+        hit = None if STORAGE_DOWN["on"] else STORAGE.get(_storage_key(url))
+        if not hit:
+            return Resp({"error": "not found"}, 404)
+        r = Resp("", 200, {"Content-Type": hit[1]})
+        r.content = hit[0]
+        return r
     if "/rest/v1/" not in url:
         return Resp({"error": "offline in tests"}, 404)
     path, filters = _parse(url, params)
@@ -247,6 +266,14 @@ def _dup(table, row, rows):
 
 
 def fake_post(url, json=None, data=None, headers=None, timeout=None, params=None, **kw):
+    if "/storage/v1/object/" in url:
+        key = _storage_key(url)
+        if STORAGE_DOWN["on"]:
+            return Resp({"error": "storage down"}, 503)
+        if key in STORAGE:
+            return Resp({"error": "Duplicate"}, 409)
+        STORAGE[key] = (data, (headers or {}).get("Content-Type"))
+        return Resp({"Key": key}, 200)
     if "/rest/v1/" not in url:
         return Resp({"ok": True}, 200)  # storage uploads, outside services
     path, filters = _parse(url, params)
@@ -299,7 +326,11 @@ def fake_patch(url, json=None, data=None, headers=None, timeout=None, params=Non
     return Resp(copy.deepcopy(hit), 200)
 
 
-def fake_delete(url, headers=None, timeout=None, params=None, **kw):
+def fake_delete(url, headers=None, timeout=None, params=None, json=None, **kw):
+    if "/storage/v1/object/" in url:
+        bucket = url.split("/storage/v1/object/", 1)[1].strip("/")
+        gone = [p for p in (json or {}).get("prefixes", []) if STORAGE.pop(f"{bucket}/{p}", None)]
+        return Resp([{"name": p} for p in gone], 200)
     if "/rest/v1/" not in url:
         return Resp({}, 200)
     path, filters = _parse(url, params)

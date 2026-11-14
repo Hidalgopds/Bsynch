@@ -19,12 +19,17 @@
 - Reporte de seguridad mensual por correo + alertas inmediatas por eventos críticos (máx. 1 por hora por tipo).
 - Ubicaciones se borran a los 90 días. Nada más se borra solo.
 - Páginas de privacidad y términos (Texas). `LEGAL_ENTITY` / `LEGAL_CONTACT_EMAIL` por variable de entorno.
-- 107 pruebas automáticas pasando (`python tests/run_all.py`).
+- 127 pruebas automáticas pasando (`python tests/run_all.py`), incluida `tests/test_storage.py`.
+- Fotos de órdenes de trabajo en Supabase Storage (bucket privado `job-photos`, sin políticas). Helpers comunes: `_photo_store`, `_storage_put/_get/_del`. El navegador nunca ve una URL de Storage: todo pasa por `/api/contractor/jobs/<job>/photos/<id>/img`, que revisa la empresa. Si Storage falla, la foto se guarda en la base como antes. Botón "Move photos to Storage" en `/platform/security-report` (solo dueño, queda en `audit_log`).
 - Pruebas de carga k6 listas en `loadtest/`; staging creado pero **sin el esquema aplicado todavía**.
 
 ## Pendientes
 - [ ] Aplicar el esquema a staging (`loadtest/export_schema.sql`) y correr k6 contra staging.
-- [ ] Fotos: hoy se guardan dentro de la base (~240 KB c/u). El plan gratis (500 MB) se llena con ~2.000 fotos: pasarlas a Supabase Storage.
+- [x] Fotos de órdenes de trabajo a Storage (`migrations/job_photos_storage.sql`, aplicada en producción principal el 2026-11-14).
+- [ ] Aplicar `migrations/job_photos_storage.sql` en NNC (`fhkfpqgfzegqcyajvjlo`): el 2026-11-14 su base no respondía. Mientras tanto ahí las fotos siguen guardándose dentro de la base (respaldo automático).
+- [ ] Siguientes a Storage con los mismos helpers: fotos de niños (`homelab_kid_photos`, ~1 MB), recibos (`contractor_expenses.photo_data`), archivos de contratista (`contractor_files`, hasta 7 MB c/u), fotos de órdenes de compra.
+- [ ] Quitar el correo real del valor por defecto de la variable del admin de empresa en `app.py` (repo público). Antes confirmar que la variable está puesta en Render.
+- [ ] `issue-photos` es un bucket **público** (heredado del ERP): pasarlo a privado y servir por la app.
 - [ ] Para vender como SaaS: registro de empresa por sí misma, cobro mensual con Stripe, landing de ventas, todo en español también. Hoy `CONTRACTOR_COMPANIES` está fijo en el código (`hicons`, `bsynch`) y eso bloquea el alta de empresas nuevas.
 - [ ] Pruebas para ERP, Home Lab y Marketing a medida que se trabajen (cada sección agrega su archivo).
 
@@ -38,6 +43,7 @@
 - Servicio de staging en Render; Gmail emisor de Hicons; cuenta de Stripe y precios.
 
 ## Decisiones tomadas
+- Fotos: bucket privado y la app las sirve (no URLs firmadas ni públicas), así la regla "cada empresa ve solo lo suyo" vive en un solo lugar. Borrar una foto (acción manual) borra también su archivo.
 - Un solo worker de gunicorn: los límites de intentos viven en memoria (si se suben workers, moverlos a la base).
 - Reporte de seguridad: mensual (día 1) + alertas inmediatas; va al dueño (`DEFAULT_COMPANY_ADMIN_USER` o `SECURITY_REPORT_TO`).
 - Acceso de soporte del admin a una empresa: solo si su Manager lo da (24 o 72 h) y todo queda registrado.

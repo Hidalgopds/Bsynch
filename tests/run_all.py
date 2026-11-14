@@ -8,7 +8,7 @@ here = os.path.dirname(os.path.abspath(__file__))
 failed = []
 for f in sorted(glob.glob(os.path.join(here, "test_*.py"))):
     r = subprocess.run([sys.executable, "-W", "ignore", f], capture_output=True, text=True, cwd=here)
-    lines = [ln for ln in (r.stdout + r.stderr).splitlines() if ln.strip() and "Warning" not in ln and "warnings.warn" not in ln]
+    lines = [ln for ln in (r.stdout + r.stderr).splitlines() if ln.strip() and "Warning" not in ln and "warnings.warn" not in ln and "[WARNING]" not in ln]
     print("\n".join(lines[-15:]) if r.returncode else (lines[-1] if lines else os.path.basename(f) + ": no output"))
     if r.returncode:
         failed.append(os.path.basename(f))
