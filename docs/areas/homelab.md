@@ -23,11 +23,15 @@ La parte familiar: checklist de los niños, juegos y Hermaniland. Guarda datos d
   - Hermaniland: si la IA hacía la última elección del draft, la partida se quedaba trabada y nunca pasaba a la revisión. Ahora pasa sola. La IA ya no elige más de 11.
   - Hermaniland: elegir formación con un jugador que no está en la sala daba error 500; ahora da 404.
 - 2026-11-14: decisión del dueño: en `bsynch.com` la familia es **solo el dueño**. Antes cualquier cuenta con sesión veía y editaba a los niños. Ahora `_hl_may_see_family` y el filtro `_hl_owner_only` dejan pasar solo la cuenta del dueño con contraseña: las demás reciben 403 en la API y van a `/home` en las páginas. Sin sesión sigue siendo 401. Los subdominios de familias cliente no cambian.
+- 2026-11-14: Stop más seguro:
+  - Solo el anfitrión inicia la partida: la página manda su identificador y el servidor lo revisa (403 si no es él).
+  - La sala ya no reparte los identificadores secretos de los jugadores (antes cualquiera podía verlos y hacerse pasar por el anfitrión o mandar respuestas de otro). Ahora la lista de jugadores sale sin ellos.
+  - Nombres, categorías y mensaje de victoria se muestran como texto (`esc()` en `homelab-stop.html`): un nombre con código ya no se ejecuta en el navegador de los demás.
+  - Textos recortados (nombre 30, categoría 40, máx. 12 categorías, mensaje 80) y una petición vacía o con datos raros ya no da error 500.
+  - Probado con dos jugadores en un navegador real.
 
 ## Pendientes
 - [ ] Si algún día otra persona de la familia necesita entrar en `bsynch.com`, cambiar `_hl_may_see_family` por una lista de cuentas (hoy es solo el dueño).
-- [ ] Stop: cualquiera que sepa el código de sala puede iniciar la partida (no se revisa que sea el anfitrión).
-- [ ] Stop: los nombres de jugadores se pintan como HTML en la página (`homelab-stop.html`): un nombre con código podría ejecutarse en el navegador de los otros jugadores. Pasarlo a texto.
 - [ ] Ordenar los archivos sueltos de Hermaniland (varias versiones de la lista de jugadores) cuando el dueño diga cuál es la buena.
 
 ## Reglas propias

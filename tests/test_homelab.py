@@ -222,7 +222,12 @@ guest = anon.post("/api/stop/join-room", json={"room_code": code.lower(), "playe
 check("Stop: repeated name refused", anon.post("/api/stop/join-room", json={"room_code": code, "player_name": "Invitado"}).status_code == 400)
 r = anon.get(f"/api/stop/room/{code}")
 check("Stop lobby status works (guests poll it to start)", r.status_code == 200 and len(r.json["players"]) == 2)
-r = anon.post(f"/api/stop/start/{code}")
+check("Stop lobby never reveals the players' secret ids", host not in r.get_data(as_text=True)
+      and guest not in r.get_data(as_text=True))
+check("Stop: a guest can't start the game", anon.post(f"/api/stop/start/{code}", json={"player_id": guest}).status_code == 403)
+check("Stop: no id, no start", anon.post(f"/api/stop/start/{code}").status_code == 403 and room["status"] == "waiting")
+r = anon.post(f"/api/stop/start/{code}", json={"player_id": host})
+check("Stop start answer has no secret ids", host not in r.get_data(as_text=True) and guest not in r.get_data(as_text=True))
 letter = r.json["letter"]
 check("Stop starts with a letter", r.status_code == 200 and letter.isalpha() and r.json["categories"] == ["Animal", "Fruta"])
 r = anon.get(f"/api/stop/room/{code}").json
@@ -236,6 +241,16 @@ r = anon.get(f"/api/stop/results/{code}").json
 check("Stop results: full answers + unique word win", r["all_completed"] and r["winner_name"] == "Anfitrión"
       and [x["name"] for x in r["rankings"]] == ["Anfitrión", "Invitado"])
 check("Stop scoring: shared word counts less", A.calculate_smart_score("gato", ["gato", "gato"]) < A.calculate_smart_score("gato", ["gato"]))
+r = anon.post("/api/stop/create-room", json={"admin_name": "N" * 200, "categories": ["C" * 99] * 50,
+                                             "time_limit": "abc", "victory_message": "V" * 500})
+big = A.STOP_GAMES[r.json["room_code"]]
+check("Stop trims long names, categories and messages", len(big["admin"]) == 30 and len(big["categories"]) == 12
+      and all(len(c) == 40 for c in big["categories"]) and len(big["victory_message"]) == 80 and big["time_limit"] == 120)
+check("Stop: empty request doesn't crash", anon.post("/api/stop/create-room").status_code == 200
+      and anon.post("/api/stop/join-room").status_code == 404)
+page = anon.get("/homelab/games/stop").get_data(as_text=True)
+check("Stop page shows names as text, not HTML", "function esc(" in page and "${player.name}" not in page
+      and "${winnerName}" not in page and "${pregunta.text}" not in page)
 check("Stop scoring: empty or non-word gets 0", A.calculate_smart_score("", []) == 0 and A.calculate_smart_score("x1", ["x1"]) == 0)
 
 # ── Hermaniland: draft game ──

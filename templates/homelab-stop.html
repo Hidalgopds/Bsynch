@@ -206,6 +206,11 @@ let isAdmin = false;
 let pollInterval = null;
 let currentGameTime = 120;  // Default time limit
 
+// Names, categories and messages are typed by other players: always show them as text, never as HTML
+function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+}
+
 function showCreateRoom() {
     document.getElementById("roomSetupState").style.display = "none";
     document.getElementById("createRoomState").style.display = "block";
@@ -370,7 +375,7 @@ function updatePlayersList(players) {
             statusBadge = '<span class="player-badge">Playing</span>';
         }
 
-        playerItem.innerHTML = `<span>${player.name}</span>${statusBadge}`;
+        playerItem.innerHTML = `<span>${esc(player.name)}</span>${statusBadge}`;
         playersList.appendChild(playerItem);
     }
 }
@@ -378,7 +383,9 @@ function updatePlayersList(players) {
 async function startGame() {
     try {
         const response = await fetch(`/api/stop/start/${currentRoomCode}`, {
-            method: "POST"
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ player_id: playerId })
         });
         const data = await response.json();
 
@@ -419,8 +426,8 @@ function startGameFromRoom(data) {
     preguntas.forEach((pregunta, index) => {
         let preguntaHTML = `
             <div class="pregunta-card" id="card${index}">
-                <p>${pregunta.text} (starts with <strong>${letraSeleccionada}</strong>)</p>
-                <input type="text" id="respuesta${index}" placeholder="${pregunta.placeholder}" autofocus=${index === 0 ? "true" : "false"}>
+                <p>${esc(pregunta.text)} (starts with <strong>${esc(letraSeleccionada)}</strong>)</p>
+                <input type="text" id="respuesta${index}" placeholder="${esc(pregunta.placeholder)}" autofocus=${index === 0 ? "true" : "false"}>
                 <button onclick="verificarRespuesta(${index})">✓ Check</button>
                 <p id="mensaje${index}" class="mensaje"></p>
             </div>
@@ -562,8 +569,8 @@ function showResults(rankings, winnerName, victoryMessage) {
         victoryBanner.style.cssText = "text-align:center;padding:20px;background:linear-gradient(135deg,#1e9484,#4f8ef7);border-radius:12px;margin-bottom:20px;color:#fff;";
         victoryBanner.innerHTML = `
             <div style="font-size:48px;margin-bottom:8px;">🏆</div>
-            <div style="font-size:24px;font-weight:700;margin-bottom:12px;">${winnerName} WINS!</div>
-            <div style="font-size:20px;font-weight:600;letter-spacing:2px;text-transform:uppercase;">${victoryMessage}</div>
+            <div style="font-size:24px;font-weight:700;margin-bottom:12px;">${esc(winnerName)} WINS!</div>
+            <div style="font-size:20px;font-weight:600;letter-spacing:2px;text-transform:uppercase;">${esc(victoryMessage)}</div>
         `;
         rankingsList.appendChild(victoryBanner);
     }
@@ -580,10 +587,10 @@ function showResults(rankings, winnerName, victoryMessage) {
         card.innerHTML = `
             <div class="rank-num">${medal}</div>
             <div class="player-info">
-                <div class="player-name">${player.name}</div>
-                <div class="player-time">${player.completion_time.toFixed(2)}s</div>
+                <div class="player-name">${esc(player.name)}</div>
+                <div class="player-time">${Number(player.completion_time || 0).toFixed(2)}s</div>
             </div>
-            <div class="player-score">${player.score} pts</div>
+            <div class="player-score">${Number(player.score) || 0} pts</div>
         `;
         rankingsList.appendChild(card);
     });

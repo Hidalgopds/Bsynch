@@ -719,10 +719,29 @@ def calculate_smart_score(word, all_responses_for_category):
     final_score = int(base_points * uniqueness_multiplier)
     return max(5, final_score)  # Minimum 5 points for any valid word
 
+def _stop_text(v, default, limit):
+    """Public game: free text from strangers is trimmed and kept short."""
+    v = str(v if v is not None else "").strip()[:limit]
+    return v or default
+
+
+def _stop_players_public(room, include_completed=True):
+    """The player list everyone in the room may see. The keys of room["players"] are each
+    player's secret id (it lets them start or submit), so they are never sent out."""
+    out = []
+    for pdata in room["players"].values():
+        p = {"name": pdata["name"], "is_admin": pdata["is_admin"], "completed": pdata["completed"]}
+        if include_completed:
+            p["completion_time"] = pdata["completion_time"]
+        out.append(p)
+    return out
+
+
 @app.route("/api/stop/create-room", methods=["POST"])
 def create_stop_room():
     """Create a new Stop game room with optional settings"""
-    player_name = request.json.get("admin_name", "Player")
+    body = request.get_json(silent=True) or {}
+    player_name = _stop_text(body.get("admin_name"), "Player", 30)
     room_code = generate_room_code()
 
     # Ensure unique room code
@@ -730,12 +749,17 @@ def create_stop_room():
         room_code = generate_room_code()
 
     # Get admin settings
-    categories = request.json.get("categories", ["First Name", "Last Name", "City", "Animal", "Food"])
-    time_limit = request.json.get("time_limit", 120)
-    victory_message = request.json.get("victory_message", "¡ERES MALÍSIMOOOO!")
+    categories = body.get("categories")
+    if not isinstance(categories, list):
+        categories = ["First Name", "Last Name", "City", "Animal", "Food"]
+    categories = [c for c in (_stop_text(c, "", 40) for c in categories[:12]) if c] or ["Animal"]
+    victory_message = _stop_text(body.get("victory_message"), "¡ERES MALÍSIMOOOO!", 80)
 
     # Validate time limit (30-300 seconds)
-    time_limit = max(30, min(300, int(time_limit)))
+    try:
+        time_limit = max(30, min(300, int(body.get("time_limit", 120))))
+    except (TypeError, ValueError):
+        time_limit = 120
 
     player_id = str(uuid.uuid4())
     STOP_GAMES[room_code] = {
@@ -759,8 +783,9 @@ def create_stop_room():
 @app.route("/api/stop/join-room", methods=["POST"])
 def join_stop_room():
     """Join an existing Stop game room"""
-    room_code = request.json.get("room_code", "").upper()
-    player_name = request.json.get("player_name", "Player")
+    body = request.get_json(silent=True) or {}
+    room_code = str(body.get("room_code") or "").upper()
+    player_name = _stop_text(body.get("player_name"), "Player", 30)
 
     if room_code not in STOP_GAMES:
         return jsonify({"error": "Room not found"}), 404
@@ -807,15 +832,7 @@ def get_stop_room(room_code):
         # The lobby poll starts the game for players who joined: they need the same time and categories as the host
         "time_limit": room.get("time_limit", 120),
         "categories": room.get("categories", ["First Name", "Last Name", "City", "Animal", "Food"]),
-        "players": {
-            pid: {
-                "name": pdata["name"],
-                "is_admin": pdata["is_admin"],
-                "completed": pdata["completed"],
-                "completion_time": pdata["completion_time"]
-            }
-            for pid, pdata in room["players"].items()
-        }
+        "players": _stop_players_public(room)
     })
 
 @app.route("/api/stop/start/<room_code>", methods=["POST"])
@@ -827,6 +844,9 @@ def start_stop_game(room_code):
         return jsonify({"error": "Room not found"}), 404
 
     room = STOP_GAMES[room_code]
+    body = request.get_json(silent=True) or {}
+    if body.get("player_id") != room["admin_id"]:
+        return jsonify({"error": "Only the host can start the game"}), 403
 
     if room["status"] != "waiting":
         return jsonify({"error": "Game already started"}), 400
@@ -842,23 +862,23 @@ def start_stop_game(room_code):
         "status": "playing",
         "time_limit": room.get("time_limit", 120),
         "categories": room.get("categories", ["First Name", "Last Name", "City", "Animal", "Food"]),
-        "players": {
-            pid: {
-                "name": pdata["name"],
-                "is_admin": pdata["is_admin"],
-                "completed": False
-            }
-            for pid, pdata in room["players"].items()
-        }
+        "players": _stop_players_public(room, include_completed=False)
     })
 
 @app.route("/api/stop/submit/<room_code>", methods=["POST"])
 def submit_stop_answer(room_code):
     """Submit answers"""
     room_code = room_code.upper()
-    player_id = request.json.get("player_id", "")
-    responses = request.json.get("responses", [])
-    completion_time = request.json.get("completion_time", 0)
+    body = request.get_json(silent=True) or {}
+    player_id = str(body.get("player_id") or "")
+    responses = body.get("responses")
+    if not isinstance(responses, list):
+        responses = []
+    responses = [_stop_text(r, "", 40) for r in responses[:12]]
+    try:
+        completion_time = max(0.0, min(3600.0, float(body.get("completion_time", 0))))
+    except (TypeError, ValueError):
+        completion_time = 0.0
 
     if room_code not in STOP_GAMES:
         return jsonify({"error": "Room not found"}), 404
