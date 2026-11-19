@@ -83,8 +83,17 @@ check("client opens the invoice from the link without signing in", pub.status_co
 check("a made-up link finds nothing", anon.get("/api/public/invoice/" + "x" * 24).status_code == 404)
 send("POST", "/api/contractor/hicons/profile", "Hana", {"archive_email": ""})
 MAIL.clear()
-send("POST", "/api/contractor/invoices/" + inv2["id"] + "/send", "Hana", {"to": ["c@example.com"]})
+send("POST", "/api/contractor/invoices/" + inv2["id"] + "/send", "Hana", {"to": ["c@example.com"], "resend": True})
 check("no archive email, no copy", len(MAIL) == 1)
+
+# ── already sent: sending again needs a confirmation ──
+MAIL.clear()
+r = send("POST", "/api/contractor/invoices/" + inv2["id"] + "/send", "Hana", {"to": ["c@example.com"]})
+check("resend: an invoice already sent is not emailed again by mistake", r.status_code == 409 and r.json.get("already_sent") and not MAIL)
+r = send("POST", "/api/contractor/invoices/" + inv2["id"] + "/send", "Hana", {"to": ["c@example.com"], "resend": True})
+check("resend: goes out again once confirmed, and the history says so", r.json["ok"] and len(MAIL) == 1
+      and [x for x in DB["contractor_invoices"] if x["id"] == inv2["id"]][0]["status_history"][-1]["note"].startswith("Sent again"))
+check("resend: other company still blocked", send("POST", "/api/contractor/invoices/" + inv2["id"] + "/send", "Bob", {"to": ["c@example.com"], "resend": True}).status_code == 403)
 
 # ── each company's own web address (hicons.bsynch.com) ──
 pr = get("/api/contractor/hicons/profile", "Hana").json
@@ -92,11 +101,11 @@ check("web address: settings show the company's own address", pr["web_address"] 
 check("web address: a User can't turn it on", send("POST", "/api/contractor/hicons/profile", "Mia", {"web_address_on": True}).status_code == 403)
 check("web address: other company can't touch it", send("POST", "/api/contractor/hicons/profile", "Bob", {"web_address_on": True}).status_code == 403)
 MAIL.clear()
-send("POST", "/api/contractor/invoices/" + inv2["id"] + "/send", "Hana", {"to": ["c@example.com"]})
+send("POST", "/api/contractor/invoices/" + inv2["id"] + "/send", "Hana", {"to": ["c@example.com"], "resend": True})
 check("web address off: invoice link stays on the current host", MAIL and "https://hicons.bsynch.com/i/" not in MAIL[0]["html"])
 check("web address: Manager turns it on", send("POST", "/api/contractor/hicons/profile", "Hana", {"web_address_on": True}).json["ok"])
 MAIL.clear()
-send("POST", "/api/contractor/invoices/" + inv2["id"] + "/send", "Hana", {"to": ["c@example.com"]})
+send("POST", "/api/contractor/invoices/" + inv2["id"] + "/send", "Hana", {"to": ["c@example.com"], "resend": True})
 check("web address on: invoice email links to hicons.bsynch.com", MAIL and "https://hicons.bsynch.com/i/" + inv_row["public_token"] in MAIL[0]["html"])
 check("web address on: invite link uses it too", get("/api/contractor/hicons/admin/invite", "Hana").json.get("url", "").startswith("https://hicons.bsynch.com/join/hicons/"))
 check("web address on: the client's link opens there", A.app.test_client().get("/api/public/invoice/" + inv_row["public_token"],
@@ -107,7 +116,7 @@ check("web address: refused if that subdomain points to another database",
       send("POST", "/api/contractor/hicons/profile", "Hana", {"web_address_on": False}).json["ok"]
       and send("POST", "/api/contractor/hicons/profile", "Hana", {"web_address_on": True}).status_code == 409)
 MAIL.clear()
-send("POST", "/api/contractor/invoices/" + inv2["id"] + "/send", "Hana", {"to": ["c@example.com"]})
+send("POST", "/api/contractor/invoices/" + inv2["id"] + "/send", "Hana", {"to": ["c@example.com"], "resend": True})
 check("web address: miswired subdomain never used for links", MAIL and "hicons.bsynch.com" not in MAIL[0]["html"])
 DB["bsynch_companies"][:] = [c for c in DB["bsynch_companies"] if c.get("id") != "co-x"]
 A._co_cache, A._co_cache_ts = {}, 0
@@ -155,7 +164,7 @@ check("overdue: the dashboard uses the same rule", dash[it["id"]]["overdue_days"
 pub = anon.get("/api/public/invoice/" + "t" * 24).json["invoice"]
 check("tax: the client's link shows discount, tax and due date", pub["tax"] == 74.25 and pub["discount"] == 100 and pub["due_date"])
 MAIL.clear()
-send("POST", "/api/contractor/invoices/" + it["id"] + "/send", "Hana", {"to": ["tess@example.com"]})
+send("POST", "/api/contractor/invoices/" + it["id"] + "/send", "Hana", {"to": ["tess@example.com"], "resend": True})
 check("tax: the invoice email lists discount and sales tax", MAIL and "Sales tax (8.25%)" in MAIL[0]["html"] and "Discount" in MAIL[0]["html"])
 
 r = send("POST", "/api/contractor/hicons/estimates", "Hana", {"title": "Deck", "client_name": "Tess", "items": [{"description": "Deck boards", "qty": 2, "amount": 500}]})

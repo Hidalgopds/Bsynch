@@ -10256,6 +10256,11 @@ def contractor_invoice_send(invoice_id):
     cc = [e.strip().lower() for e in (data.get("cc") or []) if re.fullmatch(email_re, str(e).strip())][:10]
     if not to:
         return jsonify({"ok": False, "error": "Enter the client's email"}), 400
+    # Already sent: only goes out again when the person says so (no double emails by mistake)
+    again = bool(inv.get("sent_at"))
+    if again and not data.get("resend"):
+        return jsonify({"ok": False, "already_sent": True, "sent_at": inv["sent_at"], "sent_to": inv.get("sent_to") or "",
+                        "error": f"This invoice was already sent to {inv.get('sent_to') or 'the client'}. Confirm to send it again."}), 409
     token = inv.get("public_token") or secrets.token_urlsafe(24)
     if not inv.get("public_token"):
         requests.patch(f"{sb_url()}/rest/v1/contractor_invoices?id=eq.{inv['id']}", json={"public_token": token},
@@ -10273,7 +10278,7 @@ def contractor_invoice_send(invoice_id):
     _ct_archive_copy(inv["company"], "invoice", inv["invoice_number"], to, cc, inv_html, me["name"], inv["id"])
     now = dt.datetime.utcnow().isoformat() + "Z"
     upd = {"sent_at": now, "sent_to": ", ".join(to), "sent_cc": ", ".join(cc),
-           "status_history": (inv.get("status_history") or []) + [{"status": "sent", "at": now, "by": me["name"][:80], "note": "Sent to " + ", ".join(to)}]}
+           "status_history": (inv.get("status_history") or []) + [{"status": "sent", "at": now, "by": me["name"][:80], "note": ("Sent again to " if again else "Sent to ") + ", ".join(to)}]}
     if (inv.get("status") or "issued") == "issued":
         upd["status"] = "sent"
     requests.patch(f"{sb_url()}/rest/v1/contractor_invoices?id=eq.{inv['id']}", json=upd, headers=sb_headers(), timeout=5)

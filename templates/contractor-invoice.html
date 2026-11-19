@@ -18,6 +18,7 @@ body{font-family:Arial,Helvetica,sans-serif;background:#e5e7eb;color:#111827;}
 .b-print{background:#0f766e;color:#fff;}
 .b-sec{background:#374151;color:#e5e7eb;}
 .b-send{background:#e8a317;color:#111827;}
+.b-send.done{background:#dcfce7;color:#065f46;border:1px solid #86efac;}
 .sent-note{text-align:center;padding:8px;background:#ecfdf5;color:#065f46;font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;}
 .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:5;align-items:center;justify-content:center;padding:16px;}
 .overlay.open{display:flex;}
@@ -115,7 +116,7 @@ tbody td.desc{white-space:pre-line;}
 {% if not public_token %}
 <div class="overlay" id="sendModal">
   <div class="modal">
-    <h3>Send invoice</h3>
+    <h3 id="sTitle">Send invoice</h3>
     <label>To (client)</label><input id="sTo" type="email" placeholder="client@email.com">
     <label>CC (comma separated)</label><input id="sCc" placeholder="office@company.com">
     <label>Message</label><textarea id="sMsg" rows="4"></textarea>
@@ -157,7 +158,13 @@ function money(n){ return '$' + (parseFloat(n) || 0).toLocaleString('en-US', {mi
 function qty(n){ n = parseFloat(n) || 0; return n % 1 ? n.toFixed(2) : String(n); }
 function safeImg(u){ return /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+\/=]+$/.test(u || '') || /^\/static\/brand\/[\w.-]+\.(png|jpg|webp)$/.test(u || '') ? u : ''; }
 function safeColor(c, d){ return /^#[0-9a-fA-F]{6}$/.test(c || '') ? c : d; }
-function showSent(to, at){ var n = document.getElementById('sentNote'); if(!n) return; n.textContent = '\u2713 Sent to ' + to + ' on ' + new Date(at).toLocaleString(); n.style.display = ''; }
+function showSent(to, at){
+  var n = document.getElementById('sentNote'); if(!n) return;
+  n.textContent = '\u2713 Sent to ' + to + ' on ' + new Date(at).toLocaleString(); n.style.display = '';
+  // Already sent: the button says so, and sending again needs a confirmation
+  var b = document.getElementById('sendBtn');
+  if(b){ b.classList.add('done'); b.innerHTML = '&#10003; Sent &middot; Send again'; b.title = 'Already sent. Click to send it again.'; }
+}
 function fmtDate(d){ if(!d) return ''; var p = d.split('-'); return p.length === 3 ? (+p[1]) + '/' + (+p[2]) + '/' + p[0] : d; }
 
 var PUBLIC_TOKEN = {{ (public_token or '')|tojson }};
@@ -214,6 +221,8 @@ fetch(INVOICE_URL).then(function(r){ return r.json(); }).then(function(d){
   if(inv.sent_at) showSent(inv.sent_to, inv.sent_at);
   var btn = document.getElementById('sendBtn'); btn.style.display = '';
   btn.onclick = function(){
+    if(inv.sent_at && !confirm('Invoice ' + inv.invoice_number + ' was already sent to ' + (inv.sent_to || 'the client') + ' on ' + new Date(inv.sent_at).toLocaleString() + '.\n\nSend it again?')) return;
+    document.getElementById('sTitle').textContent = inv.sent_at ? 'Send invoice again' : 'Send invoice';
     document.getElementById('sTo').value = inv.client_email || '';
     document.getElementById('sCc').value = emails.join(', ');
     document.getElementById('sMsg').value = 'Hello ' + (inv.bill_to || '') + ',\n\nPlease find invoice ' + inv.invoice_number + ' for ' + money(inv.total) + (inv.job_site ? ' (job site: ' + inv.job_site + ')' : '') + '.\n\n' + (co.footer_note || 'Thank you.');
@@ -228,7 +237,7 @@ fetch(INVOICE_URL).then(function(r){ return r.json(); }).then(function(d){
     if(!to.length){ out.style.color = '#b91c1c'; out.textContent = "Enter the client's email."; return; }
     go.disabled = true; go.textContent = 'Sending...';
     fetch('/api/contractor/invoices/' + encodeURIComponent(inv.id) + '/send', {method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({to: to, cc: cc, message: document.getElementById('sMsg').value})})
+      body: JSON.stringify({to: to, cc: cc, message: document.getElementById('sMsg').value, resend: !!inv.sent_at})})
       .then(function(r){ return r.json(); }).then(function(res){
         go.disabled = false; go.textContent = 'Send';
         if(!res.ok){
@@ -237,7 +246,8 @@ fetch(INVOICE_URL).then(function(r){ return r.json(); }).then(function(d){
           return;
         }
         document.getElementById('sendModal').classList.remove('open');
-        showSent(to.join(', '), res.sent_at);
+        inv.sent_at = res.sent_at; inv.sent_to = to.join(', ');
+        showSent(inv.sent_to, inv.sent_at);
       }).catch(function(){ go.disabled = false; go.textContent = 'Send'; out.style.color = '#b91c1c'; out.textContent = 'Connection error.'; });
   };
 });
