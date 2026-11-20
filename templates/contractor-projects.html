@@ -49,6 +49,14 @@ header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:
 .cf-ico{display:inline-block;width:26px;height:20px;border-radius:3px 3px 5px 5px;position:relative;margin-right:10px;vertical-align:-1px;}
 .cf-ico:before{content:"";position:absolute;left:0;top:-4px;width:11px;height:6px;border-radius:3px 3px 0 0;background:inherit;}
 .cf-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px;color:#566275;}
+.sec-h{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#566275 !important;margin:6px 2px -4px;}
+.fold-card .proj-top{align-items:center;}
+.fold-ico{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;background:#ecfdf5;flex-shrink:0;}
+.fold-done .fold-ico{background:#f1f5f9;}
+.grp-h{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#566275 !important;margin:14px 2px 8px;}
+.grp-empty{font-size:13px;color:#566275 !important;padding:6px 2px 4px;}
+.arch-btn{margin-left:auto;background:#ecfdf5 !important;color:#0f766e !important;border:1px solid #99f6e4;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.jp-finish .arch-btn{margin-left:8px;}
 .cf-btn{padding:8px 14px;border-radius:9px;border:1px solid #8fcfc2;background:#fff;color:#0f766e!important;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;}
 .cf-btn:hover{background:#f0faf7;}
 .proj-top{display:flex;align-items:flex-start;gap:14px;}
@@ -526,10 +534,15 @@ var selectedPhotoFile=null;
 var woStepCount=0;
 var woForProjectId=null; // captured when modal opens
 var userName=(window.CT&&CT.user)||localStorage.getItem('mbrName')||localStorage.getItem('companyUser')||'User';
-var NO_PROJECT='__none__';
-// Client folders (the client master): loose work orders are grouped by their client's folder
+var NO_PROJECT='__none__', G_ACTIVE='__active', G_DONE='__done';
+// Folders on this tab: In progress, Completed (moved there at 100%, can be reactivated) and one per client.
+// A client's folder is its Client folder when it has one (all of a company's people together), else its name.
 var cfData={folders:[],clients:[],can_edit:false}, cfOf=function(){return null;};
-function jobGroup(j){if(j.project_id)return j.project_id;var f=cfOf(j);return f?'__f_'+f.id:NO_PROJECT;}
+function isArchived(j){return !!(j&&j.archived_at);}
+function isDone(j){return j.status==='completed'||parseFloat(j.progress_pct||0)>=100;}
+function clientKey(j){var f=cfOf(j);if(f)return '__f_'+f.id;var n=(j.client_name||'').trim().toLowerCase().replace(/\s+/g,' ');return '__c_'+(n||'-');}
+function jobGroup(j){if(j.project_id)return j.project_id;return isArchived(j)?G_DONE:G_ACTIVE;}
+function groupJobs(p){return p&&p.match?allJobs.filter(p.match):allJobs.filter(j=>j.project_id===(p&&p.id));}
 function isVirtualGroup(id){return !id||String(id).indexOf('__')===0;}
 function openClientFolders(){CTFolders.open(CT.company,loadAll);}
 
@@ -549,14 +562,19 @@ function loadAll(){
     .then(([projs,jobs,cf])=>{
       projs=Array.isArray(projs)?projs:[];jobs=Array.isArray(jobs)?jobs:[];
       cfData=(cf&&cf.ok)?cf:{folders:[],clients:[],can_edit:false};cfOf=CTFolders.indexer(cfData);
-      var loose=jobs.filter(j=>!j.project_id);
-      var groups=cfData.folders.map(f=>({id:'__f_'+f.id,name:f.name,color:f.color,folder:true,virtual:true,jobs:loose.filter(j=>{var x=cfOf(j);return x&&x.id===f.id;})}))
-        .filter(g=>g.jobs.length||cfData.can_edit);
-      var unfiled=loose.filter(j=>!cfOf(j));
-      if(unfiled.length) groups.push({id:NO_PROJECT,name:cfData.folders.length?'Other work orders':(window._memberOnly?'Work orders':'Work orders (no project)'),jobs:unfiled,virtual:true});
-      allProjects=groups.concat(projs);
       var full={};jobs.forEach(j=>{full[j.id]=j;});
-      allJobs=allProjects.reduce((acc,p)=>acc.concat(p.jobs||[]),[]).map(j=>full[j.id]?Object.assign({},j,full[j.id]):j);
+      projs.forEach(p=>(p.jobs||[]).forEach(j=>{full[j.id]=Object.assign({},j,full[j.id]||{});}));
+      allJobs=Object.keys(full).map(k=>full[k]);
+      var groups=[{id:G_ACTIVE,name:'In progress',kind:'active',virtual:true,match:j=>!isArchived(j)},
+                  {id:G_DONE,name:'Completed',kind:'done',virtual:true,match:j=>isArchived(j)}];
+      var byClient={};
+      allJobs.forEach(j=>{var k=clientKey(j);if(!byClient[k]){var f=cfOf(j);
+        byClient[k]={id:k,kind:'client',virtual:true,folder:!!f,color:f?f.color:'',client_name:f?'':(j.client_name||'').trim(),
+          name:f?f.name:((j.client_name||'').trim()||'No client'),match:(key=>x=>clientKey(x)===key)(k)};}});
+      var clients=Object.keys(byClient).map(k=>byClient[k]);
+      clients.forEach(c=>{c._n=allJobs.filter(c.match).filter(j=>!isArchived(j)).length;});
+      clients.sort((a,b)=>(b._n-a._n)||a.name.localeCompare(b.name));
+      allProjects=groups.concat(clients,projs.map(p=>Object.assign(p,{kind:'project'})));
       updateKPIs(); renderProjects();
       if(!window._woAutoOpened&&new URLSearchParams(location.search).get('new')==='1'){window._woAutoOpened=true;openWoModal(null);}
       var qJob=new URLSearchParams(location.search).get('job');if(qJob&&!window._jobAutoOpened){window._jobAutoOpened=true;var qj=allJobs.find(j=>j.id===qJob);if(qj){selectProject(jobGroup(qj));openJobDetail(qJob);}}
@@ -568,9 +586,10 @@ function loadAll(){
 // ── KPIs ──
 function updateKPIs(){
   document.getElementById('kpiProj').textContent=allProjects.filter(p=>!p.virtual).length;
-  document.getElementById('kpiJobs').textContent=allJobs.length;
-  document.getElementById('kpiActive').textContent=allJobs.filter(j=>j.status==='in_progress').length;
-  var overall=allJobs.length?Math.round(allJobs.reduce((s,j)=>s+parseFloat(j.progress_pct||0),0)/allJobs.length):0;
+  var live=allJobs.filter(j=>!isArchived(j));  // Completed ones are out of the way
+  document.getElementById('kpiJobs').textContent=live.length;
+  document.getElementById('kpiActive').textContent=live.filter(j=>j.status==='in_progress').length;
+  var overall=live.length?Math.round(live.reduce((s,j)=>s+parseFloat(j.progress_pct||0),0)/live.length):0;
   document.getElementById('kpiOverall').textContent=overall+'%';
 }
 
@@ -582,17 +601,36 @@ function renderProjects(){
     el.innerHTML=cfBar+'<div class="empty-state"><div class="icon">&#128196;</div><p>No projects yet.<br>Create your first project.</p></div>';
     return;
   }
+  var head=function(t){return '<div class="sec-h">'+t+'</div>';}, shown={};
   el.innerHTML=cfBar+allProjects.map(p=>{
-    var pjobs=allJobs.filter(j=>jobGroup(j)===p.id);
+    var pjobs=groupJobs(p);
+    var sec='';
+    if(!shown[p.kind]){shown[p.kind]=1;sec=p.kind==='active'?head('&#128194; Folders'):p.kind==='client'?head('&#128101; By client'):p.kind==='project'?head('&#128203; Projects'):'';}
+    if(p.kind==='done'||p.kind==='active'){
+      var n=pjobs.length, ready=p.kind==='active'?pjobs.filter(isDone).length:0;
+      return sec+'<div class="proj-card fold-card fold-'+p.kind+(openProjId===p.id?' active':'')+'" onclick="selectProject(\''+p.id+'\')">'+
+        '<div class="proj-card-body"><div class="proj-top"><div class="fold-ico" aria-hidden="true">'+(p.kind==='done'?'&#9989;':'&#128295;')+'</div>'+
+        '<div class="proj-meta"><div class="proj-name">'+esc(p.name)+'</div><div class="proj-chips">'+
+        '<span class="chip chip-count">'+n+' work order'+(n===1?'':'s')+'</span>'+
+        (ready?'<span class="chip chip-done">'+ready+' at 100%: move to Completed</span>':'')+
+        (p.kind==='done'?'<span class="chip chip-count">Tap to see or reactivate</span>':'')+
+        '</div></div></div></div></div>';
+    }
+    if(p.kind==='client'){
+      var live=pjobs.filter(j=>!isArchived(j));
+      pjobs=live.length?live:pjobs;  // the ring shows the work still open
+    }
     var pct=pjobs.length?Math.round(pjobs.reduce((s,j)=>s+parseFloat(j.progress_pct||0),0)/pjobs.length):0;
     var open=pjobs.filter(j=>j.status==='open').length;
     var inp=pjobs.filter(j=>j.status==='in_progress').length;
     var done=pjobs.filter(j=>j.status==='completed').length;
+    var arch=p.kind==='client'?groupJobs(p).filter(isArchived).length:0;
     var active=openProjId===p.id?' active':'';
     // Ring SVG (r=22, circ=138.2)
     var circ=138.2, dash=circ*pct/100;
     var clr=pct>=100?'#22c55e':pct>=60?'#0f766e':pct>=30?'#4f8ef7':'#f59e0b';
-    return '<div class="proj-card'+active+(p.folder?' cf-card':'')+'"'+(p.folder?' style="border-left-color:'+esc(p.color)+'"':'')+' onclick="selectProject(\''+p.id+'\')">'+
+    if(p.kind==='client'&&arch&&arch===groupJobs(p).length){inp=open=done=0;}
+    return sec+'<div class="proj-card'+active+(p.folder?' cf-card':'')+'"'+(p.folder?' style="border-left-color:'+esc(p.color)+'"':'')+' onclick="selectProject(\''+p.id+'\')">'+
       '<div class="proj-card-body">'+
       '<div class="proj-top">'+
       '<div class="proj-ring">'+
@@ -604,8 +642,9 @@ function renderProjects(){
         '<div class="proj-chips">'+
           (inp?'<span class="chip chip-active">'+inp+' active</span>':'')+
           (open?'<span class="chip chip-count">'+open+' open</span>':'')+
-          (done?'<span class="chip chip-done">'+done+' done</span>':'')+
-          '<span class="chip chip-count">'+pjobs.length+' jobs</span>'+
+          (done?'<span class="chip chip-done">'+done+(p.kind==='client'?' at 100%':' done')+'</span>':'')+
+          (arch?'<span class="chip chip-done">'+arch+' completed</span>':'')+
+          '<span class="chip chip-count">'+groupJobs(p).length+' jobs</span>'+
         '</div>'+
       '</div></div>'+
       '<div class="proj-prog-bar"><div class="proj-prog-fill" style="width:'+pct+'%"></div></div>'+
@@ -633,7 +672,7 @@ function closePanel(){
 function renderPanel(projId){
   var proj=allProjects.find(p=>p.id===projId);
   if(!proj) return;
-  var pjobs=allJobs.filter(j=>jobGroup(j)===projId);
+  var pjobs=groupJobs(proj);
   var pct=pjobs.length?Math.round(pjobs.reduce((s,j)=>s+parseFloat(j.progress_pct||0),0)/pjobs.length):0;
   document.getElementById('rpName').value=proj.name;
   document.getElementById('rpName').readOnly=!!proj.virtual;
@@ -641,34 +680,63 @@ function renderPanel(projId){
   document.getElementById('rpPct').textContent=pct+'%';
   var weight=pjobs.length?Math.round(100/pjobs.length):0;
   var html='<div class="rp-actions">'
-    +'<button class="btn-sm btn-sm-primary" onclick="openWoModal()">+ Add Work Order</button>'
+    +(proj.kind==='done'?'':'<button class="btn-sm btn-sm-primary" onclick="openWoModal()">+ Add Work Order</button>')
     +(proj.virtual?'':'<button class="btn-sm btn-sm-danger" onclick="deleteProject(\''+projId+'\')">Delete Project</button>')
     +'</div>';
-  if(pjobs.length&&!proj.virtual){
+  if(pjobs.length&&proj.kind==='project'){
     html+='<div class="weight-banner">Each work order contributes <strong>'+weight+'%</strong> to this project ('+pjobs.length+' jobs, equal weight).</div>';
   }
   if(!pjobs.length){
-    html+='<div style="text-align:center;padding:32px;color:#566275;font-size:13px;">No work orders yet.<br>Add one to start tracking progress.</div>';
+    html+='<div style="text-align:center;padding:32px;color:#566275;font-size:13px;">'+(proj.kind==='done'?'Nothing here yet.<br>Work orders at 100% move here when you say so.':'No work orders yet.<br>Add one to start tracking progress.')+'</div>';
+  } else if(proj.kind==='client'){
+    var lv=pjobs.filter(j=>!isArchived(j)), ar=pjobs.filter(isArchived);
+    html+='<div class="grp-h">In progress ('+lv.length+')</div>'+(lv.length?lv.map(j=>jobItemHtml(j,0)).join(''):'<div class="grp-empty">Nothing open for this client.</div>');
+    html+='<div class="grp-h">Completed ('+ar.length+')</div>'+(ar.length?ar.map(j=>jobItemHtml(j,0)).join(''):'<div class="grp-empty">None yet.</div>');
   } else {
-    pjobs.forEach(j=>{
-      var pct=parseFloat(j.progress_pct||0);
-      var fc=pct>=100?'fill-done':pct>=60?'fill-high':pct>=30?'fill-mid':'fill-low';
-      html+='<div class="job-item" onclick="openJobDetail(\''+j.id+'\')">'+
-        '<div class="job-item-top">'+
-          '<span class="job-num">'+esc(j.job_number)+'</span>'+
-          '<span class="job-title">'+esc(j.title)+'</span>'+
-          '<span class="job-pct-badge">'+Math.round(pct)+'%</span>'+
-          '<span class="job-weight">&#10135;'+weight+'%</span>'+
-        '</div>'+
-        '<div class="job-prog-track"><div class="job-prog-fill '+fc+'" style="width:'+pct+'%"></div></div>'+
-        '<div class="job-item-foot">'+
-          '<span class="s-chip s-'+j.status+'">'+statusLabel(j.status)+'</span>'+
-          (j.due_date?'<span style="font-size:11px;color:#566275;">Due '+fmtDate(j.due_date)+'</span>':'')+
-        '</div>'+
-      '</div>';
-    });
+    pjobs.forEach(j=>{html+=jobItemHtml(j,proj.kind==='project'?weight:0);});
   }
   document.getElementById('rpBody').innerHTML=html;
+}
+// One work order row; folders add Move to Completed / Reactivate
+function jobItemHtml(j,weight){
+  var pct=parseFloat(j.progress_pct||0), html='';
+  var fc=pct>=100?'fill-done':pct>=60?'fill-high':pct>=30?'fill-mid':'fill-low';
+  var act=isArchived(j)?'<button class="arch-btn" onclick="event.stopPropagation();setArchived(\''+j.id+'\',false)">&#8617;&#65039; Reactivate</button>'
+    :isDone(j)?'<button class="arch-btn" onclick="event.stopPropagation();setArchived(\''+j.id+'\',true)">&#9989; Move to Completed</button>':'';
+  html+='<div class="job-item" onclick="openJobDetail(\''+j.id+'\')">'+
+    '<div class="job-item-top">'+
+      '<span class="job-num">'+esc(j.job_number)+'</span>'+
+      '<span class="job-title">'+esc(j.title)+'</span>'+
+      '<span class="job-pct-badge">'+Math.round(pct)+'%</span>'+
+      (weight?'<span class="job-weight">&#10135;'+weight+'%</span>':'')+
+    '</div>'+
+    '<div class="job-prog-track"><div class="job-prog-fill '+fc+'" style="width:'+pct+'%"></div></div>'+
+    '<div class="job-item-foot">'+
+      '<span class="s-chip s-'+j.status+'">'+statusLabel(j.status)+'</span>'+
+      (j.client_name&&!String(openProjId||'').startsWith('__c_')&&!String(openProjId||'').startsWith('__f_')?'<span style="font-size:11px;color:#566275;">'+esc(j.client_name)+'</span>':'')+
+      (j.due_date?'<span style="font-size:11px;color:#566275;">Due '+fmtDate(j.due_date)+'</span>':'')+
+      act+
+    '</div>'+
+  '</div>';
+  return html;
+}
+// Move a finished work order to Completed, or bring it back
+function setArchived(id,on){
+  if(!on&&!confirm('Reactivate this work order? It goes back to In progress.'))return;
+  fetch('/api/contractor/jobs/'+id+'/archive',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({archived:on})})
+    .then(r=>r.json()).then(res=>{
+      if(!res.ok){alert(res.error||'Could not save');return;}
+      var j=allJobs.find(x=>x.id===id);if(j)j.archived_at=res.archived_at;
+      if(openJobData&&openJobData.id===id){openJobData.archived_at=res.archived_at;renderFinish();}
+      updateKPIs();renderProjects();if(openProjId)renderPanel(openProjId);
+      flash(on?'Moved to Completed':'Back in progress');
+    });
+}
+// Reaching 100%: offer to move it out of the way
+function offerArchive(){
+  var j=openJobData;if(!j||isArchived(j)||!isDone(j)||j._asked)return;
+  j._asked=true;
+  setTimeout(function(){if(confirm('This work order is complete (100%).\n\nMove it to the Completed folder? You can reactivate it from there anytime.'))setArchived(j.id,true);},150);
 }
 
 // ── Job detail panel ──
@@ -692,6 +760,8 @@ function renderFinish(){
   var j=openJobData||{}, done=j.status==='completed'||parseFloat(j.progress_pct||0)>=100, box=document.getElementById('jpFinish');
   if(j.invoice_id) box.innerHTML='<span class="finished-tag">&#10003; Finished &middot; invoiced</span>';
   else if(done) box.innerHTML='<span class="finished-tag">&#10003; Finished</span><button class="reopen-link" onclick="finishJob(false)">Reopen</button>';
+  if(done&&j.id) box.innerHTML+=isArchived(j)?'<button class="arch-btn" onclick="setArchived(\''+j.id+'\',false)">&#8617;&#65039; Reactivate</button>'
+    :'<button class="arch-btn" onclick="setArchived(\''+j.id+'\',true)">&#9989; Move to Completed</button>';
   else box.innerHTML='<button class="btn-finish-sm" onclick="finishJob(true)">&#10003; Mark job finished</button>'
     +'<button class="btn-again-sm" onclick="needsAnotherVisit()" title="Worked but not finished">&#9208;&#65039; Needs another visit</button>';
 }
@@ -718,6 +788,9 @@ function closeJobPanel(){
   loadAll();
 }
 function updateJpProgress(pct){
+  var was=openJobData?parseFloat(openJobData.progress_pct||0):0;
+  if(openJobData&&pct<100&&openJobData.archived_at){openJobData.archived_at=null;var a=allJobs.find(x=>x.id===openJobId);if(a)a.archived_at=null;}
+  if(openJobData&&pct>=100&&was<100){openJobData.progress_pct=pct;setTimeout(offerArchive,0);}
   document.getElementById('jpPct').textContent=Math.round(pct)+'%';
   document.getElementById('jpProgFill').style.width=pct+'%';
   if(openJobData) openJobData.progress_pct=pct;

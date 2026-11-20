@@ -188,6 +188,26 @@ iz_id = send("POST", "/api/contractor/hicons/invoices", "Hana", {"job_id": jz["i
 iz = [x for x in DB["contractor_invoices"] if x["id"] == iz_id][0]
 check("tax 0%: invoice total unchanged, due on receipt", iz["total"] == 300 and iz["tax"] == 0 and iz["due_date"] == _today.isoformat())
 
+# ── Completed folder: move finished work orders out of the way, reactivate later ──
+ja = send("POST", "/api/contractor/jobs", "Hana", {"title": "Archive me", "client_name": "Ari"}).json["job"]
+check("completed folder: unfinished work order refused", send("POST", "/api/contractor/jobs/" + ja["id"] + "/archive", "Hana", {"archived": True}).status_code == 409)
+send("PATCH", "/api/contractor/jobs/" + ja["id"], "Hana", {"progress_pct": 100, "status": "completed"})
+r = send("POST", "/api/contractor/jobs/" + ja["id"] + "/archive", "Mia", {"archived": True})
+row = [x for x in DB["contractor_jobs"] if x["id"] == ja["id"]][0]
+check("completed folder: a 100% work order moves there (anyone in the company)", r.json["ok"] and row.get("archived_at") and row.get("archived_by") == "Mia")
+check("completed folder: other company blocked", send("POST", "/api/contractor/jobs/" + ja["id"] + "/archive", "Bob", {"archived": False}).status_code in (403, 404))
+check("completed folder: still listed, never deleted", any(x["id"] == ja["id"] and x.get("archived_at") for x in get("/api/contractor/jobs", "Hana").json))
+r = send("POST", "/api/contractor/jobs/" + ja["id"] + "/archive", "Hana", {"archived": False})
+check("completed folder: reactivate brings it back", r.json["ok"] and not row.get("archived_at"))
+send("POST", "/api/contractor/jobs/" + ja["id"] + "/archive", "Hana", {"archived": True})
+send("PATCH", "/api/contractor/jobs/" + ja["id"], "Hana", {"progress_pct": 60})
+check("completed folder: going under 100% takes it out by itself", not row.get("archived_at"))
+send("PATCH", "/api/contractor/jobs/" + ja["id"], "Hana", {"progress_pct": 100, "status": "completed"})
+send("POST", "/api/contractor/jobs/" + ja["id"] + "/archive", "Hana", {"archived": True})
+send("POST", "/api/contractor/jobs/" + ja["id"] + "/finish", "Hana", {"done": False})
+check("completed folder: reopening takes it out too", not row.get("archived_at"))
+check("completed folder: history keeps track", any("Completed" in (v.get("description") or "") for v in DB["job_visits"] if v.get("job_id") == ja["id"]))
+
 # ── PWA opens on Projects ──
 r = get("/contractor/hicons?source=pwa", "Hana")
 check("app icon opens the Projects screen", r.status_code in (301, 302) and "/contractor/projects" in r.headers.get("Location", ""))

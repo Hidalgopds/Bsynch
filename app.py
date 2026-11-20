@@ -9642,11 +9642,43 @@ def contractor_finish_job(job_id):
                "updated_at": dt.datetime.utcnow().isoformat() + "Z"}
     if done:
         payload["needs_return"] = False
+    if not done:
+        payload["archived_at"] = None  # reopened: back to the In progress folder
     r = requests.patch(f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?id=eq.{job_id}", json=payload,
                        headers=sb_headers(), timeout=5)
     if r.ok and done:
         _ct_check_job_finished(job_id)
     return jsonify({"ok": r.ok, **{k: payload[k] for k in ("status", "progress_pct")}})
+
+
+def _ct_job_unarchive(job_id):
+    """A work order that is no longer 100% leaves the Completed folder by itself."""
+    requests.patch(f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?id=eq.{job_id}&archived_at=not.is.null",
+                   json={"archived_at": None}, headers=sb_headers(), timeout=5)
+
+
+@app.route("/api/contractor/jobs/<job_id>/archive", methods=["POST"])
+def contractor_job_archive(job_id):
+    """Move a finished work order to the Completed folder ({"archived": true}) or bring it
+    back to In progress ({"archived": false}). Nothing is deleted."""
+    import datetime as dt
+    job = _ct_job_allowed(job_id)
+    if not job:
+        return jsonify({"ok": False, "error": "job not found"}), 404
+    me = _contractor_caller()
+    archived = bool((request.get_json() or {}).get("archived", True))
+    if archived and not _ct_job_is_done(job):
+        return jsonify({"ok": False, "error": "Only work orders at 100% can go to Completed"}), 409
+    now = dt.datetime.utcnow().isoformat() + "Z"
+    payload = {"archived_at": now if archived else None, "archived_by": me["name"][:80] if archived else None, "updated_at": now}
+    r = requests.patch(f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?id=eq.{job_id}", json=payload,
+                       headers=sb_headers(), timeout=5)
+    if not r.ok:
+        return jsonify({"ok": False, "error": "Could not save. Try again."}), 500
+    requests.post(f"{sb_url()}/rest/v1/job_visits", headers=sb_headers(), timeout=5, json={
+        "job_id": job_id, "created_by": me["name"][:80], "visit_date": dt.date.today().isoformat(),
+        "description": "Moved to Completed." if archived else "Reactivated: back to In progress."})
+    return jsonify({"ok": True, "archived_at": payload["archived_at"]})
 
 
 CONTRACTOR_RETURN_REASONS = ["Waiting for materials", "Client wasn't there", "Next phase", "Weather", "Needs more time"]
@@ -12607,6 +12639,10 @@ def update_contractor_job(job_id):
         payload["progress_pct"] = max(0.0, min(100.0, float(payload["progress_pct"] or 0)))
     if not payload:
         return jsonify({"ok": False, "error": "nothing to update"}), 400
+    # Back under 100% (or reopened): it leaves the Completed folder
+    if ("progress_pct" in payload and payload["progress_pct"] < 100) or \
+            ("status" in payload and payload["status"] not in ("completed",)):
+        payload["archived_at"] = None
     if "start_date" in payload or "due_date" in payload:
         # Keep the calendar on the service day when the dates change, unless it was moved there by hand
         cur = requests.get(f"{sb_url()}/rest/v1/{CONTRACTOR_JOBS_TABLE}?id=eq.{requests.utils.quote(job_id)}"
@@ -13131,6 +13167,8 @@ def update_job_step(job_id, step_id):
         new_pct = _recalc_job_progress(job_id)
         if float(new_pct or 0) >= 100:
             _ct_check_job_finished(job_id)
+        else:
+            _ct_job_unarchive(job_id)
         return jsonify({"ok": True, "job_progress_pct": new_pct})
     return jsonify({"ok": False, "error": r.text}), 400
 
