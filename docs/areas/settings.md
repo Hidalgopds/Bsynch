@@ -24,6 +24,7 @@
 - Pruebas de carga k6 listas en `loadtest/`; staging creado pero **sin el esquema aplicado todavía**.
 
 ## Pendientes
+- [x] **Nuevo hub Storefront ("Local Comercial")**, esqueleto (2026-11-20): ficha `docs/areas/storefront.md`, fila en `CLAUDE.md`, tarjeta en `/home` y `/storefront-hub` solo para admins de plataforma (`/api/me/hubs` → `preview`), nombres reservados. Falta: que el dueño valide con tiendas; luego una conversación de Storefront construye. Para venderlo: `SAAS_HUBS`, registro propio y abrirlo en `_saas_scope_guard`.
 - [ ] **Siguiente gran paso, después de activar Stripe y tener los primeros clientes pagando (decisión del dueño, 2026-11-20): pagos en línea con comisión (Stripe Connect).** Botón "Pagar en línea" en las facturas de Contractor (enlace público `/i/<token>`); el dinero va a la cuenta Connect (Express) del contratista y BSynch cobra un `application_fee` (ej. 1%, a definir por el dueño). Tarjeta + ACH. Stripe hace la verificación de identidad (KYC), los contracargos y el 1099-K. Riesgo: saldos negativos por contracargos; controlarlo con payouts diferidos y límites. Agregarlo a los términos (revisar con abogado). Lo hacen Settings (Connect, alta de cada empresa) y Contractor (botón en la factura).
 - [ ] Aplicar el esquema a staging (`loadtest/export_schema.sql`) y correr k6 contra staging.
 - [x] Fotos de órdenes de trabajo a Storage (`migrations/job_photos_storage.sql`, aplicada en producción principal el 2026-11-14).

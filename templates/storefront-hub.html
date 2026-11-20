@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Storefront – BSynch</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column}
+header{padding:18px 28px;display:flex;align-items:center;gap:14px;border-bottom:1px solid #1e2533}
+.logo-badge{width:36px;height:36px;background:linear-gradient(135deg,#1e9484,#4f8ef7);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff}
+.hdr-title{font-size:17px;font-weight:700}
+.btn-back{margin-left:auto;padding:6px 14px;border:1px solid #334155;border-radius:7px;color:#cbd5e1;font-size:12px;text-decoration:none}
+.btn-back:hover{border-color:#1e9484;color:#5eead4}
+main{flex:1;max-width:760px;width:100%;margin:0 auto;padding:36px 20px 50px}
+.icon{font-size:52px}
+h1{font-size:28px;margin:8px 0 6px}
+.lead{color:#cbd5e1;font-size:15px;line-height:1.6;margin-bottom:8px}
+.badge{display:inline-block;padding:5px 12px;border-radius:20px;background:#3b0a2a;border:1px solid #9d174d;color:#fbcfe8;font-size:12px;font-weight:700;margin-bottom:22px}
+.card{background:#1a1d27;border:1px solid #2a2d3e;border-radius:14px;padding:18px 20px;margin-bottom:14px}
+.card h2{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:#94a3b8;margin-bottom:12px}
+ol,ul{padding-left:20px;line-height:1.8;font-size:14px;color:#e2e8f0}
+li b{color:#fff}
+.muted{color:#94a3b8;font-size:13px;line-height:1.6}
+footer{text-align:center;padding:16px;font-size:12px;color:#94a3b8}
+</style>
+</head>
+<body>
+<header><div class="logo-badge" aria-hidden="true">B</div><span class="hdr-title">Storefront</span><a href="/home" class="btn-back">&#8592; Home</a></header>
+<main>
+  <div class="icon" aria-hidden="true">&#128717;&#65039;</div>
+  <h1>Storefront</h1>
+  <p class="lead">An always-current online catalog for local stores (appliances, furniture, mattresses, open-box), with no typing: take a photo, set the price, it's listed.</p>
+  <span class="badge">Being built &middot; only platform admins see this</span>
+
+  <div class="card">
+    <h2>What it will do (first version)</h2>
+    <ol>
+      <li><b>Photo in, product listed:</b> photo of the product and its label; AI fills brand, model, size and specs.</li>
+      <li><b>Price and quantity</b>, then publish.</li>
+      <li><b>Sold / On hold</b> with one tap, so the catalog never shows what's gone.</li>
+      <li><b>Public catalog per store</b>, made for phones, with an <b>Ask on WhatsApp</b> button on each product.</li>
+      <li><b>Share</b> a product to Facebook, Marketplace or WhatsApp status in one tap.</li>
+      <li>English and Spanish; layaway ("apartado") friendly.</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>Before building: check stores want it</h2>
+    <ul>
+      <li>Visit 5 stores: how do they sell today, who posts photos, how long it takes.</li>
+      <li>Would they pay (for example $29/month) for listings that make themselves?</li>
+      <li>If 2 or 3 say "yes, when?", the Storefront conversation builds the screens.</li>
+    </ul>
+  </div>
+  <p class="muted">Plan, rules and files: docs/areas/storefront.md.</p>
+</main>
+<footer>BSynch &middot; Storefront</footer>
+</body>
+</html>

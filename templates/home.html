@@ -35,6 +35,7 @@
     .icon-mkt  { background: rgba(168,85,247,.15); }
     .icon-set  { background: rgba(30,148,132,.15); }
     .icon-lab  { background: rgba(34,197,94,.15); }
+    .icon-shop { background: rgba(236,72,153,.15); }
     .tile h3 { font-size: 16px; font-weight: 700; }
     .tile p  { font-size: 12px; color: #94a3b8; line-height: 1.5; }
     .tile-coming { opacity: .55; cursor: default; }
@@ -81,6 +82,10 @@
       <div class="tile-icon icon-set">⚙️</div>
       <div><h3>Settings</h3><p>Users, roles, integrations, and platform configuration.</p></div>
     </a>
+    <a href="/storefront-hub" class="tile" id="tile-storefront" style="display:none">
+      <div class="tile-icon icon-shop">🛍️</div>
+      <div><h3>Storefront</h3><p>Online catalog for local stores: photo in, product listed. Being built.</p></div>
+    </a>
     <a href="/homelab-hub" class="tile" id="tile-homelab">
       <div class="tile-icon icon-lab">🏠</div>
       <div><h3>Home Lab</h3><p>Custom apps and views for projects you're building at home.</p></div>
@@ -115,6 +120,7 @@
   // Client companies (SaaS) only have Contractor: hide the rest (the server blocks them anyway)
   if(!_isSubdomain){
     fetch('/api/me/hubs', {credentials:'same-origin'}).then(function(r){ return r.json(); }).then(function(d){
+      (d.preview || []).forEach(function(t){ var el = document.getElementById('tile-'+t); if(el) el.style.display = ''; });
       if(!d.ok || !d.tiles) return;
       ['erp','contractor','marketing','settings','homelab'].forEach(function(t){
         var el = document.getElementById('tile-'+t);

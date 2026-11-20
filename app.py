@@ -11054,7 +11054,9 @@ _RESERVED_SLUGS = {"www", "api", "app", "admin", "platform", "login", "home", "s
                    "billing", "settings", "staging", "test", "demo", "contractor", "erp", "marketing", "homelab",
                    # pages under /contractor/<x> (same list as NOT_CO in static/contractor-scope.js)
                    "workorders", "projects", "agreement", "account", "dictate", "invoice", "estimate", "dashboard",
-                   "manifest"}
+                   "manifest",
+                   # Storefront hub and its public catalogs
+                   "storefront", "store", "stores", "shop", "catalog", "tienda"}
 
 
 def _master_hdr():
@@ -11447,7 +11449,19 @@ def saas_my_hubs():
     co = _saas_client_company()
     if co:
         return jsonify({"ok": True, "client": True, "tiles": ["contractor"], "company": co})
-    return jsonify({"ok": True, "client": False, "tiles": None})
+    # Hubs still being built (Storefront) show only to platform operators
+    return jsonify({"ok": True, "client": False, "tiles": None,
+                    "preview": ["storefront"] if _session_user() and _is_platform_operator() else []})
+
+
+# ── Storefront hub (being built; see docs/areas/storefront.md). Private to platform operators until launch ──
+@app.route("/storefront-hub")
+def storefront_hub():
+    if not _session_user():
+        return redirect("/login?next=/storefront-hub")
+    if not _is_platform_operator():
+        return redirect("/home")
+    return render_template("storefront-hub.html")
 
 
 # ── Billing page and Stripe ──

@@ -19,10 +19,10 @@ Cada conversación es dueña de una sola sección (tabla de abajo). Antes de hac
 - **No sabes de cuál es:** pregunta antes de tocar nada.
 - Si la persona insiste en que lo hagas aquí, hazlo solo si es pequeño y no toca archivos de otra sección. Anota en la ficha de la otra sección qué cambiaste.
 
-Pistas rápidas: cuadrillas, PIN, check-in, timesheets, inventario o compras = **ERP** · proyectos, órdenes de trabajo, clientes, estimados, facturas, gastos = **Contractor** · campañas, leads, página de ventas = **Marketing** · niños, checklist, juegos, Hermaniland = **Home Lab** · usuarios, roles, empresas, login, seguridad, la pantalla de inicio `/home`, la pantalla Settings, cobros/Stripe, despliegue = **Settings**.
+Pistas rápidas: cuadrillas, PIN, check-in, timesheets, inventario o compras = **ERP** · proyectos, órdenes de trabajo, clientes, estimados, facturas, gastos = **Contractor** · campañas, leads, página de ventas = **Marketing** · niños, checklist, juegos, Hermaniland = **Home Lab** · tiendas, catálogo, productos, vendido/apartado = **Storefront** · usuarios, roles, empresas, login, seguridad, la pantalla de inicio `/home`, la pantalla Settings, cobros/Stripe, despliegue = **Settings**.
 
 ## Qué es BSynch
-Una app web (Flask, un solo archivo grande `app.py` + `templates/` + `static/`) con 5 secciones, las mismas tarjetas de `/home`:
+Una app web (Flask, un solo archivo grande `app.py` + `templates/` + `static/`) con 6 secciones, las mismas tarjetas de `/home`:
 
 | Sección | Para qué | Ficha |
 |---|---|---|
@@ -30,6 +30,7 @@ Una app web (Flask, un solo archivo grande `app.py` + `templates/` + `static/`) 
 | Contractor | Contratistas (Hicons, Bsynch): proyectos, órdenes de trabajo, clientes, estimados, facturas | `docs/areas/contractor.md` |
 | Marketing | Campañas y leads. Hoy vacía ("coming soon") | `docs/areas/marketing.md` |
 | Home Lab (Family Hub) | Familia: checklist de niños, juegos, Hermaniland | `docs/areas/homelab.md` |
+| Storefront ("Local Comercial") | Catálogo en línea para tiendas locales: foto → producto publicado, vendido/apartado, botón de WhatsApp. **En construcción**, solo lo ven admins de plataforma | `docs/areas/storefront.md` |
 | Settings | **BSynch como plataforma** y la pantalla Settings: login, usuarios y roles, empresas, seguridad, legal, pruebas, despliegue, cobros, venta como SaaS | `docs/areas/settings.md` |
 
 **Settings es la conversación de BSynch como un todo**, no solo de la tarjeta Settings: coordina a las demás secciones, decide lo que es de toda la app y además maneja la pantalla Settings. **Settings manda sobre lo común.** Las demás secciones no cambian login, sesiones, roles, cabeceras de seguridad, `_audit`, límites de intentos, `sb_url()/sb_headers()`, migraciones de tablas compartidas ni este archivo. Si lo necesitan, lo dicen y lo hace la conversación de Settings.
