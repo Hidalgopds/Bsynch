@@ -38,7 +38,8 @@ Una app web (Flask, un solo archivo grande `app.py` + `templates/` + `static/`) 
 ## Modelo de clientes (decidido por el dueño, 2026-11-14: lo más económico y eficiente)
 - **Una sola base de producción para todos los clientes** (`wanfpiogchwttsippekm`). Cada fila lleva su empresa (`company`) y el servidor la revisa en cada pedido. Nada de un proyecto de Supabase por hub ni por cliente.
 - Empresas de **todos los hubs**: tabla `contractor_companies` (nombre histórico), columna `hubs` dice qué usa cada una. `CONTRACTOR_COMPANIES` (hub contractor) y `ERP_COMPANIES` (hub erp) se leen de ahí. Se agregan con `POST /api/platform/contractor-companies` (solo dueño). **Una empresa por persona**; el dueño ve todas.
-- Empresas fijas: Hicons y Bsynch (Contractor), **TDG Energy Services** (`tdg`, ERP, del dueño). Demos para mostrar el sistema (`is_demo`, nunca se cobran): `demo-construction` (Contractor) y `demo-erp` (ERP, en pausa hasta que el ERP separe empresas).
+- Empresas fijas: Hicons y Bsynch (Contractor), **TDG Energy Services** (`tdg`, ERP, del dueño). Demos / pruebas (`is_demo`, nunca se cobran): `demo-construction` (Contractor) y **`mbr` "MBR (Test)"** (ERP, en pausa hasta que el ERP separe empresas). `demo-erp` quedó retirada (sin hubs).
+- **ERP Home** (`/erp-hub`): la tarjeta ERP lista las empresas con hub ERP (el dueño); los demás entran directo a la suya. La empresa elegida vive en `session["erp_company"]`; las rutas del ERP la leen con `_erp_company()`. Solo TDG abre hasta que `ERP_SEPARATED = True`.
 - **Excepciones:** Home Lab (datos de niños) puede ir a su propio proyecto más adelante. Una **base dedicada** solo para un cliente grande que la pague aparte (la app ya lo soporta con `bsynch_companies`, como NNC).
 - Una dirección por empresa (`<empresa>.bsynch.com`), no por hub. Cada empresa ve solo los hubs que contrató.
 - Toda función nueva debe probar que una empresa no ve lo de otra (`tests/`).

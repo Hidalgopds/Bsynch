@@ -11691,6 +11691,68 @@ def _settings_cards(name):
     return cards
 
 
+# ── ERP Home: the ERP tile lists the companies that use the ERP; each one opens the ERP screens ──
+# Until the ERP screens filter by company (ERP step 2, see docs/areas/erp.md) only the default company
+# (TDG, which owns all ERP data so far) can be opened: any other would show TDG's data.
+ERP_SEPARATED = False  # the ERP conversation sets True when every ERP route reads/writes by company
+
+
+def _erp_company():
+    """The ERP company the signed-in person is working in. The owner picks it on the ERP Home; everyone
+    else works in their own company (today: TDG). ERP routes use this once they filter by company."""
+    name = _session_user() or (session.get("uid") or "").strip()
+    picked = session.get("erp_company")
+    if name and picked in ERP_COMPANIES and _is_platform_owner():
+        return picked
+    u = _auth_user_row(name, "contractor_company") if name else None
+    co = (u or {}).get("contractor_company")
+    return co if co in ERP_COMPANIES else ERP_DEFAULT_COMPANY
+
+
+def _erp_hub_list():
+    r = requests.get(f"{_MASTER_URL}/rest/v1/contractor_companies?status=in.(active,paused)&select=slug,name,status,is_demo,hubs"
+                     f"&order=name.asc", headers=_master_hdr(), timeout=8)
+    rows = [c for c in (r.json() if r.ok else []) if "erp" in (c.get("hubs") or [])]
+    if not any(c["slug"] == ERP_DEFAULT_COMPANY for c in rows):
+        rows.insert(0, {"slug": ERP_DEFAULT_COMPANY, "name": ERP_COMPANIES.get(ERP_DEFAULT_COMPANY), "status": "active"})
+    for c in rows:
+        c["ready"] = c["slug"] == ERP_DEFAULT_COMPANY or (ERP_SEPARATED and c.get("status") == "active")
+    return rows
+
+
+@app.route("/erp-hub")
+def erp_hub():
+    if not _session_user():
+        return redirect("/login?next=/erp-hub")
+    if not _client_can_access_module("erp"):
+        return redirect("/home")
+    if not _is_platform_owner():
+        # Everyone else has one ERP company: straight in
+        session["erp_company"] = _erp_company()
+        return redirect("/erp")
+    return render_template("erp-hub.html")
+
+
+@app.route("/api/erp-hub", methods=["GET"])
+def erp_hub_api():
+    if not _is_platform_owner():
+        return jsonify({"ok": False, "error": "Platform owner only."}), 403
+    return jsonify({"ok": True, "companies": _erp_hub_list(), "current": session.get("erp_company") or ERP_DEFAULT_COMPANY})
+
+
+@app.route("/erp-hub/<slug>")
+def erp_hub_open(slug):
+    """The owner opens one ERP company: remembered in the session, then the ERP screens."""
+    if not _is_platform_owner():
+        return redirect("/erp-hub")
+    company = next((c for c in _erp_hub_list() if c["slug"] == slug), None)
+    if not company or not company["ready"]:
+        return redirect("/erp-hub")
+    session["erp_company"] = slug
+    _audit("erp.company_opened", slug)
+    return redirect("/erp")
+
+
 @app.route("/settings-hub")
 def settings_hub():
     if not _session_user():

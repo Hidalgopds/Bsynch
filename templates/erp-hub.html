@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ERP – BSynch</title>
+<style>
+/* Light colors, fixed */
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f6f8fb;color:#0f172a;min-height:100vh;display:flex;flex-direction:column}
+header{padding:16px 24px;display:flex;align-items:center;gap:14px;background:#19354d;color:#e2e8f0}
+.logo-badge{width:36px;height:36px;background:linear-gradient(135deg,#0f766e,#4f8ef7);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff}
+.hdr-title{font-size:17px;font-weight:700}
+.hdr-right{margin-left:auto;display:flex;gap:8px}
+.btn{padding:6px 14px;border:1px solid rgba(255,255,255,.35);border-radius:7px;color:#e2e8f0;font-size:12px;font-weight:600;text-decoration:none}
+.btn:hover{border-color:#5eead4;color:#5eead4}
+main{flex:1;max-width:900px;width:100%;margin:0 auto;padding:30px 18px 50px}
+h1{font-size:26px;margin-bottom:4px}
+.sub{color:#566275;font-size:14px;margin-bottom:22px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.co{display:flex;flex-direction:column;gap:10px;background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:20px;text-decoration:none;color:inherit;box-shadow:0 1px 2px rgba(15,23,42,.04);transition:border-color .15s,transform .1s}
+a.co:hover{border-color:#0f766e;transform:translateY(-1px)}
+.co .ic{width:46px;height:46px;border-radius:12px;background:#eff6ff;display:flex;align-items:center;justify-content:center;font-size:24px}
+.co b{font-size:18px}
+.co span{font-size:13px;color:#566275;line-height:1.45}
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+.tag{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:#ecfdf5;color:#065f46}
+.tag.test{background:#fef3c7;color:#92400e}
+.tag.cur{background:#e0f2fe;color:#075985}
+.co.locked{opacity:.75;cursor:default}
+.note{margin-top:22px;font-size:13px;color:#566275;line-height:1.6;background:#fff;border:1px dashed #cbd5e1;border-radius:12px;padding:12px 14px}
+footer{text-align:center;padding:16px;font-size:12px;color:#566275}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo-badge" aria-hidden="true">B</div><span class="hdr-title">ERP</span>
+  <div class="hdr-right"><a href="/home" class="btn">&#8592; Home</a><a href="/logout" class="btn">Log out</a></div>
+</header>
+<main>
+  <h1>ERP Home</h1>
+  <p class="sub">Companies that use the ERP. Open one to see its Field Log, Material Manager, Timesheet, Dashboard, QC and Check-in.</p>
+  <div class="grid" id="grid"><p class="sub">Loading&hellip;</p></div>
+  <p class="note" id="note" hidden>Companies marked <b>Available soon</b> open once the ERP screens keep each company's data apart. Until then they would show TDG's data, so they stay closed.</p>
+</main>
+<footer>BSynch &middot; ERP</footer>
+<script>
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+fetch('/api/erp-hub', {credentials: 'same-origin'}).then(function(r){ return r.json(); }).then(function(d){
+  if (!d.ok) { location.replace('/erp'); return; }
+  var locked = false;
+  document.getElementById('grid').innerHTML = d.companies.map(function(c){
+    var tags = (c.is_demo ? '<span class="tag test">Test</span>' : '') +
+               (c.slug === d.current && c.ready ? '<span class="tag cur">Last opened</span>' : '') +
+               (c.ready ? '<span class="tag">Open</span>' : '<span class="tag test">Available soon</span>');
+    if (!c.ready) locked = true;
+    var inner = '<div class="ic" aria-hidden="true">&#127959;&#65039;</div><b>' + esc(c.name) + '</b>' +
+                '<span>Field Log, Material Manager, Timesheet, Dashboard, QC and Check-in.</span><div class="tags">' + tags + '</div>';
+    return c.ready ? '<a class="co" href="/erp-hub/' + encodeURIComponent(c.slug) + '">' + inner + '</a>'
+                   : '<div class="co locked" aria-disabled="true">' + inner + '</div>';
+  }).join('');
+  document.getElementById('note').hidden = !locked;
+}).catch(function(){ document.getElementById('grid').textContent = 'Connection error. Refresh the page.'; });
+</script>
+</body>
+</html>
