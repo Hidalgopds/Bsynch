@@ -58,6 +58,12 @@ footer{text-align:center;padding:16px;font-size:12px;color:#566275;}
 .su b{font-size:14px;}
 .su small{display:block;color:#566275;}
 .su .btns{display:flex;gap:6px;}
+.demos{background:#f0fdfa;border:1px solid #8fcfc2;border-radius:14px;padding:14px;margin-bottom:12px;}
+.demos h3{font-size:15px;margin-bottom:4px;color:#115e59;}
+.demos p{font-size:13px;color:#566275;margin-bottom:6px;}
+.dm{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;background:#fff;border:1px solid #ccfbf1;border-radius:10px;padding:10px 12px;margin-top:8px;font-size:13px;}
+.dm small{display:block;color:#566275;}
+.dm-link{flex-basis:100%;word-break:break-all;background:#ecfdf5;border-radius:8px;padding:8px 10px;font-size:12px;color:#065f46;}
 .newco{background:#fff;border:1px dashed #8fcfc2;border-radius:14px;padding:14px;margin-bottom:12px;}
 .newco h3{font-size:15px;margin-bottom:2px;}
 .newco p{font-size:13px;color:#566275;margin-bottom:10px;}
@@ -81,6 +87,7 @@ footer{text-align:center;padding:16px;font-size:12px;color:#566275;}
   <h1>&#128737;&#65039; Platform Admin</h1>
   <p class="sub">Every account and every company. Only you (the platform administrator) can open this page.</p>
   <div class="signups" id="signups" hidden></div>
+  <div class="demos" id="demos" hidden></div>
   <div class="cos" id="cos"></div>
   <form class="newco" id="newCo" autocomplete="off">
     <h3>&#10133; Add a company</h3>
@@ -207,6 +214,36 @@ document.getElementById('signups').addEventListener('click', function(e){
     });
 });
 loadSignups();
+
+// ── Demo companies: the owner gets a sign-in for each one (no email needed) ──
+function loadDemos(){
+  fetch('/api/platform/demo-companies').then(function(r){ return r.json(); }).then(function(d){
+    var box = document.getElementById('demos'), list = (d && d.ok && d.demos) || [];
+    box.hidden = !list.length;
+    if(!list.length) return;
+    box.innerHTML = '<h3>&#127917; Demo companies</h3><p>Sample data to show the system. Sign in as their Manager to see it like a client does.</p>' +
+      list.map(function(s){
+        var paused = s.status !== 'active';
+        return '<div class="dm"><div><b>' + esc(s.name) + '</b><small>' + esc((s.hubs || []).join(', ')) +
+          (paused ? ' &middot; paused until the ERP separates companies' : ' &middot; username: <b>' + esc(s.slug) + '</b>') + '</small></div>' +
+          (paused ? '' : '<button class="act ok" data-demo="' + esc(s.slug) + '">' + (s.login ? 'New password link' : 'Create demo login') + '</button>') +
+          '<div class="dm-link" id="dm-' + esc(s.slug) + '" hidden></div></div>';
+      }).join('');
+  }).catch(function(){});
+}
+document.getElementById('demos').addEventListener('click', function(e){
+  var b = e.target.closest('[data-demo]'); if(!b) return;
+  b.disabled = true;
+  fetch('/api/platform/demo-companies/' + encodeURIComponent(b.dataset.demo) + '/login', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'})
+    .then(function(r){ return r.json(); }).then(function(res){
+      b.disabled = false;
+      var out = document.getElementById('dm-' + b.dataset.demo);
+      if(!res.ok){ alert(res.error || 'Could not do it'); return; }
+      out.hidden = false;
+      out.innerHTML = 'Username: <b>' + esc(res.username) + '</b>. Open this one-time link (valid 72 h) to choose its password, then sign in in a private window: <a href="' + esc(res.link) + '" target="_blank" rel="noopener">' + esc(res.link) + '</a>';
+    }).catch(function(){ b.disabled = false; alert('Connection error'); });
+});
+loadDemos();
 
 // ── Add a company (it lives in the shared database; no new project) ──
 var ncName = document.getElementById('ncName'), ncSlug = document.getElementById('ncSlug'), ncMsg = document.getElementById('ncMsg'), slugTouched = false;

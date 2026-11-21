@@ -75,4 +75,24 @@ MAIL.clear()
 A._ct_mail("hicons", "invoice", ["client@example.com"], [], "Invoice", "<p>x</p>")
 check("real companies are not affected", len(MAIL) == 1)
 
+# ── demo logins: only the owner, only demo companies, password chosen by link ──
+DB.setdefault("password_links", [])
+check("manager can't make demo logins", send("POST", "/api/platform/demo-companies/demo-construction/login", "Hana", {}).status_code == 403)
+check("demo list is owner-only", get("/api/platform/demo-companies", "Hana").status_code == 403)
+check("not for real companies", send("POST", "/api/platform/demo-companies/tdg/login", "owner@example.com", {}).status_code == 404)
+check("paused demo refused", send("POST", "/api/platform/demo-companies/demo-erp/login", "owner@example.com", {}).status_code == 409)
+dl = send("POST", "/api/platform/demo-companies/demo-construction/login", "owner@example.com", {}).json
+check("owner gets a demo login with a one-time link", dl["ok"] and dl["username"] == "demo-construction" and "/set-password/" in dl["link"])
+token = dl["link"].rsplit("/", 1)[-1]
+check("demo password set by the link", client().post("/api/public/set-password", json={"token": token, "password": "demo-pass-123"}).json["ok"])
+demo = client()
+check("demo Manager signs in", login(demo, "demo-construction", "demo-pass-123").status_code == 200)
+acc = demo.get("/api/contractor/me").json.get("access") or {}
+check("demo Manager sees only the demo company, as its Manager", list(acc) == ["demo-construction"] and acc["demo-construction"]["is_admin"])
+again = send("POST", "/api/platform/demo-companies/demo-construction/login", "owner@example.com", {}).json
+check("second time: same account, new link", again["ok"] and again["name"] == dl["name"]
+      and sum(1 for u in DB["app_users"] if u.get("username") == "demo-construction") == 1)
+check("demo list shows it has a login", next(d for d in get("/api/platform/demo-companies", "owner@example.com").json["demos"]
+                                             if d["slug"] == "demo-construction")["login"] == "demo-construction")
+
 done("companies")

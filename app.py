@@ -11073,6 +11073,63 @@ def platform_list_contractor_companies():
     return jsonify({"ok": True, "companies": dict(CONTRACTOR_COMPANIES.items())})
 
 
+# ── Demo logins: the owner gets a sign-in for each demo company, with no email and no password in chat ──
+def _is_platform_owner():
+    name = _session_user()
+    return bool(name) and _ct_is_owner_account(_auth_user_row(name, "username,email") or {})
+
+
+@app.route("/api/platform/demo-companies", methods=["GET"])
+def platform_demo_companies():
+    if not _is_platform_owner():
+        return jsonify({"ok": False, "error": "Platform owner only."}), 403
+    r = requests.get(f"{_MASTER_URL}/rest/v1/contractor_companies?is_demo=is.true&select=slug,name,status,hubs&order=slug.asc",
+                     headers=_master_hdr(), timeout=8)
+    demos = r.json() if r.ok else []
+    for d in demos:
+        u = requests.get(f"{_MASTER_URL}/rest/v1/app_users?username=eq.{requests.utils.quote(d['slug'])}&select=name&limit=1",
+                         headers=_master_hdr(), timeout=6)
+        d["login"] = d["slug"] if u.ok and u.json() else None
+    return jsonify({"ok": True, "demos": demos})
+
+
+@app.route("/api/platform/demo-companies/<slug>/login", methods=["POST"])
+def platform_demo_login(slug):
+    """Create (once) the demo company's Manager account, username = the company id, and give the owner a
+    one-time link on screen to choose its password. Only for companies marked is_demo, only for the owner."""
+    import secrets
+    if not _is_platform_owner():
+        return jsonify({"ok": False, "error": "Platform owner only."}), 403
+    row = _saas_row(slug) if _COMPANY_SLUG.fullmatch(slug or "") else None
+    if not row or not row.get("is_demo"):
+        return jsonify({"ok": False, "error": "Only for demo companies"}), 404
+    if row.get("status") != "active":
+        return jsonify({"ok": False, "error": "This demo is paused (the ERP doesn't separate companies yet)."}), 409
+    name = f"Demo Manager ({slug})"[:80]
+    u = requests.get(f"{_MASTER_URL}/rest/v1/app_users?username=eq.{requests.utils.quote(slug)}&select=name,contractor_company&limit=1",
+                     headers=_master_hdr(), timeout=6)
+    existing = u.json()[0] if u.ok and u.json() else None
+    if existing and existing.get("contractor_company") != slug:
+        return jsonify({"ok": False, "error": "That username belongs to someone else"}), 409
+    if not existing:
+        c = requests.post(f"{_MASTER_URL}/rest/v1/app_users",
+                          json={"name": name, "username": slug, "role": "worker", "approved": True, "contractor_company": slug,
+                                "password": hash_password(secrets.token_urlsafe(32))},
+                          headers={**_master_hdr(), "Prefer": "return=minimal"}, timeout=8)
+        if not c.ok:
+            return jsonify({"ok": False, "error": "Could not create the demo account"}), 502
+        roles = _ct_company_roles(slug)
+        roles[name] = "admin"
+        _ct_set_config(f"contractor_roles_{slug}", roles)
+    else:
+        name = existing["name"]
+    link = _pw_link_new(name, "setup", by=_session_user())
+    if not link:
+        return jsonify({"ok": False, "error": "Could not create the link. Try again."}), 502
+    _audit("company.demo_login", slug, {"account": name, "created": not existing})
+    return jsonify({"ok": True, "username": slug, "name": name, "link": link})
+
+
 @app.route("/api/platform/contractor-companies", methods=["POST"])
 def platform_add_contractor_company():
     """Add a contractor company. It lives in the shared database (no new Supabase project)."""
