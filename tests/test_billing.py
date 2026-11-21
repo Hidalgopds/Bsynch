@@ -81,7 +81,7 @@ check("reject keeps the row as rejected", rj.json["ok"] and co_row("spam")["stat
 # ── the client's people only reach Contractor ──
 lola = client()
 check("approved client signs in", login(lola, "lola@example.com", "longpass1").status_code == 200)
-check("home shows only Contractor", lola.get("/api/me/hubs").json["tiles"] == ["contractor"])
+check("home shows only Contractor (and Settings)", lola.get("/api/me/hubs").json["tiles"] == ["contractor", "settings"])
 check("ERP API blocked", lola.get("/api/workers").status_code == 403)
 check("ERP page sends to Contractor", lola.get("/erp").status_code == 302 and "/contractor-hub" in lola.get("/erp").headers["Location"])
 check("Home Lab blocked", lola.get("/homelab-hub").status_code == 302 and lola.get("/api/homelab/kids").status_code == 403)

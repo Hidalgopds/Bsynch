@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{background:#f0f4f8;color:#0f172a;font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
-body{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;}
+body{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;}
 .screen{display:none;width:100%;max-width:440px;}
 .screen.active{display:block;}
 .card{background:#1a2234;border:1px solid #1e2d45;border-radius:16px;padding:36px 32px;}
@@ -254,7 +254,7 @@ else fetch('/api/auth/whoami').then(function(r){ return r.ok ? r.json() : null; 
   location.replace(/^\/[^\/\\]/.test(nx) ? nx : '/home');
 }).catch(function(){});
 </script>
-<div style="text-align:center;font-size:12px;padding:14px 16px;opacity:.75"><a href="/privacy" style="color:inherit">Privacy</a> &middot; <a href="/terms" style="color:inherit">Terms</a></div>
+<div style="text-align:center;font-size:12px;padding:14px 16px;color:#566275"><a href="/privacy" style="color:inherit">Privacy</a> &middot; <a href="/terms" style="color:inherit">Terms</a></div>
 <input id="hp_website" name="website" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
 </body>
 </html>

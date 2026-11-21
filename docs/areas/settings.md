@@ -24,6 +24,11 @@
 - Pruebas de carga k6 listas en `loadtest/`; staging creado pero **sin el esquema aplicado todavía**.
 
 ## Pendientes
+- [x] **Cuentas por empresa, pasos 1 y 2** (2026-11-21):
+  1. Login sin "Create account" público (nadie crea cuentas sueltas sin empresa). Ahora dice "Start a free trial" (`/signup`) y "usa el enlace de invitación de tu empresa". `/api/register` devuelve 410. El registro de cuadrillas del ERP por QR (`/register`, `/api/self-register`) sigue igual: es del ERP.
+  2. La tarjeta **Settings** de `/home` va a `/settings-hub`, que muestra a cada quien solo lo suyo (`/api/me/settings`): Mi cuenta (todos); gente, perfil y facturación de su empresa (Manager); ajustes del ERP (admins del ERP, nunca clientes); Platform Admin, reporte de seguridad, bases dedicadas y Storefront (dueño / admins de plataforma). Los clientes también ven la tarjeta Settings. `/platform-settings` (bases dedicadas) ahora solo abre para admins de plataforma. Pruebas: `tests/test_settings_hub.py`.
+- [ ] Paso 3 (Contractor): "Agregar persona" por correo en Admin settings de cada empresa (enlace para elegir clave, como el alta de empresas). Pedido dejado en la ficha de Contractor.
+- [ ] Paso 4 (ERP): gente del ERP por empresa, cuando el ERP separe empresas.
 - [x] **ERP multi-empresa, paso 1** (2026-11-21, `migrations/erp_companies.sql`): columna `company` en las 22 tablas del ERP (todo → `tdg`, default temporal `'tdg'`), registro por hub (`_CompanyRegistry(hub=...)`, `ERP_COMPANIES`), TDG Energy Services registrada, `is_demo` en empresas. Empresas demo: `demo-construction` (activa) y `demo-erp` (en pausa). Paso 2 lo hace ERP (ver su ficha); después Settings quita el default, activa `demo-erp` y abre el ERP en `_saas_scope_guard` según `hubs`.
 - [x] Datos de ejemplo en **Demo Construction Co** (2026-11-21, `migrations/demo_construction_seed.sql`, aplicado; corre una sola vez): 3 proyectos, 8 órdenes (fechas relativas a hoy), pasos, visitas, 3 estimados, 4 facturas, 5 contactos, 5 gastos, perfil con prefijo "D". Todo inventado (`@example.com`, 555). `_ct_mail` no manda a direcciones example.* en empresas demo.
 - [ ] Datos de ejemplo para **Demo Field Services** (ERP): solo cuando el ERP filtre por empresa; si no, saldrían en las pantallas de TDG.

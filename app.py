@@ -1951,9 +1951,14 @@ def hl_approve_block(block_id):
 
 @app.route("/platform-settings")
 def platform_settings_page():
-    # Only accessible from master domain, not client subdomains
+    # Only accessible from master domain, not client subdomains, and only for platform operators
+    # (reached from Settings → "Dedicated databases"; the API behind it already checked this)
     if _get_client_co():
         return redirect("/home")
+    if not _session_user():
+        return redirect("/login?next=/platform-settings")
+    if not _is_platform_operator():
+        return redirect("/settings-hub")
     return render_template("platform-settings.html")
 
 # ── BSynch Platform: Company Management API ───────────────────────────
@@ -11477,7 +11482,7 @@ def _billing_gate():
 
 
 # ── Client companies only reach Contractor and their billing page ──
-_SAAS_OPEN_EXACT = {"/", "/home", "/login", "/logout", "/privacy", "/terms", "/signup", "/billing", "/contractor-hub",
+_SAAS_OPEN_EXACT = {"/", "/home", "/login", "/logout", "/privacy", "/terms", "/signup", "/billing", "/contractor-hub", "/settings-hub",
                     "/robots.txt", "/sw.js", "/favicon.ico"}
 _SAAS_OPEN_PAGES = ("/contractor/", "/static/", "/join/", "/i/", "/e/", "/set-password/")  # public invoice/estimate links; prefixes end with "/" so "/home" never lets "/homelab" through
 _SAAS_OPEN_API = ("/api/contractor/", "/api/billing/", "/api/auth/", "/api/public/", "/api/join/", "/api/stripe/", "/api/me/")
@@ -11530,10 +11535,66 @@ def saas_my_hubs():
     """Which /home tiles to show this person: client companies see Contractor only (and Billing)."""
     co = _saas_client_company()
     if co:
-        return jsonify({"ok": True, "client": True, "tiles": ["contractor"], "company": co})
+        return jsonify({"ok": True, "client": True, "tiles": ["contractor", "settings"], "company": co})
     # Hubs still being built (Storefront) show only to platform operators
     return jsonify({"ok": True, "client": False, "tiles": None,
                     "preview": ["storefront"] if _session_user() and _is_platform_operator() else []})
+
+
+# ── Settings hub: one "Settings" tile; each person sees only what is theirs to manage ──
+def _settings_cards(name):
+    """Cards for /settings-hub, by what this person may manage. Every link still checks access itself."""
+    u = _auth_user_row(name, "name,username,email,role,approved,contractor_company") or {}
+    cards = [{"group": "account", "icon": "&#128100;", "title": "My account", "href": "/contractor/account",
+              "desc": "Password, two-step verification and your sessions."}]
+    owner = _ct_is_owner_account(u)
+    operator = owner or name in _ct_platform_admins()
+    client = bool(_saas_client_company())
+    co = u.get("contractor_company") or ""
+    if co in CONTRACTOR_COMPANIES:
+        me = _contractor_caller()
+        if _ct_is_own_manager(me, co):
+            cname = CONTRACTOR_COMPANIES.get(co, co)
+            cards += [
+                {"group": "company", "icon": "&#128101;", "title": f"People of {cname}", "href": f"/contractor/{co}/admin",
+                 "desc": "Approve people, invite your team, roles and what each role can open."},
+                {"group": "company", "icon": "&#127970;", "title": "Company profile", "href": f"/contractor/{co}/settings",
+                 "desc": "Name, logo, invoice numbering, emails and security of your company."}]
+            info = CONTRACTOR_COMPANIES.info(co)
+            if co not in _CompanyRegistry.BUILT_IN and not info.get("billing_exempt"):
+                cards.append({"group": "company", "icon": "&#128179;", "title": "Billing", "href": f"/billing?company={co}",
+                              "desc": "Your plan, free trial and payment method."})
+    if not client and (u.get("role") or "").lower() in _ERP_ADMIN and u.get("approved") is not False:
+        cards.append({"group": "erp", "icon": "&#127959;", "title": "ERP settings", "href": "/settings",
+                      "desc": "Crews, PINs, users of the ERP, projects and operation settings."})
+    if operator:
+        cards += [
+            {"group": "platform", "icon": "&#128737;&#65039;", "title": "Platform Admin", "href": "/contractor/platform",
+             "desc": "Every company and person, companies waiting for approval, demo companies."},
+            {"group": "platform", "icon": "&#128202;", "title": "Security report", "href": "/platform/security-report",
+             "desc": "Sign-ins, blocked attempts and checks of the month; move photos to Storage."}]
+    if owner:
+        cards += [
+            {"group": "platform", "icon": "&#128451;&#65039;", "title": "Dedicated databases (advanced)", "href": "/platform-settings",
+             "desc": "Companies with their own database (like NNC). Rarely needed."},
+            {"group": "platform", "icon": "&#128717;&#65039;", "title": "Storefront (being built)", "href": "/storefront-hub",
+             "desc": "Preview of the new hub for local stores."}]
+    return cards
+
+
+@app.route("/settings-hub")
+def settings_hub():
+    if not _session_user():
+        return redirect("/login?next=/settings-hub")
+    return render_template("settings-hub.html")
+
+
+@app.route("/api/me/settings", methods=["GET"])
+def my_settings():
+    name = _session_user()
+    if not name:
+        return jsonify({"ok": False, "error": "login_required"}), 401
+    return jsonify({"ok": True, "name": name, "cards": _settings_cards(name)})
 
 
 # ── Storefront hub (being built; see docs/areas/storefront.md). Private to platform operators until launch ──

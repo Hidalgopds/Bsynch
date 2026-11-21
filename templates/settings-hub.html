@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings – BSynch</title>
+<style>
+/* Light colors, fixed */
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f6f8fb;color:#0f172a;min-height:100vh;display:flex;flex-direction:column}
+header{padding:16px 24px;display:flex;align-items:center;gap:14px;background:#fff;border-bottom:1px solid #e2e8f0}
+.logo-badge{width:36px;height:36px;background:linear-gradient(135deg,#0f766e,#4f8ef7);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff}
+.hdr-title{font-size:17px;font-weight:700}
+.hdr-right{margin-left:auto;display:flex;gap:8px}
+.btn{padding:6px 14px;border:1px solid #cbd5e1;border-radius:7px;color:#334155;background:#fff;font-size:12px;font-weight:600;text-decoration:none}
+.btn:hover{border-color:#0f766e;color:#0f766e}
+main{flex:1;max-width:900px;width:100%;margin:0 auto;padding:28px 18px 50px}
+h1{font-size:26px;margin-bottom:4px}
+.sub{color:#566275;font-size:14px;margin-bottom:22px}
+h2{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:#0f766e;margin:22px 0 10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.card{display:flex;gap:12px;align-items:flex-start;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px;text-decoration:none;color:inherit;box-shadow:0 1px 2px rgba(15,23,42,.04);transition:border-color .15s,transform .1s}
+.card:hover{border-color:#0f766e;transform:translateY(-1px)}
+.card .ic{font-size:24px;line-height:1;flex-shrink:0;width:38px;height:38px;border-radius:10px;background:#f0fdfa;display:flex;align-items:center;justify-content:center}
+.card b{display:block;font-size:15px;margin-bottom:3px}
+.card span{font-size:13px;color:#566275;line-height:1.45}
+.empty{color:#566275;font-size:14px}
+footer{text-align:center;padding:16px;font-size:12px;color:#566275}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo-badge" aria-hidden="true">B</div><span class="hdr-title">Settings</span>
+  <div class="hdr-right"><a href="/home" class="btn">&#8592; Home</a><a href="/logout" class="btn">Log out</a></div>
+</header>
+<main>
+  <h1>Settings</h1>
+  <p class="sub" id="who">Loading&hellip;</p>
+  <div id="groups"></div>
+</main>
+<footer>BSynch &middot; <a href="/privacy" style="color:inherit">Privacy</a> &middot; <a href="/terms" style="color:inherit">Terms</a></footer>
+<script>
+var GROUPS = [['account', 'My account'], ['company', 'My company'], ['erp', 'ERP'], ['platform', 'Platform (only you)']];
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+fetch('/api/me/settings', {credentials: 'same-origin'}).then(function(r){
+  if (r.status === 401) { location.replace('/login?next=/settings-hub'); return null; }
+  return r.json();
+}).then(function(d){
+  if (!d) return;
+  document.getElementById('who').textContent = 'Signed in as ' + d.name + '. You see only what you can manage.';
+  var html = GROUPS.map(function(g){
+    var cards = d.cards.filter(function(c){ return c.group === g[0]; });
+    if (!cards.length) return '';
+    return '<h2>' + esc(g[1]) + '</h2><div class="grid">' + cards.map(function(c){
+      // icon is a fixed HTML entity chosen by the server; the rest is escaped
+      return '<a class="card" href="' + esc(c.href) + '"><div class="ic" aria-hidden="true">' + c.icon + '</div><div><b>' + esc(c.title) + '</b><span>' + esc(c.desc) + '</span></div></a>';
+    }).join('') + '</div>';
+  }).join('');
+  document.getElementById('groups').innerHTML = html || '<p class="empty">Nothing to manage here yet.</p>';
+}).catch(function(){ document.getElementById('who').textContent = 'Connection error. Refresh the page.'; });
+</script>
+</body>
+</html>
