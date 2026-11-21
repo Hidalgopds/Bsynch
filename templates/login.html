@@ -77,8 +77,12 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh;pad
     </div>
     <div class="error-box" id="login-err"></div>
     <button class="btn-primary" id="btn-login" onclick="doLogin()">Sign In</button>
-    <p class="new-link">Are you new? <a href="#" onclick="showScreen('register')">Create an account</a></p>
-    <p class="new-link" style="margin-top:8px;"><a href="#" onclick="showScreen('forgot')" style="color:#566275;font-size:12px;">Forgot password?</a></p>
+    <p class="new-link" style="margin-top:12px;"><a href="#" onclick="showScreen('forgot')" style="color:#566275;font-size:12px;">Forgot password?</a></p>
+    <!-- No public "create account": people join their company by invitation; new companies start at /signup -->
+    <div style="margin-top:18px;padding-top:14px;border-top:1px solid #e2e8f0;font-size:13px;color:#566275;line-height:1.6;text-align:center;">
+      <div>Your company doesn't use BSynch yet? <a href="/signup" style="color:#0f766e;font-weight:600;">Start a free trial</a></div>
+      <div style="margin-top:4px;">Joining your team? Use the invitation link your company sent you.</div>
+    </div>
   </div>
 </div>
 
@@ -97,73 +101,6 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh;pad
     <button class="btn-ghost" onclick="showScreen('login')">&#8592; Back to Login</button>
   </div>
 </div>
-
-<!-- ── SCREEN 2: Register ── -->
-<div class="screen" id="screen-register">
-  <div class="card">
-    <div class="step-indicator">
-      <div class="step active"></div>
-      <div class="step"></div>
-    </div>
-    <h2>Create Account</h2>
-    <div class="field">
-      <label>Full Name *</label>
-      <input type="text" id="reg-name" placeholder="John Smith" autocapitalize="words">
-    </div>
-    <div class="field">
-      <label>Username * <span style="color:#475569;font-weight:400;text-transform:none;">(used to sign in — no spaces)</span></label>
-      <input type="text" id="reg-username" placeholder="john.smith" autocapitalize="none" autocomplete="off" oninput="onUsernameInput(this)">
-      <div class="field-hint" id="username-hint"></div>
-    </div>
-    <div class="field">
-      <label>Email *</label>
-      <input type="email" id="reg-email" placeholder="john@email.com">
-    </div>
-    <div class="field">
-      <label>Phone (optional)</label>
-      <input type="tel" id="reg-phone" placeholder="(555) 000-0000">
-    </div>
-    <div class="field">
-      <label>Password *</label>
-      <div class="pw-wrap"><input type="password" id="reg-pass" placeholder="Create a password" autocomplete="new-password"><button type="button" class="eye-btn" onclick="togglePw('reg-pass',this)" tabindex="-1">👁</button></div>
-    </div>
-    <div class="field">
-      <label>Confirm Password *</label>
-      <div class="pw-wrap"><input type="password" id="reg-pass2" placeholder="Repeat your password" autocomplete="new-password"><button type="button" class="eye-btn" onclick="togglePw('reg-pass2',this)" tabindex="-1">👁</button></div>
-    </div>
-    <div class="error-box" id="reg-err"></div>
-    <button class="btn-primary" id="btn-continue" onclick="showConsent()">Continue →</button>
-    <button class="btn-ghost" onclick="showScreen('login')">← Back to Login</button>
-  </div>
-</div>
-
-<!-- ── SCREEN 3: Consent ── -->
-<div class="screen" id="screen-consent">
-  <div class="card">
-    <div class="step-indicator">
-      <div class="step done"></div>
-      <div class="step active"></div>
-    </div>
-    <h2>Data Consent Agreement</h2>
-    <div class="consent-box">
-      <p><strong>BSynch — Employee Data Authorization</strong></p>
-      <p>By accepting this agreement, you authorize BSynch to collect, store, and process your personal information including your full name, username, email address, and phone number.</p>
-      <p><strong>Purpose:</strong> This data will be used exclusively for internal workforce management, project tracking, attendance records, and safety documentation related to Project Summit operations.</p>
-      <p><strong>Data Protection:</strong> Your personal information will not be sold, rented, or shared with any third party outside of BSynch operations. Access is limited to authorized supervisors and administrators.</p>
-      <p><strong>Your Rights:</strong> You may request correction or removal of your data at any time by contacting your supervisor or the project manager.</p>
-      <p>This digital acceptance constitutes your <strong>electronic signature</strong> and legally binding consent to the above terms.</p>
-    </div>
-    <div class="sig-block">
-      <div class="sig-label">Electronic Signature</div>
-      <div class="sig-name" id="consent-sig-name"></div>
-      <div class="sig-date" id="consent-sig-date"></div>
-    </div>
-    <div class="error-box" id="consent-err"></div>
-    <button class="btn-primary" id="btn-accept" onclick="doRegister()">✓ I Accept — Create My Account</button>
-    <button class="btn-ghost" onclick="showScreen('register')">← Go Back</button>
-  </div>
-</div>
-
 
 <!-- ── SCREEN 4: Forgot Password ── -->
 <div class="screen" id="screen-forgot">
@@ -197,8 +134,6 @@ function doForgot() {
       ok.style.display = 'block';
     }).catch(function () { btn.disabled = false; err.textContent = 'Connection error. Try again.'; err.style.display = 'block'; });
 }
-var usernameTimer = null;
-var usernameOk = false;
 
 
 function togglePw(id, btn) {
@@ -223,35 +158,6 @@ function setErr(id, msg) {
   el.classList.toggle('show', !!msg);
 }
 
-function onUsernameInput(input) {
-  var val = input.value.replace(/\s/g, '').toLowerCase();
-  input.value = val;
-  var hint = document.getElementById('username-hint');
-  usernameOk = false;
-  input.classList.remove('taken','free');
-
-  if (!val) { hint.textContent = ''; hint.className = 'field-hint'; return; }
-  if (val.length < 3) { hint.textContent = 'At least 3 characters.'; hint.className = 'field-hint err'; return; }
-
-  hint.textContent = 'Checking...'; hint.className = 'field-hint';
-  clearTimeout(usernameTimer);
-  usernameTimer = setTimeout(async function() {
-    try {
-      var r = await fetch('/api/check-username', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({username: val})
-      });
-      var d = await r.json();
-      if (d.available) {
-        hint.textContent = '✓ Username available'; hint.className = 'field-hint ok';
-        input.classList.add('free'); usernameOk = true;
-      } else {
-        hint.textContent = '✗ Already taken — try another'; hint.className = 'field-hint err';
-        input.classList.add('taken'); usernameOk = false;
-      }
-    } catch(e) { hint.textContent = ''; }
-  }, 500);
-}
 
 async function doLogin() {
   var user = document.getElementById('inp-user').value.trim();
@@ -330,69 +236,12 @@ async function finishLogin(d) {
   }
 }
 
-async function showConsent() {
-  var name  = document.getElementById('reg-name').value.trim();
-  var uname = document.getElementById('reg-username').value.trim();
-  var email = document.getElementById('reg-email').value.trim();
-  var pass  = document.getElementById('reg-pass').value.trim();
-  var pass2 = document.getElementById('reg-pass2').value.trim();
-  setErr('reg-err', '');
-
-  if (!name)  { setErr('reg-err', 'Full name is required.'); return; }
-  if (!uname || uname.length < 3) { setErr('reg-err', 'Username must be at least 3 characters.'); return; }
-  if (!usernameOk) { setErr('reg-err', 'Please wait for username check or choose a different username.'); return; }
-  if (!email) { setErr('reg-err', 'Email is required.'); return; }
-  if (!/\S+@\S+\.\S+/.test(email)) { setErr('reg-err', 'Please enter a valid email.'); return; }
-  if (!pass)  { setErr('reg-err', 'Password is required.'); return; }
-  if (pass.length < 4) { setErr('reg-err', 'Password must be at least 4 characters.'); return; }
-  if (pass !== pass2) { setErr('reg-err', 'Passwords do not match.'); return; }
-
-  document.getElementById('consent-sig-name').textContent = name;
-  document.getElementById('consent-sig-date').textContent =
-    new Date().toLocaleDateString('en-US', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
-  showScreen('consent');
-}
-
-async function doRegister() {
-  var name  = document.getElementById('reg-name').value.trim();
-  var uname = document.getElementById('reg-username').value.trim();
-  var email = document.getElementById('reg-email').value.trim();
-  var phone = document.getElementById('reg-phone').value.trim();
-  var pass  = document.getElementById('reg-pass').value.trim();
-  setErr('consent-err', '');
-  var btn = document.getElementById('btn-accept');
-  btn.disabled = true; btn.textContent = 'Creating account...';
-  try {
-    var r = await fetch('/api/register', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({name, username: uname, email, phone, password: pass, consent: true, website: (document.getElementById('hp_website')||{}).value||''})
-    });
-    var d = await r.json();
-    if (!r.ok) { setErr('consent-err', d.error || 'Registration failed.'); return; }
-    if (d.pending) {
-      // Account created but needs admin approval
-      showScreen('screen-login');
-      setErr('login-err', '✅ Account created! Your account is pending admin approval. You will be able to log in once approved.');
-      return;
-    }
-    localStorage.setItem('bsynchAuth', d.name);
-    localStorage.setItem('bsynchRole', d.role || 'worker');
-    localStorage.setItem('bsynchPinRequired','1'); // New user — must set PIN
-    location.href = '/home';
-  } catch(e) {
-    setErr('consent-err', 'Connection error. Please try again.');
-  } finally {
-    btn.disabled = false; btn.textContent = '✓ I Accept — Create My Account';
-  }
-}
-
 // Enter key support
 document.addEventListener('keydown', function(e) {
   if (e.key !== 'Enter') return;
   var active = document.querySelector('.screen.active').id;
   if (active === 'screen-login') doLogin();
   else if (active === 'screen-2fa') doLogin2fa();
-  else if (active === 'screen-register') showConsent();
 });
 
 // Signed out (the name was cleared) → end the session on the server too.

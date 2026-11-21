@@ -2787,6 +2787,14 @@ def check_username():
 
 @app.route("/api/register", methods=["POST"])
 def api_register():
+    """Closed (Settings, 2026-11-21): anyone could create an account with no company here. People now
+    join their company by invitation (Contractor invite link, ERP crew QR /register) and new companies
+    start at /signup. The old code below is kept for reference and no longer runs."""
+    return jsonify({"ok": False, "error": "Accounts are created by invitation from your company. "
+                                          "New company? Start a free trial at /signup."}), 410
+
+
+def _api_register_closed():
     import datetime as dt
     data = request.get_json() or {}
     name     = data.get("name", "").strip()

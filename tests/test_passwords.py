@@ -123,4 +123,13 @@ check("/logout clears the browser's saved name and goes to sign-in", page.status
 check("after /logout the session no longer works", lo.get("/api/auth/whoami").status_code == 401)
 check("logout recorded", any(a.get("action") == "logout" and a.get("target") == "Hana" for a in DB["audit_log"]))
 
+# ── no public "create account": people join by invitation, companies by /signup ──
+n0 = len(DB["app_users"])
+reg = client().post("/api/register", json={"name": "Loose Person", "username": "loose", "email": "loose@example.com",
+                                            "password": "whatever-123", "consent": True})
+check("public account creation is closed", reg.status_code == 410 and len(DB["app_users"]) == n0)
+lp = client().get("/login").data
+check("login page has no 'Create an account', points to /signup", b"Create an account" not in lp and b'href="/signup"' in lp
+      and b"screen-register" not in lp)
+
 done("passwords")
