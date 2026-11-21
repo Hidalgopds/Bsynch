@@ -34,7 +34,7 @@ App para empresas contratistas (hoy **Hicons** y **Bsynch**). Se instala en el t
 - [ ] **Más adelante (lo coordina Settings, ver su ficha):** botón "Pagar en línea" en la factura pública con Stripe Connect; BSynch cobra una comisión por pago. No empezar hasta que Settings active Stripe y Connect.
 - [x] Empresas ya no fijas en el código: `CONTRACTOR_COMPANIES` se lee de la tabla `contractor_companies` (hecho por Settings, 2026-11-14). El hub arma una tarjeta por empresa solo. No vuelvas a escribir `hicons`/`bsynch` a mano en pantallas nuevas. `static/contractor-scope.js` ya reconoce cualquier empresa en `/contractor/<empresa>/...`; si creas una pantalla nueva `/contractor/<x>`, agrega `<x>` a `NOT_CO` ahí y a `_RESERVED_SLUGS` en `app.py` (lo hace Settings). Alta de empresas: "Add a company" en Platform Admin.
 - [x] Fotos de órdenes de trabajo a Storage (hecho por Settings, 2026-11-14). Mismas rutas y pantallas; las plantillas no cambiaron.
-- [ ] Recibos de gastos (`contractor_expenses.photo_data`) y `contractor_files` a Storage: los hace Settings con los mismos helpers.
+- [x] Recibos de gastos a Storage (Settings, 2026-11-21): se mueven solos (`contractor_expenses.photo_path`, bucket `job-photos`, carpeta `receipts-<empresa>`). Los visores reciben un enlace de la app (`/api/contractor/jobs/<job>/receipts/<id>/img` o `/api/contractor/<empresa>/expenses/<id>/img`). `contractor_files` sigue vacía; cuando se use, mismo camino.
 - [ ] Pagos parciales y anticipos (punto 3 aprobado para después).
 - [ ] Renee creó 5 órdenes duplicadas el día del error de `uploadWoMaterials`; las borra ella desde la app.
 - [ ] Gmail emisor para Hicons (lo configura el dueño).

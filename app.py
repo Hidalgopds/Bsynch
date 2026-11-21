@@ -1304,35 +1304,30 @@ def hl_delete_kid_photo(kid_id, photo_id):
     if not _hl_kid_in_scope(kid_id):
         return jsonify({"ok": False, "error": "kid not found"}), 404
     r = requests.delete(
-        f"{sb_url()}/rest/v1/{HL_KID_PHOTOS}?id=eq.{photo_id}&kid_id=eq.{kid_id}",
-        headers=sb_headers(), timeout=5
+        f"{sb_url()}/rest/v1/{HL_KID_PHOTOS}?id=eq.{requests.utils.quote(photo_id)}&kid_id=eq.{kid_id}&select=photo_path",
+        headers={**sb_headers(), "Prefer": "return=representation"}, timeout=5
     )
+    if r.ok:  # its file in Storage goes too (Settings, 2026-11-21)
+        _storage_del([g.get("photo_path") for g in (r.json() or [])], bucket=FAMILY_BUCKET)
     return jsonify({"ok": r.ok})
 
 
 @app.route("/api/homelab/kids/<kid_id>/photos/<photo_id>/img", methods=["GET"])
 def hl_serve_kid_photo(kid_id, photo_id):
-    """Serve a kid photo as a binary image response (for <img> src)."""
-    from flask import Response
-    import base64, re
+    """Serve a kid photo as a binary image response (for <img> src). From Storage once moved there."""
     if not _hl_kid_in_scope(kid_id):
         return ("", 404)
     r = requests.get(
-        f"{sb_url()}/rest/v1/{HL_KID_PHOTOS}?id=eq.{photo_id}&kid_id=eq.{kid_id}&select=photo_data&limit=1",
+        f"{sb_url()}/rest/v1/{HL_KID_PHOTOS}?id=eq.{requests.utils.quote(photo_id)}&kid_id=eq.{kid_id}&select=*&limit=1",
         headers=sb_headers(), timeout=8
     )
     rows = r.json() if r.ok else []
-    if not rows or not rows[0].get("photo_data"):
+    if not rows:
         return ("", 404)
-    m = re.match(r"data:(image/\w+);base64,(.+)", rows[0]["photo_data"], re.DOTALL)
-    if not m:
-        return ("", 400)
-    mime, b64 = m.group(1), m.group(2)
-    try:
-        img_bytes = base64.b64decode(b64)
-    except Exception:
-        return ("", 400)
-    resp = Response(img_bytes, mimetype=mime)
+    blob, mime = _stored_image(rows[0].get("photo_data"), rows[0].get("photo_path"), FAMILY_BUCKET)
+    if blob is None:
+        return ("", 404)
+    resp = _image_response(blob, mime)
     resp.headers["Cache-Control"] = "private, max-age=3600"
     return resp
 
@@ -1392,6 +1387,10 @@ def hl_get_blocks():
     blocks = r.json() if r.ok else []
     for b in blocks:
         tasks = b.pop(HL_TASKS, None) or []
+        for t in tasks:
+            # The picture goes by its own URL (it may live in Storage), never inside this list
+            had_data, had_path = t.pop("task_image", None), t.pop("task_image_path", None)
+            t["task_image"] = f"/api/homelab/tasks/{t['id']}/image" if (had_data or had_path) else None
         b["tasks"] = sorted([t for t in tasks if t.get("active", True)], key=lambda t: t.get("order_num", 0))
     return jsonify(blocks)
 
@@ -1475,8 +1474,17 @@ def hl_update_task(task_id):
         return jsonify({"ok": False, "error": "block not found"}), 404
     if not payload:
         return jsonify({"ok": False, "error": "nothing to update"}), 400
+    old_path = None
+    if "task_image" in payload:
+        # A new (or removed) picture replaces the one already moved to Storage
+        cur = requests.get(f"{sb_url()}/rest/v1/{HL_TASKS}?id=eq.{task_id}&select=*&limit=1", headers=sb_headers(), timeout=5)
+        old_path = ((cur.json() or [{}])[0] if cur.ok else {}).get("task_image_path")
+        if old_path:
+            payload["task_image_path"] = None
     r = requests.patch(f"{sb_url()}/rest/v1/{HL_TASKS}?id=eq.{task_id}", json=payload,
                         headers=sb_headers(), timeout=5)
+    if r.ok and old_path:
+        _storage_del([old_path], bucket=FAMILY_BUCKET)
     return jsonify({"ok": r.ok})
 
 
@@ -1493,23 +1501,17 @@ def hl_delete_task(task_id):
 def hl_serve_task_image(task_id):
     """Serve a task's image as a binary response, cached by the browser —
     keeps it out of the checklist JSON that gets re-fetched on every check."""
-    from flask import Response
-    import base64, re
     if not _hl_task_info(task_id):
         return ("", 404)
-    r = requests.get(f"{sb_url()}/rest/v1/{HL_TASKS}?id=eq.{task_id}&select=task_image&limit=1",
+    r = requests.get(f"{sb_url()}/rest/v1/{HL_TASKS}?id=eq.{task_id}&select=*&limit=1",
                       headers=sb_headers(), timeout=8)
     rows = r.json() if r.ok else []
-    if not rows or not rows[0].get("task_image"):
+    if not rows:
         return ("", 404)
-    m = re.match(r"data:(image/\w+);base64,(.+)", rows[0]["task_image"], re.DOTALL)
-    if not m:
-        return ("", 400)
-    try:
-        img_bytes = base64.b64decode(m.group(2))
-    except Exception:
-        return ("", 400)
-    resp = Response(img_bytes, mimetype=m.group(1))
+    blob, mime = _stored_image(rows[0].get("task_image"), rows[0].get("task_image_path"), FAMILY_BUCKET)
+    if blob is None:
+        return ("", 404)
+    resp = _image_response(blob, mime)
     resp.headers["Cache-Control"] = "private, max-age=3600"
     return resp
 
@@ -1775,7 +1777,8 @@ def hl_get_checklist():
             t["completed_game_id"] = c.get("game_id") if c else None
             # Strip the (potentially large) base64 image from the hot checklist
             # payload — the client fetches it separately, once, via a cacheable URL.
-            t["has_image"] = bool(t.pop("task_image", None))
+            had_data, had_path = t.pop("task_image", None), t.pop("task_image_path", None)  # path: moved to Storage
+            t["has_image"] = bool(had_data or had_path)
         done, total, pct = _hl_block_progress(tasks, completions_by_task)
         out_blocks.append({
             **b, "tasks": tasks, "done": done, "total": total,
@@ -2298,12 +2301,12 @@ def _storage_get(path, bucket=PHOTO_BUCKET):
     return r.content, (mime if mime in _PHOTO_EXT else "image/jpeg")
 
 
-def _storage_del(paths):
+def _storage_del(paths, bucket=PHOTO_BUCKET):
     paths = [p for p in (paths or []) if p]
     if not paths:
         return True
     try:
-        r = requests.delete(f"{sb_url()}/storage/v1/object/{PHOTO_BUCKET}", json={"prefixes": paths},
+        r = requests.delete(f"{sb_url()}/storage/v1/object/{bucket}", json={"prefixes": paths},
                             headers={**_storage_hdr(), "Content-Type": "application/json"}, timeout=15)
         return r.ok
     except Exception as e:
@@ -2311,14 +2314,86 @@ def _storage_del(paths):
         return False
 
 
-def _photo_store(folder, data_uri):
+def _photo_store(folder, data_uri, bucket=PHOTO_BUCKET):
     """Put a photo in Storage. Returns its path, or None (then the caller keeps it in the database)."""
     mime, blob = _photo_decode(data_uri)
     if not mime:
         return None
     folder = re.sub(r"[^0-9A-Za-z_-]", "", str(folder))[:60] or "misc"
     path = f"{folder}/{uuid.uuid4().hex}.{_PHOTO_EXT[mime]}"
-    return path if _storage_put(path, blob, mime) else None
+    return path if _storage_put(path, blob, mime, bucket=bucket) else None
+
+
+# Family photos (kids, task pictures) live in their own private bucket, apart from company files.
+FAMILY_BUCKET = "family-photos"
+_LEGACY_IMG = re.compile(r"data:(image/[A-Za-z0-9.+-]+);base64,(.+)", re.DOTALL)
+
+
+def _stored_image(data_uri, path, bucket):
+    """(bytes, mime) of an image that is either still in the database (data URI) or already in Storage."""
+    import base64
+    if data_uri:
+        m = _LEGACY_IMG.match(data_uri)
+        if not m:
+            return None, None
+        try:
+            return base64.b64decode(m.group(2)), m.group(1)
+        except Exception:
+            return None, None
+    if path:
+        return _storage_get(path, bucket=bucket)
+    return None, None
+
+
+def _image_response(blob, mime):
+    return Response(blob, mimetype=mime, headers={"Cache-Control": "private, max-age=86400", "X-Content-Type-Options": "nosniff"})
+
+
+# ── Storage autopilot: images still inside the database move to Storage on their own ──
+# Every scheduler round (10 min) moves a few of each kind. The database copy is cleared only after
+# Storage confirmed it holds the file; an image that can't be moved stays where it is (never lost).
+_AUTOSTORE = [
+    # table, image column, path column, bucket, folder from the row, extra column to read
+    ("job_photos", "photo_data", "storage_path", PHOTO_BUCKET, lambda r: r.get("job_id"), "job_id"),
+    ("homelab_kid_photos", "photo_data", "photo_path", FAMILY_BUCKET, lambda r: f"kids-{r.get('kid_id')}", "kid_id"),
+    ("homelab_tasks", "task_image", "task_image_path", FAMILY_BUCKET, lambda r: "tasks", ""),
+    ("contractor_expenses", "photo_data", "photo_path", PHOTO_BUCKET, lambda r: f"receipts-{r.get('company')}", "company"),
+]
+_autostore_failed = set()
+
+
+def _storage_autopilot(limit=20):
+    moved = 0
+    for table, dcol, pcol, bucket, folder, extra in _AUTOSTORE:
+        skip = sorted(i for t, i in _autostore_failed if t == table)[:100]
+        q = (f"{sb_url()}/rest/v1/{table}?{dcol}=not.is.null&select=" + ",".join(c for c in ("id", dcol, pcol, extra) if c)
+             + f"&order=created_at.asc&limit={limit}")
+        if skip:
+            q += "&id=not.in.(" + ",".join(skip) + ")"
+        try:
+            r = requests.get(q, headers=sb_headers(), timeout=20)
+        except Exception as e:
+            logger.warning("[autostore] %s: %s", table, e)
+            continue
+        if not r.ok:
+            continue  # e.g. the path column isn't there yet
+        for row in r.json() or []:
+            path = _photo_store(folder(row), row.get(dcol), bucket=bucket)
+            if not path:
+                _autostore_failed.add((table, str(row["id"])))
+                continue
+            u = requests.patch(f"{sb_url()}/rest/v1/{table}?id=eq.{row['id']}", json={pcol: path, dcol: None},
+                               headers={**sb_headers(), "Prefer": "return=minimal"}, timeout=10)
+            if u.ok:
+                moved += 1
+                if row.get(pcol):
+                    _storage_del([row[pcol]], bucket=bucket)  # an older copy replaced by a newer image
+            else:
+                _storage_del([path], bucket=bucket)
+                _autostore_failed.add((table, str(row["id"])))
+    if moved:
+        _audit("storage.autopilot", "", {"moved": moved}, actor="system")
+    return moved
 
 
 @app.before_request
@@ -9350,7 +9425,7 @@ def _ct_expense_row(company, data, me, job_id=None):
 
 
 def _ct_expense_out(e):
-    e = {k: v for k, v in e.items() if k != "photo_data"}
+    e = {k: v for k, v in e.items() if k not in ("photo_data", "photo_path")}
     e["receipt_date"] = e.get("expense_date")
     e["notes"] = e.get("description")
     return e
@@ -9387,18 +9462,34 @@ def contractor_add_receipt(job_id):
 def contractor_receipt_photo(job_id, rid):
     if not _ct_job_allowed(job_id):
         return jsonify({"ok": False}), 404
-    r = requests.get(f"{sb_url()}/rest/v1/contractor_expenses?id=eq.{requests.utils.quote(rid)}&job_id=eq.{job_id}&select=photo_data&limit=1",
+    r = requests.get(f"{sb_url()}/rest/v1/contractor_expenses?id=eq.{requests.utils.quote(rid)}&job_id=eq.{job_id}&select=*&limit=1",
                      headers=sb_headers(), timeout=8)
     rows = r.json() if r.ok else []
-    return jsonify({"ok": bool(rows), "photo_data": rows[0].get("photo_data") if rows else None})
+    photo = rows[0].get("photo_data") if rows else None
+    if rows and not photo and rows[0].get("photo_path"):
+        photo = f"/api/contractor/jobs/{job_id}/receipts/{rows[0]['id']}/img"  # moved to Storage: the app serves it
+    return jsonify({"ok": bool(rows), "photo_data": photo})
+
+
+@app.route("/api/contractor/jobs/<job_id>/receipts/<rid>/img", methods=["GET"])
+def contractor_receipt_img(job_id, rid):
+    if not _ct_job_allowed(job_id):
+        return ("", 404)
+    r = requests.get(f"{sb_url()}/rest/v1/contractor_expenses?id=eq.{requests.utils.quote(rid)}&job_id=eq.{job_id}&select=*&limit=1",
+                     headers=sb_headers(), timeout=8)
+    row = (r.json() or [None])[0] if r.ok else None
+    blob, mime = _stored_image((row or {}).get("photo_data"), (row or {}).get("photo_path"), PHOTO_BUCKET)
+    return _image_response(blob, mime) if blob is not None else ("", 404)
 
 
 @app.route("/api/contractor/jobs/<job_id>/receipts/<rid>", methods=["DELETE"])
 def contractor_delete_receipt(job_id, rid):
     if not _ct_job_allowed(job_id):
         return jsonify({"ok": False}), 404
-    r = requests.delete(f"{sb_url()}/rest/v1/contractor_expenses?id=eq.{requests.utils.quote(rid)}&job_id=eq.{job_id}",
-                        headers=sb_headers(), timeout=5)
+    r = requests.delete(f"{sb_url()}/rest/v1/contractor_expenses?id=eq.{requests.utils.quote(rid)}&job_id=eq.{job_id}&select=photo_path",
+                        headers={**sb_headers(), "Prefer": "return=representation"}, timeout=5)
+    if r.ok:
+        _storage_del([g.get("photo_path") for g in (r.json() or [])])
     return jsonify({"ok": r.ok})
 
 
@@ -9508,6 +9599,19 @@ def _ct_own_expense(company, eid):
     return me, row
 
 
+@app.route("/api/contractor/<company>/expenses/<eid>/img", methods=["GET"])
+def contractor_expense_img(company, eid):
+    """A receipt photo, from Storage once moved there. Same access as the expense itself."""
+    me, row = _ct_own_expense(company, eid)
+    if not row:
+        return ("", 404)
+    r = requests.get(f"{sb_url()}/rest/v1/contractor_expenses?id=eq.{requests.utils.quote(eid)}&company=eq.{company}&select=*&limit=1",
+                     headers=sb_headers(), timeout=8)
+    full = (r.json() or [None])[0] if r.ok else None
+    blob, mime = _stored_image((full or {}).get("photo_data"), (full or {}).get("photo_path"), PHOTO_BUCKET)
+    return _image_response(blob, mime) if blob is not None else ("", 404)
+
+
 @app.route("/api/contractor/<company>/expenses/<eid>", methods=["GET", "PATCH", "DELETE"])
 def contractor_expense(company, eid):
     me, row = _ct_own_expense(company, eid)
@@ -9515,11 +9619,16 @@ def contractor_expense(company, eid):
         return jsonify({"ok": False, "error": "not found"}), 404
     q = f"{sb_url()}/rest/v1/contractor_expenses?id=eq.{requests.utils.quote(eid)}&company=eq.{company}"
     if request.method == "GET":
-        r = requests.get(q + "&select=photo_data&limit=1", headers=sb_headers(), timeout=8)
+        r = requests.get(q + "&select=*&limit=1", headers=sb_headers(), timeout=8)
         rows = r.json() if r.ok else []
-        return jsonify({"ok": True, "photo_data": rows[0].get("photo_data") if rows else None})
+        photo = rows[0].get("photo_data") if rows else None
+        if rows and not photo and rows[0].get("photo_path"):
+            photo = f"/api/contractor/{company}/expenses/{rows[0]['id']}/img"  # moved to Storage: the app serves it
+        return jsonify({"ok": True, "photo_data": photo})
     if request.method == "DELETE":
-        r = requests.delete(q, headers=sb_headers(), timeout=5)
+        r = requests.delete(q + "&select=photo_path", headers={**sb_headers(), "Prefer": "return=representation"}, timeout=5)
+        if r.ok:
+            _storage_del([g.get("photo_path") for g in (r.json() or [])])
         return jsonify({"ok": r.ok})
     data = request.get_json() or {}
     payload = {}
@@ -11801,6 +11910,11 @@ def _ct_scheduler_loop():
                 _billing_daily()
         except Exception as e:
             logger.error("[Billing scheduler] %s", e)
+        try:
+            with app.test_request_context("/"):
+                _storage_autopilot()  # images still in the database move to Storage, a few each round
+        except Exception as e:
+            logger.error("[Storage autopilot] %s", e)
 
 
 if os.environ.get("CT_SCHEDULER", "1") == "1":

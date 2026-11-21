@@ -32,6 +32,7 @@ La parte familiar: checklist de los niños, juegos y Hermaniland. Guarda datos d
 - 2026-11-14: Hermaniland ordenado. Los 19 archivos sueltos de la raíz pasaron a `hermaniland/`: los 6 que el juego usa arriba, con nombres cortos, y los 13 que nada cargaba en `hermaniland/archive/` (no se borró nada). La lista buena es la que el juego ya usaba: 630 jugadores en las 4 listas por posición.
 
 ## Pendientes
+- [x] (Hecho por Settings, 2026-11-21) Fotos de niños e imágenes de tareas pasan solas a Storage, al bucket privado `family-photos` (separado de las empresas). Columnas `homelab_kid_photos.photo_path` y `homelab_tasks.task_image_path`. Las rutas que las muestran leen de la base o de Storage; `/api/homelab/blocks` manda `task_image` como enlace (`/api/homelab/tasks/<id>/image`), no la imagen. Si cambias cómo se guardan fotos aquí, avisa a Settings.
 - [ ] Si algún día otra persona de la familia necesita entrar en `bsynch.com`, cambiar `_hl_may_see_family` por una lista de cuentas (hoy es solo el dueño).
 - [ ] Decidir si alguna lista del archivo de Hermaniland (por ejemplo la de 7500) debe reemplazar a la actual de 630. Mientras tanto, el juego sigue con la de 630.
 
