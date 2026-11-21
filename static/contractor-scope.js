@@ -295,6 +295,11 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     addNavArrows();
+    // Left hub bar for platform admins (Settings; the server decides who gets it)
+    if (!document.querySelector('script[src="/static/admin-rail.js"]')) {
+      var ar = document.createElement('script'); ar.src = '/static/admin-rail.js';
+      document.head.appendChild(ar);
+    }
     loadBrand();
     loadHubNav();
     if (!company) return;

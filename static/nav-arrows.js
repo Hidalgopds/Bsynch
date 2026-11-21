@@ -55,4 +55,10 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', place);
   else place();
+
+  // Left hub bar for platform admins (the server decides who gets it)
+  if (!document.querySelector('script[src="/static/admin-rail.js"]')) {
+    var ar = document.createElement('script'); ar.src = '/static/admin-rail.js'; ar.defer = true;
+    document.head.appendChild(ar);
+  }
 })();

@@ -72,4 +72,15 @@ check("home: Marketing and Storefront tiles go to their hubs", b'href="/hub/mark
 check("contractor hub: Platform Admin goes to the single platform page", b'/platform?hub=contractor' in get("/contractor-hub", "owner@example.com").data)
 check("settings: Platform Admin card goes to /platform", any(c["href"] == "/platform" for c in get("/api/me/settings", "owner@example.com").json["cards"]))
 
+# ── left hub bar: platform admins only ──
+r = get("/api/me/admin-rail", "owner@example.com")
+keys = [i["key"] for i in r.json["items"]]
+check("hub bar: owner gets every main hub", r.status_code == 200 and
+      {"home", "erp", "contractor", "marketing", "storefront", "homelab", "settings", "platform"} <= set(keys))
+check("hub bar: a Manager gets nothing", get("/api/me/admin-rail", "Hana").status_code == 403)
+check("hub bar: a User gets nothing", get("/api/me/admin-rail", "Mia").status_code == 403)
+check("hub bar: anonymous gets nothing", client().get("/api/me/admin-rail").status_code == 401)
+check("hub bar: loaded by the shared arrows and by Contractor screens",
+      "admin-rail.js" in open("static/nav-arrows.js").read() and "admin-rail.js" in open("static/contractor-scope.js").read())
+
 done("platform")

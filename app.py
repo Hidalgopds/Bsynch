@@ -11766,6 +11766,31 @@ def saas_my_hubs():
                     "preview": ["storefront"] if _session_user() and _is_platform_operator() else []})
 
 
+# Left icon bar to jump between the main hubs (static/admin-rail.js). Platform admins only (owner's request, 2026-11-21).
+_ADMIN_RAIL = [
+    {"key": "home", "icon": "&#127968;", "label": "Home", "href": "/home", "match": ["/home"]},
+    {"key": "erp", "icon": "&#127959;&#65039;", "label": "ERP", "href": "/erp-hub",
+     "match": ["/erp", "/log", "/recent", "/dashboard", "/issues-log", "/timesheet", "/inventory", "/schedule", "/tablet",
+               "/location", "/sectionb", "/qr-codes", "/settings"]},
+    {"key": "contractor", "icon": "&#128295;", "label": "Contractor", "href": "/contractor-hub", "match": ["/contractor"]},
+    {"key": "marketing", "icon": "&#128227;", "label": "Marketing", "href": "/hub/marketing", "match": ["/hub/marketing", "/marketing"]},
+    {"key": "storefront", "icon": "&#128717;&#65039;", "label": "Storefront", "href": "/hub/storefront", "match": ["/hub/storefront", "/storefront"]},
+    {"key": "homelab", "icon": "&#128106;", "label": "Family Hub", "href": "/homelab-hub", "match": ["/homelab", "/games", "/hermaniland"]},
+    {"key": "settings", "icon": "&#9881;&#65039;", "label": "Settings", "href": "/settings-hub",
+     "match": ["/settings-hub", "/billing", "/platform-settings"]},
+    {"key": "platform", "icon": "&#128737;&#65039;", "label": "Platform Admin", "href": "/platform", "match": ["/platform"]},
+]
+
+
+@app.route("/api/me/admin-rail", methods=["GET"])
+def api_admin_rail():
+    if not _session_user():
+        return jsonify({"ok": False}), 401
+    if not _is_platform_operator():
+        return jsonify({"ok": False}), 403
+    return jsonify({"ok": True, "items": _ADMIN_RAIL})
+
+
 # ── Settings hub: one "Settings" tile; each person sees only what is theirs to manage ──
 def _settings_cards(name):
     """Cards for /settings-hub, by what this person may manage. Every link still checks access itself."""
