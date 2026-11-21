@@ -924,18 +924,12 @@ function timeAgo(iso){
 <div class="modal-overlay" id="resetPwModal">
   <div class="modal" style="max-width:380px;">
     <h3 id="resetPwTitle">Reset Password</h3>
-    <div class="field">
-      <label>New Password</label>
-      <input type="password" id="rp-pass" placeholder="Min. 4 characters" autocomplete="new-password">
-    </div>
-    <div class="field">
-      <label>Confirm Password</label>
-      <input type="password" id="rp-pass2" placeholder="Repeat password" autocomplete="new-password">
-    </div>
+    <p style="font-size:13px;line-height:1.5;opacity:.85;margin:6px 0 10px;">Nobody types another person's password. We send them a one-time link (valid 72 hours) to choose a new one. If they have no email, you get the link to hand to them in person.</p>
+    <div id="rp-link" style="display:none;font-size:13px;word-break:break-all;background:rgba(15,118,110,.12);border:1px solid #0f766e;border-radius:8px;padding:10px;margin-top:6px;"></div>
     <div id="rp-err" style="color:#f87171;font-size:13px;display:none;margin-top:4px;"></div>
     <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('resetPwModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveResetPw()">Update Password</button>
+      <button class="btn btn-ghost" onclick="closeModal('resetPwModal')">Close</button>
+      <button class="btn btn-primary" id="rp-send" onclick="saveResetPw()">Send reset link</button>
     </div>
   </div>
 </div>
@@ -1707,27 +1701,26 @@ var resetPwTarget = null;
 function openResetPw(nk, displayName) {
   resetPwTarget = decodeURIComponent(nk);
   document.getElementById('resetPwTitle').textContent = 'Reset Password — ' + displayName;
-  document.getElementById('rp-pass').value = '';
-  document.getElementById('rp-pass2').value = '';
   document.getElementById('rp-err').style.display = 'none';
+  document.getElementById('rp-link').style.display = 'none';
+  document.getElementById('rp-send').disabled = false;
   document.getElementById('resetPwModal').classList.add('open');
 }
 function saveResetPw() {
-  var pw  = document.getElementById('rp-pass').value.trim();
-  var pw2 = document.getElementById('rp-pass2').value.trim();
-  var err = document.getElementById('rp-err');
-  err.style.display = 'none';
-  if (!pw || pw.length < 4) { err.textContent = 'Password must be at least 4 characters.'; err.style.display = 'block'; return; }
-  if (pw !== pw2)            { err.textContent = 'Passwords do not match.'; err.style.display = 'block'; return; }
-  var _caller = localStorage.getItem('bsynchAuth') || '';
+  var err = document.getElementById('rp-err'), box = document.getElementById('rp-link'), btn = document.getElementById('rp-send');
+  err.style.display = 'none'; box.style.display = 'none'; btn.disabled = true;
   fetch('/api/reset-password', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({name: resetPwTarget, password: pw, caller_name: _caller})
+    body: JSON.stringify({name: resetPwTarget})
   }).then(function(r){return r.json();}).then(function(d){
-    if(d.ok){ closeModal('resetPwModal'); showToast('Password updated ✓'); }
-    else { err.textContent = d.error || 'Failed to reset password.'; err.style.display = 'block'; }
-  });
+    btn.disabled = false;
+    if(!d.ok){ err.textContent = d.error || 'Could not send the link.'; err.style.display = 'block'; return; }
+    if(d.link){
+      box.textContent = 'No email on file. Give this one-time link to the person (valid 72 hours): ' + d.link;
+      box.style.display = 'block';
+    } else { closeModal('resetPwModal'); showToast('Reset link sent to ' + (d.sent_to || 'their email') + ' ✓'); }
+  }).catch(function(){ btn.disabled = false; err.textContent = 'Connection error.'; err.style.display = 'block'; });
 }
 
 

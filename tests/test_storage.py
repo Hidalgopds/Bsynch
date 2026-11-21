@@ -60,4 +60,29 @@ d = send("DELETE", f"/api/contractor/jobs/{JOB}/photos/{pid}", "Hana")
 check("delete removes row and file", d.json["ok"] and not any(p["id"] == pid for p in DB["job_photos"])
       and ("job-photos/" + path) not in STORAGE)
 
+# ── ERP issue photos: private bucket, images only, served by the app with a session ──
+import io
+
+owner = as_user("owner@example.com")
+up = owner.post("/api/issues/upload-photo", data={"photo": (io.BytesIO(JPG), "site.jpg")}, content_type="multipart/form-data")
+url = up.json.get("url", "")
+check("issue photo saved, app link (never a storage URL)", up.json["ok"] and url.startswith("/api/issues/photo/") and "supabase" not in url)
+name = url.rsplit("/", 1)[-1]
+check("stored in the issue-photos bucket", STORAGE.get("issue-photos/" + name, (None,))[0] == JPG)
+pic = owner.get(url)
+check("photo served to a signed-in person", pic.status_code == 200 and pic.data == JPG and "private" in pic.headers.get("Cache-Control", ""))
+check("photo hidden from anonymous", client().get(url).status_code in (401, 403, 302))
+html = owner.post("/api/issues/upload-photo", data={"photo": (io.BytesIO(b"<script>alert(1)</script>"), "evil.html")},
+                  content_type="multipart/form-data")
+check("non-image refused (no web pages in the bucket)", html.status_code == 400 and not any(k.endswith(".html") for k in STORAGE))
+fake = owner.post("/api/issues/upload-photo", data={"photo": (io.BytesIO(b"<svg onload=x>"), "x.jpg")}, content_type="multipart/form-data")
+check("a file named .jpg that isn't a JPG is refused", fake.status_code == 400)
+check("odd names can't be read", owner.get("/api/issues/photo/..%2Fjob-photos%2Fx.jpg").status_code == 404
+      and owner.get("/api/issues/photo/x.html").status_code == 404)
+qc = owner.post("/api/qc/upload-drawing", data={"drawing": (io.BytesIO(JPG), "plan.jpg"), "type": "plan"}, content_type="multipart/form-data")
+check("QC drawing replaces itself and is served by the app", qc.json["ok"] and qc.json["url"] == "/api/issues/photo/qc-plan.jpg"
+      and owner.post("/api/qc/upload-drawing", data={"drawing": (io.BytesIO(JPG), "plan.jpg"), "type": "plan"},
+                     content_type="multipart/form-data").json["ok"])
+check("debug storage route removed", owner.get("/api/test-storage").status_code == 404)
+
 done("storage")

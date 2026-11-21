@@ -96,4 +96,21 @@ other = get("/api/contractor/me", "Newbie").json  # (Hicons/Bsynch gave support 
 check("a platform admin who isn't the owner still needs support access", other.get("is_super")
       and "roofs-r-us" not in other["access"] and "roofs-r-us" in other["private"])
 
+# ── an ERP admin resets someone's password: a link, never a typed password ──
+MAIL.clear()
+before = user("Hana")["password"]
+r = send("POST", "/api/reset-password", "owner@example.com", {"name": "Hana", "password": "1234"})
+check("admin reset sends a link to the person's email", r.json["ok"] and r.json["sent_to"].endswith("@example.com")
+      and "link" not in r.json and any("hana@example.com" in m["to"] for m in MAIL))
+check("admin can no longer set a password directly", user("Hana")["password"] == before)
+crew = send("POST", "/api/reset-password", "owner@example.com", {"name": "Crew One"})
+check("crew without email: admin gets a one-time link to hand over", crew.json["ok"] and "/set-password/" in crew.json["link"])
+user("Owner")["email"] = ""
+check("an admin account without email never gets a hand-over link",
+      send("POST", "/api/reset-password", "owner@example.com", {"name": "Owner"}).status_code == 400)
+user("Owner")["email"] = "owner@example.com"
+check("non-admins can't start a reset", send("POST", "/api/reset-password", "Mia", {"name": "Hana"}).status_code == 403)
+check("client-company people are out of reach of ERP admins",
+      send("POST", "/api/reset-password", "owner@example.com", {"name": "Rita Roof"}).status_code == 403)
+
 done("passwords")

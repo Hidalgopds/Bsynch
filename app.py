@@ -2265,10 +2265,12 @@ def _storage_hdr(mime=None):
     return h
 
 
-def _storage_put(path, blob, mime):
+def _storage_put(path, blob, mime, bucket=PHOTO_BUCKET, upsert=False):
     try:
-        r = requests.post(f"{sb_url()}/storage/v1/object/{PHOTO_BUCKET}/{path}", data=blob,
-                          headers=_storage_hdr(mime), timeout=20)
+        hdr = _storage_hdr(mime)
+        if upsert:
+            hdr["x-upsert"] = "true"  # replace a file with the same name (e.g. the QC drawing)
+        r = requests.post(f"{sb_url()}/storage/v1/object/{bucket}/{path}", data=blob, headers=hdr, timeout=20)
         if not r.ok:
             logger.warning("[storage] put %s: %s %s", path, r.status_code, r.text[:200])
         return r.ok
@@ -2277,10 +2279,10 @@ def _storage_put(path, blob, mime):
         return False
 
 
-def _storage_get(path):
+def _storage_get(path, bucket=PHOTO_BUCKET):
     """(bytes, mime) of a stored photo, or (None, None)."""
     try:
-        r = requests.get(f"{sb_url()}/storage/v1/object/authenticated/{PHOTO_BUCKET}/{path}",
+        r = requests.get(f"{sb_url()}/storage/v1/object/authenticated/{bucket}/{path}",
                          headers=_storage_hdr(), timeout=15)
     except Exception as e:
         logger.warning("[storage] get %s: %s", path, e)
@@ -3072,23 +3074,35 @@ def pending_users():
 
 @app.route("/api/reset-password", methods=["POST"])
 def admin_reset_password():
-    """Admin resets any user's password."""
+    """An ERP admin starts a password reset for someone: a one-time link (72 h) goes to that person's
+    email. Nobody types or sees another person's password. If the person has no email (crew), the
+    admin gets the link to hand over, except for admins and the platform owner, whose link only goes
+    to their own email."""
     data = request.get_json() or {}
-    caller = data.get("caller_name", "").strip()
-    if not _verify_caller_is_admin(caller):
-        return jsonify({"error": "Admin access required"}), 403
-    target_name = data.get("name","").strip()
-    new_pw      = data.get("password","").strip()
-    if not target_name or not new_pw:
-        return jsonify({"error": "name and password required"}), 400
-    if len(new_pw) < 4:
-        return jsonify({"error": "Password must be at least 4 characters"}), 400
-    r = requests.patch(
-        f"{sb_url()}/rest/v1/app_users?name=eq.{requests.utils.quote(target_name)}",
-        headers={**sb_headers(), "Prefer": "return=representation"},
-        json={"password": hash_password(new_pw)}
-    )
-    return jsonify({"ok": r.ok, "error": r.text if not r.ok else None})
+    if not _verify_caller_is_admin(data.get("caller_name", "").strip()):
+        return jsonify({"ok": False, "error": "Admin access required"}), 403
+    target_name = str(data.get("name") or "").strip()
+    if not target_name:
+        return jsonify({"ok": False, "error": "name required"}), 400
+    u = _auth_user_row(target_name, "name,username,email,role,approved,contractor_company")
+    if not u:
+        return jsonify({"ok": False, "error": "Person not found"}), 404
+    if u.get("contractor_company") and u["contractor_company"] not in _CompanyRegistry.BUILT_IN:
+        return jsonify({"ok": False, "error": "That person belongs to a client company"}), 403
+    email = (u.get("email") or "").strip()
+    has_email = bool(_EMAIL_OK.fullmatch(email))
+    if not has_email and (u.get("role") in ("admin", "boss") or _ct_is_owner_account(u)):
+        return jsonify({"ok": False, "error": "This account has no email. Add one first; admins only get links by email."}), 400
+    me = _session_user() or data.get("caller_name", "")
+    link = _pw_link_new(u["name"], "setup", by=me)
+    if not link:
+        return jsonify({"ok": False, "error": "Could not create the link. Try again."}), 502
+    _audit("password.reset_link", u["name"], {"by_admin": True, "emailed": has_email})
+    if has_email:
+        _pw_link_email(email, u["name"], link, "setup")
+        user, _, dom = email.partition("@")
+        return jsonify({"ok": True, "sent_to": f"{user[:2]}•••@{dom}"})
+    return jsonify({"ok": True, "link": link})
 
 @app.route("/log")
 def log():
@@ -4150,52 +4164,55 @@ def add_pin_to_issue(issue_id):
         return jsonify({"ok": True, "pins": pins})
     return jsonify({"ok": False, "error": resp2.text}), 500
 
+# ── ERP issue photos and QC drawings: private bucket "issue-photos", served only through the app ──
+# (Settings, 2026-11-21) The bucket used to be public and took any file type. Now: images only, no
+# storage URL ever reaches the browser, and every photo is read through /api/issues/photo/<name>,
+# which needs an ERP session like the rest of the ERP API.
+ISSUE_BUCKET = "issue-photos"
+_ISSUE_FILE = re.compile(r"[A-Za-z0-9_-]{1,80}\.(?:jpg|jpeg|png|webp)")
+_ISSUE_MIME = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp"}
+
+
+def _issue_image_upload(file):
+    """(ext, mime, bytes) of an uploaded image we accept, else (None, None, None)."""
+    if not file:
+        return None, None, None
+    ext = (file.filename or "").rsplit(".", 1)[-1].lower()
+    mime = (file.mimetype or "").lower()
+    if ext not in _ISSUE_MIME:
+        ext = {v: k for k, v in _ISSUE_MIME.items()}.get(mime, "")
+    blob = file.read(PHOTO_MAX_BYTES + 1)
+    if ext not in _ISSUE_MIME or not blob or len(blob) > PHOTO_MAX_BYTES:
+        return None, None, None
+    sig = {"image/jpeg": b"\xff\xd8", "image/png": b"\x89PNG", "image/webp": b"RIFF"}[_ISSUE_MIME[ext]]
+    if not blob.startswith(sig):  # the bytes must really be that kind of image
+        return None, None, None
+    return ("jpg" if ext == "jpeg" else ext), _ISSUE_MIME[ext], blob
+
+
+@app.route("/api/issues/photo/<name>", methods=["GET"])
+def issue_photo(name):
+    if not _ISSUE_FILE.fullmatch(name or ""):
+        return ("", 404)
+    blob, mime = _storage_get(name, bucket=ISSUE_BUCKET)
+    if blob is None:
+        return ("", 404)
+    return Response(blob, mimetype=mime, headers={"Cache-Control": "private, max-age=86400",
+                                                  "X-Content-Type-Options": "nosniff"})
+
+
 @app.route("/api/qc/upload-drawing", methods=["POST"])
 def upload_qc_drawing():
-    file = request.files.get("drawing")
-    drawing_type = request.form.get("type", "plan")  # 'plan' or '3d'
-    if not file:
-        return jsonify({"ok": False, "error": "No file"}), 400
-    ext = (file.filename or "img").rsplit(".", 1)[-1].lower()
-    if ext not in ("jpg","jpeg","png","webp"):
-        ext = "jpg"
-    # No subfolder — use flat path like issue photos (avoids RLS issues)
+    drawing_type = request.form.get("type", "plan")
+    if drawing_type not in ("plan", "3d"):
+        drawing_type = "plan"
+    ext, mime, blob = _issue_image_upload(request.files.get("drawing"))
+    if not ext:
+        return jsonify({"ok": False, "error": "Upload a JPG, PNG or WEBP image up to 6 MB"}), 400
     filename = f"qc-{drawing_type}.{ext}"
-    content_type = file.content_type or "image/jpeg"
-    file_data = file.read()
-    pub_url = f"{sb_url()}/storage/v1/object/public/issue-photos/{filename}"
-    # Try POST (create)
-    resp = requests.post(
-        f"{sb_url()}/storage/v1/object/issue-photos/{filename}",
-        data=file_data,
-        headers={
-            "apikey": SUPABASE_KEY,
-            "Authorization": f"Bearer {SUPABASE_KEY}",
-            "Content-Type": content_type,
-            "Cache-Control": "3600"
-        }
-    )
-    if resp.ok:
-        return jsonify({"ok": True, "url": pub_url})
-    # 409 = already exists → delete then re-upload
-    if resp.status_code == 409:
-        requests.delete(
-            f"{sb_url()}/storage/v1/object/issue-photos/{filename}",
-            headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
-        )
-        resp2 = requests.post(
-            f"{sb_url()}/storage/v1/object/issue-photos/{filename}",
-            data=file_data,
-            headers={
-                "apikey": SUPABASE_KEY,
-                "Authorization": f"Bearer {SUPABASE_KEY}",
-                "Content-Type": content_type,
-                "Cache-Control": "3600"
-            }
-        )
-        if resp2.ok:
-            return jsonify({"ok": True, "url": pub_url})
-    return jsonify({"ok": False, "error": f"Upload error ({resp.status_code}). Check Supabase Storage bucket permissions."}), 500
+    if not _storage_put(filename, blob, mime, bucket=ISSUE_BUCKET, upsert=True):
+        return jsonify({"ok": False, "error": "Could not save the drawing. Try again."}), 502
+    return jsonify({"ok": True, "url": f"/api/issues/photo/{filename}"})
 
 @app.route("/api/qc/drawings")
 def get_qc_drawings():
@@ -4204,51 +4221,15 @@ def get_qc_drawings():
         "plan2": "/static/qc-plan2.png"
     })
 
-@app.route("/api/test-storage")
-def test_storage():
-    """Debug: test if storage upload works with a tiny file."""
-    import io
-    test_data = b"hello"
-    resp = requests.post(
-        f"{sb_url()}/storage/v1/object/issue-photos/test-ping.txt",
-        data=test_data,
-        headers={
-            "apikey": SUPABASE_KEY,
-            "Authorization": f"Bearer {SUPABASE_KEY}",
-            "Content-Type": "text/plain",
-            "Cache-Control": "max-age=3600"
-        }
-    )
-    return jsonify({
-        "status": resp.status_code,
-        "ok": resp.ok,
-        "response": resp.text[:500],
-        "storage_url": f"{sb_url()}/storage/v1/object/issue-photos/test-ping.txt",
-        "key_prefix": SUPABASE_KEY[:12] + "..." if SUPABASE_KEY else "MISSING"
-    })
-
 @app.route("/api/issues/upload-photo", methods=["POST"])
 def upload_photo():
-    file = request.files.get("photo")
-    if not file:
-        return jsonify({"ok": False, "error": "No file"}), 400
-    ext = (file.filename or "img").rsplit(".", 1)[-1].lower()
-    filename = f"{uuid.uuid4()}.{ext}"
-    content_type = file.content_type or "image/jpeg"
-    resp = requests.post(
-        f"{sb_url()}/storage/v1/object/issue-photos/{filename}",
-        data=file.read(),
-        headers={
-            "apikey": SUPABASE_KEY,
-            "Authorization": f"Bearer {SUPABASE_KEY}",
-            "Content-Type": content_type,
-            "Cache-Control": "3600"
-        }
-    )
-    if resp.ok:
-        url = f"{sb_url()}/storage/v1/object/public/issue-photos/{filename}"
-        return jsonify({"ok": True, "url": url})
-    return jsonify({"ok": False, "error": resp.text}), 500
+    ext, mime, blob = _issue_image_upload(request.files.get("photo"))
+    if not ext:
+        return jsonify({"ok": False, "error": "Upload a JPG, PNG or WEBP photo up to 6 MB"}), 400
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    if not _storage_put(filename, blob, mime, bucket=ISSUE_BUCKET):
+        return jsonify({"ok": False, "error": "Could not save the photo. Try again."}), 502
+    return jsonify({"ok": True, "url": f"/api/issues/photo/{filename}"})
 
 
 
@@ -10823,7 +10804,7 @@ def _security_report(start, end, label):
             add("red", "Policies that give the public key access", ", ".join(db["anon_policies"][:20]), "Review or delete those policies.")
         if db.get("anon_functions"):
             add("red", "Database functions callable without sign-in", ", ".join(db["anon_functions"][:20]), "Revoke EXECUTE from anon and authenticated.")
-        pub = [b for b in (db.get("public_buckets") or []) if b != "issue-photos"]
+        pub = list(db.get("public_buckets") or [])  # no exceptions: every file folder must be private
         if pub:
             add("amber", "Public file folders", ", ".join(pub), "Make them private unless they only hold public files.")
     try:

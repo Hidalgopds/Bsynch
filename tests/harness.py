@@ -270,7 +270,7 @@ def fake_post(url, json=None, data=None, headers=None, timeout=None, params=None
         key = _storage_key(url)
         if STORAGE_DOWN["on"]:
             return Resp({"error": "storage down"}, 503)
-        if key in STORAGE:
+        if key in STORAGE and (headers or {}).get("x-upsert") != "true":
             return Resp({"error": "Duplicate"}, 409)
         STORAGE[key] = (data, (headers or {}).get("Content-Type"))
         return Resp({"Key": key}, 200)
