@@ -48,4 +48,20 @@ A.CONTRACTOR_COMPANIES.reload()
 A.requests.get = real_get
 check("outage keeps the last good list", "acme-paint" in A.CONTRACTOR_COMPANIES and "hicons" in A.CONTRACTOR_COMPANIES)
 
+# ── one registry per hub: TDG is ERP only; demos; paused companies are not usable ──
+DB["contractor_companies"] = [
+    {"slug": "tdg", "name": "TDG Energy Services", "status": "active", "hubs": ["erp"], "billing_exempt": True},
+    {"slug": "demo-construction", "name": "Demo Construction Co", "status": "active", "hubs": ["contractor"], "is_demo": True},
+    {"slug": "demo-erp", "name": "Demo Field Services", "status": "paused", "hubs": ["erp"], "is_demo": True},
+    {"slug": "old-row", "name": "Old", "status": "active"}]  # no hubs column value: counts as Contractor
+A.CONTRACTOR_COMPANIES.reload()
+A.ERP_COMPANIES.reload()
+check("TDG is an ERP company, not a Contractor one", "tdg" in A.ERP_COMPANIES and "tdg" not in A.CONTRACTOR_COMPANIES)
+check("TDG always there for the ERP", A.ERP_COMPANIES.get("tdg") == "TDG Energy Services")
+check("demo construction company works in Contractor", "demo-construction" in A.CONTRACTOR_COMPANIES
+      and A.CONTRACTOR_COMPANIES.info("demo-construction").get("is_demo"))
+check("paused demo ERP company is not usable yet", "demo-erp" not in A.ERP_COMPANIES)
+check("rows without hubs stay Contractor", "old-row" in A.CONTRACTOR_COMPANIES and "old-row" not in A.ERP_COMPANIES)
+check("Hicons and Bsynch are not ERP companies", "hicons" not in A.ERP_COMPANIES and "hicons" in A.CONTRACTOR_COMPANIES)
+
 done("companies")

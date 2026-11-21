@@ -7327,14 +7327,18 @@ class _CompanyRegistry(dict):
     database and cached for a minute. Behaves like the old fixed dict, so every check
     `company in CONTRACTOR_COMPANIES` keeps working. The two original companies are always there,
     and if the table can't be read the last good list stays: a hiccup never locks anyone out."""
-    BUILT_IN = {"hicons": "Hicons", "bsynch": "Bsynch"}
+    BUILT_IN = {"hicons": "Hicons", "bsynch": "Bsynch"}  # the original Contractor companies (never billed)
     TTL = 60
 
-    def __init__(self):
-        super().__init__(self.BUILT_IN)
+    def __init__(self, hub="contractor", built_in=None):
+        """One registry per hub: a company is listed if its `hubs` include this hub. The table is
+        contractor_companies for historical reasons; it holds the companies of every hub."""
+        self.hub = hub
+        self.built_in = dict(self.BUILT_IN if built_in is None else built_in)
+        super().__init__(self.built_in)
         self._at = 0.0
         self._lock = _threading.Lock()
-        self.meta = {}  # slug -> {hubs, trial_ends_at, billing_status, billing_exempt} (billing gate)
+        self.meta = {}  # slug -> {hubs, trial_ends_at, billing_status, billing_exempt, is_demo} (billing gate)
 
     def info(self, slug):
         self._fresh()
@@ -7347,9 +7351,11 @@ class _CompanyRegistry(dict):
             r = requests.get(f"{_MASTER_URL}/rest/v1/contractor_companies?status=eq.active&select=*",
                              headers={"apikey": _MASTER_KEY, "Authorization": f"Bearer {_MASTER_KEY}"}, timeout=5)
             if r.ok and isinstance(r.json(), list):
-                self.meta = {row["slug"]: {k: row.get(k) for k in ("hubs", "trial_ends_at", "billing_status", "billing_exempt")}
-                             for row in r.json() if row.get("slug")}
-                found = {**self.BUILT_IN, **{row["slug"]: row.get("name") or row["slug"] for row in r.json() if row.get("slug")}}
+                rows = [row for row in r.json() if row.get("slug")
+                        and self.hub in (row.get("hubs") if isinstance(row.get("hubs"), list) else ["contractor"])]
+                self.meta = {row["slug"]: {k: row.get(k) for k in ("hubs", "trial_ends_at", "billing_status", "billing_exempt", "is_demo")}
+                             for row in rows}
+                found = {**self.built_in, **{row["slug"]: row.get("name") or row["slug"] for row in rows}}
                 for slug in [s for s in dict.keys(self) if s not in found]:
                     dict.pop(self, slug, None)
                 dict.update(self, found)  # in place, never emptied: other threads keep reading safely
@@ -7398,6 +7404,10 @@ class _CompanyRegistry(dict):
 
 
 CONTRACTOR_COMPANIES = _CompanyRegistry()
+# ERP companies. TDG Energy Services is the owner's own (all ERP data before 2026-11-21 is TDG's).
+# ERP tables carry `company` (default 'tdg' until the ERP routes filter by company: see docs/areas/erp.md).
+ERP_DEFAULT_COMPANY = "tdg"
+ERP_COMPANIES = _CompanyRegistry(hub="erp", built_in={"tdg": "TDG Energy Services"})
 CONTRACTOR_TIME_SLOTS = ["morning", "afternoon"]
 CONTRACTOR_ADDRESS_PARTS = {"residence": 120, "apt": 30, "zone": 80, "zipcode": 12}
 
