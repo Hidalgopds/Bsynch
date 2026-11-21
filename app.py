@@ -11211,6 +11211,118 @@ def platform_list_contractor_companies():
     return jsonify({"ok": True, "companies": dict(CONTRACTOR_COMPANIES.items())})
 
 
+# ══ Platform Admin (one page for the whole app): companies, which hubs each one uses, demos, sign-ups ══
+# Three levels (owner's decision, 2026-11-21): the platform (owner) creates companies, turns hubs on/off and
+# names the first Manager; each company's Manager handles its people, roles and permissions inside each
+# hub; each person handles their own account. Family Hub (Home Lab) is not a company hub.
+PLATFORM_HUBS = {"contractor": "Contractor", "erp": "ERP", "marketing": "Marketing", "storefront": "Storefront"}
+# Companies that can't be paused or lose their original hub here (the platform's own)
+_PLATFORM_FIXED = {"hicons": "contractor", "bsynch": "contractor", "tdg": "erp"}
+
+
+def _hub_companies(hub=None, statuses=("active", "paused", "pending")):
+    """Rows of every company (optionally only those using `hub`), for the platform and the hub pages."""
+    r = requests.get(f"{_MASTER_URL}/rest/v1/contractor_companies?status=in.({','.join(statuses)})"
+                     f"&select=slug,name,status,hubs,is_demo,billing_status,billing_exempt,trial_ends_at,created_at&order=name.asc",
+                     headers=_master_hdr(), timeout=8)
+    rows = r.json() if r.ok else []
+    for c in rows:
+        c["hubs"] = c.get("hubs") if isinstance(c.get("hubs"), list) else ["contractor"]
+    return [c for c in rows if not hub or hub in c["hubs"]]
+
+
+@app.route("/platform")
+def platform_page():
+    if not _session_user():
+        return redirect("/login?next=/platform")
+    if not _is_platform_operator():
+        return redirect("/settings-hub")
+    return render_template("platform.html", hubs=PLATFORM_HUBS)
+
+
+@app.route("/api/platform/hub-companies", methods=["GET"])
+def platform_hub_companies():
+    if not _session_user():
+        return jsonify({"ok": False, "error": "login_required"}), 401
+    if not _is_platform_operator():
+        return jsonify({"ok": False, "error": "Platform administrator only."}), 403
+    rows = _hub_companies()
+    people = requests.get(f"{_MASTER_URL}/rest/v1/app_users?approved=eq.true&contractor_company=not.is.null&select=contractor_company",
+                          headers=_master_hdr(), timeout=8)
+    count = {}
+    for u in (people.json() if people.ok else []):
+        count[u["contractor_company"]] = count.get(u["contractor_company"], 0) + 1
+    for c in rows:
+        c["people"] = count.get(c["slug"], 0)
+        c["fixed_hub"] = _PLATFORM_FIXED.get(c["slug"])
+    return jsonify({"ok": True, "companies": rows, "hubs": PLATFORM_HUBS, "erp_separated": ERP_SEPARATED})
+
+
+@app.route("/api/platform/hub-companies/<slug>", methods=["PATCH"])
+def platform_update_hub_company(slug):
+    """Turn a company's hubs on/off, pause or re-activate it. Data is never deleted: a hub turned off
+    only hides it; turning it back on shows everything again."""
+    if not _session_user():
+        return jsonify({"ok": False, "error": "login_required"}), 401
+    if not _is_platform_operator():
+        return jsonify({"ok": False, "error": "Platform administrator only."}), 403
+    row = _saas_row(slug) if _COMPANY_SLUG.fullmatch(slug or "") else None
+    if not row or row.get("status") == "rejected":
+        return jsonify({"ok": False, "error": "Company not found"}), 404
+    data = request.get_json() or {}
+    payload, fixed = {}, _PLATFORM_FIXED.get(slug)
+    if "hubs" in data:
+        hubs = [h for h in PLATFORM_HUBS if h in (data.get("hubs") or [])]
+        if fixed and fixed not in hubs:
+            return jsonify({"ok": False, "error": f"{row.get('name')} always keeps {PLATFORM_HUBS[fixed]}"}), 400
+        payload["hubs"] = hubs
+    if "status" in data:
+        if data["status"] not in ("active", "paused") or row.get("status") == "pending":
+            return jsonify({"ok": False, "error": "Use Approve / Reject for companies waiting for approval"}), 400
+        if fixed and data["status"] != "active":
+            return jsonify({"ok": False, "error": f"{row.get('name')} can't be paused"}), 400
+        payload["status"] = data["status"]
+    if not payload:
+        return jsonify({"ok": False, "error": "nothing to change"}), 400
+    if not _saas_patch(slug, payload):
+        return jsonify({"ok": False, "error": "Could not save"}), 502
+    ERP_COMPANIES.reload()
+    _audit("company.platform_update", slug, {"from": {k: row.get(k) for k in payload}, "to": payload})
+    return jsonify({"ok": True, "company": {**{k: row.get(k) for k in ("slug", "name")}, **payload}})
+
+
+# ── The hubs that are listed by company (Marketing, Storefront): company tiles + Platform Admin ──
+_HUB_PAGES = {
+    "marketing": {"title": "Marketing", "icon": "&#128227;",
+                  "desc": "Campaigns, leads and growth tools for each company.",
+                  "soon": "Marketing for companies is being built. Your own BSynch sales leads are in Platform Admin."},
+    "storefront": {"title": "Storefront", "icon": "&#128717;&#65039;",
+                   "desc": "Online catalog for local stores: photo in, product listed.",
+                   "soon": "Storefront is being built. See what it will do in the preview."},
+}
+
+
+@app.route("/hub/<hub>")
+def company_hub_page(hub):
+    if hub not in _HUB_PAGES:
+        return redirect("/home")
+    if not _session_user():
+        return redirect(f"/login?next=/hub/{hub}")
+    if not _is_platform_operator():
+        # Opens for companies when each hub's screens exist; until then, the hub's own page
+        return redirect("/marketing-hub" if hub == "marketing" else "/home")
+    return render_template("hub.html", hub=hub, page=_HUB_PAGES[hub])
+
+
+@app.route("/api/hub/<hub>", methods=["GET"])
+def company_hub_api(hub):
+    if hub not in _HUB_PAGES or not _session_user() or not _is_platform_operator():
+        return jsonify({"ok": False, "error": "Platform administrator only."}), 403
+    rows = [{"slug": c["slug"], "name": c["name"], "status": c["status"], "is_demo": bool(c.get("is_demo"))}
+            for c in _hub_companies(hub, statuses=("active", "paused"))]
+    return jsonify({"ok": True, "companies": rows, "preview": "/storefront-hub" if hub == "storefront" else None})
+
+
 # ── Demo logins: the owner gets a sign-in for each demo company, with no email and no password in chat ──
 def _is_platform_owner():
     name = _session_user()
@@ -11243,6 +11355,8 @@ def platform_demo_login(slug):
         return jsonify({"ok": False, "error": "Only for demo companies"}), 404
     if row.get("status") != "active":
         return jsonify({"ok": False, "error": "This demo is paused (the ERP doesn't separate companies yet)."}), 409
+    if "contractor" not in (row.get("hubs") if isinstance(row.get("hubs"), list) else ["contractor"]):
+        return jsonify({"ok": False, "error": "Demo sign-ins open when this hub's screens are ready."}), 409
     name = f"Demo Manager ({slug})"[:80]
     u = requests.get(f"{_MASTER_URL}/rest/v1/app_users?username=eq.{requests.utils.quote(slug)}&select=name,contractor_company&limit=1",
                      headers=_master_hdr(), timeout=6)
@@ -11302,7 +11416,9 @@ def platform_add_contractor_company():
                       json={"slug": slug, "name": name, "status": "active", "created_by": _session_user(),
                             "approved_by": _session_user(), "approved_at": dt.datetime.now(dt.timezone.utc).isoformat(),
                             "trial_ends_at": ends.isoformat(), "billing_status": "trial",
-                            "contact_name": mgr_name or None, "contact_email": mgr_email or None},
+                            "contact_name": mgr_name or None, "contact_email": mgr_email or None,
+                            # which hubs it uses (Platform Admin); Contractor if none given (as before)
+                            "hubs": [h for h in PLATFORM_HUBS if h in (data.get("hubs") or ["contractor"])] or ["contractor"]},
                       headers={**_master_hdr(), "Prefer": "return=minimal"}, timeout=8)
     if not r.ok:
         return jsonify({"ok": False, "error": "Could not save the company"}), 502
@@ -11678,8 +11794,8 @@ def _settings_cards(name):
                       "desc": "Crews, PINs, users of the ERP, projects and operation settings."})
     if operator:
         cards += [
-            {"group": "platform", "icon": "&#128737;&#65039;", "title": "Platform Admin", "href": "/contractor/platform",
-             "desc": "Every company and person, companies waiting for approval, demo companies."},
+            {"group": "platform", "icon": "&#128737;&#65039;", "title": "Platform Admin", "href": "/platform",
+             "desc": "Every company and the hubs it uses, companies waiting for approval, demo companies."},
             {"group": "platform", "icon": "&#128202;", "title": "Security report", "href": "/platform/security-report",
              "desc": "Sign-ins, blocked attempts and checks of the month; move photos to Storage."}]
     if owner:

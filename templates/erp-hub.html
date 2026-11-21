@@ -59,7 +59,9 @@ fetch('/api/erp-hub', {credentials: 'same-origin'}).then(function(r){ return r.j
                 '<span>Field Log, Material Manager, Timesheet, Dashboard, QC and Check-in.</span><div class="tags">' + tags + '</div>';
     return c.ready ? '<a class="co" href="/erp-hub/' + encodeURIComponent(c.slug) + '">' + inner + '</a>'
                    : '<div class="co locked" aria-disabled="true">' + inner + '</div>';
-  }).join('');
+  }).join('') +
+  '<a class="co" href="/platform?hub=erp"><div class="ic" aria-hidden="true" style="background:#fee2e2">&#128737;&#65039;</div><b>Platform Admin</b>' +
+  '<span>Which companies use the ERP, turn it on or off, add companies. Only you see this.</span></a>';
   document.getElementById('note').hidden = !locked;
 }).catch(function(){ document.getElementById('grid').textContent = 'Connection error. Refresh the page.'; });
 </script>

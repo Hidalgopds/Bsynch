@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Platform Admin – BSynch</title>
+<style>
+/* Light colors, fixed */
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f6f8fb;color:#0f172a;min-height:100vh;display:flex;flex-direction:column}
+header{padding:16px 24px;display:flex;align-items:center;gap:14px;background:#19354d;color:#e2e8f0}
+.logo-badge{width:36px;height:36px;background:linear-gradient(135deg,#0f766e,#4f8ef7);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff}
+.hdr-title{font-size:17px;font-weight:700}
+.hdr-right{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.hbtn{padding:6px 12px;border:1px solid rgba(255,255,255,.35);border-radius:7px;color:#e2e8f0;font-size:12px;font-weight:600;text-decoration:none}
+.hbtn:hover{border-color:#5eead4;color:#5eead4}
+main{flex:1;max-width:1050px;width:100%;margin:0 auto;padding:26px 16px 60px}
+h1{font-size:24px;margin-bottom:4px}
+.sub{color:#566275;font-size:14px;margin-bottom:16px;line-height:1.5}
+h2{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:#0f766e;margin:26px 0 10px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.chip{padding:6px 12px;border-radius:20px;border:1px solid #cbd5e1;background:#fff;color:#334155;font-size:12px;font-weight:700;cursor:pointer}
+.chip.on{background:#0f766e;border-color:#0f766e;color:#fff}
+.chip small{opacity:.75;margin-left:4px}
+.list{display:flex;flex-direction:column;gap:10px}
+.co{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px 16px;display:grid;grid-template-columns:1.3fr 2fr auto;gap:12px;align-items:center}
+@media(max-width:760px){.co{grid-template-columns:1fr}}
+.co b{font-size:15px}
+.co small{display:block;color:#566275;font-size:12px;margin-top:2px}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:6px;vertical-align:middle}
+.t-demo{background:#fef3c7;color:#92400e}.t-paused{background:#e2e8f0;color:#334155}.t-wait{background:#ffedd5;color:#9a3412}
+.hubs{display:flex;gap:6px;flex-wrap:wrap}
+.hub{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid #cbd5e1;border-radius:9px;font-size:12px;font-weight:700;color:#334155;cursor:pointer;background:#fff;user-select:none}
+.hub input{width:15px;height:15px;accent-color:#0f766e}
+.hub.on{border-color:#8fcfc2;background:#f0fdfa;color:#115e59}
+.hub.locked{cursor:default;opacity:.8}
+.act{padding:7px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;font-size:12px;font-weight:700;cursor:pointer;color:#0f172a;white-space:nowrap}
+.act.ok{border-color:#8fcfc2;color:#0f766e}.act.warn{border-color:#fca5a5;color:#b91c1c}
+.act:disabled{opacity:.5;cursor:default}
+.box{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px 16px}
+.box.wait{background:#fffbeb;border-color:#fcd34d}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;padding:8px 0;border-top:1px solid #f1f5f9;font-size:13px}
+.row:first-child{border-top:none}
+.row small{display:block;color:#566275}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;align-items:end}
+.form label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;color:#475569}
+.form input[type=text],.form input[type=email]{padding:9px 11px;border:1px solid #cbd5e1;border-radius:9px;font-size:14px;font-family:inherit}
+.links{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.link{display:block;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;text-decoration:none;color:inherit}
+.link:hover{border-color:#0f766e}
+.link b{display:block;font-size:14px;margin-bottom:2px}
+.link span{font-size:12px;color:#566275}
+.msg{font-size:13px;margin-top:8px;min-height:16px}
+.msg.err{color:#b91c1c}.msg.ok{color:#15803d}
+.empty{color:#566275;font-size:13px;padding:6px 0}
+.dm-link{flex-basis:100%;word-break:break-all;background:#ecfdf5;border-radius:8px;padding:8px 10px;font-size:12px;color:#065f46}
+footer{text-align:center;padding:16px;font-size:12px;color:#566275}
+</style>
+<script src="/static/nav-arrows.js" defer></script>
+</head>
+<body>
+<header>
+  <div class="logo-badge" aria-hidden="true">B</div><span class="hdr-title">Platform Admin</span>
+  <div class="hdr-right"><a href="/home" class="hbtn">Home</a><a href="/settings-hub" class="hbtn">Settings</a><a href="/logout" class="hbtn">Log out</a></div>
+</header>
+<main>
+  <h1>&#128737;&#65039; Platform Admin</h1>
+  <p class="sub">Every company on BSynch and which hubs it uses. You create companies, turn hubs on or off and name the first Manager; each company's Manager handles its own people, roles and permissions inside each hub.</p>
+
+  <div id="waitBox" hidden>
+    <h2>&#9203; Waiting for your approval</h2>
+    <div class="box wait" id="waitList"></div>
+  </div>
+
+  <h2>Companies</h2>
+  <div class="chips" id="chips"></div>
+  <div class="list" id="list"><p class="empty">Loading&hellip;</p></div>
+  <div class="msg" id="listMsg" role="status"></div>
+
+  <h2>&#10133; Add a company</h2>
+  <form class="box" id="addForm" autocomplete="off">
+    <div class="form">
+      <label>Company name<input type="text" id="aName" maxlength="80" placeholder="Acme Painting LLC" required></label>
+      <label>Short id <small style="font-weight:400">(for links)</small><input type="text" id="aSlug" maxlength="30" placeholder="acme-painting" required></label>
+      <label>Manager's full name <small style="font-weight:400">(optional)</small><input type="text" id="aMgr" maxlength="80" placeholder="Ana Pérez"></label>
+      <label>Manager's email <small style="font-weight:400">(gets a password link)</small><input type="email" id="aMgrEmail" maxlength="160" placeholder="ana@acme.com"></label>
+    </div>
+    <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <span style="font-size:12px;font-weight:700;color:#475569">Hubs:</span><span class="hubs" id="aHubs"></span>
+      <button type="submit" class="act ok" id="aBtn" style="margin-left:auto">Add company</button>
+    </div>
+    <div class="msg" id="aMsg" role="status"></div>
+  </form>
+
+  <div id="demoWrap" hidden>
+    <h2>&#127917; Demo companies</h2>
+    <div class="box" id="demoList"></div>
+  </div>
+
+  <h2>More</h2>
+  <div class="links">
+    <a class="link" href="/contractor/platform"><b>&#128101; People (Contractor)</b><span>Every account: company, role, approve or suspend.</span></a>
+    <a class="link" href="/marketing-hub"><b>&#128227; BSynch sales leads</b><span>People who asked about BSynch from the sales page.</span></a>
+    <a class="link" href="/platform/security-report"><b>&#128202; Security report</b><span>Sign-ins, blocked attempts and monthly checks.</span></a>
+    <a class="link" href="/platform-settings"><b>&#128451;&#65039; Dedicated databases</b><span>Companies with their own database (like NNC).</span></a>
+  </div>
+</main>
+<footer>BSynch &middot; Platform Admin</footer>
+<script>
+var HUBS = {{ hubs|tojson }}, rows = [], filter = new URLSearchParams(location.search).get('hub') || 'all';
+if (filter !== 'all' && !HUBS[filter]) filter = 'all';
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function api(method, url, body){
+  return fetch(url, {method: method, credentials: 'same-origin', headers: {'Content-Type': 'application/json'}, body: body ? JSON.stringify(body) : undefined})
+    .then(function(r){ return r.json(); });
+}
+function hubBoxes(c, disabled){
+  return Object.keys(HUBS).map(function(h){
+    var on = c.hubs.indexOf(h) >= 0, locked = c.fixed_hub === h;
+    return '<label class="hub' + (on ? ' on' : '') + (locked ? ' locked' : '') + '" title="' + (locked ? 'Always on for this company' : 'Turn ' + esc(HUBS[h]) + ' on or off') + '">' +
+      '<input type="checkbox" data-slug="' + esc(c.slug) + '" data-hub="' + h + '"' + (on ? ' checked' : '') + (locked || disabled ? ' disabled' : '') + '>' + esc(HUBS[h]) + '</label>';
+  }).join('');
+}
+function render(){
+  var counts = {all: rows.filter(function(c){ return c.status !== 'pending'; }).length};
+  Object.keys(HUBS).forEach(function(h){ counts[h] = rows.filter(function(c){ return c.status !== 'pending' && c.hubs.indexOf(h) >= 0; }).length; });
+  document.getElementById('chips').innerHTML = [['all', 'All']].concat(Object.keys(HUBS).map(function(h){ return [h, HUBS[h]]; })).map(function(f){
+    return '<button type="button" class="chip' + (f[0] === filter ? ' on' : '') + '" data-f="' + f[0] + '">' + esc(f[1]) + '<small>' + counts[f[0]] + '</small></button>';
+  }).join('');
+  var list = rows.filter(function(c){ return c.status !== 'pending' && (filter === 'all' || c.hubs.indexOf(filter) >= 0); });
+  document.getElementById('list').innerHTML = list.length ? list.map(function(c){
+    var paused = c.status === 'paused';
+    return '<div class="co"><div><b>' + esc(c.name) + '</b>' + (c.is_demo ? '<span class="tag t-demo">Demo</span>' : '') +
+      (paused ? '<span class="tag t-paused">Paused</span>' : '') +
+      '<small>id: ' + esc(c.slug) + ' &middot; ' + c.people + ' ' + (c.people === 1 ? 'person' : 'people') + '</small></div>' +
+      '<div class="hubs">' + hubBoxes(c, false) + '</div>' +
+      '<div>' + (c.fixed_hub ? '<span class="tag t-paused" style="margin:0">Platform company</span>' :
+        '<button type="button" class="act ' + (paused ? 'ok' : 'warn') + '" data-status="' + (paused ? 'active' : 'paused') + '" data-slug="' + esc(c.slug) + '">' + (paused ? 'Activate' : 'Pause') + '</button>') + '</div></div>';
+  }).join('') : '<p class="empty">No companies here yet.</p>';
+  var waiting = rows.filter(function(c){ return c.status === 'pending'; });
+  document.getElementById('waitBox').hidden = !waiting.length;
+}
+function load(){
+  api('GET', '/api/platform/hub-companies').then(function(d){
+    if (!d.ok) { location.replace('/settings-hub'); return; }
+    rows = d.companies; render();
+  });
+  api('GET', '/api/platform/signups').then(function(d){
+    var list = (d && d.signups) || [];
+    document.getElementById('waitBox').hidden = !list.length;
+    document.getElementById('waitList').innerHTML = list.map(function(s){
+      return '<div class="row"><div><b>' + esc(s.name) + '</b><small>' + esc(s.contact_name) + ' &middot; ' + esc(s.contact_email) +
+        ' &middot; asked for ' + esc((s.hubs || []).join(', ')) + '</small></div><div style="display:flex;gap:6px">' +
+        '<button type="button" class="act ok" data-review="approve" data-slug="' + esc(s.slug) + '" data-name="' + esc(s.name) + '">Approve</button>' +
+        '<button type="button" class="act warn" data-review="reject" data-slug="' + esc(s.slug) + '" data-name="' + esc(s.name) + '">Reject</button></div></div>';
+    }).join('');
+  });
+  api('GET', '/api/platform/demo-companies').then(function(d){
+    var list = (d && d.ok && d.demos) || [];
+    document.getElementById('demoWrap').hidden = !list.length;
+    document.getElementById('demoList').innerHTML = list.map(function(s){
+      var paused = s.status !== 'active', canLogin = !paused && (s.hubs || []).indexOf('contractor') >= 0;
+      return '<div class="row"><div><b>' + esc(s.name) + '</b><small>' + esc((s.hubs || []).map(function(h){ return HUBS[h] || h; }).join(', ') || 'no hub') +
+        (paused ? ' &middot; paused' : '') + (canLogin ? ' &middot; username: <b>' + esc(s.slug) + '</b>' : '') + '</small></div>' +
+        (canLogin ? '<button type="button" class="act ok" data-demo="' + esc(s.slug) + '">' + (s.login ? 'New password link' : 'Create demo login') + '</button>' :
+                    '<small>Sign-in when its hub screens are ready</small>') +
+        '<div class="dm-link" id="dm-' + esc(s.slug) + '" hidden></div></div>';
+    }).join('');
+  });
+}
+var msg = document.getElementById('listMsg');
+document.getElementById('chips').onclick = function(e){
+  var b = e.target.closest('[data-f]'); if (!b) return;
+  filter = b.dataset.f; history.replaceState(null, '', filter === 'all' ? '/platform' : '/platform?hub=' + filter); render();
+};
+document.getElementById('list').addEventListener('change', function(e){
+  var t = e.target; if (!t.dataset.hub) return;
+  var c = rows.find(function(x){ return x.slug === t.dataset.slug; });
+  var hubs = c.hubs.filter(function(h){ return h !== t.dataset.hub; });
+  if (t.checked) hubs.push(t.dataset.hub);
+  else if (!confirm('Turn ' + HUBS[t.dataset.hub] + ' off for ' + c.name + '? Its people stop seeing it. Nothing is deleted; turning it on again brings everything back.')) { t.checked = true; return; }
+  api('PATCH', '/api/platform/hub-companies/' + encodeURIComponent(c.slug), {hubs: hubs}).then(function(d){
+    if (!d.ok) { msg.className = 'msg err'; msg.textContent = d.error || 'Could not save'; t.checked = !t.checked; return; }
+    c.hubs = d.company.hubs; render(); msg.className = 'msg ok'; msg.textContent = c.name + ': saved ✓';
+  });
+});
+document.getElementById('list').addEventListener('click', function(e){
+  var b = e.target.closest('[data-status]'); if (!b) return;
+  var c = rows.find(function(x){ return x.slug === b.dataset.slug; }), to = b.dataset.status;
+  if (to === 'paused' && !confirm('Pause ' + c.name + '? Its people can\'t use BSynch until you activate it again. Nothing is deleted.')) return;
+  b.disabled = true;
+  api('PATCH', '/api/platform/hub-companies/' + encodeURIComponent(c.slug), {status: to}).then(function(d){
+    b.disabled = false;
+    if (!d.ok) { msg.className = 'msg err'; msg.textContent = d.error || 'Could not save'; return; }
+    c.status = to; render(); msg.className = 'msg ok'; msg.textContent = c.name + ': ' + (to === 'active' ? 'active' : 'paused') + ' ✓';
+  });
+});
+document.getElementById('waitList').addEventListener('click', function(e){
+  var b = e.target.closest('[data-review]'); if (!b) return;
+  var approve = b.dataset.review === 'approve', note = '';
+  if (approve && !confirm('Approve ' + b.dataset.name + '? Their free trial starts now and they get an email to sign in.')) return;
+  if (!approve) { note = prompt('Reject ' + b.dataset.name + '? Optional note (only you see it):', ''); if (note === null) return; }
+  b.disabled = true;
+  api('POST', '/api/platform/signups/' + encodeURIComponent(b.dataset.slug) + '/' + b.dataset.review, {note: note}).then(function(d){
+    if (!d.ok) { alert(d.error || 'Could not save'); b.disabled = false; return; }
+    load();
+  });
+});
+document.getElementById('demoList').addEventListener('click', function(e){
+  var b = e.target.closest('[data-demo]'); if (!b) return;
+  b.disabled = true;
+  api('POST', '/api/platform/demo-companies/' + encodeURIComponent(b.dataset.demo) + '/login', {}).then(function(res){
+    b.disabled = false;
+    if (!res.ok) { alert(res.error || 'Could not do it'); return; }
+    var out = document.getElementById('dm-' + b.dataset.demo); out.hidden = false;
+    out.innerHTML = 'Username: <b>' + esc(res.username) + '</b>. Open this one-time link (valid 72 h) to choose its password, then sign in in a private window: <a href="' + esc(res.link) + '" target="_blank" rel="noopener">' + esc(res.link) + '</a>';
+  });
+});
+// Add a company
+var aName = document.getElementById('aName'), aSlug = document.getElementById('aSlug'), slugTouched = false;
+document.getElementById('aHubs').innerHTML = Object.keys(HUBS).map(function(h){
+  return '<label class="hub' + (h === 'contractor' ? ' on' : '') + '"><input type="checkbox" name="ahub" value="' + h + '"' + (h === 'contractor' ? ' checked' : '') + '>' + esc(HUBS[h]) + '</label>';
+}).join('');
+document.getElementById('aHubs').onchange = function(e){ e.target.parentNode.classList.toggle('on', e.target.checked); };
+function toSlug(s){
+  s = String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\b(llc|inc|corp|co|ltd)\b\.?/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return s.replace(/^[^a-z]+/, '').slice(0, 30).replace(/-+$/, '');
+}
+aName.oninput = function(){ if (!slugTouched) aSlug.value = toSlug(aName.value); };
+aSlug.oninput = function(){ slugTouched = true; aSlug.value = aSlug.value.toLowerCase().replace(/[^a-z0-9-]/g, ''); };
+document.getElementById('addForm').onsubmit = function(e){
+  e.preventDefault();
+  var m = document.getElementById('aMsg'), btn = document.getElementById('aBtn');
+  var body = {name: aName.value.trim(), slug: aSlug.value.trim(), manager_name: document.getElementById('aMgr').value.trim(),
+              manager_email: document.getElementById('aMgrEmail').value.trim(),
+              hubs: Array.prototype.map.call(document.querySelectorAll('input[name=ahub]:checked'), function(c){ return c.value; })};
+  if (!body.name || !body.slug) { m.className = 'msg err'; m.textContent = 'Fill in the name and the short id.'; return; }
+  if (!body.hubs.length) { m.className = 'msg err'; m.textContent = 'Pick at least one hub.'; return; }
+  if ((body.manager_name || body.manager_email) && !(body.manager_name && body.manager_email)) { m.className = 'msg err'; m.textContent = 'For the Manager, fill in both the name and the email (or leave both empty).'; return; }
+  if (!confirm('Add "' + body.name + '" (id: ' + body.slug + ') with ' + body.hubs.map(function(h){ return HUBS[h]; }).join(', ') + '? The id can\'t be changed later.')) return;
+  btn.disabled = true; m.className = 'msg'; m.textContent = 'Saving…';
+  api('POST', '/api/platform/contractor-companies', body).then(function(d){
+    btn.disabled = false;
+    if (!d.ok) { m.className = 'msg err'; m.textContent = d.error || 'Could not add the company'; return; }
+    m.className = 'msg ok'; m.textContent = d.name + ' added ✓' + (d.invited ? ' · password link sent to the Manager' : '');
+    document.getElementById('addForm').reset(); slugTouched = false; load();
+  }).catch(function(){ btn.disabled = false; m.className = 'msg err'; m.textContent = 'Connection error'; });
+};
+load();
+</script>
+</body>
+</html>

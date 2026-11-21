@@ -39,6 +39,7 @@ Campañas, leads y herramientas de crecimiento. Hoy tiene: landing pública `/ma
 - Sin chino por ahora: el dueño pidió inglés y español.
 
 ## Pendientes
+- [ ] **Paso 3 (pedido de Settings, 2026-11-21): Marketing pasa a ser un producto para empresas** (decisión del dueño). Para el dueño, la tarjeta Marketing de `/home` ya abre `/hub/marketing` (lista empresas con hub marketing; ejemplo `demo-marketing` "Demo Marketing Co" + tarjeta Platform Admin). Los demás siguen yendo a `/marketing-hub`. Falta: pantallas de marketing por empresa (campañas y leads de cada empresa, filtrados por `company`, con prueba de que una empresa no ve la otra). Los leads de venta de BSynch quedan como herramienta del dueño, enlazados desde Platform Admin (`/platform` → "BSynch sales leads").
 - [x] (Hecho por Settings, 2026-11-21) Flechas ← → en `/marketing-hub` (`static/nav-arrows.js`). Pantalla nueva con sesión = agregar ese script (no en la landing pública).
 - [x] Precios reales: $149/mes por empresa, 14 días gratis.
 - [ ] Pedir a Settings: permitir que Google indexe `/marketing` y crear en Stripe el plan de $149/mes con 14 días de prueba.

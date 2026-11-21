@@ -31,6 +31,7 @@ Estado (2026-11-20): **en construcción, sin pantallas todavía.** El hub `/stor
 - Empresas, registro, aprobación, cobro y acceso de usuarios son de **Settings**. Para vender Storefront, Settings lo agrega a `SAAS_HUBS` / `SAAS_HUBS_READY` y a la página de registro (que hoy es de contratistas: necesitará su propia versión).
 
 ## Pendientes
+- [x] (Settings, 2026-11-21) La tarjeta Storefront de `/home` abre `/hub/storefront`: empresas con hub storefront (ejemplo `demo-store` "Demo Store") + Platform Admin. La vista previa sigue en `/storefront-hub`.
 - [ ] Validación con tiendas (arriba).
 - [ ] Diseño de tablas: `storefront_products` (company, título, marca, modelo, categoría, especificaciones jsonb, precio, cantidad, estado: borrador/publicado/apartado/vendido, fotos, creado_por, fechas) y `storefront_settings` por tienda (nombre público, WhatsApp, dirección, horario, logo).
 - [ ] Settings: abrir el hub a empresas cliente cuando haya primera versión (hoy `_saas_scope_guard` los manda a Contractor).
