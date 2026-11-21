@@ -220,7 +220,7 @@ function loadNotifications(){
       list.innerHTML = notifs.map(function(n){
         var ago = timeAgo(n.created_at);
         var readBtn = !n.read
-          ? '<button class="np-read-btn" onclick="markRead(''+n.id+'');event.stopPropagation()">Mark read</button>'
+          ? '<button class="np-read-btn" onclick="markRead(\''+n.id+'\');event.stopPropagation()">Mark read</button>'
           : '';
         return '<div class="np-item '+(n.read?'read':'unread')+'" data-notif-id="'+n.id+'">'
           +'<div class="np-dot"></div>'

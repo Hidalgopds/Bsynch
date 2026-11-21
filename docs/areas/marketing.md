@@ -39,6 +39,7 @@ Campañas, leads y herramientas de crecimiento. Hoy tiene: landing pública `/ma
 - Sin chino por ahora: el dueño pidió inglés y español.
 
 ## Pendientes
+- [x] (Hecho por Settings, 2026-11-21) Flechas ← → en `/marketing-hub` (`static/nav-arrows.js`). Pantalla nueva con sesión = agregar ese script (no en la landing pública).
 - [x] Precios reales: $149/mes por empresa, 14 días gratis.
 - [ ] Pedir a Settings: permitir que Google indexe `/marketing` y crear en Stripe el plan de $149/mes con 14 días de prueba.
 - [x] `migrations/marketing_leads.sql` aplicada en producción (`wanfpiogchwttsippekm`) el 2026-11-14. RLS activo, 0 políticas, 0 filas. Security Advisors: cero ERROR. Solo el INFO "RLS sin políticas" de siempre (58 tablas, antes 57). No se aplica en NNC.

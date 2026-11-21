@@ -1,6 +1,11 @@
 /* ERP screens: make sure this device has a signed session (password or crew PIN).
    Older sign-ins only kept the name in the browser; those sign in once more. */
 (function () {
+  // Back / Forward arrows (shared by every signed-in screen; Settings, 2026-11-21)
+  if (!document.querySelector('script[src="/static/nav-arrows.js"]')) {
+    var na = document.createElement('script'); na.src = '/static/nav-arrows.js'; na.defer = true;
+    (document.head || document.documentElement).appendChild(na);
+  }
   var name = '';
   try { name = localStorage.getItem('bsynchAuth') || ''; } catch (e) {}
   var leaving = false;

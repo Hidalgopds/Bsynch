@@ -48,4 +48,10 @@ check("client can open the settings hub", lola.get("/settings-hub").status_code 
 check("dedicated-databases page: owner yes", get("/platform-settings", "owner@example.com").status_code == 200)
 check("dedicated-databases page: a Manager is sent back", get("/platform-settings", "Hana").status_code == 302)
 
+# Back / Forward arrows: shared script on Settings screens and loaded by every ERP screen
+check("arrows on Home and Settings screens", all(b"/static/nav-arrows.js" in get(p, "owner@example.com").data
+                                                  for p in ("/home", "/settings-hub", "/erp-hub")))
+check("ERP screens load the arrows through erp-session.js", b"nav-arrows.js" in client().get("/static/erp-session.js").data)
+check("arrows script is served", client().get("/static/nav-arrows.js").status_code == 200)
+
 done("settings_hub")
