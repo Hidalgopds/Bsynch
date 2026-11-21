@@ -7644,7 +7644,17 @@ def _ct_bg(fn, *args, **kwargs):
 
 def _ct_mail(company, kind, to, cc, subject, html_body, reply_to=None, from_name=None, ref="", sent_by=""):
     """Send and record it in the Mail room log (sent or failed, with the reason)."""
-    ok, err = _ct_send_email(to, cc, subject, html_body, reply_to=reply_to, from_name=from_name)
+    if CONTRACTOR_COMPANIES.info(company).get("is_demo"):
+        # Demo companies (Settings): their invented clients use example.com, which never gets real mail.
+        # A real address typed during a demo (e.g. the owner's) still receives it.
+        demo_skip = lambda a: str(a).strip().lower().rsplit("@", 1)[-1].endswith(("example.com", "example.org", "example.net"))
+        to, cc = [a for a in (to or []) if not demo_skip(a)], [a for a in (cc or []) if not demo_skip(a)]
+        if not to:
+            to, cc = [], []
+    if company and not to and CONTRACTOR_COMPANIES.info(company).get("is_demo"):
+        ok, err = False, "demo company: sample address, not sent"
+    else:
+        ok, err = _ct_send_email(to, cc, subject, html_body, reply_to=reply_to, from_name=from_name)
     try:
         requests.post(f"{sb_url()}/rest/v1/contractor_mail_log", headers=sb_headers(), timeout=5, json={
             "company": company, "kind": kind[:40], "ref": str(ref or "")[:80], "to_addrs": ", ".join(to or [])[:1000],

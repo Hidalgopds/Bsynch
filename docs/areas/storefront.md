@@ -36,5 +36,6 @@ Estado (2026-11-20): **en construcción, sin pantallas todavía.** El hub `/stor
 - [ ] Settings: abrir el hub a empresas cliente cuando haya primera versión (hoy `_saas_scope_guard` los manda a Contractor).
 
 ## Decisiones tomadas
+- **Colores claros fijos** (dueño, 2026-11-21): fondo claro, tarjetas blancas, acento teal `#0f766e`. Sin modo oscuro ni selector de tema en Storefront.
 - Nombre en la app: **Storefront** (dueño, 2026-11-20).
 - Va después de activar Stripe y de los primeros clientes de Contractor; no compite por tiempo con eso.

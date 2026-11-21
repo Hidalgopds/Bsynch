@@ -45,7 +45,7 @@ Una app web (Flask, un solo archivo grande `app.py` + `templates/` + `static/`) 
 
 ## Dónde corre
 - Servidor: **Render**, se despliega solo desde la rama `main` de GitHub (`Hidalgopds/Bsynch`). Gunicorn 1 worker, 4 hilos.
-- Base de datos: **Supabase** producción: `wanfpiogchwttsippekm` (principal, todos los clientes) y `fhkfpqgfzegqcyajvjlo` (NNC: prueba de base dedicada, **pausada**; ese trabajo se paró. Hicons NO está ahí). Staging para pruebas de carga: `yxlambgifwcmkmzxoosm` (único lugar donde se permite cargar datos falsos).
+- Base de datos: **Supabase** producción: `wanfpiogchwttsippekm` (principal, todos los clientes) y `fhkfpqgfzegqcyajvjlo` (NNC: prueba de base dedicada, **pausada**; ese trabajo se paró. Hicons NO está ahí). Staging para pruebas de carga: `yxlambgifwcmkmzxoosm`. **Datos falsos solo en staging o dentro de empresas marcadas `is_demo`** (decisión del dueño, 2026-11-21); nunca mezclados con datos reales. Las demos usan `@example.com` y teléfonos 555, y no mandan correo a esas direcciones.
 - El servidor habla con Supabase por REST con la clave de servicio. **RLS activo en todas las tablas y sin políticas**: solo el servidor lee y escribe. Nunca mandes una clave de Supabase al navegador.
 - Multi-empresa por subdominio (`<empresa>.bsynch.com`) con la tabla `bsynch_companies`.
 

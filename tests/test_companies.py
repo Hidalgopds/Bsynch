@@ -64,4 +64,15 @@ check("paused demo ERP company is not usable yet", "demo-erp" not in A.ERP_COMPA
 check("rows without hubs stay Contractor", "old-row" in A.CONTRACTOR_COMPANIES and "old-row" not in A.ERP_COMPANIES)
 check("Hicons and Bsynch are not ERP companies", "hicons" not in A.ERP_COMPANIES and "hicons" in A.CONTRACTOR_COMPANIES)
 
+# demo companies never email their invented example.com clients; a real address still gets it
+MAIL.clear()
+DB.setdefault("contractor_mail_log", [])
+ok, err = A._ct_mail("demo-construction", "invoice", ["laura.martin@example.com"], [], "Invoice D000102", "<p>x</p>")
+check("demo: invented client not emailed", not ok and not MAIL and "demo" in (err or ""))
+A._ct_mail("demo-construction", "invoice", ["laura.martin@example.com", "boss@realmail.test"], [], "Invoice", "<p>x</p>")
+check("demo: a real address typed in the demo still gets it", len(MAIL) == 1 and MAIL[0]["to"] == ["boss@realmail.test"])
+MAIL.clear()
+A._ct_mail("hicons", "invoice", ["client@example.com"], [], "Invoice", "<p>x</p>")
+check("real companies are not affected", len(MAIL) == 1)
+
 done("companies")
