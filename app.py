@@ -2631,6 +2631,22 @@ def api_logout():
     return jsonify({"ok": True})
 
 
+@app.route("/logout")
+def logout_page():
+    """Every "Log out" button comes here: ends the server session AND clears what the pages keep in the
+    browser, so the sign-in page can't put the person back in by itself."""
+    if session.get("uid"):
+        _audit("logout", session.get("uid"))
+    session.clear()
+    html = ('<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+            '<title>Signing out – BSynch</title></head><body style="font-family:Segoe UI,Arial,sans-serif;background:#f6f8fb;color:#0f172a;'
+            'display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0"><p>Signing out&hellip;</p><script>'
+            'try{["bsynchAuth","bsynchRole","mbrName","mbrRole","companySlug","companyUser","ctLastCompany"].forEach(function(k){localStorage.removeItem(k)});'
+            'sessionStorage.clear()}catch(e){}location.replace("/login");</script>'
+            '<noscript><a href="/login">Continue to sign in</a></noscript></body></html>')
+    return Response(html, mimetype="text/html", headers={"Cache-Control": "no-store", "Clear-Site-Data": '"cache"'})
+
+
 @app.route("/api/auth/whoami", methods=["GET"])
 def api_whoami():
     name = _session_user()

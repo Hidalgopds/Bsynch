@@ -144,13 +144,7 @@
     if(isOpen && window.renderThemeSwitcher) window.renderThemeSwitcher('themePickerHome');
   };
   document.addEventListener('click', function(){ var p = document.getElementById('themePop'); if(p) p.classList.remove('open'); });
-  window.doLogout = function(){
-    localStorage.removeItem('mbrName');
-    localStorage.removeItem('mbrRole');
-    localStorage.removeItem('companySlug');
-    localStorage.removeItem('companyUser');
-    location.href = '/login';
-  };
+  window.doLogout = function(){ location.href = '/logout'; };  // ends the server session too
   if(name) document.getElementById('hdr-user').textContent = 'Hi, ' + name;
   if(role === 'admin' || role === 'boss'){
     var t = document.getElementById('tileSettings');

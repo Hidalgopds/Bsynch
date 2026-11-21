@@ -113,4 +113,14 @@ check("non-admins can't start a reset", send("POST", "/api/reset-password", "Mia
 check("client-company people are out of reach of ERP admins",
       send("POST", "/api/reset-password", "owner@example.com", {"name": "Rita Roof"}).status_code == 403)
 
+# ── Log out really ends the session (the sign-in page can't put the person back in) ──
+lo = client()
+login(lo, "Hana", "brand-new-pass")
+check("signed in before logging out", lo.get("/api/auth/whoami").status_code == 200)
+page = lo.get("/logout")
+check("/logout clears the browser's saved name and goes to sign-in", page.status_code == 200 and b"bsynchAuth" in page.data
+      and b'location.replace("/login")' in page.data and page.headers.get("Cache-Control") == "no-store")
+check("after /logout the session no longer works", lo.get("/api/auth/whoami").status_code == 401)
+check("logout recorded", any(a.get("action") == "logout" and a.get("target") == "Hana" for a in DB["audit_log"]))
+
 done("passwords")

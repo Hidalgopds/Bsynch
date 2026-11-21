@@ -338,11 +338,7 @@ function timeAgo(iso){
     // Logout button
     var logoutBtn = document.getElementById('logout-btn');
     if (logoutBtn) {
-      logoutBtn.onclick = function() {
-        localStorage.removeItem('bsynchAuth');
-        localStorage.removeItem('bsynchRole');
-        location.href = '/login';
-      };
+      logoutBtn.onclick = function() { location.href = '/logout'; };  // ends the server session too
     }
   });
 })();

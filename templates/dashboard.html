@@ -571,7 +571,7 @@ footer{color:#64748b !important;border-top-color:#0f172a !important;}
     <div id="headerUser" style="display:flex;align-items:center;gap:8px;margin-left:8px;"></div>
   </div>
 </header>
-<script>(function(){var n=localStorage.getItem('bsynchAuth')||'';var r=localStorage.getItem('bsynchRole')||'';var el=document.getElementById('headerUser');if(!el||!n)return;var cap=r?r.charAt(0).toUpperCase()+r.slice(1):'';el.innerHTML='<span class="hdr-name" style="font-size:12px;font-weight:700;color:#64748b;">'+n+(cap?' &middot; '+cap:'')+' </span>'+'<button class="hdr-signout" onclick="localStorage.removeItem(\'bsynchAuth\');localStorage.removeItem(\'bsynchRole\');location.href=\'/login\';" '+'style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);color:#64748b;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>';})();</script>
+<script>(function(){var n=localStorage.getItem('bsynchAuth')||'';var r=localStorage.getItem('bsynchRole')||'';var el=document.getElementById('headerUser');if(!el||!n)return;var cap=r?r.charAt(0).toUpperCase()+r.slice(1):'';el.innerHTML='<span class="hdr-name" style="font-size:12px;font-weight:700;color:#64748b;">'+n+(cap?' &middot; '+cap:'')+' </span>'+'<button class="hdr-signout" onclick="location.href=\'/logout\';" '+'style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);color:#64748b;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>';})();</script>
 <script>
 (function(){
   var _a=localStorage.getItem('bsynchAuth')||'';
