@@ -53,8 +53,30 @@
     else bar.insertBefore(nav, bar.firstChild);
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', place);
-  else place();
+  // The "B" logo in the top bar goes to the start screen (owner's request, 2026-11-22)
+  function logoHome() {
+    var logos = document.querySelectorAll('header .logo-badge, header .logo, #bsynch-status-bar .logo-badge, ' +
+                                          '#bsynch-status-bar .logo, .top-bar .logo-badge, .top-bar-primary .logo-badge');
+    logos = Array.prototype.slice.call(logos);
+    // ERP screens: the "B" square has no class, it is the first box of the status bar
+    Array.prototype.forEach.call(document.querySelectorAll('#bsynch-status-bar > div > div'), function (d) {
+      if (d.children.length === 0 && d.textContent.trim() === 'B') logos.push(d);
+    });
+    logos.forEach(function (el) {
+      if (el.closest('a') || el.dataset.home) return;
+      el.dataset.home = '1';
+      el.style.cursor = 'pointer';
+      el.setAttribute('role', 'link'); el.setAttribute('tabindex', '0');
+      el.setAttribute('aria-label', 'Home'); el.title = 'Home';
+      el.addEventListener('click', function () { location.href = '/home'; });
+      el.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); location.href = '/home'; } });
+    });
+  }
+  window.bsLogoHome = logoHome;
+
+  function init() { place(); logoHome(); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 
   // Left hub bar for platform admins (the server decides who gets it)
   if (!document.querySelector('script[src="/static/admin-rail.js"]')) {

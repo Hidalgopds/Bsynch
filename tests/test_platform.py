@@ -83,4 +83,7 @@ check("hub bar: anonymous gets nothing", client().get("/api/me/admin-rail").stat
 check("hub bar: loaded by the shared arrows and by Contractor screens",
       "admin-rail.js" in open("static/nav-arrows.js").read() and "admin-rail.js" in open("static/contractor-scope.js").read())
 
+check("the B logo goes to Home (shared screens and Contractor)",
+      "bsLogoHome" in open("static/nav-arrows.js").read() and "location.href = '/home'" in open("static/contractor-scope.js").read())
+
 done("platform")

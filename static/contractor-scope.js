@@ -173,6 +173,13 @@
     nav.children[1].onclick = function () { history.forward(); };
     var badge = header.querySelector('.logo-badge');
     if (badge) badge.insertAdjacentElement('afterend', nav); else header.insertBefore(nav, header.firstChild);
+    // The "B" logo goes to the start screen (Settings, 2026-11-22)
+    if (badge && !badge.closest('a')) {
+      badge.style.cursor = 'pointer'; badge.title = 'Home';
+      badge.setAttribute('role', 'link'); badge.setAttribute('tabindex', '0'); badge.setAttribute('aria-label', 'Home');
+      badge.addEventListener('click', function () { location.href = '/home'; });
+      badge.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); location.href = '/home'; } });
+    }
     if (location.pathname !== '/contractor/account') {
       var acct = document.createElement('a');
       acct.className = 'ct-acct'; acct.href = '/contractor/account'; acct.title = 'My account';
