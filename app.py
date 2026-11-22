@@ -2941,11 +2941,117 @@ _ERROR_TEXT = {404: ("Page not found", "The link may be old or mistyped."),
                500: ("Something went wrong", "We couldn't finish that. Try again in a moment.")}
 
 
-def _error_page(code):
+def _error_page(code, ref=None):
     title, msg = _ERROR_TEXT.get(code, _ERROR_TEXT[500])
     if request.path.startswith("/api/"):
-        return jsonify({"ok": False, "error": title.lower()}), code
+        body = {"ok": False, "error": title.lower()}
+        if ref:
+            body["ref"] = ref
+        return jsonify(body), code
+    if ref:
+        msg += f" If it keeps happening, send us this code: {ref}"
     return render_template("error.html", code=code, title=title, message=msg), code
+
+
+# ── Error tracking (Settings, 2026-11-22): every crash is logged, kept in memory for Platform Admin,
+#    and emailed to the security contacts (one email per kind of error per hour, at most 10 per hour). ──
+import collections as _collections
+import secrets
+import threading
+import traceback as _traceback
+from flask import g, got_request_exception as _got_request_exception
+
+_ERRORS = _collections.OrderedDict()   # signature -> {first, last, count, type, message, where, path, method, user, ref}
+_ERRORS_MAX = 100
+_err_lock = threading.Lock()
+_err_mail_last = {}
+_err_mail_times = _collections.deque(maxlen=10)
+_ERR_SECRETISH = re.compile(r"(eyJ[\w-]{10,}\.[\w-]{10,}\.[\w-]+|[A-Za-z0-9_\-]{32,}|(?i:apikey|password|secret|token)\S*)")
+
+
+def _err_where(exc):
+    """The last line of our own code in the error (file:line function); the app's code is all that matters here."""
+    frames = _traceback.extract_tb(exc.__traceback__) if exc.__traceback__ else []
+    own = [f for f in frames if "site-packages" not in f.filename and "/lib/python" not in f.filename] or frames
+    if not own:
+        return "?"
+    f = own[-1]
+    return f"{os.path.basename(f.filename)}:{f.lineno} {f.name}"
+
+
+def _record_error(exc, path="", method="", user=""):
+    """Keep one row per kind of error; returns the short code shown to the person who hit it."""
+    ref = secrets.token_hex(3).upper()
+    try:
+        where = _err_where(exc)
+        etype = type(exc).__name__
+        msg = _ERR_SECRETISH.sub("[hidden]", str(exc))[:300]
+        sig = f"{etype}|{where}"
+        now = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+        with _err_lock:
+            row = _ERRORS.pop(sig, None) or {"first": now, "count": 0, "type": etype, "where": where}
+            row.update(last=now, count=row["count"] + 1, message=msg, path=path[:200], method=method, user=user or "", ref=ref)
+            _ERRORS[sig] = row
+            while len(_ERRORS) > _ERRORS_MAX:
+                _ERRORS.popitem(last=False)
+        app.logger.error("ERROR %s %s %s at %s: %s", ref, method, path, where, msg)
+        _error_alert(sig, row)
+    except Exception:
+        pass
+    return ref
+
+
+def _error_alert(sig, row):
+    """Email the security contacts; grouped so a broken screen doesn't flood the inbox."""
+    now = _ptime.time()
+    if now - _err_mail_last.get(sig, 0) < 3600:
+        return
+    if len(_err_mail_times) == _err_mail_times.maxlen and now - _err_mail_times[0] < 3600:
+        return
+    _err_mail_last[sig] = now
+    _err_mail_times.append(now)
+    to = _sec_report_to()
+    if not to:
+        return
+    e = _html_escape
+    html = (f'<div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;color:#0f172a;font-size:14px">'
+            f'<div style="background:#b45309;color:#fff;padding:12px 16px;border-radius:8px 8px 0 0;font-weight:700">Error in BSynch: {e(row["type"])}</div>'
+            f'<div style="border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px;padding:14px 16px">'
+            f'<div><b>Screen:</b> {e(row["method"])} {e(row["path"] or "background job")}</div>'
+            f'<div><b>Code line:</b> {e(row["where"])}</div><div><b>Message:</b> {e(row["message"])}</div>'
+            f'<div><b>Person:</b> {e(row["user"] or "—")}</div><div><b>Code shown to them:</b> {e(row["ref"])}</div>'
+            f'<p style="color:#475569;font-size:13px">The same error is emailed at most once an hour. '
+            f'All recent errors: Platform Admin &rarr; Errors.</p></div></div>')
+    try:
+        _ct_mail("platform", "error_alert", to, [], f"BSynch error: {row['type']} on {row['path'] or 'background job'}", html,
+                 from_name="BSynch alerts")
+    except Exception:
+        pass
+
+
+def _on_request_exception(sender, exception, **extra):
+    try:
+        user = _session_user() or ""
+    except Exception:
+        user = ""
+    g.err_ref = _record_error(exception, request.path, request.method, user)
+
+
+_got_request_exception.connect(_on_request_exception, app)
+
+
+@app.route("/api/platform/errors", methods=["GET"])
+def api_platform_errors():
+    if not _session_user():
+        return jsonify({"ok": False}), 401
+    if not _is_platform_operator():
+        return jsonify({"ok": False}), 403
+    with _err_lock:
+        rows = list(reversed(list(_ERRORS.values())))
+    return jsonify({"ok": True, "errors": rows, "since": _APP_STARTED})
+
+
+_APP_STARTED = datetime.utcnow().isoformat(timespec="seconds") + "Z"
 
 
 @app.errorhandler(404)
@@ -2960,7 +3066,7 @@ def _not_allowed(e):
 
 @app.errorhandler(500)
 def _server_error(e):
-    return _error_page(500)
+    return _error_page(500, getattr(g, "err_ref", None))
 
 
 # ── Public forms (sign-up, invites, estimate answers): a hidden trap field and per-IP limits ──
@@ -12108,16 +12214,19 @@ def _ct_scheduler_loop():
                 _ct_daily_tasks()
         except Exception as e:
             logger.error("[Contractor scheduler] %s", e)
+            _record_error(e, "background: contractor daily tasks")
         try:
             with app.test_request_context("/"):
                 _billing_daily()
         except Exception as e:
             logger.error("[Billing scheduler] %s", e)
+            _record_error(e, "background: billing")
         try:
             with app.test_request_context("/"):
                 _storage_autopilot()  # images still in the database move to Storage, a few each round
         except Exception as e:
             logger.error("[Storage autopilot] %s", e)
+            _record_error(e, "background: storage autopilot")
 
 
 if os.environ.get("CT_SCHEDULER", "1") == "1":

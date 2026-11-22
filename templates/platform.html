@@ -97,6 +97,10 @@ footer{text-align:center;padding:16px;font-size:12px;color:#566275}
     <div class="box" id="demoList"></div>
   </div>
 
+  <h2 id="errors">&#128680; Errors</h2>
+  <div class="box" id="errList"><p class="empty">Loading&hellip;</p></div>
+  <p class="sub" style="font-size:12px;margin-top:6px">Every time a screen breaks it shows up here and you get an email (the same error at most once an hour). The list starts over each time the app is updated.</p>
+
   <h2>More</h2>
   <div class="links">
     <a class="link" href="/contractor/platform"><b>&#128101; People (Contractor)</b><span>Every account: company, role, approve or suspend.</span></a>
@@ -166,6 +170,16 @@ function load(){
                     '<small>Sign-in when its hub screens are ready</small>') +
         '<div class="dm-link" id="dm-' + esc(s.slug) + '" hidden></div></div>';
     }).join('');
+  });
+  api('GET', '/api/platform/errors').then(function(d){
+    var list = (d && d.ok && d.errors) || [], box = document.getElementById('errList');
+    box.innerHTML = list.length ? list.map(function(x){
+      return '<div class="row"><div style="min-width:0;flex:1"><b>' + esc(x.type) + '</b> &middot; ' + esc(x.method) + ' ' + esc(x.path || 'background job') +
+        '<small style="word-break:break-word">' + esc(x.message) + '</small><small>Code line: ' + esc(x.where) +
+        (x.user ? ' &middot; person: ' + esc(x.user) : '') + ' &middot; last code shown: ' + esc(x.ref) + '</small></div>' +
+        '<div style="text-align:right"><span class="tag t-wait" style="margin:0">' + x.count + '&times;</span>' +
+        '<small>last ' + esc(new Date(x.last).toLocaleString()) + '</small></div></div>';
+    }).join('') : '<p class="empty">&#9989; No errors since the last update' + (d && d.since ? ' (' + esc(new Date(d.since).toLocaleString()) + ')' : '') + '.</p>';
   });
 }
 var msg = document.getElementById('listMsg');
