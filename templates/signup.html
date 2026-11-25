@@ -40,6 +40,7 @@ button.go{background:var(--teal);color:#fff;border:none;border-radius:10px;paddi
 button.go:disabled{opacity:.6;cursor:default}
 .msg{font-size:14px;min-height:20px}
 .msg.err{color:var(--err)}
+form[hidden],.done[hidden]{display:none}
 .done{text-align:center;padding:30px 10px}
 .done h2{color:var(--ok);margin-bottom:8px}
 a{color:var(--teal)}
@@ -148,7 +149,8 @@ f.onsubmit = function(e){
     .then(function(r){ return r.json(); }).then(function(d){
       go.disabled = false;
       if(!d.ok){ msg.className = 'msg err'; msg.textContent = d.error || T[lang].conn; return; }
-      f.hidden = true; document.getElementById('done').hidden = false;
+      f.hidden = true; var dn = document.getElementById('done'); dn.hidden = false;
+      try { dn.scrollIntoView({behavior: 'smooth', block: 'center'}); } catch(e) {}
     }).catch(function(){ go.disabled = false; msg.className = 'msg err'; msg.textContent = T[lang].conn; });
 };
 </script>

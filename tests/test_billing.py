@@ -27,6 +27,8 @@ def co_row(slug):
 # ── the public sign-up page ──
 check("sign-up page in English", b"Start your free trial" in anon.get("/signup?lang=en").data)
 check("sign-up page in Spanish", b'lang="es"' in anon.get("/signup?lang=es").data)
+check("sign-up form really hides after sending (CSS display:flex would override [hidden])",
+      b"form[hidden]" in anon.get("/signup?lang=en").data)
 check("ERP shown as coming soon (not sellable yet)", b'value="erp" disabled' in anon.get("/signup").data)
 
 GOOD = {"company": "Pintura Ñandú LLC", "name": "Lola Test", "email": "lola@example.com", "password": "longpass1",
