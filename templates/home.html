@@ -123,9 +123,10 @@
     fetch('/api/me/hubs', {credentials:'same-origin'}).then(function(r){ return r.json(); }).then(function(d){
       (d.preview || []).forEach(function(t){ var el = document.getElementById('tile-'+t); if(el) el.style.display = ''; });
       if(!d.ok || !d.tiles) return;
-      ['erp','contractor','marketing','settings','homelab'].forEach(function(t){
+      ['erp','contractor','marketing','settings','homelab','storefront'].forEach(function(t){
         var el = document.getElementById('tile-'+t);
         if(el) el.style.display = d.tiles.indexOf(t) >= 0 ? '' : 'none';
+        if(el && d.links && d.links[t]) el.setAttribute('href', d.links[t]);  // demo account: preview pages with example companies
       });
     }).catch(function(){});
   }

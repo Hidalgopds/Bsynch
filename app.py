@@ -9004,6 +9004,18 @@ def _ct_agreement_text(company):
     return CONTRACTOR_AGREEMENT_TEMPLATE.format(company=name)
 
 
+def _ct_agreement_required(company):
+    """The signed confidentiality agreement is for real paying companies (owner's decision, 2026-11-25).
+    Demo companies and companies on their free trial skip it: their Manager already accepted the Terms
+    and Privacy policy when signing up. Hicons and Bsynch, exempt real companies and paying ones keep it."""
+    if not company or company in _CompanyRegistry.BUILT_IN:
+        return True
+    info = CONTRACTOR_COMPANIES.info(company) or {}
+    if info.get("is_demo"):
+        return False
+    return bool(info.get("billing_exempt")) or info.get("billing_status") in _SAAS_PAID
+
+
 def _ct_signed_agreement(name):
     r = requests.get(
         f"{sb_url()}/rest/v1/contractor_agreements?user_name=eq.{requests.utils.quote(name)}"
@@ -9028,9 +9040,10 @@ def contractor_agreement_status():
     me = _contractor_caller()
     if not me["name"]:
         return jsonify({"ok": False, "error": "not logged in"}), 401
-    signed = None if me["is_super"] else _ct_signed_agreement(me["name"])
+    required = not me["is_super"] and _ct_agreement_required(me["company"])
+    signed = _ct_signed_agreement(me["name"]) if required else None
     return jsonify({
-        "ok": True, "required": not me["is_super"], "signed": bool(signed) or me["is_super"],
+        "ok": True, "required": required, "signed": bool(signed) or not required,
         "agreement_id": signed["id"] if signed else None,
         "version": CONTRACTOR_AGREEMENT_VERSION, "text": _ct_agreement_text(me["company"]),
     })
@@ -11399,6 +11412,9 @@ def platform_update_hub_company(slug):
 
 # ── The hubs that are listed by company (Marketing, Storefront): company tiles + Platform Admin ──
 _HUB_PAGES = {
+    "erp": {"title": "ERP", "icon": "&#127959;&#65039;",
+            "desc": "Field operations: crews with PIN check-in, timesheets, field log, materials, QC and purchase orders.",
+            "soon": "The ERP demo opens here once each company's ERP data is kept fully apart. Ask us for a guided demo."},
     "marketing": {"title": "Marketing", "icon": "&#128227;",
                   "desc": "Campaigns, leads and growth tools for each company.",
                   "soon": "Marketing for companies is being built. Your own BSynch sales leads are in Platform Admin."},
@@ -11415,18 +11431,29 @@ def company_hub_page(hub):
     if not _session_user():
         return redirect(f"/login?next=/hub/{hub}")
     if not _is_platform_operator():
+        if _demo_viewer_company():
+            page = dict(_HUB_PAGES[hub])
+            if hub == "marketing":
+                page["soon"] = "Marketing for each company (campaigns, leads and reviews) is being built."
+            return render_template("hub.html", hub=hub, page=page)
         # Opens for companies when each hub's screens exist; until then, the hub's own page
         return redirect("/marketing-hub" if hub == "marketing" else "/home")
+    if hub == "erp":
+        return redirect("/erp-hub")
     return render_template("hub.html", hub=hub, page=_HUB_PAGES[hub])
 
 
 @app.route("/api/hub/<hub>", methods=["GET"])
 def company_hub_api(hub):
-    if hub not in _HUB_PAGES or not _session_user() or not _is_platform_operator():
+    operator = bool(_session_user()) and _is_platform_operator()
+    demo = "" if operator else (_demo_viewer_company() if _session_user() else "")
+    if hub not in _HUB_PAGES or not (operator or demo):
         return jsonify({"ok": False, "error": "Platform administrator only."}), 403
     rows = [{"slug": c["slug"], "name": c["name"], "status": c["status"], "is_demo": bool(c.get("is_demo"))}
-            for c in _hub_companies(hub, statuses=("active", "paused"))]
-    return jsonify({"ok": True, "companies": rows, "preview": "/storefront-hub" if hub == "storefront" else None})
+            for c in _hub_companies(hub, statuses=("active", "paused"))
+            if operator or c.get("is_demo")]  # a demo account only ever sees example companies
+    return jsonify({"ok": True, "companies": rows, "operator": operator,
+                    "preview": "/storefront-hub" if hub == "storefront" else None})
 
 
 # ── Demo logins: the owner gets a sign-in for each demo company, with no email and no password in chat ──
@@ -11856,15 +11883,36 @@ def _saas_scope_guard():
     co = _saas_client_company()
     if not co:
         return None
+    # Demo companies (reviewers, sales demos) also get the preview pages of the other hubs. Those pages
+    # only list example companies and never open the ERP screens, which still show TDG's real data.
+    if p in _DEMO_PREVIEW_EXACT or p.startswith(_DEMO_PREVIEW_PREFIX):
+        if _demo_viewer_company():
+            return None
     if p.startswith("/api/"):
         return jsonify({"ok": False, "error": "Not part of your plan"}), 403
     return redirect("/contractor-hub")
+
+
+_DEMO_PREVIEW_EXACT = {"/storefront-hub"}
+_DEMO_PREVIEW_PREFIX = ("/hub/", "/api/hub/")
+
+
+def _demo_viewer_company():
+    """The demo company of the person signed in (is_demo), else ''. Owner's decision, 2026-11-25:
+    an outside reviewer sees every hub, but only with example companies."""
+    co = _saas_client_company()
+    return co if co and (CONTRACTOR_COMPANIES.info(co) or {}).get("is_demo") else ""
 
 
 @app.route("/api/me/hubs", methods=["GET"])
 def saas_my_hubs():
     """Which /home tiles to show this person: client companies see Contractor only (and Billing)."""
     co = _saas_client_company()
+    if co and _demo_viewer_company():
+        # Demo account: every hub, the ones still being built as previews with example companies
+        return jsonify({"ok": True, "client": True, "demo": True, "company": co,
+                        "tiles": ["erp", "contractor", "marketing", "storefront", "settings"],
+                        "links": {"erp": "/hub/erp", "marketing": "/hub/marketing", "storefront": "/hub/storefront"}})
     if co:
         return jsonify({"ok": True, "client": True, "tiles": ["contractor", "settings"], "company": co})
     # Hubs still being built (Storefront) show only to platform operators
@@ -12020,7 +12068,7 @@ def my_settings():
 def storefront_hub():
     if not _session_user():
         return redirect("/login?next=/storefront-hub")
-    if not _is_platform_operator():
+    if not (_is_platform_operator() or _demo_viewer_company()):
         return redirect("/home")
     return render_template("storefront-hub.html")
 

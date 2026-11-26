@@ -58,8 +58,11 @@ fetch('/api/hub/' + HUB, {credentials: 'same-origin'}).then(function(r){ return 
       (c.is_demo ? '<span class="tag test">Example</span>' : '') + (c.status !== 'active' ? '<span class="tag grey">Paused</span>' : '') +
       '<span class="tag test">Coming soon</span></div></div>';
   });
-  tiles.push('<a class="co plat" href="/platform?hub=' + encodeURIComponent(HUB) + '"><div class="ic" aria-hidden="true">&#128737;&#65039;</div><b>Platform Admin</b>' +
-             '<span>Which companies use ' + esc(HUB) + ', turn it on or off, add companies. Only you see this.</span></a>');
+  if (d.operator) {
+    tiles.push('<a class="co plat" href="/platform?hub=' + encodeURIComponent(HUB) + '"><div class="ic" aria-hidden="true">&#128737;&#65039;</div><b>Platform Admin</b>' +
+               '<span>Which companies use ' + esc(HUB) + ', turn it on or off, add companies. Only you see this.</span></a>');
+  }
+  if (!tiles.length) tiles.push('<p class="sub">No example company here yet.</p>');
   document.getElementById('grid').innerHTML = tiles.join('');
   if (d.preview) document.getElementById('prev').innerHTML = ' <a href="' + esc(d.preview) + '">Open the preview &#8594;</a>';
 }).catch(function(){ document.getElementById('grid').textContent = 'Connection error. Refresh the page.'; });
